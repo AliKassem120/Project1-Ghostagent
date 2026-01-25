@@ -3,10 +3,22 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
-    const { searchParams, origin } = new URL(request.url)
-    const code = searchParams.get('code')
-    // if "next" is in search params, use it as the redirection URL
-    const next = searchParams.get('next') ?? '/dashboard'
+    const requestUrl = new URL(request.url)
+    const code = requestUrl.searchParams.get('code')
+
+    // Robust origin detection for production
+    let origin = requestUrl.origin
+    if (process.env.VERCEL_URL) {
+        origin = `https://${process.env.VERCEL_URL}`
+    }
+
+    const next = requestUrl.searchParams.get('next') ?? '/dashboard'
+
+    console.log('Auth Handshake Started:', {
+        hasCode: !!code,
+        origin,
+        next
+    })
 
     if (code) {
         const cookieStore = await cookies()
@@ -19,20 +31,36 @@ export async function GET(request: Request) {
                         return cookieStore.get(name)?.value
                     },
                     set(name: string, value: string, options: CookieOptions) {
-                        cookieStore.set({ name, value, ...options })
+                        try {
+                            cookieStore.set({ name, value, ...options })
+                        } catch (error) {
+                            console.warn('Cookie set failure (likely SSR):', error)
+                        }
                     },
                     remove(name: string, options: CookieOptions) {
-                        cookieStore.set({ name, value, ...options })
+                        try {
+                            cookieStore.set({ name, value: '', ...options })
+                        } catch (error) {
+                            console.warn('Cookie remove failure (likely SSR):', error)
+                        }
                     },
                 },
             }
         )
-        const { error } = await supabase.auth.exchangeCodeForSession(code)
-        if (!error) {
-            return NextResponse.redirect(`${origin}${next}`)
+
+        try {
+            const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+            if (!error) {
+                console.log('Auth Handshake Successful for:', data.user?.email)
+                return NextResponse.redirect(`${origin}${next}`)
+            } else {
+                console.error('Auth Handshake Exchange Error:', error.message)
+            }
+        } catch (err) {
+            console.error('Auth Handshake Unexpected Error:', err)
         }
     }
 
-    // return the user to an error page with instructions
+    console.log('Auth Handshake Failed, Redirecting to Error Page')
     return NextResponse.redirect(`${origin}/auth/auth-code-error`)
 }
