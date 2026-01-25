@@ -65,6 +65,12 @@ export async function middleware(request: NextRequest) {
     // This will refresh the session if needed
     const { data: { user } } = await supabase.auth.getUser()
 
+    console.log('Middleware User Check:', {
+        path: request.nextUrl.pathname,
+        hasUser: !!user,
+        email: user?.email
+    });
+
     // Protect dashboard routes
     if (request.nextUrl.pathname.startsWith('/dashboard') && !user) {
         return NextResponse.redirect(new URL('/login', request.url))
