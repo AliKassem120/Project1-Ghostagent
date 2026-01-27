@@ -7,6 +7,7 @@ import FloatingGhost from '@/components/FloatingGhost';
 import ApprovalQueue from '@/components/ApprovalQueue';
 import { useAutopilot } from '@/context/AutopilotContext';
 import clsx from 'clsx';
+import GhostChat from '../components/GhostChat';
 
 export default function DashboardPage() {
     const { autopilot } = useAutopilot();
@@ -64,6 +65,11 @@ export default function DashboardPage() {
                 <div className="absolute right-0 top-0 -translate-y-1/4 lg:relative lg:translate-y-0 opacity-30 lg:opacity-100 pointer-events-none lg:pointer-events-auto">
                     <FloatingGhost />
                 </div>
+            </div>
+
+            {/* Ghost Agent Chat Interface */}
+            <div className="w-full">
+                <GhostChat />
             </div>
 
             {/* Glassmorphic KPI Cards */}

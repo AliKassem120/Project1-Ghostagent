@@ -8,7 +8,6 @@ import StarBackground from '@/components/StarBackground';
 import VideoModal from '@/components/VideoModal';
 import Link from 'next/link';
 import { ArrowRight, Bot, MessageCircle, BarChart3, ShoppingBag } from 'lucide-react';
-import GhostChat from './components/GhostChat';
 
 export default function Home() {
   const [showVideo, setShowVideo] = useState(false);
@@ -203,10 +202,7 @@ export default function Home() {
 
       <VideoModal isOpen={showVideo} onClose={() => setShowVideo(false)} />
 
-      {/* Ghost Chat Interface */}
-      <div className="relative z-40 mt-20 mb-32 px-6">
-        <GhostChat />
-      </div>
+
     </main>
   );
 }
