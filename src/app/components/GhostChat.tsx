@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Ghost, Sparkles } from "lucide-react";
+import { Send, Ghost, Sparkles, AlertCircle } from "lucide-react";
 import { useChat } from "@ai-sdk/react";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function GhostChat() {
-    const { messages, sendMessage, status } = useChat();
+    const { messages, sendMessage, status, error } = useChat();
     const [input, setInput] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -28,19 +28,12 @@ export default function GhostChat() {
         const userMessage = input;
         setInput("");
 
-        // sendMessage usually takes the string content or message object?
-        // In SDK v3 it takes a message string usually, or object.
-        // Let's try passing the string first, or check docs if I could.
-        // Standard useChat sendMessage(content: string) or sendMessage({ role: ..., content: ...})
-        // Given UseChatHelpers in the d.ts picked 'sendMessage', it likely matches AbstractChat.
-        // Best guess: pass content string or object. Passing string is safest if unsure. 
-        // Wait, type definition said sendMessage is picked.
-        // I'll pass the string 'input' as that's most common for 'sendMessage(input)'.
-        // If it requires object, I'll pass { role: 'user', content: input }.
-        // Let's try passing object to be safe as it's more explicit.
-
-        // @ts-ignore
-        await sendMessage({ role: 'user', content: userMessage });
+        try {
+            // @ts-ignore
+            await sendMessage({ role: 'user', content: userMessage });
+        } catch (err) {
+            console.error("Error sending message:", err);
+        }
     };
 
     return (
@@ -59,7 +52,7 @@ export default function GhostChat() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-cyan-500/20 scrollbar-track-transparent mb-20">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-cyan-500/20 scrollbar-track-transparent mb-20 pb-10">
                 <AnimatePresence>
                     {messages.length === 0 && (
                         <motion.div
@@ -102,6 +95,18 @@ export default function GhostChat() {
                         </motion.div>
                     )}
                 </AnimatePresence>
+
+                {error && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex items-center gap-2 p-3 my-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs"
+                    >
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>Transmission error: {error.message || "Failed to contact ghost agent."}</span>
+                    </motion.div>
+                )}
+
                 <div ref={messagesEndRef} />
             </div>
 
