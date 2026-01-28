@@ -6,11 +6,9 @@ export const maxDuration = 30;
 export async function POST(req: Request) {
     try {
         const { messages } = await req.json();
-        console.log("Chat API called. Messages count:", messages?.length);
 
         if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-            console.error("GOOGLE_GENERATIVE_AI_API_KEY is missing!");
-            throw new Error("API Key configuration error.");
+            throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is missing!");
         }
 
         const result = streamText({
@@ -18,7 +16,6 @@ export async function POST(req: Request) {
             messages,
         });
 
-        // Use toTextStreamResponse for compatibility with the current environment
         return result.toTextStreamResponse();
     } catch (error) {
         console.error("Error in chat API route:", error);
