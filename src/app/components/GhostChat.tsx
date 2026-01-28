@@ -77,6 +77,7 @@ export default function GhostChat() {
                                     : "bg-slate-900 border border-slate-700 text-gray-300 rounded-bl-none prose prose-invert prose-sm max-w-none"
                                     }`}
                             >
+                                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                                 <ReactMarkdown>{(msg as any).content || ''}</ReactMarkdown>
                             </div>
                         </motion.div>
