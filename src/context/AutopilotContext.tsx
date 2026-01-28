@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 
 interface AutopilotContextType {
     autopilot: boolean;
@@ -10,22 +10,27 @@ interface AutopilotContextType {
 const AutopilotContext = createContext<AutopilotContextType | undefined>(undefined);
 
 export function AutopilotProvider({ children }: { children: React.ReactNode }) {
-    const [autopilot, setAutopilotState] = useState(true);
+    // Initialize state from localStorage if available (client-side only)
+    const [autopilot, setAutopilotState] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('ghost_autopilot');
+            return saved !== null ? saved === 'true' : true;
+        }
+        return true;
+    });
     const [mounted, setMounted] = useState(false);
 
-    // Load from localStorage on mount
+    // Mark as mounted after first render
     useEffect(() => {
         setMounted(true);
-        const saved = localStorage.getItem('ghost_autopilot');
-        if (saved !== null) {
-            setAutopilotState(saved === 'true');
-        }
     }, []);
 
-    const setAutopilot = (value: boolean) => {
+    const setAutopilot = useMemo(() => (value: boolean) => {
         setAutopilotState(value);
-        localStorage.setItem('ghost_autopilot', String(value));
-    };
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('ghost_autopilot', String(value));
+        }
+    }, []);
 
     // Return null or a skeleton during hydration to prevent mismatch
     if (!mounted) return null;

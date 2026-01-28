@@ -16,7 +16,10 @@ export default function StarBackground() {
             duration: Math.random() * 3 + 2,
             delay: Math.random() * 5
         }));
-        setStars(newStars);
+
+        // Use setTimeout to avoid setState during render
+        const timer = setTimeout(() => setStars(newStars), 0);
+        return () => clearTimeout(timer);
     }, []);
 
     return (
