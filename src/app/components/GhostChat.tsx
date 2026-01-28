@@ -7,7 +7,14 @@ import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function GhostChat() {
-    const { messages, sendMessage, status, error } = useChat();
+    const { messages, append, status, error } = useChat({
+        onError: (err) => {
+            console.error("GhostChat Error:", err);
+        },
+        onFinish: (msg) => {
+            console.log("GhostChat Finished:", msg);
+        }
+    });
     const [input, setInput] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -29,8 +36,8 @@ export default function GhostChat() {
         setInput("");
 
         try {
-            // @ts-expect-error - sendMessage type is restrictive in this version of the SDK
-            await sendMessage({ role: 'user', content: userMessage });
+            console.log("Sending message to agent:", userMessage);
+            await append({ role: 'user', content: userMessage });
         } catch (err) {
             console.error("Error sending message:", err);
         }
