@@ -6,6 +6,7 @@ export const maxDuration = 30;
 export async function POST(req: Request) {
     try {
         const { messages } = await req.json();
+        console.log("Chat API triggered. Message count:", messages?.length);
 
         if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
             throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is missing!");
@@ -18,9 +19,12 @@ export async function POST(req: Request) {
 
         return result.toTextStreamResponse();
     } catch (error) {
-        console.error("Error in chat API route:", error);
+        console.error("CRITICAL Chat API Error:", error);
         return new Response(
-            JSON.stringify({ error: error instanceof Error ? error.message : "Internal Server Error" }),
+            JSON.stringify({
+                error: error instanceof Error ? error.message : "Internal Server Error",
+                details: error
+            }),
             { status: 500, headers: { "Content-Type": "application/json" } }
         );
     }

@@ -14,7 +14,8 @@ export default function GhostChat() {
         onFinish: (msg) => {
             console.log("GhostChat Finished:", msg);
         }
-    });
+    }) as any;
+
     const [input, setInput] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
