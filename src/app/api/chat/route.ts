@@ -18,7 +18,7 @@ export async function POST(req: Request) {
             messages,
         });
 
-        return result.toDataStreamResponse();
+        return result.toTextStreamResponse();
     } catch (error) {
         console.error("Error in chat API route:", error);
         return new Response(
