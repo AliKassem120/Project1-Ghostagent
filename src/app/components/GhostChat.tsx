@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Send, Ghost, Sparkles, AlertCircle } from "lucide-react";
-import { useChat } from "@ai-sdk/react";
+import { useChat, type UIMessage } from "@ai-sdk/react";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -29,7 +29,7 @@ export default function GhostChat() {
         setInput("");
 
         try {
-            // @ts-ignore
+            // @ts-expect-error - sendMessage type is restrictive in this version of the SDK
             await sendMessage({ role: 'user', content: userMessage });
         } catch (err) {
             console.error("Error sending message:", err);
@@ -64,7 +64,7 @@ export default function GhostChat() {
                             <p className="text-sm font-light">Awaiting neural input...</p>
                         </motion.div>
                     )}
-                    {messages.map((msg: any) => (
+                    {messages.map((msg: UIMessage) => (
                         <motion.div
                             key={msg.id}
                             initial={{ opacity: 0, y: 10 }}
