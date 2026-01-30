@@ -13,9 +13,6 @@ export default function GhostChat() {
         },
         onFinish: (msg) => {
             console.log("GhostChat Client Finished:", msg);
-        },
-        onResponse: (response: any) => {
-            console.log("GhostChat Client Response received, status:", response.status);
         }
     });
 
