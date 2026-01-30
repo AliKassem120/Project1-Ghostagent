@@ -1,5 +1,11 @@
 import { google } from "@ai-sdk/google";
 import { streamText, convertToModelMessages } from "ai";
+import dns from "node:dns";
+
+// Enforce IPv4 preference to prevent "fetch failed" on networks with broken IPv6
+if (typeof dns.setDefaultResultOrder === 'function') {
+    dns.setDefaultResultOrder('ipv4first');
+}
 
 export const maxDuration = 30;
 
@@ -16,7 +22,7 @@ export async function POST(req: Request) {
         }
 
         const result = await streamText({
-            model: google("gemini-1.5-pro"),
+            model: google("gemini-pro-latest"),
             messages: await convertToModelMessages(messages),
         });
 
