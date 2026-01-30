@@ -7,14 +7,14 @@ import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function GhostChat() {
-    const { messages, append, status, error } = useChat({
+    const { messages, sendMessage, status, error } = useChat({
         onError: (err) => {
             console.error("GhostChat Error:", err);
         },
         onFinish: (msg) => {
             console.log("GhostChat Finished:", msg);
         }
-    }) as any;
+    });
 
     const [input, setInput] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -29,16 +29,15 @@ export default function GhostChat() {
         scrollToBottom();
     }, [messages]);
 
-    const handleCustomSubmit = async (e?: React.FormEvent) => {
-        e?.preventDefault();
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
         if (!input.trim() || isLoading) return;
 
         const userMessage = input;
         setInput("");
 
         try {
-            console.log("Sending message to agent:", userMessage);
-            await append({ role: 'user', content: userMessage });
+            await sendMessage({ text: userMessage });
         } catch (err) {
             console.error("Error sending message:", err);
         }
@@ -121,7 +120,7 @@ export default function GhostChat() {
 
             {/* Input */}
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-xl bg-black/80 border border-cyan-500/20 rounded-xl backdrop-blur-md p-2 shadow-2xl shadow-cyan-900/20">
-                <form onSubmit={handleCustomSubmit} className="relative flex items-center">
+                <form onSubmit={handleSubmit} className="relative flex items-center">
                     <input
                         type="text"
                         value={input}

@@ -6,7 +6,7 @@ export const maxDuration = 30;
 export async function POST(req: Request) {
     try {
         const { messages } = await req.json();
-        console.log("Chat API triggered. Message count:", messages?.length);
+        console.log('Message received on server:', messages);
 
         if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
             throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is missing!");
