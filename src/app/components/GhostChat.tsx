@@ -9,7 +9,13 @@ import { motion, AnimatePresence } from "framer-motion";
 export default function GhostChat() {
     const { messages, sendMessage, status, error } = useChat({
         onError: (err) => {
-            console.error("GhostChat Error:", err);
+            console.error("GhostChat Client Error:", err);
+        },
+        onFinish: (msg) => {
+            console.log("GhostChat Client Finished:", msg);
+        },
+        onResponse: (response: any) => {
+            console.log("GhostChat Client Response received, status:", response.status);
         }
     });
 
@@ -17,6 +23,10 @@ export default function GhostChat() {
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const isLoading = status === 'streaming' || status === 'submitted';
+
+    useEffect(() => {
+        console.log("GhostChat Status changed:", status);
+    }, [status]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -28,15 +38,22 @@ export default function GhostChat() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!input.trim() || isLoading) return;
+        console.log("Submit triggered. Input:", input, "IsLoading:", isLoading);
+
+        if (!input.trim() || isLoading) {
+            console.log("Submit aborted. Empty input or loading.");
+            return;
+        }
 
         const userMessage = input;
         setInput("");
+        console.log("Calling sendMessage with:", userMessage);
 
         try {
             await sendMessage({ text: userMessage });
+            console.log("sendMessage promise resolved");
         } catch (err) {
-            console.error("Error sending message:", err);
+            console.error("Error in handleSubmit:", err);
         }
     };
 
