@@ -2,12 +2,13 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Send, Ghost, Sparkles, AlertCircle } from "lucide-react";
-import { useChat, type UIMessage } from "@ai-sdk/react";
+import { useChat, type UIMessage, type UIMessagePart } from "@ai-sdk/react";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function GhostChat() {
     const { messages, sendMessage, status, error } = useChat({
+        initialMessages: [],
         onError: (err) => {
             console.error("GhostChat Error:", err);
         },
@@ -84,8 +85,17 @@ export default function GhostChat() {
                                     : "bg-slate-900 border border-slate-700 text-gray-300 rounded-bl-none prose prose-invert prose-sm max-w-none"
                                     }`}
                             >
-                                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                                <ReactMarkdown>{(msg as any).content || ''}</ReactMarkdown>
+                                {msg.parts && msg.parts.length > 0 ? (
+                                    msg.parts.map((part: UIMessagePart, idx: number) => (
+                                        <div key={idx}>
+                                            {part.type === 'text' && (
+                                                <ReactMarkdown>{part.text}</ReactMarkdown>
+                                            )}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <span className="text-cyan-400/50 italic">Thinking...</span>
+                                )}
                             </div>
                         </motion.div>
                     ))}

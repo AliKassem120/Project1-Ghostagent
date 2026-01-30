@@ -1,5 +1,5 @@
 import { google } from "@ai-sdk/google";
-import { streamText } from "ai";
+import { streamText, convertToModelMessages } from "ai";
 
 export const maxDuration = 30;
 
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
 
         const result = streamText({
             model: google("gemini-1.5-pro"),
-            messages,
+            messages: await convertToModelMessages(messages),
         });
 
         return result.toTextStreamResponse();
