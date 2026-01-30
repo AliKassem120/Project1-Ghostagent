@@ -7,12 +7,15 @@ export async function POST(req: Request) {
     try {
         const { messages } = await req.json();
         console.log('Message received on server:', messages);
+        console.log('Stream started');
 
-        if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+        const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GOOGLE_API_KEY;
+
+        if (!apiKey) {
             throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is missing!");
         }
 
-        const result = streamText({
+        const result = await streamText({
             model: google("gemini-1.5-pro"),
             messages: await convertToModelMessages(messages),
         });

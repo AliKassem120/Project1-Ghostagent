@@ -10,9 +10,6 @@ export default function GhostChat() {
     const { messages, sendMessage, status, error } = useChat({
         onError: (err) => {
             console.error("GhostChat Error:", err);
-        },
-        onFinish: (msg) => {
-            console.log("GhostChat Finished:", msg);
         }
     });
 
@@ -84,7 +81,10 @@ export default function GhostChat() {
                                     : "bg-slate-900 border border-slate-700 text-gray-300 rounded-bl-none prose prose-invert prose-sm max-w-none"
                                     }`}
                             >
-                                {msg.parts && msg.parts.length > 0 ? (
+                                {/* Use content as primary, parts as fallback */}
+                                {(msg as any).content ? (
+                                    <ReactMarkdown>{(msg as any).content}</ReactMarkdown>
+                                ) : msg.parts && msg.parts.length > 0 ? (
                                     msg.parts.map((part: any, idx: number) => (
                                         <div key={idx}>
                                             {part.type === 'text' && (
