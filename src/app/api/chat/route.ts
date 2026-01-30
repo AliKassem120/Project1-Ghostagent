@@ -26,7 +26,7 @@ export async function POST(req: Request) {
             messages: await convertToModelMessages(messages),
         });
 
-        return result.toTextStreamResponse();
+        return result.toUIMessageStreamResponse();
     } catch (error) {
         console.error("CRITICAL Chat API Error:", error);
         return new Response(
