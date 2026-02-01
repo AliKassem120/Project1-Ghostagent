@@ -1,14 +1,32 @@
 'use client';
 
-import { useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { motion, useScroll, useTransform } from 'framer-motion';
 import Navbar from '@/components/Navbar';
 import GhostLogo from '@/components/GhostLogo';
 import { Ghost, Eye, Shield, User } from 'lucide-react';
 
 export default function AboutPage() {
+    const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+    const { scrollYProgress } = useScroll();
+
+    // Parallax effects
+    const yHero = useTransform(scrollYProgress, [0, 0.5], [0, 200]);
+    const opacityHero = useTransform(scrollYProgress, [0, 0.3], [1, 0]);
+
     useEffect(() => {
         window.scrollTo(0, 0);
+
+        // Mouse tracking
+        const handleMouseMove = (e: MouseEvent) => {
+            setMousePosition({
+                x: (e.clientX / window.innerWidth - 0.5) * 20,
+                y: (e.clientY / window.innerHeight - 0.5) * 20,
+            });
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        return () => window.removeEventListener('mousemove', handleMouseMove);
     }, []);
 
     return (
@@ -22,13 +40,21 @@ export default function AboutPage() {
                 />
             </div>
 
-            {/* Dark Background Gradient */}
-            <div className="fixed inset-0 bg-gradient-to-br from-black via-purple-950/20 to-black -z-10" />
+            {/* Dark Background Gradient with Mouse Tracking */}
+            <motion.div
+                className="fixed inset-0 bg-gradient-to-br from-black via-purple-950/20 to-black -z-10"
+                style={{
+                    backgroundPosition: `${mousePosition.x}px ${mousePosition.y}px`,
+                }}
+            />
 
             <Navbar />
 
-            {/* HERO SECTION */}
-            <section className="relative min-h-screen flex items-center justify-center px-6 pt-32">
+            {/* HERO SECTION with Parallax */}
+            <motion.section
+                className="relative min-h-screen flex items-center justify-center px-6 pt-32"
+                style={{ y: yHero, opacity: opacityHero }}
+            >
                 <div className="max-w-5xl mx-auto text-center">
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
@@ -62,9 +88,9 @@ export default function AboutPage() {
                         </p>
                     </motion.div>
                 </div>
-            </section>
+            </motion.section>
 
-            {/* THE ORIGIN CODE */}
+            {/* THE ORIGIN CODE with Mouse Tracking */}
             <section className="relative py-32 px-6">
                 <div className="max-w-7xl mx-auto">
                     <div className="grid md:grid-cols-2 gap-12 items-center">
@@ -86,7 +112,7 @@ export default function AboutPage() {
                             </p>
                         </motion.div>
 
-                        {/* Right: 3D Wireframe Cube */}
+                        {/* Right: 3D Wireframe Cube with Mouse Tracking */}
                         <motion.div
                             initial={{ opacity: 0, x: 30 }}
                             whileInView={{ opacity: 1, x: 0 }}
@@ -94,7 +120,13 @@ export default function AboutPage() {
                             transition={{ duration: 0.8 }}
                             className="flex items-center justify-center"
                         >
-                            <div className="relative w-80 h-80">
+                            <motion.div
+                                className="relative w-80 h-80"
+                                style={{
+                                    rotateY: mousePosition.x * 0.5,
+                                    rotateX: -mousePosition.y * 0.5,
+                                }}
+                            >
                                 {/* Rotating Wireframe Cube */}
                                 <motion.div
                                     animate={{ rotateX: 360, rotateY: 360 }}
@@ -109,7 +141,7 @@ export default function AboutPage() {
                                     {/* Glowing Core */}
                                     <div className="absolute inset-[40%] bg-purple-500/20 rounded-full blur-xl animate-pulse" />
                                 </motion.div>
-                            </div>
+                            </motion.div>
                         </motion.div>
                     </div>
                 </div>
@@ -134,6 +166,7 @@ export default function AboutPage() {
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
                             transition={{ delay: 0 }}
+                            whileHover={{ scale: 1.05, rotateY: 5 }}
                             className="p-8 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 hover:border-purple-500/50 transition-all group"
                         >
                             <div className="w-16 h-16 rounded-xl bg-purple-500/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
@@ -151,6 +184,7 @@ export default function AboutPage() {
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
                             transition={{ delay: 0.1 }}
+                            whileHover={{ scale: 1.05, rotateY: 5 }}
                             className="p-8 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 hover:border-cyan-500/50 transition-all group"
                         >
                             <div className="w-16 h-16 rounded-xl bg-cyan-500/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
@@ -168,6 +202,7 @@ export default function AboutPage() {
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
                             transition={{ delay: 0.2 }}
+                            whileHover={{ scale: 1.05, rotateY: 5 }}
                             className="p-8 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 hover:border-green-500/50 transition-all group"
                         >
                             <div className="w-16 h-16 rounded-xl bg-green-500/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
@@ -201,6 +236,7 @@ export default function AboutPage() {
                             whileInView={{ opacity: 1, scale: 1 }}
                             viewport={{ once: true }}
                             transition={{ delay: 0 }}
+                            whileHover={{ scale: 1.1, rotate: 5 }}
                             className="text-center"
                         >
                             {/* Glitch Avatar */}
@@ -225,6 +261,7 @@ export default function AboutPage() {
                             whileInView={{ opacity: 1, scale: 1 }}
                             viewport={{ once: true }}
                             transition={{ delay: 0.1 }}
+                            whileHover={{ scale: 1.1, rotate: 5 }}
                             className="text-center"
                         >
                             {/* Glitch Avatar */}
@@ -249,6 +286,7 @@ export default function AboutPage() {
                             whileInView={{ opacity: 1, scale: 1 }}
                             viewport={{ once: true }}
                             transition={{ delay: 0.2 }}
+                            whileHover={{ scale: 1.1, rotate: 5 }}
                             className="text-center"
                         >
                             {/* Glitch Avatar */}

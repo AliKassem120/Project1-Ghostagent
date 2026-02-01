@@ -1,20 +1,61 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 import GhostLogo from '@/components/GhostLogo';
 
 export default function Navbar() {
     const [isOpen, setIsOpen] = useState(false);
+    const [activeSection, setActiveSection] = useState('');
+    const pathname = usePathname();
 
     const links = [
-        { name: 'Protocol', href: '#features' },
-        { name: 'Clearance', href: '#pricing' },
-        { name: 'Transmission', href: 'mailto:support@ghostagent.com' },
-        { name: 'About Us', href: '/about' },
+        { name: 'Protocol', href: '#features', section: 'features' },
+        { name: 'Clearance', href: '#pricing', section: 'pricing' },
+        { name: 'Contact', href: '/contact', section: null },
+        { name: 'About Us', href: '/about', section: null },
     ];
+
+    // Scroll tracking for active state
+    useEffect(() => {
+        if (pathname !== '/') return;
+
+        const handleScroll = () => {
+            const sections = ['features', 'pricing', 'contact'];
+            const scrollPosition = window.scrollY + 100;
+
+            for (const sectionId of sections) {
+                const element = document.getElementById(sectionId);
+                if (element) {
+                    const { offsetTop, offsetHeight } = element;
+                    if (scrollPosition >= offsetTop && scrollPosition < offsetTop + offsetHeight) {
+                        setActiveSection(sectionId);
+                        return;
+                    }
+                }
+            }
+            setActiveSection('');
+        };
+
+        window.addEventListener('scroll', handleScroll);
+        handleScroll();
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, [pathname]);
+
+    // Smooth scroll for anchor links
+    const handleClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+        if (href.startsWith('#')) {
+            e.preventDefault();
+            const element = document.getElementById(href.slice(1));
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            setIsOpen(false);
+        }
+    };
 
     return (
         <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4">
@@ -46,13 +87,25 @@ export default function Navbar() {
 
                 {/* Desktop Links */}
                 <div className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2 z-10">
-                    {links.map((item) => (
-                        <Link key={item.name} href={item.href} className="text-sm font-medium text-white/60 hover:text-white transition-all duration-300 group font-mono tracking-wide">
-                            <span className="opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 text-cyan-400 inline-block mr-1">[</span>
-                            <span className="group-hover:drop-shadow-[0_0_8px_rgba(34,211,238,0.8)] transition-all">{item.name}</span>
-                            <span className="opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 text-cyan-400 inline-block ml-1">]</span>
-                        </Link>
-                    ))}
+                    {links.map((item) => {
+                        const isActive = item.section && activeSection === item.section;
+                        return (
+                            <Link
+                                key={item.name}
+                                href={item.href}
+                                onClick={(e) => handleClick(e, item.href)}
+                                className={`text-sm font-medium transition-all duration-300 group font-mono tracking-wide ${isActive ? 'text-cyan-400' : 'text-white/60 hover:text-white'
+                                    }`}
+                            >
+                                <span className={`opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 text-cyan-400 inline-block mr-1 ${isActive ? 'opacity-100 translate-x-0' : ''
+                                    }`}>[</span>
+                                <span className={`transition-all ${isActive ? 'drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]' : 'group-hover:drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]'
+                                    }`}>{item.name}</span>
+                                <span className={`opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 text-cyan-400 inline-block ml-1 ${isActive ? 'opacity-100 translate-x-0' : ''
+                                    }`}>]</span>
+                            </Link>
+                        );
+                    })}
                 </div>
 
                 {/* Right Side: Login (Desktop) + Menu (Mobile) */}
@@ -102,7 +155,7 @@ export default function Navbar() {
                                     <Link
                                         key={item.name}
                                         href={item.href}
-                                        onClick={() => setIsOpen(false)}
+                                        onClick={(e) => handleClick(e, item.href)}
                                         className="text-lg font-medium text-white/80 hover:text-primary transition-colors flex items-center gap-3"
                                     >
                                         <span className="text-primary/50 text-xs font-mono">0{i + 1}</span>
