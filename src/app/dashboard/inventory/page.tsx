@@ -1,27 +1,61 @@
 'use client';
 
-import { useState } from 'react';
-import { Plus, Search, Trash2, Save, X, Package } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Search, Trash2, Save, X, Package, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
+import { createClient } from '@/utils/supabase/client';
 
 type Product = {
-    id: number;
+    id: string;
     name: string;
     price: number;
     stock: number;
     status: 'In Stock' | 'Out of Stock';
 };
 
-const INITIAL_INVENTORY: Product[] = [
-    { id: 1, name: 'Neon Ghost Light', price: 49.99, stock: 12, status: 'In Stock' },
-    { id: 2, name: 'Phantom Hoodie', price: 85.00, stock: 45, status: 'In Stock' },
-    { id: 3, name: 'Ectoplasm Lamp', price: 120.00, stock: 0, status: 'Out of Stock' },
-];
-
 export default function InventoryPage() {
-    const [products, setProducts] = useState<Product[]>(INITIAL_INVENTORY);
+    const supabase = createClient();
+    const [loading, setLoading] = useState(true);
+    const [products, setProducts] = useState<Product[]>([]);
     const [isAdding, setIsAdding] = useState(false);
-    const [newProduct, setNewProduct] = useState<Partial<Product>>({ name: '', price: 0, stock: 0 });
+    const [newProduct, setNewProduct] = useState({ name: '', price: 0, stock: 0 });
+
+    useEffect(() => {
+        fetchInventory();
+    }, []);
+
+    const fetchInventory = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data, error } = await supabase
+                .from('inventory')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('Error fetching inventory:', error);
+                return;
+            }
+
+            if (data) {
+                const mappedProducts: Product[] = data.map(item => ({
+                    id: item.id,
+                    name: item.item_name,
+                    price: item.price,
+                    stock: item.stock_level,
+                    status: item.stock_level > 0 ? 'In Stock' : 'Out of Stock'
+                }));
+                setProducts(mappedProducts);
+            }
+        } catch (error) {
+            console.error('Unexpected error:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleAddClick = () => {
         setIsAdding(true);
@@ -32,29 +66,76 @@ export default function InventoryPage() {
         setIsAdding(false);
     };
 
-    const handleSaveProduct = () => {
+    const handleSaveProduct = async () => {
         if (!newProduct.name) return;
 
-        const stock = Number(newProduct.stock) || 0;
-        const price = Number(newProduct.price) || 0;
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                alert('Please log in.');
+                return;
+            }
 
-        const product: Product = {
-            id: Date.now(),
-            name: newProduct.name,
-            price: price,
-            stock: stock,
-            status: stock > 0 ? 'In Stock' : 'Out of Stock'
-        };
+            const stock = Number(newProduct.stock) || 0;
+            const price = Number(newProduct.price) || 0;
 
-        setProducts(prev => [product, ...prev]);
-        setIsAdding(false);
-    };
+            const { data, error } = await supabase
+                .from('inventory')
+                .insert({
+                    user_id: user.id,
+                    item_name: newProduct.name,
+                    price: price,
+                    stock_level: stock,
+                    status: stock > 0 ? 'In Stock' : 'Out of Stock', // Optional if you have this col
+                })
+                .select()
+                .single();
 
-    const handleDelete = (id: number) => {
-        if (confirm('Are you sure you want to delete this ghost item?')) {
-            setProducts(prev => prev.filter(p => p.id !== id));
+            if (error) throw error;
+
+            if (data) {
+                const newItem: Product = {
+                    id: data.id,
+                    name: data.item_name,
+                    price: data.price,
+                    stock: data.stock_level,
+                    status: data.stock_level > 0 ? 'In Stock' : 'Out of Stock'
+                };
+                setProducts(prev => [newItem, ...prev]);
+                setIsAdding(false);
+                setNewProduct({ name: '', price: 0, stock: 0 });
+            }
+        } catch (error) {
+            console.error('Error saving product:', error);
+            alert('Failed to save product. Check console.');
         }
     };
+
+    const handleDelete = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this ghost item?')) return;
+
+        try {
+            const { error } = await supabase
+                .from('inventory')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            setProducts(prev => prev.filter(p => p.id !== id));
+        } catch (error) {
+            console.error('Error deleting product:', error);
+            alert('Failed to delete product.');
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <Loader2 className="w-10 h-10 animate-spin text-primary" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -254,7 +335,7 @@ export default function InventoryPage() {
                         </div>
                         <div className="space-y-1">
                             <h3 className="text-xl font-bold">No items found</h3>
-                            <p className="text-white/40">Your ghost inventory is currently empty.</p>
+                            <p className="text-white/40">Your ghost inventory is missing! 👻</p>
                         </div>
                     </div>
                 )}
