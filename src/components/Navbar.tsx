@@ -12,8 +12,8 @@ export default function Navbar() {
     const links = [
         { name: 'Protocol', href: '#features' },
         { name: 'Clearance', href: '#pricing' },
-        { name: 'Transmission', href: '#contact' },
-        { name: 'About Us', href: '#about' },
+        { name: 'Transmission', href: 'mailto:support@ghostagent.com' },
+        { name: 'About Us', href: '/about' },
     ];
 
     return (

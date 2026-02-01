@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import GhostIcon from '@/components/GhostIcon';
 import GhostLogo from '@/components/GhostLogo';
@@ -12,6 +12,11 @@ import Navbar from '@/components/Navbar';
 
 export default function Home() {
   const [showVideo, setShowVideo] = useState(false);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   return (
     <main className="min-h-screen text-white overflow-hidden relative selection:bg-primary/30">
       <StarBackground />
