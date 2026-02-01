@@ -1,5 +1,6 @@
 import { google } from "@ai-sdk/google";
-import { streamText, convertToModelMessages } from "ai";
+import { streamText, convertToModelMessages, tool } from "ai";
+import { z } from "zod";
 import dns from "node:dns";
 import { createClient } from "@/utils/supabase/server";
 
@@ -88,12 +89,60 @@ If the answer is not in the knowledge base or inventory above, say: "I need to c
         }
 
         const result = await streamText({
-            model: google("gemini-flash-latest"),
+            model: google("gemini-1.5-flash-latest"),
             messages: await convertToModelMessages(messages),
             system: systemPrompt,
+            maxSteps: 5, // Allow multi-step thinking for tools
+            tools: {
+                updateInventory: tool({
+                    description: 'Update the stock level of an inventory item. Use -1 for a sale, +N for restock. Automatically logs the change.',
+                    parameters: z.object({
+                        itemName: z.string().describe('The name of the item to update (case-insensitive)'),
+                        quantityChange: z.number().describe('The amount to change stock by (negative to decrease/sell, positive to increase/restock)'),
+                    }),
+                    execute: async ({ itemName, quantityChange }) => {
+                        if (!ownerId) return "Error: No user context found. Cannot update inventory.";
+
+                        // 1. Find the item
+                        const { data: item, error: findError } = await supabase
+                            .from('inventory')
+                            .select('*')
+                            .eq('user_id', ownerId)
+                            .ilike('item_name', itemName)
+                            .single();
+
+                        if (findError || !item) {
+                            return `Error: Item "${itemName}" not found in inventory.`;
+                        }
+
+                        // 2. Calculate New Stock
+                        const newStock = item.stock_level + quantityChange;
+
+                        // 3. Update DB
+                        const { error: updateError } = await supabase
+                            .from('inventory')
+                            .update({ stock_level: newStock })
+                            .eq('id', item.id);
+
+                        if (updateError) {
+                            return `Error updating stock: ${updateError.message}`;
+                        }
+
+                        // 4. Log Activity
+                        await supabase.from('activity_log').insert({
+                            user_id: ownerId,
+                            event_type: quantityChange < 0 ? 'SALE' : 'RESTOCK',
+                            description: `Updated stock for ${item.item_name}: ${quantityChange > 0 ? '+' : ''}${quantityChange} (New Level: ${newStock})`,
+                            timestamp: new Date().toISOString()
+                        });
+
+                        return `Success: Stock for "${item.item_name}" updated. Old: ${item.stock_level}, New: ${newStock}.`;
+                    },
+                }),
+            },
         });
 
-        return result.toUIMessageStreamResponse();
+        return result.toDataStreamResponse();
     } catch (error) {
         console.error("CRITICAL Chat API Error:", error);
         return new Response(
