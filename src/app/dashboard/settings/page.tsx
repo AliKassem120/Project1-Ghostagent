@@ -1,69 +1,79 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Bot, DollarSign, Bell, Globe, Sparkles, Upload, Building2 } from 'lucide-react';
+import { Save, Bot, DollarSign, Bell, Globe, Sparkles, Upload, Building2, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/utils/supabase/client';
 
 export default function SettingsPage() {
-    const [loading, setLoading] = useState(false);
+    const supabase = createClient();
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+
+    // Initial state with empty values (No fake data!)
     const [settings, setSettings] = useState({
         businessName: '',
         tone: 'Professional',
         useEmojis: true,
         maxDiscount: 20,
         minOrderForDiscount: 50,
-        emergencyWhatsApp: '+961 70 123 456',
+        emergencyWhatsApp: '',
         language: 'English',
-        systemPrompt: 'You are a helpful sales assistant that uses ghost emojis. Always check stock levels before promising availability.',
-        whatsappTemplate: 'Hello! I saw the {product} on Instagram for ${price} USD and I would like to order it.',
+        systemPrompt: '',
+        whatsappTemplate: '',
     });
 
     useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+
+                if (!user) {
+                    setLoading(false);
+                    return;
+                }
+
+                const { data, error } = await supabase
+                    .from('bot_settings')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .single();
+
+                if (error && error.code !== 'PGRST116') {
+                    console.error('Error fetching settings:', error);
+                }
+
+                if (data) {
+                    setSettings({
+                        businessName: data.business_name || '',
+                        tone: data.tone || 'Professional',
+                        useEmojis: data.use_emojis ?? true,
+                        maxDiscount: data.max_discount || 20,
+                        minOrderForDiscount: data.min_order_for_discount || 50,
+                        emergencyWhatsApp: data.emergency_whatsapp || '',
+                        language: data.language || 'English',
+                        systemPrompt: data.system_instructions || '',
+                        whatsappTemplate: data.whatsapp_template || '',
+                    });
+                }
+            } catch (err) {
+                console.error('Unexpected error:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
         fetchSettings();
     }, []);
 
-    const fetchSettings = async () => {
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            const { data, error } = await supabase
-                .from('bot_settings')
-                .select('*')
-                .eq('user_id', user.id)
-                .single();
-
-            if (error && error.code !== 'PGRST116') { // PGRST116 is "Row not found"
-                console.error('Error fetching settings:', error);
-                return;
-            }
-
-            if (data) {
-                setSettings({
-                    businessName: data.business_name || '',
-                    tone: data.tone || 'Professional',
-                    useEmojis: data.use_emojis ?? true,
-                    maxDiscount: data.max_discount || 20,
-                    minOrderForDiscount: data.min_order_for_discount || 50,
-                    emergencyWhatsApp: data.emergency_whatsapp || '',
-                    language: data.language || 'English',
-                    systemPrompt: data.system_instructions || '',
-                    whatsappTemplate: data.whatsapp_template || '',
-                });
-            }
-        } catch (error) {
-            console.error('Unexpected error fetching settings:', error);
-        }
-    };
-
     const handleSave = async () => {
-        setLoading(true);
+        setSaving(true);
         try {
             const { data: { user } } = await supabase.auth.getUser();
+
             if (!user) {
-                alert('Please log in to save settings.');
-                setLoading(false);
+                alert('You must be logged in to save settings.');
+                setSaving(false);
                 return;
             }
 
@@ -83,16 +93,27 @@ export default function SettingsPage() {
                     updated_at: new Date().toISOString(),
                 }, { onConflict: 'user_id' });
 
-            if (error) throw error;
+            if (error) {
+                throw error;
+            }
 
-            alert('✅ Settings saved successfully!');
+            console.log('✅ Settings Saved Successfully!'); // Verification Log
+            alert('Settings saved!');
         } catch (error) {
             console.error('Error saving settings:', error);
-            alert('❌ Failed to save settings.');
+            alert('Failed to save settings.');
         } finally {
-            setLoading(false);
+            setSaving(false);
         }
     };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <Loader2 className="w-10 h-10 animate-spin text-primary" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-8">
@@ -351,9 +372,11 @@ export default function SettingsPage() {
 
                     <div className="space-y-3">
                         <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Product Catalog (Optional CSV)</label>
-                        <div className="border-2 border-dashed border-white/10 rounded-2xl p-6 text-center hover:border-primary/30 hover:bg-white/5 transition-all cursor-pointer group">
-                            <Upload className="w-8 h-8 mx-auto mb-2 text-white/40 group-hover:text-primary transition-colors" />
-                            <div className="text-white/60 mb-1 font-medium text-sm">Drop CSV/JSON here</div>
+                        <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center hover:border-primary/30 hover:bg-white/5 transition-all cursor-pointer group">
+                            <Upload className="w-12 h-12 mx-auto mb-4 text-white/40 group-hover:text-primary transition-colors" />
+                            <input type="file" className="hidden" accept=".csv,.json" />
+                            <div className="text-white/60 mb-2 font-medium text-base">Drop CSV/JSON here or click to upload</div>
+                            <div className="text-xs text-white/40">Fields: name, price, description, stock</div>
                         </div>
                     </div>
                 </div>
@@ -363,10 +386,10 @@ export default function SettingsPage() {
             <div className="flex justify-center pt-6 pb-12">
                 <button
                     onClick={handleSave}
-                    disabled={loading}
+                    disabled={saving}
                     className="px-16 py-5 bg-primary text-black font-black text-xl rounded-2xl hover:scale-105 active:scale-95 transition-transform flex items-center gap-3 shadow-[0_0_40px_rgba(192,132,252,0.5)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    {loading ? "Saving..." : <><Save className="w-6 h-6" /> Save All Settings</>}
+                    {saving ? "Saving..." : <><Save className="w-6 h-6" /> Save All Settings</>}
                 </button>
             </div>
         </div>

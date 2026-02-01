@@ -1,7 +1,7 @@
 import { google } from "@ai-sdk/google";
 import { streamText, convertToModelMessages } from "ai";
 import dns from "node:dns";
-import { createClient } from "@/lib/supabase-server";
+import { createClient } from "@/utils/supabase/server";
 
 // Enforce IPv4 preference to prevent "fetch failed" on networks with broken IPv6
 if (typeof dns.setDefaultResultOrder === 'function') {
