@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Bot, DollarSign, Bell, Globe, Sparkles, Upload, Building2, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Save, Bot, DollarSign, Bell, Globe, Sparkles, Upload, Building2, Loader2, Check } from 'lucide-react';
 import { clsx } from 'clsx';
 import { createClient } from '@/utils/supabase/client';
 
@@ -9,6 +10,7 @@ export default function SettingsPage() {
     const supabase = createClient();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [success, setSuccess] = useState(false);
 
     // Initial state with empty values (No fake data!)
     const [settings, setSettings] = useState({
@@ -98,7 +100,8 @@ export default function SettingsPage() {
             }
 
             console.log('✅ Settings Saved Successfully!'); // Verification Log
-            alert('Settings saved!');
+            setSuccess(true);
+            setTimeout(() => setSuccess(false), 2000);
         } catch (error) {
             console.error('Error saving settings:', error);
             alert('Failed to save settings.');
@@ -178,17 +181,29 @@ export default function SettingsPage() {
 
                     <div className="space-y-3">
                         <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Use Emojis</label>
-                        <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10 hover:bg-white/10 transition-all cursor-pointer"
+                        <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10 hover:bg-white/10 transition-all cursor-pointer group"
                             onClick={() => setSettings({ ...settings, useEmojis: !settings.useEmojis })}>
-                            <span className="text-base">Add emojis to responses</span>
+                            <span className="text-base group-hover:text-white transition-colors">Add emojis to responses</span>
                             <div className={clsx(
-                                "relative w-12 h-7 rounded-full transition-all",
-                                settings.useEmojis ? "bg-primary shadow-[0_0_15px_rgba(192,132,252,0.4)]" : "bg-white/20"
+                                "relative w-14 h-8 rounded-full transition-colors duration-300",
+                                settings.useEmojis ? "bg-primary" : "bg-white/10"
                             )}>
-                                <div className={clsx(
-                                    "absolute top-0.5 w-6 h-6 rounded-full bg-white shadow-lg transition-transform",
-                                    settings.useEmojis ? "translate-x-5" : "translate-x-0.5"
-                                )} />
+                                <AnimatePresence>
+                                    {settings.useEmojis && (
+                                        <motion.div
+                                            initial={{ scale: 0, opacity: 0.8 }}
+                                            animate={{ scale: 2.5, opacity: 0 }}
+                                            exit={{ scale: 0, opacity: 0 }}
+                                            transition={{ duration: 0.5 }}
+                                            className="absolute inset-0 rounded-full bg-primary blur-md"
+                                        />
+                                    )}
+                                </AnimatePresence>
+                                <motion.div
+                                    className="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-lg"
+                                    animate={{ x: settings.useEmojis ? 24 : 0 }}
+                                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                />
                             </div>
                         </div>
                     </div>
@@ -386,10 +401,26 @@ export default function SettingsPage() {
             <div className="flex justify-center pt-6 pb-12">
                 <button
                     onClick={handleSave}
-                    disabled={saving}
-                    className="px-16 py-5 bg-primary text-black font-black text-xl rounded-2xl hover:scale-105 active:scale-95 transition-transform flex items-center gap-3 shadow-[0_0_40px_rgba(192,132,252,0.5)] disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={saving || success}
+                    className={clsx(
+                        "px-16 py-5 rounded-2xl font-black text-xl transition-all shadow-[0_0_40px_rgba(192,132,252,0.5)] flex items-center gap-3 disabled:opacity-80 disabled:cursor-not-allowed transform",
+                        success ? "bg-green-500 text-black scale-105" : "bg-primary text-black hover:scale-105 active:scale-95"
+                    )}
                 >
-                    {saving ? "Saving..." : <><Save className="w-6 h-6" /> Save All Settings</>}
+                    {saving ? (
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                    ) : success ? (
+                        <motion.div
+                            initial={{ scale: 0.5, opacity: 0 }}
+                            animate={{ scale: 1.25, opacity: 1 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                            className="flex items-center gap-2"
+                        >
+                            <Check className="w-8 h-8" /> Saved!
+                        </motion.div>
+                    ) : (
+                        <><Save className="w-6 h-6" /> Save All Settings</>
+                    )}
                 </button>
             </div>
         </div>

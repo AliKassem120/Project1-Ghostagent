@@ -14,6 +14,18 @@ export default function Home() {
   return (
     <main className="min-h-screen text-white overflow-hidden relative selection:bg-primary/30">
       <StarBackground />
+      {/* Floating Particles */}
+      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+        {[...Array(20)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute w-1 h-1 bg-white/20 rounded-full"
+            initial={{ opacity: 0, top: "110%", left: `${Math.random() * 100}%` }}
+            animate={{ opacity: [0, 0.8, 0], top: "-10%" }}
+            transition={{ duration: Math.random() * 10 + 10, repeat: Infinity, ease: "linear", delay: Math.random() * 5 }}
+          />
+        ))}
+      </div>
 
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4">
@@ -40,10 +52,20 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <h1 className="text-5xl md:text-8xl font-black tracking-tighter leading-[0.9] bg-clip-text text-transparent bg-gradient-to-br from-white to-white/50 mb-6 drop-shadow-2xl">
-              YOUR GHOST <br />
-              <span className="text-primary neon-text uppercase">Sales Agent</span>
-            </h1>
+            <div className="relative mb-6 group">
+              <h1 className="relative z-10 text-5xl md:text-8xl font-black tracking-tighter leading-[0.9] bg-clip-text text-transparent bg-gradient-to-br from-white to-white/50 drop-shadow-2xl">
+                YOUR GHOST <br />
+                <span className="text-primary neon-text uppercase">Sales Agent</span>
+              </h1>
+              <h1 className="absolute inset-0 z-0 text-5xl md:text-8xl font-black tracking-tighter leading-[0.9] text-red-500/50 select-none animate-pulse translate-x-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-75">
+                YOUR GHOST <br />
+                <span className="uppercase">Sales Agent</span>
+              </h1>
+              <h1 className="absolute inset-0 z-0 text-5xl md:text-8xl font-black tracking-tighter leading-[0.9] text-cyan-500/50 select-none animate-pulse -translate-x-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-100">
+                YOUR GHOST <br />
+                <span className="uppercase">Sales Agent</span>
+              </h1>
+            </div>
             <p className="text-lg md:text-xl text-white/60 max-w-xl mx-auto md:mx-0 leading-relaxed px-4 md:px-0">
               Scale your Instagram store with an AI that never sleeps.
               Auto-replies to comments, DMs, and manages inventory in the shadows.
@@ -56,8 +78,14 @@ export default function Home() {
             transition={{ delay: 0.3, duration: 0.8 }}
             className="flex flex-col md:flex-row gap-4 justify-center md:justify-start"
           >
-            <Link href="/login" className="px-8 py-4 bg-primary text-black font-bold rounded-full hover:scale-105 transition-transform flex items-center justify-center gap-2 group shadow-[0_0_20px_rgba(192,132,252,0.3)] hover:shadow-[0_0_30px_rgba(192,132,252,0.5)]">
-              Start Free Trial <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            <Link href="/login" className="relative overflow-hidden px-8 py-4 bg-primary text-black font-bold rounded-full hover:scale-105 transition-transform flex items-center justify-center gap-2 group shadow-[0_0_20px_rgba(192,132,252,0.3)] hover:shadow-[0_0_30px_rgba(192,132,252,0.5)]">
+              <span className="relative z-10 flex items-center gap-2">Start Free Trial <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></span>
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent -skew-x-12"
+                initial={{ x: "-100%" }}
+                animate={{ x: "200%" }}
+                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+              />
             </Link>
             <button
               onClick={() => setShowVideo(true)}

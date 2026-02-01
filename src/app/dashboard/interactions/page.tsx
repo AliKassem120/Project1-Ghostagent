@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Check, Edit2, Share, Loader2 } from 'lucide-react';
 import { approveInteraction } from '@/app/actions/agent';
 
@@ -48,13 +49,24 @@ export default function InteractionsPage() {
 
             <div className="grid gap-4">
                 {interactions.length === 0 && (
-                    <div className="glass-dark p-12 rounded-3xl border border-white/10 text-center space-y-4">
-                        <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto">
-                            <Check className="w-8 h-8 text-green-400" />
+                    <div className="flex flex-col items-center justify-center py-20 text-center">
+                        <div className="flex items-center gap-2 h-16 mb-8">
+                            {[...Array(5)].map((_, i) => (
+                                <motion.div
+                                    key={i}
+                                    animate={{ height: ["20%", "100%", "20%"] }}
+                                    transition={{
+                                        duration: 0.8 + Math.random() * 0.5,
+                                        repeat: Infinity,
+                                        delay: i * 0.1,
+                                        ease: "easeInOut"
+                                    }}
+                                    className="w-2 bg-purple-500 rounded-full shadow-[0_0_15px_rgba(168,85,247,0.5)]"
+                                />
+                            ))}
                         </div>
-                        <div>
-                            <h3 className="text-xl font-bold">All caught up!</h3>
-                            <p className="text-white/40">No pending messages to review.</p>
+                        <div className="text-purple-400 font-mono text-sm uppercase tracking-widest animate-pulse">
+                            Channel Open<br />Awaiting transmission...
                         </div>
                     </div>
                 )}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Trash2, Save, X, Package, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { createClient } from '@/utils/supabase/client';
@@ -335,14 +336,25 @@ export default function InventoryPage() {
                     </table>
                 </div>
 
-                {products.length === 0 && !isAdding && (
-                    <div className="glass-dark p-20 rounded-3xl border border-white/10 text-center space-y-4">
-                        <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto">
-                            <Package className="w-10 h-10 text-white/20" />
+                {products.length === 0 && !isAdding && !loading && (
+                    <div className="flex flex-col items-center justify-center py-24 text-center opacity-70">
+                        <div className="relative w-24 h-24 mb-6">
+                            <motion.div
+                                animate={{ rotateX: 360, rotateY: 360, rotateZ: 360 }}
+                                transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                                className="w-16 h-16 border border-primary/30 relative mx-auto mt-4"
+                                style={{ transformStyle: 'preserve-3d' }}
+                            >
+                                <div className="absolute inset-0 border border-primary/20 translate-z-8" style={{ transform: 'translateZ(32px)' }} />
+                                <div className="absolute inset-0 border border-primary/20 -translate-z-8" style={{ transform: 'translateZ(-32px)' }} />
+                                <div className="absolute inset-0 border border-primary/20" style={{ transform: 'rotateY(90deg) translateZ(32px)' }} />
+                                <div className="absolute inset-0 border border-primary/20" style={{ transform: 'rotateY(90deg) translateZ(-32px)' }} />
+                                <div className="absolute inset-0 border border-primary/20" style={{ transform: 'rotateX(90deg) translateZ(32px)' }} />
+                                <div className="absolute inset-0 border border-primary/20" style={{ transform: 'rotateX(90deg) translateZ(-32px)' }} />
+                            </motion.div>
                         </div>
-                        <div className="space-y-1">
-                            <h3 className="text-xl font-bold">No items found</h3>
-                            <p className="text-white/40">Your ghost inventory is missing! 👻</p>
+                        <div className="font-mono text-primary/60 text-xs tracking-widest uppercase animate-pulse">
+                            Vault Empty.<br />Initiate Supply Drop.
                         </div>
                     </div>
                 )}

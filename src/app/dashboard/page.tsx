@@ -208,7 +208,21 @@ export default function DashboardPage() {
                             </div>
                             <div className="space-y-4">
                                 {activities.length === 0 ? (
-                                    <div className="text-center text-white/40 py-8 italic">No recent activity detected.</div>
+                                    <div className="flex flex-col items-center justify-center py-12 text-center opacity-70">
+                                        <div className="relative w-48 h-48 mb-6">
+                                            <div className="absolute inset-0 border-2 border-green-500/20 rounded-full shadow-[0_0_15px_rgba(34,197,94,0.1)]" />
+                                            <div className="absolute inset-[10%] border border-green-500/10 rounded-full" />
+                                            <div className="absolute inset-[30%] border border-green-500/10 rounded-full" />
+                                            <motion.div
+                                                animate={{ rotate: 360 }}
+                                                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                                                className="absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_0deg,transparent_270deg,rgba(34,197,94,0.3)_360deg)]"
+                                            />
+                                        </div>
+                                        <div className="font-mono text-green-400 text-sm tracking-[0.2em] animate-pulse">
+                                            SYSTEM IDLE<br />SCANNING FOR SIGNALS...
+                                        </div>
+                                    </div>
                                 ) : (
                                     activities.map((log) => (
                                         <div
