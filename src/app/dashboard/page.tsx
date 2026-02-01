@@ -39,22 +39,52 @@ export default function DashboardPage() {
         // Optional: Realtime subscription could go here
     }, []);
 
+    const [stats, setStats] = useState({ comments: 0, sales: 0, stock: 0 });
+
+    useEffect(() => {
+        const fetchStats = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            // Fetch comments (activity log count)
+            const { count: commentsCount } = await supabase
+                .from('activity_log')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', user.id);
+
+            // Fetch stock (sum of stock_level)
+            const { data: inventory } = await supabase
+                .from('inventory')
+                .select('stock_level')
+                .eq('user_id', user.id);
+
+            const totalStock = inventory?.reduce((sum, item) => sum + (item.stock_level || 0), 0) || 0;
+
+            setStats({
+                comments: commentsCount || 0,
+                sales: 0, // Placeholder
+                stock: totalStock
+            });
+        };
+        fetchStats();
+    }, []);
+
     const metrics = [
         {
             icon: MessageSquare,
             label: 'Total Comments',
-            value: 1247,
-            trend: +12.5,
+            value: stats.comments,
+            trend: 0,
             color: 'text-blue-400',
             bgColor: 'bg-blue-500/20'
         },
         {
             icon: DollarSign,
             label: 'Sales Converted',
-            value: 8450,
+            value: stats.sales,
             prefix: '$',
             suffix: ' USD',
-            trend: +23.8,
+            trend: 0,
             color: 'text-green-400',
             bgColor: 'bg-green-500/20',
             glow: true
@@ -62,8 +92,8 @@ export default function DashboardPage() {
         {
             icon: Package,
             label: 'Active Stock',
-            value: 342,
-            trend: -5.2,
+            value: stats.stock,
+            trend: 0,
             color: 'text-purple-400',
             bgColor: 'bg-purple-500/20'
         },

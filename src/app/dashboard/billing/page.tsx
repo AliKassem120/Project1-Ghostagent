@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Check, Crown, Zap, CreditCard, Calendar, AlertCircle, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createClient } from '@/utils/supabase/client';
 
 export default function BillingPage() {
     const [currentPlan, setCurrentPlan] = useState<string>('Pro Agent');
@@ -11,6 +12,24 @@ export default function BillingPage() {
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState('•••• 4242');
     const [isUpdating, setIsUpdating] = useState(false);
+    const [usage, setUsage] = useState({ replies: 0, conversations: 0, revenue: 0 });
+    const supabase = createClient();
+
+    useEffect(() => {
+        const fetchUsage = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { count } = await supabase
+                .from('activity_log')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', user.id)
+                .eq('event_type', 'CHAT_QUERY');
+
+            setUsage(prev => ({ ...prev, replies: count || 0 }));
+        };
+        fetchUsage();
+    }, []);
 
     const plans = [
         {
@@ -126,18 +145,18 @@ export default function BillingPage() {
                 <div className="grid md:grid-cols-3 gap-6">
                     <div>
                         <div className="text-white/60 text-sm mb-2">Auto-Replies Sent</div>
-                        <div className="text-3xl font-bold">1,247</div>
+                        <div className="text-3xl font-bold">{usage.replies}</div>
                         <div className="text-primary text-sm mt-1">Unlimited</div>
                     </div>
                     <div>
                         <div className="text-white/60 text-sm mb-2">Conversations Handled</div>
-                        <div className="text-3xl font-bold">342</div>
-                        <div className="text-white/40 text-sm mt-1">+23% from last month</div>
+                        <div className="text-3xl font-bold">{usage.conversations}</div>
+                        <div className="text-white/40 text-sm mt-1">Syncing...</div>
                     </div>
                     <div>
                         <div className="text-white/60 text-sm mb-2">Revenue Generated</div>
-                        <div className="text-3xl font-bold text-green-400 glow-text">$8,450 USD</div>
-                        <div className="text-green-400 text-sm mt-1">+45% from last month</div>
+                        <div className="text-3xl font-bold text-green-400 glow-text">${usage.revenue} USD</div>
+                        <div className="text-green-400 text-sm mt-1">+0% from last month</div>
                     </div>
                 </div>
             </div>

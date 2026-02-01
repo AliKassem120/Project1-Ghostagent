@@ -15,14 +15,10 @@ type Interaction = {
     response?: string;
 };
 
-const MOCK_INTERACTIONS: Interaction[] = [
-    { id: 1, user: '@sarah_j', avatar: '', comment: 'How much for the neon one? 😍', product_interest: 'Neon Ghost Light', status: 'pending', timestamp: '2m ago' },
-    { id: 2, user: '@mike_drops', avatar: '', comment: 'Do you ship to Canada?', product_interest: 'General', status: 'pending', timestamp: '5m ago' },
-    { id: 3, user: '@lux_life', avatar: '', comment: 'Restock soon??', product_interest: 'Black Hoodie', status: 'approved', timestamp: '12m ago', response: 'Yes, back next week!' },
-];
+const MOCK_INTERACTIONS: Interaction[] = [];
 
 export default function InteractionsPage() {
-    const [interactions, setInteractions] = useState(MOCK_INTERACTIONS);
+    const [interactions, setInteractions] = useState<Interaction[]>([]);
     const [processingId, setProcessingId] = useState<number | null>(null);
 
     const handleApprove = async (id: number, comment: string) => {
@@ -51,6 +47,17 @@ export default function InteractionsPage() {
             </div>
 
             <div className="grid gap-4">
+                {interactions.length === 0 && (
+                    <div className="glass-dark p-12 rounded-3xl border border-white/10 text-center space-y-4">
+                        <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto">
+                            <Check className="w-8 h-8 text-green-400" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold">All caught up!</h3>
+                            <p className="text-white/40">No pending messages to review.</p>
+                        </div>
+                    </div>
+                )}
                 {interactions.map((interaction) => (
                     <div key={interaction.id} className="glass-dark p-6 rounded-2xl flex items-start gap-4 hover:border-white/20 transition-colors group">
                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex-shrink-0" />
