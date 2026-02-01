@@ -16,29 +16,10 @@ interface PendingInteraction {
     timestamp: string;
 }
 
-const MOCK_PENDING: PendingInteraction[] = [
-    {
-        id: '1',
-        customerName: 'Layla S.',
-        comment: 'How much for the Neon Ghost Light?',
-        draftResponse: 'Hi Layla! The Neon Ghost Light is $49.99 USD. It comes with a 1-year warranty and free shipping in Beirut. Click below to order on WhatsApp!',
-        productName: 'Neon Ghost Light',
-        price: 49.99,
-        timestamp: '2m ago'
-    },
-    {
-        id: '2',
-        customerName: 'Hadi K.',
-        comment: 'Do you have the Phantom Hoodie in Large?',
-        draftResponse: 'Hello Hadi! Yes, we have the Phantom Hoodie in Large ready for delivery. It is $85.00 USD. Check it out on WhatsApp for more details!',
-        productName: 'Phantom Hoodie',
-        price: 85.00,
-        timestamp: '15m ago'
-    }
-];
+const MOCK_PENDING: PendingInteraction[] = [];
 
 export default function ApprovalQueue() {
-    const [pending, setPending] = useState<PendingInteraction[]>(MOCK_PENDING);
+    const [pending, setPending] = useState<PendingInteraction[]>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editValue, setEditValue] = useState('');
 

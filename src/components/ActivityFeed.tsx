@@ -14,36 +14,44 @@ interface ActivityLog {
     timestamp: Date;
 }
 
-const MOCK_ACTIVITIES: ActivityLog[] = [
-    { id: '1', type: 'comment', message: 'Identified "Vintage Tee" from @sarah_j comment', timestamp: new Date(Date.now() - 60000) },
-    { id: '2', type: 'sale', message: 'Sale converted: $49.99 USD - Neon Ghost Light', timestamp: new Date(Date.now() - 120000) },
-    { id: '3', type: 'inventory', message: 'Stock alert: Phantom Hoodie running low (5 left)', timestamp: new Date(Date.now() - 180000) },
-    { id: '4', type: 'comment', message: 'Auto-replied to @mike_drops about shipping', timestamp: new Date(Date.now() - 240000) },
-];
+import { createClient } from '@/utils/supabase/client';
+
+// ... (imports)
+
+const MOCK_ACTIVITIES: ActivityLog[] = [];
 
 export default function ActivityFeed({ autopilot, isOpen, onClose }: { autopilot: boolean; isOpen: boolean; onClose: () => void }) {
-    const [activities, setActivities] = useState<ActivityLog[]>(MOCK_ACTIVITIES);
+    const [activities, setActivities] = useState<ActivityLog[]>([]);
     const [mounted, setMounted] = useState(false);
+    const supabase = createClient();
 
     useEffect(() => {
         setMounted(true);
-        // Simulate new activity every 10 seconds
-        const interval = setInterval(() => {
-            const newActivity: ActivityLog = {
-                id: Date.now().toString(),
-                type: ['comment', 'inventory', 'sale', 'alert'][Math.floor(Math.random() * 4)] as ActivityType,
-                message: [
-                    'New comment detected from @user_' + Math.floor(Math.random() * 1000),
-                    'Product inquiry: Checking stock levels',
-                    `Sale converted: $${(Math.random() * 100).toFixed(2)} USD`,
-                    'Agent analyzing customer intent...'
-                ][Math.floor(Math.random() * 4)],
-                timestamp: new Date()
-            };
 
-            setActivities(prev => [newActivity, ...prev].slice(0, 20));
-        }, 10000);
+        const fetchActivity = async () => {
+            const { data } = await supabase
+                .from('activity_log')
+                .select('*')
+                .order('timestamp', { ascending: false })
+                .limit(20);
 
+            if (data) {
+                const mapped = data.map((d: any) => ({
+                    id: d.id,
+                    type: d.event_type.includes('INVENTORY') ? 'inventory' :
+                        d.event_type.includes('SALE') ? 'sale' :
+                            d.event_type.includes('ALERT') ? 'alert' : 'comment', // Default to comment/chat
+                    message: d.description,
+                    timestamp: new Date(d.timestamp)
+                }));
+                // @ts-ignore
+                setActivities(mapped);
+            }
+        };
+
+        fetchActivity();
+        // Standard polling for now (or could use realtime)
+        const interval = setInterval(fetchActivity, 5000); // Poll every 5s for updates
         return () => clearInterval(interval);
     }, []);
 
