@@ -86,7 +86,6 @@ export default function InventoryPage() {
                     item_name: newProduct.name,
                     price: price,
                     stock_level: stock,
-                    status: stock > 0 ? 'In Stock' : 'Out of Stock', // Optional if you have this col
                 })
                 .select()
                 .single();
