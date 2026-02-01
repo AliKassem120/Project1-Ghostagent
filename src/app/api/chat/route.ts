@@ -141,7 +141,14 @@ If the answer is not in the knowledge base or inventory above, say: "I need to c
             },
         } as any);
 
-        return (result as any).toTextStreamResponse();
+        const r = result as any;
+        if (r.toDataStreamResponse) {
+            return r.toDataStreamResponse();
+        }
+        if (r.toAIStreamResponse) {
+            return r.toAIStreamResponse();
+        }
+        return r.toTextStreamResponse();
     } catch (error) {
         console.error("CRITICAL Chat API Error:", error);
         return new Response(
