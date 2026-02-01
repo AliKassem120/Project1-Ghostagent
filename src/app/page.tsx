@@ -53,6 +53,18 @@ export default function Home() {
               GhostAgent
             </span>
           </Link>
+
+          {/* Central Terminal Nav */}
+          <div className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2 z-10">
+            {['Protocol', 'Clearance', 'Transmission'].map((item) => (
+              <Link key={item} href="#" className="text-sm font-medium text-white/60 hover:text-white transition-all duration-300 group font-mono tracking-wide">
+                <span className="opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 text-cyan-400 inline-block mr-1">[</span>
+                <span className="group-hover:drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]">{item}</span>
+                <span className="opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 text-cyan-400 inline-block ml-1">]</span>
+              </Link>
+            ))}
+          </div>
+
           <Link href="/login" className="relative px-6 py-2 rounded-full border border-white/20 text-sm font-medium overflow-hidden group/btn hover:border-purple-500/50 transition-colors z-10">
             <span className="relative z-10 transition-colors group-hover/btn:text-white">Login</span>
             <div className="absolute inset-0 bg-purple-600 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300 shadow-[0_0_15px_rgba(147,51,234,0.5)]" />
@@ -82,22 +94,22 @@ export default function Home() {
                   </motion.span>
                 ))}
                 <br />
-                <span className="relative inline-block text-primary neon-text uppercase mt-2">
-                  <span className="relative z-10">Sales Agent</span>
-                  {/* Chromatic Aberration Layers */}
+                <span className="relative inline-block mt-2">
+                  <span className="relative z-10 text-purple-300 font-black tracking-widest drop-shadow-[0_0_10px_rgba(168,85,247,0.5)]">SALES AGENT</span>
+                  {/* Chromatic Aberration Layers - Reduced Opacity for Legibility */}
                   <motion.span
-                    className="absolute inset-0 text-red-500/80 z-0 mix-blend-screen"
-                    animate={{ x: [-2, 2, -2], opacity: [0.8, 0, 0.8] }}
+                    className="absolute inset-0 text-red-500/40 z-0 mix-blend-screen select-none"
+                    animate={{ x: [-2, 2, -2], opacity: [0.4, 0, 0.4] }}
                     transition={{ duration: 0.2, repeat: Infinity, repeatDelay: 3 }}
                   >
-                    Sales Agent
+                    SALES AGENT
                   </motion.span>
                   <motion.span
-                    className="absolute inset-0 text-blue-500/80 z-0 mix-blend-screen"
-                    animate={{ x: [2, -2, 2], opacity: [0.8, 0, 0.8] }}
+                    className="absolute inset-0 text-cyan-500/40 z-0 mix-blend-screen select-none"
+                    animate={{ x: [2, -2, 2], opacity: [0.4, 0, 0.4] }}
                     transition={{ duration: 0.2, repeat: Infinity, repeatDelay: 3 }}
                   >
-                    Sales Agent
+                    SALES AGENT
                   </motion.span>
                 </span>
               </h1>
