@@ -93,6 +93,14 @@ export default function InventoryPage() {
             if (error) throw error;
 
             if (data) {
+                // Log activity
+                await supabase.from('activity_log').insert({
+                    user_id: user.id,
+                    event_type: 'INVENTORY_ADD',
+                    description: `Added "${data.item_name}" to stock`,
+                    timestamp: new Date().toISOString()
+                });
+
                 const newItem: Product = {
                     id: data.id,
                     name: data.item_name,

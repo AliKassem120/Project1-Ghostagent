@@ -55,6 +55,18 @@ ${settings.system_instructions || ''}
 
 If the answer is not in the text above, say: "I need to check with a human agent." or provide a helpful generic response if appropriate for the tone.`;
             }
+
+            // 4. LOG ACTIVITY
+            try {
+                await supabase.from('activity_log').insert({
+                    user_id: ownerId,
+                    event_type: 'CHAT_QUERY',
+                    description: 'AI Agent processed a new user message',
+                    timestamp: new Date().toISOString()
+                });
+            } catch (logError) {
+                console.warn('Failed to log activity:', logError);
+            }
         }
 
         const result = await streamText({

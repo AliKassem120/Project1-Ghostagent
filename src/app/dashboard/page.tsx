@@ -1,6 +1,5 @@
-'use client';
-
-import { MessageSquare, DollarSign, Package, TrendingUp, TrendingDown, CheckCircle2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { MessageSquare, DollarSign, Package, TrendingUp, TrendingDown, CheckCircle2, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from '@/components/CountUp';
 import FloatingGhost from '@/components/FloatingGhost';
@@ -8,9 +7,35 @@ import ApprovalQueue from '@/components/ApprovalQueue';
 import { useAutopilot } from '@/context/AutopilotContext';
 import clsx from 'clsx';
 import GhostChat from '../components/GhostChat';
+import { createClient } from '@/utils/supabase/client';
+
+type ActivityLog = {
+    id: string;
+    event_type: string;
+    description: string;
+    timestamp: string;
+};
 
 export default function DashboardPage() {
     const { autopilot } = useAutopilot();
+    const [activities, setActivities] = useState<ActivityLog[]>([]);
+    const supabase = createClient();
+
+    useEffect(() => {
+        const fetchActivity = async () => {
+            const { data } = await supabase
+                .from('activity_log')
+                .select('*')
+                .order('timestamp', { ascending: false })
+                .limit(10);
+
+            if (data) setActivities(data);
+        };
+
+        fetchActivity();
+
+        // Optional: Realtime subscription could go here
+    }, []);
 
     const metrics = [
         {
@@ -143,37 +168,38 @@ export default function DashboardPage() {
                     >
                         <div className="glass-dark p-8 rounded-3xl border border-white/10">
                             <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-2xl font-bold">Recent Conversions</h2>
+                                <h2 className="text-2xl font-bold">Live Activity Feed</h2>
                                 <span className="text-xs text-white/40 flex items-center gap-1">
-                                    <CheckCircle2 className="w-3 h-3 text-green-400" />
-                                    Auto-processed by Agent
+                                    <Activity className="w-3 h-3 text-primary" />
+                                    Real-time Events
                                 </span>
                             </div>
                             <div className="space-y-4">
-                                {[
-                                    { user: '@sarah_j', product: 'Neon Ghost Light', amount: 49.99, time: '5m ago' },
-                                    { user: '@mike_drops', product: 'Phantom Hoodie', amount: 85.00, time: '12m ago' },
-                                    { user: '@lux_life', product: 'Ectoplasm Lamp', amount: 120.00, time: '25m ago' },
-                                ].map((sale, i) => (
-                                    <div
-                                        key={i}
-                                        className="flex items-center justify-between p-4 glass rounded-xl hover:bg-white/10 transition-colors border border-white/5"
-                                    >
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500" />
-                                            <div>
-                                                <div className="font-medium">{sale.user}</div>
-                                                <div className="text-sm text-white/60">{sale.product}</div>
+                                {activities.length === 0 ? (
+                                    <div className="text-center text-white/40 py-8 italic">No recent activity detected.</div>
+                                ) : (
+                                    activities.map((log) => (
+                                        <div
+                                            key={log.id}
+                                            className="flex items-center justify-between p-4 glass rounded-xl hover:bg-white/10 transition-colors border border-white/5"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center">
+                                                    <span className="text-xs font-bold">{log.event_type.slice(0, 2)}</span>
+                                                </div>
+                                                <div>
+                                                    <div className="font-medium text-white/90">{log.event_type}</div>
+                                                    <div className="text-sm text-white/50">{log.description}</div>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-xs text-white/40">
+                                                    {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="text-right">
-                                            <div className="font-bold text-green-400 glow-text text-lg">
-                                                ${sale.amount.toFixed(2)} USD
-                                            </div>
-                                            <div className="text-xs text-white/40">{sale.time}</div>
-                                        </div>
-                                    </div>
-                                ))}
+                                    ))
+                                )}
                             </div>
                         </div>
 
