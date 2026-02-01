@@ -5,9 +5,10 @@ import { motion } from 'framer-motion';
 
 export default function StarBackground() {
     const [stars, setStars] = useState<{ id: number; x: number; y: number; size: number; duration: number; delay: number }[]>([]);
+    const [rain, setRain] = useState<{ id: number; x: number; height: number; duration: number; delay: number }[]>([]);
 
     useEffect(() => {
-        // Generate more random stars for better density
+        // Generate random stars
         const newStars = Array.from({ length: 100 }).map((_, i) => ({
             id: i,
             x: Math.random() * 100,
@@ -16,17 +17,24 @@ export default function StarBackground() {
             duration: Math.random() * 3 + 2,
             delay: Math.random() * 5
         }));
+        setStars(newStars);
 
-        // Use setTimeout to avoid setState during render
-        const timer = setTimeout(() => setStars(newStars), 0);
-        return () => clearTimeout(timer);
+        // Generate digital rain
+        const newRain = Array.from({ length: 40 }).map((_, i) => ({
+            id: i,
+            x: Math.random() * 100,
+            height: Math.random() * 100 + 50,
+            duration: Math.random() * 15 + 10,
+            delay: Math.random() * 20
+        }));
+        setRain(newRain);
     }, []);
 
     return (
         <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-900/20 via-black to-black">
             {stars.map((star) => (
                 <motion.div
-                    key={star.id}
+                    key={`star-${star.id}`}
                     initial={{ opacity: 0 }}
                     animate={{
                         opacity: [0, 0.8, 0],
@@ -50,8 +58,29 @@ export default function StarBackground() {
                     }}
                 />
             ))}
-            {/* Add a subtle nebula effect */}
-            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-purple-900/20 via-transparent to-blue-900/20 mix-blend-screen" />
+
+            {/* Digital Rain */}
+            {rain.map((drop) => (
+                <motion.div
+                    key={`rain-${drop.id}`}
+                    initial={{ top: -200, opacity: 0 }}
+                    animate={{ top: '120%', opacity: [0, 0.5, 0] }}
+                    transition={{
+                        duration: drop.duration,
+                        repeat: Infinity,
+                        delay: drop.delay,
+                        ease: "linear"
+                    }}
+                    className="absolute w-[1px] bg-gradient-to-b from-transparent via-cyan-500/50 to-purple-500/20"
+                    style={{
+                        left: `${drop.x}%`,
+                        height: drop.height,
+                    }}
+                />
+            ))}
+
+            {/* Nebula */}
+            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-purple-900/10 via-transparent to-blue-900/10 mix-blend-screen" />
         </div>
     );
 }

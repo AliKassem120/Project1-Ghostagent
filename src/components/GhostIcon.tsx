@@ -2,8 +2,9 @@
 
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { useEffect } from 'react';
+import { clsx } from 'clsx';
 
-export default function GhostIcon() {
+export default function GhostIcon({ className }: { className?: string }) {
     const x = useMotionValue(0);
     const y = useMotionValue(0);
 
@@ -27,7 +28,7 @@ export default function GhostIcon() {
     const rotateY = useTransform(mouseX, [-100, 100], [-30, 30]);
 
     return (
-        <div className="relative w-64 h-64 perspective-1000">
+        <div className={clsx("relative w-64 h-64 perspective-1000", className || "text-white")}>
             <motion.div
                 style={{
                     rotateX,
@@ -43,7 +44,7 @@ export default function GhostIcon() {
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="1"
-                    className="w-full h-full text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]"
+                    className="w-full h-full text-current drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]"
                 >
                     <path
                         d="M9 10h.01M15 10h.01M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10a8 8 0 0 0-8-8z"

@@ -29,17 +29,33 @@ export default function Home() {
 
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between glass-dark rounded-full px-6 py-3 border border-white/5">
-          <Link href="/" className="text-xl font-bold tracking-tighter flex items-center gap-3 group">
-            <div className="p-1 rounded-lg group-hover:bg-white/5 transition-colors">
-              <GhostLogo className="w-8 h-8" />
+        <div className="max-w-7xl mx-auto flex items-center justify-between rounded-full px-6 py-3 border border-white/5 bg-black/30 backdrop-blur-md relative overflow-hidden group">
+          {/* Active Scanline */}
+          <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-white/10 overflow-hidden">
+            <motion.div
+              className="w-1/4 h-full bg-gradient-to-r from-transparent via-cyan-400 to-transparent"
+              animate={{ x: ["-100%", "500%"] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+            />
+          </div>
+
+          <Link href="/" className="text-xl font-bold tracking-tighter flex items-center gap-3 group/logo relative z-10">
+            <div className="p-1 rounded-lg transition-colors">
+              <motion.div
+                animate={{ scale: [1, 1.05, 1] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                whileHover={{ rotate: 360, transition: { duration: 0.5 } }}
+              >
+                <GhostLogo className="w-8 h-8" />
+              </motion.div>
             </div>
-            <span className="font-bold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
+            <span className="font-black text-xl tracking-tight text-white">
               GhostAgent
             </span>
           </Link>
-          <Link href="/login" className="px-6 py-2 rounded-full bg-white/10 hover:bg-white/20 transition-all border border-white/10 text-sm font-medium hover:scale-105 active:scale-95">
-            Login
+          <Link href="/login" className="relative px-6 py-2 rounded-full border border-white/20 text-sm font-medium overflow-hidden group/btn hover:border-purple-500/50 transition-colors z-10">
+            <span className="relative z-10 transition-colors group-hover/btn:text-white">Login</span>
+            <div className="absolute inset-0 bg-purple-600 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300 shadow-[0_0_15px_rgba(147,51,234,0.5)]" />
           </Link>
         </div>
       </nav>
@@ -48,22 +64,42 @@ export default function Home() {
       <section className="relative min-h-screen flex flex-col md:flex-row items-center justify-center p-6 pt-32 max-w-7xl mx-auto gap-12 z-10">
         <div className="flex-1 space-y-8 text-center md:text-left">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <div className="relative mb-6 group">
-              <h1 className="relative z-10 text-5xl md:text-8xl font-black tracking-tighter leading-[0.9] bg-clip-text text-transparent bg-gradient-to-br from-white to-white/50 drop-shadow-2xl">
-                YOUR GHOST <br />
-                <span className="text-primary neon-text uppercase">Sales Agent</span>
-              </h1>
-              <h1 className="absolute inset-0 z-0 text-5xl md:text-8xl font-black tracking-tighter leading-[0.9] text-red-500/50 select-none animate-pulse translate-x-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-75">
-                YOUR GHOST <br />
-                <span className="uppercase">Sales Agent</span>
-              </h1>
-              <h1 className="absolute inset-0 z-0 text-5xl md:text-8xl font-black tracking-tighter leading-[0.9] text-cyan-500/50 select-none animate-pulse -translate-x-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-100">
-                YOUR GHOST <br />
-                <span className="uppercase">Sales Agent</span>
+            <div className="relative mb-6">
+              <h1 className="text-5xl md:text-8xl font-black tracking-tighter leading-[0.9] text-white/90 mb-2 drop-shadow-2xl">
+                {/* Typewriter Effect */}
+                {"YOUR GHOST".split("").map((char, index) => (
+                  <motion.span
+                    key={index}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: index * 0.08, duration: 0.01 }}
+                  >
+                    {char}
+                  </motion.span>
+                ))}
+                <br />
+                <span className="relative inline-block text-primary neon-text uppercase mt-2">
+                  <span className="relative z-10">Sales Agent</span>
+                  {/* Chromatic Aberration Layers */}
+                  <motion.span
+                    className="absolute inset-0 text-red-500/80 z-0 mix-blend-screen"
+                    animate={{ x: [-2, 2, -2], opacity: [0.8, 0, 0.8] }}
+                    transition={{ duration: 0.2, repeat: Infinity, repeatDelay: 3 }}
+                  >
+                    Sales Agent
+                  </motion.span>
+                  <motion.span
+                    className="absolute inset-0 text-blue-500/80 z-0 mix-blend-screen"
+                    animate={{ x: [2, -2, 2], opacity: [0.8, 0, 0.8] }}
+                    transition={{ duration: 0.2, repeat: Infinity, repeatDelay: 3 }}
+                  >
+                    Sales Agent
+                  </motion.span>
+                </span>
               </h1>
             </div>
             <p className="text-lg md:text-xl text-white/60 max-w-xl mx-auto md:mx-0 leading-relaxed px-4 md:px-0">
@@ -72,10 +108,11 @@ export default function Home() {
             </p>
           </motion.div>
 
+          {/* Buttons: Slide Up */}
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3, duration: 0.8 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8, duration: 0.8 }}
             className="flex flex-col md:flex-row gap-4 justify-center md:justify-start"
           >
             <Link href="/login" className="relative overflow-hidden px-8 py-4 bg-primary text-black font-bold rounded-full hover:scale-105 transition-transform flex items-center justify-center gap-2 group shadow-[0_0_20px_rgba(192,132,252,0.3)] hover:shadow-[0_0_30px_rgba(192,132,252,0.5)]">
@@ -96,10 +133,26 @@ export default function Home() {
           </motion.div>
         </div>
 
+        {/* Floating Ghost with Glitch */}
         <div className="flex-1 flex items-center justify-center relative min-h-[300px] md:min-h-[400px]">
-          <div className="scale-75 md:scale-100">
-            <GhostIcon />
-          </div>
+          <motion.div
+            className="scale-75 md:scale-100 relative"
+            animate={{ y: [0, -20, 0] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+          >
+            {/* Holographic Signal Noise */}
+            <motion.div
+              className="absolute inset-0 z-10 mix-blend-color-dodge"
+              animate={{ opacity: [0, 0.8, 0], x: [0, -5, 5, 0], skewX: [0, 10, -10, 0] }}
+              transition={{ duration: 0.2, repeat: Infinity, repeatDelay: 5 }}
+            >
+              <GhostIcon className="text-cyan-400 blur-[2px]" />
+            </motion.div>
+
+            <div className="relative filter drop-shadow-[0_0_50px_rgba(192,132,252,0.3)]">
+              <GhostIcon />
+            </div>
+          </motion.div>
         </div>
       </section>
 
