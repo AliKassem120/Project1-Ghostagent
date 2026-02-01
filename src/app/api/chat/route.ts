@@ -137,9 +137,9 @@ If the answer is not in the knowledge base or inventory above, say: "I need to c
 
                         return `Success: Stock for "${item.item_name}" updated. Old: ${item.stock_level}, New: ${newStock}.`;
                     },
-                }),
+                } as any),
             },
-        } as any); // Cast options to any to bypass potential type mismatches
+        } as any);
 
         return (result as any).toDataStreamResponse();
     } catch (error) {
