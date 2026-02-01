@@ -100,7 +100,7 @@ export default function DashboardPage() {
     ];
 
     return (
-        <div className="space-y-8 pb-12">
+        <div className="space-y-6 pb-12">
             {/* Header with Floating Ghost */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative">
                 <div className="z-10">
@@ -124,148 +124,123 @@ export default function DashboardPage() {
                 </div>
             </div>
 
-            {/* Ghost Agent Chat Interface */}
-            <div className="w-full">
-                <GhostChat />
-            </div>
+            {/* BENTO GRID LAYOUT */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
 
-            {/* Glassmorphic KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {metrics.map((metric, index) => (
-                    <motion.div
-                        key={metric.label}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.1, duration: 0.5 }}
-                        className={clsx(
-                            "glass-dark p-6 rounded-3xl border border-white/10 hover:border-white/20 transition-all group",
-                            metric.glow && "hover:shadow-[0_0_30px_rgba(34,197,94,0.2)]"
-                        )}
-                    >
-                        <div className="flex items-start justify-between mb-4">
-                            <div className={`p-3 rounded-xl ${metric.bgColor} ${metric.color} group-hover:scale-110 transition-transform`}>
-                                <metric.icon className="w-6 h-6" />
-                            </div>
+                {/* LEFT MAIN COLUMN (3fr) */}
+                <div className="lg:col-span-3 space-y-6">
 
-                            {/* Trend Badge */}
-                            <div className={clsx(
-                                "px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1",
-                                metric.trend > 0
-                                    ? "bg-green-500/20 text-green-400"
-                                    : "bg-red-500/20 text-red-400"
-                            )}>
-                                {metric.trend > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                                {Math.abs(metric.trend)}%
-                            </div>
-                        </div>
-
-                        <div className="space-y-1">
-                            <div className={clsx(
-                                "text-3xl font-black",
-                                metric.glow && "text-green-400 glow-text"
-                            )}>
-                                <CountUp
-                                    end={metric.value}
-                                    prefix={metric.prefix || ''}
-                                    suffix={metric.suffix || ''}
-                                    decimals={metric.prefix === '$' ? 2 : 0}
-                                />
-                            </div>
-                            <div className="text-sm text-white/60 font-medium">{metric.label}</div>
-                        </div>
-                    </motion.div>
-                ))}
-            </div>
-
-            {/* Dynamic Section: Approval Queue or Recent Activity */}
-            <AnimatePresence mode="wait">
-                {!autopilot ? (
-                    <motion.div
-                        key="approval-queue"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.4 }}
-                    >
-                        <ApprovalQueue />
-                    </motion.div>
-                ) : (
-                    <motion.div
-                        key="recent-activity"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.4 }}
-                        className="space-y-6"
-                    >
-                        <div className="glass-dark p-8 rounded-3xl border border-white/10">
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-2xl font-bold">Live Activity Feed</h2>
-                                <span className="text-xs text-white/40 flex items-center gap-1">
-                                    <Activity className="w-3 h-3 text-primary" />
-                                    Real-time Events
-                                </span>
-                            </div>
-                            <div className="space-y-4">
-                                {activities.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center py-12 text-center opacity-70">
-                                        <div className="relative w-48 h-48 mb-6">
-                                            <div className="absolute inset-0 border-2 border-green-500/20 rounded-full shadow-[0_0_15px_rgba(34,197,94,0.1)]" />
-                                            <div className="absolute inset-[10%] border border-green-500/10 rounded-full" />
-                                            <div className="absolute inset-[30%] border border-green-500/10 rounded-full" />
-                                            <motion.div
-                                                animate={{ rotate: 360 }}
-                                                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                                                className="absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_0deg,transparent_270deg,rgba(34,197,94,0.3)_360deg)]"
-                                            />
-                                        </div>
-                                        <div className="font-mono text-green-400 text-sm tracking-[0.2em] animate-pulse">
-                                            SYSTEM IDLE<br />SCANNING FOR SIGNALS...
-                                        </div>
-                                    </div>
-                                ) : (
-                                    activities.map((log) => (
-                                        <div
-                                            key={log.id}
-                                            className="flex items-center justify-between p-4 glass rounded-xl hover:bg-white/10 transition-colors border border-white/5"
-                                        >
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center">
-                                                    <span className="text-xs font-bold">{log.event_type.slice(0, 2)}</span>
-                                                </div>
-                                                <div>
-                                                    <div className="font-medium text-white/90">{log.event_type}</div>
-                                                    <div className="text-sm text-white/50">{log.description}</div>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="text-xs text-white/40">
-                                                    {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))
+                    {/* Row 1: Stats Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {metrics.map((metric, index) => (
+                            <motion.div
+                                key={metric.label}
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: index * 0.1, duration: 0.5 }}
+                                className={clsx(
+                                    "glass-dark p-6 rounded-2xl border border-white/10 hover:border-white/20 transition-all group backdrop-blur-md",
+                                    metric.glow && "hover:shadow-[0_0_30px_rgba(34,197,94,0.2)]"
                                 )}
-                            </div>
+                            >
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className={`p-3 rounded-xl ${metric.bgColor} ${metric.color} group-hover:scale-110 transition-transform`}>
+                                        <metric.icon className="w-6 h-6" />
+                                    </div>
+                                    <div className={clsx(
+                                        "px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1",
+                                        metric.trend > 0 ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                                    )}>
+                                        {metric.trend > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                                        {Math.abs(metric.trend)}%
+                                    </div>
+                                </div>
+                                <div className="space-y-1">
+                                    <div className={clsx("text-3xl font-black", metric.glow && "text-green-400 glow-text")}>
+                                        <CountUp end={metric.value} prefix={metric.prefix || ''} suffix={metric.suffix || ''} decimals={metric.prefix === '$' ? 2 : 0} />
+                                    </div>
+                                    <div className="text-sm text-white/60 font-medium">{metric.label}</div>
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
+
+                    {/* Row 2: Console / GhostChat */}
+                    <div className="h-[600px] w-full relative glass-dark rounded-2xl border border-white/10 overflow-hidden shadow-2xl">
+                        {/* Pass height prop or wrap style if needed, but GhostChat usually handles its own height. We force container here. */}
+                        <div className="absolute inset-0">
+                            <GhostChat />
+                        </div>
+                    </div>
+                </div>
+
+                {/* RIGHT SIDEBAR COLUMN (1fr) */}
+                <div className="lg:col-span-1">
+                    <div className="sticky top-6 glass-dark rounded-2xl border border-white/10 overflow-hidden flex flex-col h-[calc(100vh-6rem)] backdrop-blur-md">
+                        <div className="p-4 border-b border-white/10 flex items-center justify-between bg-white/5">
+                            <h3 className="font-bold flex items-center gap-2 text-sm uppercase tracking-wide">
+                                <Activity className="w-4 h-4 text-primary" />
+                                {autopilot ? "Live Activity" : "Approvals"}
+                            </h3>
+                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                         </div>
 
-                        {/* Quick Stats */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {[
-                                { label: 'Avg Response Time', value: '12s' },
-                                { label: 'Active Chats', value: '34' },
-                                { label: 'Conversion Rate', value: '23%' },
-                                { label: 'Customer Satisfaction', value: '4.8/5' },
-                            ].map((stat, i) => (
-                                <div key={i} className="glass p-4 rounded-xl border border-white/5 text-center">
-                                    <div className="text-2xl font-bold text-primary mb-1">{stat.value}</div>
-                                    <div className="text-xs text-white/60">{stat.label}</div>
-                                </div>
-                            ))}
+                        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-4">
+                            <AnimatePresence mode="wait">
+                                {!autopilot ? (
+                                    <motion.div
+                                        key="approval-queue"
+                                        initial={{ opacity: 0, x: 20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: -20 }}
+                                    >
+                                        <ApprovalQueue />
+                                    </motion.div>
+                                ) : (
+                                    <motion.div
+                                        key="recent-activity"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        className="space-y-4"
+                                    >
+                                        {activities.length === 0 ? (
+                                            <div className="flex flex-col items-center justify-center py-12 text-center opacity-70">
+                                                <div className="relative w-32 h-32 mb-6">
+                                                    <div className="absolute inset-0 border-2 border-green-500/20 rounded-full shadow-[0_0_15px_rgba(34,197,94,0.1)]" />
+                                                    <div className="absolute inset-[10%] border border-green-500/10 rounded-full" />
+                                                    <motion.div
+                                                        animate={{ rotate: 360 }}
+                                                        transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                                                        className="absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_0deg,transparent_270deg,rgba(34,197,94,0.3)_360deg)]"
+                                                    />
+                                                </div>
+                                                <div className="font-mono text-green-400 text-[10px] tracking-widest uppercase animate-pulse">
+                                                    SCANNING...
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            activities.map((log) => (
+                                                <div key={log.id} className="p-4 glass rounded-xl border border-white/5 hover:bg-white/10 transition-colors group">
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center border border-white/5 text-xs font-bold text-white/70">
+                                                            {log.event_type.slice(0, 1)}
+                                                        </div>
+                                                        <span className="font-bold text-white/90 text-xs">{log.event_type}</span>
+                                                    </div>
+                                                    <p className="text-white/60 text-xs leading-relaxed pl-1">{log.description}</p>
+                                                    <div className="mt-2 text-right">
+                                                        <span className="text-[10px] text-white/30 font-mono">{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
