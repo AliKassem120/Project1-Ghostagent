@@ -92,7 +92,6 @@ If the answer is not in the knowledge base or inventory above, say: "I need to c
             model: google("gemini-1.5-flash-latest"),
             messages: await convertToModelMessages(messages),
             system: systemPrompt,
-            maxSteps: 5, // Allow multi-step thinking for tools
             tools: {
                 updateInventory: tool({
                     description: 'Update the stock level of an inventory item. Use -1 for a sale, +N for restock. Automatically logs the change.',
@@ -100,7 +99,7 @@ If the answer is not in the knowledge base or inventory above, say: "I need to c
                         itemName: z.string().describe('The name of the item to update (case-insensitive)'),
                         quantityChange: z.number().describe('The amount to change stock by (negative to decrease/sell, positive to increase/restock)'),
                     }),
-                    execute: async ({ itemName, quantityChange }) => {
+                    execute: async ({ itemName, quantityChange }: { itemName: string, quantityChange: number }) => {
                         if (!ownerId) return "Error: No user context found. Cannot update inventory.";
 
                         // 1. Find the item
@@ -142,7 +141,8 @@ If the answer is not in the knowledge base or inventory above, say: "I need to c
             },
         });
 
-        return result.toDataStreamResponse();
+        // Use toTextStreamResponse as toDataStreamResponse might be missing in this version
+        return result.toTextStreamResponse();
     } catch (error) {
         console.error("CRITICAL Chat API Error:", error);
         return new Response(
