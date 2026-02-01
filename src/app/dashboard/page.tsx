@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { MessageSquare, DollarSign, Package, TrendingUp, TrendingDown, CheckCircle2, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
