@@ -8,6 +8,7 @@ import StarBackground from '@/components/StarBackground';
 import VideoModal from '@/components/VideoModal';
 import Link from 'next/link';
 import { ArrowRight, Bot, MessageCircle, BarChart3, ShoppingBag } from 'lucide-react';
+import Navbar from '@/components/Navbar';
 
 export default function Home() {
   const [showVideo, setShowVideo] = useState(false);
@@ -28,49 +29,7 @@ export default function Home() {
       </div>
 
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between rounded-full px-6 py-3 border border-white/5 bg-black/30 backdrop-blur-md relative overflow-hidden group">
-          {/* Active Scanline */}
-          <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-white/10 overflow-hidden">
-            <motion.div
-              className="w-1/4 h-full bg-gradient-to-r from-transparent via-cyan-400 to-transparent"
-              animate={{ x: ["-100%", "500%"] }}
-              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-            />
-          </div>
-
-          <Link href="/" className="text-xl font-bold tracking-tighter flex items-center gap-3 group/logo relative z-10">
-            <div className="p-1 rounded-lg transition-colors">
-              <motion.div
-                animate={{ scale: [1, 1.05, 1] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                whileHover={{ rotate: 360, transition: { duration: 0.5 } }}
-              >
-                <GhostLogo className="w-8 h-8" />
-              </motion.div>
-            </div>
-            <span className="font-black text-xl tracking-tight text-white">
-              GhostAgent
-            </span>
-          </Link>
-
-          {/* Central Terminal Nav */}
-          <div className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2 z-10">
-            {['Protocol', 'Clearance', 'Transmission'].map((item) => (
-              <Link key={item} href="#" className="text-sm font-medium text-white/60 hover:text-white transition-all duration-300 group font-mono tracking-wide">
-                <span className="opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 text-cyan-400 inline-block mr-1">[</span>
-                <span className="group-hover:drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]">{item}</span>
-                <span className="opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 text-cyan-400 inline-block ml-1">]</span>
-              </Link>
-            ))}
-          </div>
-
-          <Link href="/login" className="relative px-6 py-2 rounded-full border border-white/20 text-sm font-medium overflow-hidden group/btn hover:border-purple-500/50 transition-colors z-10">
-            <span className="relative z-10 transition-colors group-hover/btn:text-white">Login</span>
-            <div className="absolute inset-0 bg-purple-600 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300 shadow-[0_0_15px_rgba(147,51,234,0.5)]" />
-          </Link>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Hero Section */}
       <section className="relative min-h-screen flex flex-col md:flex-row items-center justify-center p-6 pt-32 max-w-7xl mx-auto gap-12 z-10">
@@ -169,7 +128,8 @@ export default function Home() {
       </section>
 
       {/* Features Section */}
-      <section className="relative py-32 px-6 z-10">
+      {/* Features Section */}
+      <section id="features" className="relative py-32 px-6 z-10">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
             { icon: MessageCircle, title: "Smart Replies", desc: "Context-aware responses to every comment and DM instantly." },
@@ -195,7 +155,8 @@ export default function Home() {
       </section>
 
       {/* How it Works */}
-      <section className="relative py-32 px-6 border-t border-white/5 bg-black/40">
+      {/* How it Works */}
+      <section id="about" className="relative py-32 px-6 border-t border-white/5 bg-black/40">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-20">
             <h2 className="text-4xl md:text-5xl font-bold mb-6">Automate in 3 Steps</h2>
@@ -231,7 +192,8 @@ export default function Home() {
       </section>
 
       {/* Pricing */}
-      <section className="relative py-32 px-6">
+      {/* Pricing */}
+      <section id="pricing" className="relative py-32 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-20">
             <h2 className="text-4xl md:text-5xl font-bold mb-6">Simple Pricing</h2>
@@ -286,7 +248,8 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="py-12 border-t border-white/5 text-center text-white/40 text-sm bg-black">
+      {/* Footer */}
+      <footer id="contact" className="py-12 border-t border-white/5 text-center text-white/40 text-sm bg-black">
         <div className="flex items-center justify-center gap-2 mb-4 opacity-50">
           <GhostLogo className="w-6 h-6 grayscale" /> GhostAgent &copy; 2024
         </div>
