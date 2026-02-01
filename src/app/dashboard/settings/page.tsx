@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Bot, DollarSign, Bell, Globe, Sparkles, Upload } from 'lucide-react';
+import { Save, Bot, DollarSign, Bell, Globe, Sparkles, Upload, Building2 } from 'lucide-react';
 import { clsx } from 'clsx';
+import { supabase } from '@/lib/supabase';
 
 export default function SettingsPage() {
     const [loading, setLoading] = useState(false);
     const [settings, setSettings] = useState({
+        businessName: '',
         tone: 'Professional',
         useEmojis: true,
         maxDiscount: 20,
@@ -18,23 +20,78 @@ export default function SettingsPage() {
     });
 
     useEffect(() => {
-        const saved = localStorage.getItem('ghost_agent_settings');
-        if (saved) {
-            try {
-                setSettings(prev => ({ ...prev, ...JSON.parse(saved) }));
-            } catch (e) {
-                console.error("Failed to parse settings", e);
-            }
-        }
+        fetchSettings();
     }, []);
+
+    const fetchSettings = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data, error } = await supabase
+                .from('bot_settings')
+                .select('*')
+                .eq('user_id', user.id)
+                .single();
+
+            if (error && error.code !== 'PGRST116') { // PGRST116 is "Row not found"
+                console.error('Error fetching settings:', error);
+                return;
+            }
+
+            if (data) {
+                setSettings({
+                    businessName: data.business_name || '',
+                    tone: data.tone || 'Professional',
+                    useEmojis: data.use_emojis ?? true,
+                    maxDiscount: data.max_discount || 20,
+                    minOrderForDiscount: data.min_order_for_discount || 50,
+                    emergencyWhatsApp: data.emergency_whatsapp || '',
+                    language: data.language || 'English',
+                    systemPrompt: data.system_instructions || '',
+                    whatsappTemplate: data.whatsapp_template || '',
+                });
+            }
+        } catch (error) {
+            console.error('Unexpected error fetching settings:', error);
+        }
+    };
 
     const handleSave = async () => {
         setLoading(true);
-        setTimeout(() => {
-            localStorage.setItem('ghost_agent_settings', JSON.stringify(settings));
-            setLoading(false);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                alert('Please log in to save settings.');
+                setLoading(false);
+                return;
+            }
+
+            const { error } = await supabase
+                .from('bot_settings')
+                .upsert({
+                    user_id: user.id,
+                    business_name: settings.businessName,
+                    tone: settings.tone,
+                    use_emojis: settings.useEmojis,
+                    max_discount: settings.maxDiscount,
+                    min_order_for_discount: settings.minOrderForDiscount,
+                    emergency_whatsapp: settings.emergencyWhatsApp,
+                    language: settings.language,
+                    system_instructions: settings.systemPrompt,
+                    whatsapp_template: settings.whatsappTemplate,
+                    updated_at: new Date().toISOString(),
+                }, { onConflict: 'user_id' });
+
+            if (error) throw error;
+
             alert('✅ Settings saved successfully!');
-        }, 800);
+        } catch (error) {
+            console.error('Error saving settings:', error);
+            alert('❌ Failed to save settings.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -45,6 +102,30 @@ export default function SettingsPage() {
                     Agent Settings
                 </h1>
                 <p className="text-white/60">Configure how your Ghost Agent behaves and responds</p>
+            </div>
+
+            {/* Business Identity */}
+            <div className="glass-dark p-8 rounded-3xl border border-white/10">
+                <div className="flex items-center gap-4 pb-6 border-b border-white/10 mb-6">
+                    <div className="p-3 bg-indigo-500/20 rounded-xl">
+                        <Building2 className="w-7 h-7 text-indigo-400" />
+                    </div>
+                    <div>
+                        <h2 className="text-2xl font-bold">Business Identity</h2>
+                        <p className="text-white/50">Core business information</p>
+                    </div>
+                </div>
+
+                <div className="space-y-3">
+                    <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Business Name</label>
+                    <input
+                        type="text"
+                        value={settings.businessName}
+                        onChange={(e) => setSettings({ ...settings, businessName: e.target.value })}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-base focus:border-primary/50 outline-none hover:bg-white/10 transition-all placeholder-white/20"
+                        placeholder="e.g. Joe's Pizza"
+                    />
+                </div>
             </div>
 
             {/* AI Persona */}
@@ -70,6 +151,7 @@ export default function SettingsPage() {
                             <option value="Casual" className="bg-black">Casual & Friendly</option>
                             <option value="Professional" className="bg-black">Professional</option>
                             <option value="Luxury" className="bg-black">Luxury & Premium</option>
+                            <option value="Sarcastic" className="bg-black">Sarcastic</option>
                         </select>
                     </div>
 
@@ -257,23 +339,22 @@ export default function SettingsPage() {
 
                 <div className="space-y-6">
                     <div className="space-y-3">
-                        <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Product Catalog</label>
-                        <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center hover:border-primary/30 hover:bg-white/5 transition-all cursor-pointer group">
-                            <Upload className="w-12 h-12 mx-auto mb-4 text-white/40 group-hover:text-primary transition-colors" />
-                            <input type="file" className="hidden" accept=".csv,.json" />
-                            <div className="text-white/60 mb-2 font-medium text-base">Drop CSV/JSON here or click to upload</div>
-                            <div className="text-xs text-white/40">Fields: name, price, description, stock</div>
-                        </div>
+                        <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">KNOWLEDGE BASE (System Instructions)</label>
+                        <textarea
+                            className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-base focus:border-primary/50 outline-none h-60 resize-none hover:bg-white/10 transition-all"
+                            value={settings.systemPrompt}
+                            onChange={(e) => setSettings({ ...settings, systemPrompt: e.target.value })}
+                            placeholder="Example: We are an eco-friendly streetwear brand. Our shipping takes 3-5 days. Return policy is 30 days..."
+                        />
+                        <p className="text-xs text-white/40 italic">This is the most important field. Tell the bot everything it needs to know about your business.</p>
                     </div>
 
                     <div className="space-y-3">
-                        <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Brand Knowledge</label>
-                        <textarea
-                            className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-base focus:border-primary/50 outline-none h-40 resize-none hover:bg-white/10 transition-all"
-                            value={settings.systemPrompt}
-                            onChange={(e) => setSettings({ ...settings, systemPrompt: e.target.value })}
-                            placeholder="Example: We are an eco-friendly streetwear brand. Our shipping takes 3-5 days..."
-                        />
+                        <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Product Catalog (Optional CSV)</label>
+                        <div className="border-2 border-dashed border-white/10 rounded-2xl p-6 text-center hover:border-primary/30 hover:bg-white/5 transition-all cursor-pointer group">
+                            <Upload className="w-8 h-8 mx-auto mb-2 text-white/40 group-hover:text-primary transition-colors" />
+                            <div className="text-white/60 mb-1 font-medium text-sm">Drop CSV/JSON here</div>
+                        </div>
                     </div>
                 </div>
             </div>
