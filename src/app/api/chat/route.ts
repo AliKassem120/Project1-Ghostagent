@@ -35,12 +35,25 @@ export async function POST(req: Request) {
         let systemPrompt = "You are a helpful assistant.";
 
         if (ownerId) {
-            // 2. FETCH THE BRAIN (User Settings)
-            const { data: settings } = await supabase
-                .from('bot_settings')
-                .select('business_name, system_instructions, tone')
-                .eq('user_id', ownerId)
-                .single();
+            // 2. FETCH THE BRAIN (User Settings & Inventory)
+            const [settingsRes, inventoryRes] = await Promise.all([
+                supabase
+                    .from('bot_settings')
+                    .select('business_name, system_instructions, tone')
+                    .eq('user_id', ownerId)
+                    .single(),
+                supabase
+                    .from('inventory')
+                    .select('item_name, stock_level, price')
+                    .eq('user_id', ownerId)
+            ]);
+
+            const settings = settingsRes.data;
+            const inventory = inventoryRes.data;
+
+            const inventoryContext = inventory?.length
+                ? inventory.map(i => `- ${i.item_name}: ${i.stock_level} in stock ($${i.price})`).join('\n')
+                : "No inventory items listed currently.";
 
             // 3. INJECT THE CONTEXT
             if (settings) {
@@ -48,12 +61,17 @@ export async function POST(req: Request) {
                 systemPrompt = `You are the AI support agent for ${settings.business_name || 'our company'}.
 Your tone is ${settings.tone || 'Professional'}.
 
-Here is your KNOWLEDGE BASE. You must answer based strictly on this:
+KNOWLEDGE BASE:
 ---
 ${settings.system_instructions || ''}
 ---
 
-If the answer is not in the text above, say: "I need to check with a human agent." or provide a helpful generic response if appropriate for the tone.`;
+LIVE INVENTORY (Current Stock):
+---
+${inventoryContext}
+---
+
+If the answer is not in the knowledge base or inventory above, say: "I need to check with a human agent." or provide a helpful generic response if appropriate for the tone.`;
             }
 
             // 4. LOG ACTIVITY
