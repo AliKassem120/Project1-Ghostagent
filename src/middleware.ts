@@ -2,10 +2,9 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { updateSession } from '@/utils/supabase/middleware';
 
 export async function middleware(request: NextRequest) {
-    // 1. Keep Auth Protection
     const response = await updateSession(request);
 
-    // 2. Add Security Headers (Fixes the blank chat error)
+    // UNBLOCK THE CHAT:
     response.headers.set(
         'Content-Security-Policy',
         "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline'; img-src * data: blob: 'unsafe-inline'; frame-src *; style-src * 'unsafe-inline';"
