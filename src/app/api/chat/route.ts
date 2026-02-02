@@ -87,7 +87,7 @@ If the answer is not in the knowledge base or inventory above, say: "I need to c
             }
         }
 
-        const result = await streamText({
+        const result = streamText({
             model: google("gemini-2.5-flash"),
             messages: await convertToModelMessages(messages),
             system: systemPrompt,
@@ -141,14 +141,7 @@ If the answer is not in the knowledge base or inventory above, say: "I need to c
             },
         } as any);
 
-        const r = result as any;
-        if (r.toDataStreamResponse) {
-            return r.toDataStreamResponse();
-        }
-        if (r.toAIStreamResponse) {
-            return r.toAIStreamResponse();
-        }
-        return r.toTextStreamResponse();
+        return result.toTextStreamResponse();
     } catch (error) {
         console.error("CRITICAL Chat API Error:", error);
         return new Response(
