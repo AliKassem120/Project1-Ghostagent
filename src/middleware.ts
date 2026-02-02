@@ -1,27 +1,71 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
 
-export function middleware(request: NextRequest) {
-    const response = NextResponse.next();
+export async function middleware(request: NextRequest) {
+    let response = NextResponse.next({
+        request: {
+            headers: request.headers,
+        },
+    })
 
-    // Set permissive CSP to allow unsafe-eval for AI SDK
-    response.headers.set(
-        'Content-Security-Policy',
-        "script-src 'self' 'unsafe-eval' 'unsafe-inline' https: http:; object-src 'none'; base-uri 'self';"
-    );
+    // Helper to set CSP headers on any response object
+    const setCSP = (res: NextResponse) => {
+        res.headers.set(
+            'Content-Security-Policy',
+            "script-src 'self' 'unsafe-eval' 'unsafe-inline' https: http:; object-src 'none'; base-uri 'self';"
+        );
+        return res;
+    };
 
-    return response;
+    // Set initial CSP
+    setCSP(response);
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) return response;
+
+    const supabase = createServerClient(
+        supabaseUrl,
+        supabaseKey,
+        {
+            cookies: {
+                get(name: string) {
+                    return request.cookies.get(name)?.value
+                },
+                set(name: string, value: string, options: CookieOptions) {
+                    request.cookies.set({ name, value, ...options })
+                    response = NextResponse.next({
+                        request: { headers: request.headers },
+                    })
+                    setCSP(response); // Re-apply CSP to new response
+                    response.cookies.set({ name, value, ...options })
+                },
+                remove(name: string, options: CookieOptions) {
+                    request.cookies.set({ name, value: '', ...options })
+                    response = NextResponse.next({
+                        request: { headers: request.headers },
+                    })
+                    setCSP(response); // Re-apply CSP to new response
+                    response.cookies.set({ name, value: '', ...options })
+                },
+            },
+        }
+    )
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (request.nextUrl.pathname.startsWith('/dashboard') && !user) {
+        return NextResponse.redirect(new URL('/login', request.url))
+    }
+
+    if (request.nextUrl.pathname === '/login' && user) {
+        return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
+
+    return response
 }
 
 export const config = {
-    matcher: [
-        /*
-         * Match all request paths except for the ones starting with:
-         * - api (API routes)
-         * - _next/static (static files)
-         * - _next/image (image optimization files)
-         * - favicon.ico (favicon file)
-         */
-        '/((?!api|_next/static|_next/image|favicon.ico).*)',
-    ],
-};
+    matcher: ['/((?!_next/static|_next/image|favicon.ico|auth|.*\\.).*)'],
+}
