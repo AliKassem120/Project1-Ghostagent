@@ -8,18 +8,6 @@ export async function middleware(request: NextRequest) {
         },
     })
 
-    // Helper to set CSP headers on any response object
-    const setCSP = (res: NextResponse) => {
-        res.headers.set(
-            'Content-Security-Policy',
-            "script-src 'self' 'unsafe-eval' 'unsafe-inline' https: http:; object-src 'none'; base-uri 'self';"
-        );
-        return res;
-    };
-
-    // Set initial CSP
-    setCSP(response);
-
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -38,7 +26,6 @@ export async function middleware(request: NextRequest) {
                     response = NextResponse.next({
                         request: { headers: request.headers },
                     })
-                    setCSP(response); // Re-apply CSP to new response
                     response.cookies.set({ name, value, ...options })
                 },
                 remove(name: string, options: CookieOptions) {
@@ -46,7 +33,6 @@ export async function middleware(request: NextRequest) {
                     response = NextResponse.next({
                         request: { headers: request.headers },
                     })
-                    setCSP(response); // Re-apply CSP to new response
                     response.cookies.set({ name, value: '', ...options })
                 },
             },
