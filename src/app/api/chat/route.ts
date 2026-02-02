@@ -92,7 +92,8 @@ If the answer is not in the knowledge base or inventory above, say: "I need to c
             system: systemPrompt,
         });
 
-        return result.toTextStreamResponse();
+        // Use toUIMessageStreamResponse for proper useChat compatibility in AI SDK v5+
+        return result.toUIMessageStreamResponse();
     } catch (error) {
         console.error("CRITICAL Chat API Error:", error);
         return new Response(
