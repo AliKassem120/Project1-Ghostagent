@@ -88,7 +88,7 @@ If the answer is not in the knowledge base or inventory above, say: "I need to c
         }
 
         const result = await streamText({
-            model: google("gemini-1.5-flash"),
+            model: google("gemini-2.0-flash"),
             messages: await convertToModelMessages(messages),
             system: 'You are a helpful assistant.',
             onChunk({ chunk }: any) {
