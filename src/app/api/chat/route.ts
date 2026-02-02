@@ -92,6 +92,7 @@ If the answer is not in the knowledge base or inventory above, say: "I need to c
             messages: await convertToModelMessages(messages),
             system: 'You are a helpful assistant.',
             onChunk({ chunk }: any) {
+                console.log('--- STREAM CHUNK RECEIVED ---');
                 console.log('Server received chunk:', chunk);
             },
             maxSteps: 5,

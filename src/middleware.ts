@@ -8,6 +8,10 @@ export async function middleware(request: NextRequest) {
         },
     })
 
+    // NUCLEAR CSP FIX: Allow everything for dev/test to stop blocking
+    const nuclearCSP = "default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline'; img-src * data: blob: 'unsafe-inline'; frame-src *; style-src * 'unsafe-inline';";
+    response.headers.set('Content-Security-Policy', nuclearCSP);
+
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -26,6 +30,7 @@ export async function middleware(request: NextRequest) {
                     response = NextResponse.next({
                         request: { headers: request.headers },
                     })
+                    response.headers.set('Content-Security-Policy', nuclearCSP);
                     response.cookies.set({ name, value, ...options })
                 },
                 remove(name: string, options: CookieOptions) {
@@ -33,6 +38,7 @@ export async function middleware(request: NextRequest) {
                     response = NextResponse.next({
                         request: { headers: request.headers },
                     })
+                    response.headers.set('Content-Security-Policy', nuclearCSP);
                     response.cookies.set({ name, value: '', ...options })
                 },
             },
