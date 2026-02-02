@@ -90,11 +90,7 @@ If the answer is not in the knowledge base or inventory above, say: "I need to c
         const result = await streamText({
             model: google("gemini-2.5-flash"),
             messages: await convertToModelMessages(messages),
-            system: 'You are a helpful assistant.',
-            onChunk({ chunk }: any) {
-                console.log('--- STREAM CHUNK RECEIVED ---');
-                console.log('Server received chunk:', chunk);
-            },
+            system: systemPrompt,
             maxSteps: 5,
             tools: {
                 updateInventory: tool({
