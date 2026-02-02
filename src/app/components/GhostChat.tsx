@@ -146,6 +146,8 @@ export default function GhostChat() {
                 <form onSubmit={handleSubmit} className="relative flex items-center">
                     <input
                         type="text"
+                        name="message"
+                        id="chat-input"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         placeholder="Transmit message..."
