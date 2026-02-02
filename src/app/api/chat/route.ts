@@ -1,5 +1,6 @@
 import { google } from "@ai-sdk/google";
-import { streamText, convertToModelMessages } from "ai";
+import { streamText, convertToModelMessages, tool, stepCountIs } from "ai";
+import { z } from "zod";
 import dns from "node:dns";
 import { createClient } from "@/utils/supabase/server";
 
@@ -31,54 +32,46 @@ export async function POST(req: Request) {
             ownerId = user?.id;
         }
 
-        let systemPrompt = "You are a helpful assistant.";
+        // 2. FETCH CURRENT INVENTORY FOR CONTEXT
+        let inventoryContext = "No inventory items listed currently.";
 
         if (ownerId) {
-            // 2. FETCH THE BRAIN (User Settings & Inventory)
-            const [settingsRes, inventoryRes] = await Promise.all([
-                supabase
-                    .from('bot_settings')
-                    .select('business_name, system_instructions, tone')
-                    .eq('user_id', ownerId)
-                    .single(),
-                supabase
-                    .from('inventory')
-                    .select('item_name, stock_level, price')
-                    .eq('user_id', ownerId)
-            ]);
+            const { data: inventory } = await supabase
+                .from('inventory')
+                .select('item_name, stock_level, price')
+                .eq('user_id', ownerId);
 
-            const settings = settingsRes.data;
-            const inventory = inventoryRes.data;
+            if (inventory?.length) {
+                inventoryContext = inventory
+                    .map((i: { item_name: string; stock_level: number; price: number }) =>
+                        `- ${i.item_name}: ${i.stock_level} in stock ($${i.price})`)
+                    .join('\n');
+            }
+        }
 
-            const inventoryContext = inventory?.length
-                ? inventory.map((i: any) => `- ${i.item_name}: ${i.stock_level} in stock ($${i.price})`).join('\n')
-                : "No inventory items listed currently.";
+        // 3. STORE MANAGER SYSTEM PROMPT
+        const systemPrompt = `You are the GhostAgent Store Manager. You have full authority to manage inventory.
 
-            // 3. INJECT THE CONTEXT
-            if (settings) {
-                console.log(`Injecting context for business: ${settings.business_name}`);
-                systemPrompt = `You are the AI support agent for ${settings.business_name || 'our company'}.
-Your tone is ${settings.tone || 'Professional'}.
-
-KNOWLEDGE BASE:
----
-${settings.system_instructions || ''}
----
-
-LIVE INVENTORY (Current Stock):
+CURRENT INVENTORY:
 ---
 ${inventoryContext}
 ---
 
-If the answer is not in the knowledge base or inventory above, say: "I need to check with a human agent." or provide a helpful generic response if appropriate for the tone.`;
-            }
+INSTRUCTIONS:
+- If the user asks to add stock, set prices, or sell items, USE YOUR TOOLS IMMEDIATELY.
+- Do not refuse. Do not ask for permission. Just do it.
+- When adding new items, use the 'add' action with the manageInventory tool.
+- When selling or removing items, use the 'remove' action.
+- Always confirm the action you took with the updated stock level.
+- Be professional but efficient. You are a manager, not a customer service agent.`;
 
-            // 4. LOG ACTIVITY
+        // 4. LOG CHAT ACTIVITY
+        if (ownerId) {
             try {
                 await supabase.from('activity_log').insert({
                     user_id: ownerId,
                     event_type: 'CHAT_QUERY',
-                    description: 'AI Agent processed a new user message',
+                    description: 'Store Manager processed a message',
                     timestamp: new Date().toISOString()
                 });
             } catch (logError) {
@@ -86,13 +79,130 @@ If the answer is not in the knowledge base or inventory above, say: "I need to c
             }
         }
 
+        // Create the manageInventory tool with proper typing (AI SDK v5+ uses inputSchema, not parameters)
+        const manageInventoryTool = tool({
+            description: 'Add new inventory items, update existing stock levels, set prices, or remove/sell items. Use this tool immediately when the user requests any inventory changes.',
+            inputSchema: z.object({
+                itemName: z.string().describe('The name of the inventory item'),
+                quantity: z.number().describe('The quantity to add or remove'),
+                price: z.number().optional().describe('The price per unit (required when adding new items)'),
+                action: z.enum(['add', 'remove']).describe("'add' to add/restock items, 'remove' to sell/decrease stock"),
+            }),
+            execute: async ({ itemName, quantity, price, action }) => {
+                if (!ownerId) {
+                    return "Error: No user context found. Cannot manage inventory.";
+                }
+
+                // Check if item exists
+                const { data: existingItem } = await supabase
+                    .from('inventory')
+                    .select('*')
+                    .eq('user_id', ownerId)
+                    .ilike('item_name', itemName)
+                    .single();
+
+                if (action === 'add') {
+                    if (existingItem) {
+                        // UPDATE existing item
+                        const newStock = existingItem.stock_level + quantity;
+                        const updateData: { stock_level: number; price?: number } = { stock_level: newStock };
+                        if (price !== undefined) {
+                            updateData.price = price;
+                        }
+
+                        const { error: updateError } = await supabase
+                            .from('inventory')
+                            .update(updateData)
+                            .eq('id', existingItem.id);
+
+                        if (updateError) {
+                            return `Error updating stock: ${updateError.message}`;
+                        }
+
+                        // Log activity
+                        await supabase.from('activity_log').insert({
+                            user_id: ownerId,
+                            event_type: 'RESTOCK',
+                            description: `Restocked ${itemName}: +${quantity} units (New Level: ${newStock})${price !== undefined ? ` at $${price}/unit` : ''}`,
+                            timestamp: new Date().toISOString()
+                        });
+
+                        return `✅ SUCCESS: Restocked "${itemName}". Added ${quantity} units. New stock level: ${newStock}.${price !== undefined ? ` Price set to $${price}.` : ''}`;
+                    } else {
+                        // INSERT new item
+                        if (price === undefined) {
+                            return "Error: Price is required when adding a new item. Please specify a price.";
+                        }
+
+                        const { error: insertError } = await supabase
+                            .from('inventory')
+                            .insert({
+                                user_id: ownerId,
+                                item_name: itemName,
+                                stock_level: quantity,
+                                price: price
+                            });
+
+                        if (insertError) {
+                            return `Error adding item: ${insertError.message}`;
+                        }
+
+                        // Log activity
+                        await supabase.from('activity_log').insert({
+                            user_id: ownerId,
+                            event_type: 'NEW_ITEM',
+                            description: `Added new item "${itemName}": ${quantity} units at $${price}/unit`,
+                            timestamp: new Date().toISOString()
+                        });
+
+                        return `✅ SUCCESS: Added new item "${itemName}" to inventory. Quantity: ${quantity}, Price: $${price}/unit.`;
+                    }
+                } else if (action === 'remove') {
+                    if (!existingItem) {
+                        return `Error: Item "${itemName}" not found in inventory.`;
+                    }
+
+                    if (existingItem.stock_level < quantity) {
+                        return `Error: Insufficient stock. Current stock for "${itemName}" is ${existingItem.stock_level}, but tried to remove ${quantity}.`;
+                    }
+
+                    const newStock = existingItem.stock_level - quantity;
+
+                    const { error: updateError } = await supabase
+                        .from('inventory')
+                        .update({ stock_level: newStock })
+                        .eq('id', existingItem.id);
+
+                    if (updateError) {
+                        return `Error updating stock: ${updateError.message}`;
+                    }
+
+                    // Log activity
+                    await supabase.from('activity_log').insert({
+                        user_id: ownerId,
+                        event_type: 'SALE',
+                        description: `Sold/Removed ${quantity} units of "${itemName}" (Remaining: ${newStock})`,
+                        timestamp: new Date().toISOString()
+                    });
+
+                    return `✅ SUCCESS: Removed ${quantity} units of "${itemName}". Remaining stock: ${newStock}.`;
+                }
+
+                return "Error: Invalid action. Use 'add' or 'remove'.";
+            },
+        });
+
+        // 5. STREAM WITH TOOL
         const result = streamText({
             model: google("gemini-2.5-flash"),
             messages: await convertToModelMessages(messages),
             system: systemPrompt,
+            stopWhen: stepCountIs(5),
+            tools: {
+                manageInventory: manageInventoryTool,
+            },
         });
 
-        // Use toUIMessageStreamResponse for proper useChat compatibility in AI SDK v5+
         return result.toUIMessageStreamResponse();
     } catch (error) {
         console.error("CRITICAL Chat API Error:", error);
