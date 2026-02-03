@@ -55,7 +55,7 @@ export default function GhostChat() {
     };
 
     return (
-        <div className="flex flex-col h-[600px] w-full max-w-2xl mx-auto bg-black/90 border border-cyan-500/30 rounded-xl shadow-[0_0_15px_rgba(6,182,212,0.15)] overflow-hidden backdrop-blur-md relative">
+        <div className="flex flex-col h-full w-full bg-black/90 border border-cyan-500/30 rounded-xl shadow-[0_0_15px_rgba(6,182,212,0.15)] overflow-hidden backdrop-blur-md relative">
             {/* Header */}
             <div className="flex items-center gap-3 p-4 border-b border-cyan-500/20 bg-cyan-950/10 shrink-0">
                 <div className="relative">

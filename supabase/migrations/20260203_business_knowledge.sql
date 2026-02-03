@@ -5,11 +5,9 @@ CREATE TABLE IF NOT EXISTS business_knowledge (
     file_name TEXT NOT NULL,
     content TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT business_knowledge_user_id_key UNIQUE (user_id)
 );
-
--- Create index for faster lookups by user
-CREATE INDEX IF NOT EXISTS idx_business_knowledge_user_id ON business_knowledge(user_id);
 
 -- Enable RLS
 ALTER TABLE business_knowledge ENABLE ROW LEVEL SECURITY;

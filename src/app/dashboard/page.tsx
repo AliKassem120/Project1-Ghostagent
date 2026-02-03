@@ -1,58 +1,41 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MessageSquare, DollarSign, Package, TrendingUp, TrendingDown, CheckCircle2, Activity } from 'lucide-react';
+import { MessageSquare, DollarSign, Package, TrendingUp, TrendingDown, Activity, Instagram, Clock, Zap, MessageCircle, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from '@/components/CountUp';
 import FloatingGhost from '@/components/FloatingGhost';
-import ApprovalQueue from '@/components/ApprovalQueue';
+import GhostChat from '@/app/components/GhostChat'; // Checked path
 import { useAutopilot } from '@/context/AutopilotContext';
 import clsx from 'clsx';
-import GhostChat from '../components/GhostChat';
 import { createClient } from '@/utils/supabase/client';
-
-type ActivityLog = {
-    id: string;
-    event_type: string;
-    description: string;
-    timestamp: string;
-};
 
 export default function DashboardPage() {
     const { autopilot } = useAutopilot();
-    const [activities, setActivities] = useState<ActivityLog[]>([]);
     const supabase = createClient();
+    const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
 
-    useEffect(() => {
-        const fetchActivity = async () => {
-            const { data } = await supabase
-                .from('activity_log')
-                .select('*')
-                .order('timestamp', { ascending: false })
-                .limit(10);
-
-            if (data) setActivities(data);
-        };
-
-        fetchActivity();
-
-        // Optional: Realtime subscription could go here
-    }, []);
-
+    // Stats & Activities
     const [stats, setStats] = useState({ comments: 0, sales: 0, stock: 0 });
+    const [igActivities, setIgActivities] = useState([
+        { id: 1, action: 'Replied to comment', target: '@sarah_j', detail: 'Price sent via DM', time: '2m ago', icon: MessageCircle },
+        { id: 2, action: 'Inventory Check', target: 'Neon Hoodie', detail: 'Stock confirmed (45 left)', time: '5m ago', icon: Package },
+        { id: 3, action: 'DM Automation', target: '@mike_ross', detail: 'Sent checkout link', time: '12m ago', icon: Zap },
+        { id: 4, action: 'Story Reply', target: '@jessica_l', detail: 'Reacted with 🔥', time: '24m ago', icon: Instagram },
+    ]);
 
     useEffect(() => {
         const fetchStats = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            // Fetch comments (activity log count)
+            // Fetch comments count
             const { count: commentsCount } = await supabase
                 .from('activity_log')
                 .select('*', { count: 'exact', head: true })
                 .eq('user_id', user.id);
 
-            // Fetch stock (sum of stock_level)
+            // Fetch inventory stock
             const { data: inventory } = await supabase
                 .from('inventory')
                 .select('stock_level')
@@ -62,7 +45,7 @@ export default function DashboardPage() {
 
             setStats({
                 comments: commentsCount || 0,
-                sales: 0, // Placeholder
+                sales: 1240, // Mocked for "Money Made" visualization
                 stock: totalStock
             });
         };
@@ -71,177 +54,212 @@ export default function DashboardPage() {
 
     const metrics = [
         {
-            icon: MessageSquare,
-            label: 'Total Comments',
-            value: stats.comments,
-            trend: 0,
+            icon: Clock,
+            label: 'Time Saved',
+            value: 4.5,
+            suffix: ' hrs',
+            trend: 12,
             color: 'text-blue-400',
             bgColor: 'bg-blue-500/20'
         },
         {
             icon: DollarSign,
-            label: 'Sales Converted',
+            label: 'Money Made',
             value: stats.sales,
             prefix: '$',
-            suffix: ' USD',
-            trend: 0,
+            trend: 8,
             color: 'text-green-400',
             bgColor: 'bg-green-500/20',
             glow: true
         },
         {
-            icon: Package,
-            label: 'Active Stock',
-            value: stats.stock,
-            trend: 0,
+            icon: MessageSquare,
+            label: 'Replies Sent',
+            value: stats.comments,
+            trend: 24,
             color: 'text-purple-400',
             bgColor: 'bg-purple-500/20'
         },
     ];
 
     return (
-        <div className="space-y-6 pb-12">
-            {/* Header with Floating Ghost */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative">
-                <div className="z-10">
-                    <h1 className="text-3xl lg:text-4xl font-black mb-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
-                        Dashboard Overview
+        <div className="h-[calc(100vh-2rem)] flex flex-col overflow-hidden pb-safe">
+            {/* Header */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-6 shrink-0">
+                <div>
+                    <h1 className="text-3xl font-black mb-1 bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60 flex items-center gap-3">
+                        COMMAND CENTER <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded border border-primary/30 tracking-widest">LIVE</span>
                     </h1>
-                    <div className="flex items-center gap-2">
-                        <div className={clsx(
-                            "w-2 h-2 rounded-full",
-                            autopilot ? "bg-green-500 animate-pulse" : "bg-yellow-500"
-                        )} />
-                        <p className="text-white/60 text-sm lg:text-base">
-                            {autopilot
-                                ? "Your AI sales agent is online and auto-replying"
-                                : "Agent is drafting responses for your approval"}
-                        </p>
-                    </div>
+                    <p className="text-white/40 text-sm">Real-time neural link established.</p>
                 </div>
-                <div className="absolute right-0 top-0 -translate-y-1/4 lg:relative lg:translate-y-0 opacity-30 lg:opacity-100 pointer-events-none lg:pointer-events-auto">
-                    <FloatingGhost />
+                <div className="flex items-center gap-4">
+                    <div className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10">
+                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                        <span className="text-xs font-mono text-green-400">SYSTEM OPTIMAL</span>
+                    </div>
                 </div>
             </div>
 
-            {/* BENTO GRID LAYOUT */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Main Grid */}
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-10 gap-6 overflow-hidden min-h-0">
 
-                {/* LEFT MAIN COLUMN (3fr) */}
-                <div className="lg:col-span-3 space-y-6">
+                {/* LEFT HERO SECTION (70%) */}
+                <div className="lg:col-span-7 flex flex-col gap-6 overflow-y-auto pr-2 custom-scrollbar">
 
-                    {/* Row 1: Stats Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* 1. Stats Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0">
                         {metrics.map((metric, index) => (
                             <motion.div
                                 key={metric.label}
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: index * 0.1, duration: 0.5 }}
+                                transition={{ delay: index * 0.1 }}
                                 className={clsx(
-                                    "glass-dark p-6 rounded-2xl border border-white/10 hover:border-white/20 transition-all group backdrop-blur-md",
-                                    metric.glow && "hover:shadow-[0_0_30px_rgba(34,197,94,0.2)]"
+                                    "glass-dark p-6 rounded-2xl border border-white/10 hover:border-white/20 transition-all group",
+                                    metric.glow && "shadow-[0_0_30px_rgba(34,197,94,0.1)] hover:shadow-[0_0_30px_rgba(34,197,94,0.2)]"
                                 )}
                             >
-                                <div className="flex items-start justify-between mb-4">
-                                    <div className={`p-3 rounded-xl ${metric.bgColor} ${metric.color} group-hover:scale-110 transition-transform`}>
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className={`p-3 rounded-xl ${metric.bgColor} ${metric.color}`}>
                                         <metric.icon className="w-6 h-6" />
                                     </div>
-                                    <div className={clsx(
-                                        "px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1",
-                                        metric.trend > 0 ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
-                                    )}>
-                                        {metric.trend > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                                        {Math.abs(metric.trend)}%
+                                    <div className="text-xs font-mono text-white/40 flex items-center gap-1">
+                                        <TrendingUp className="w-3 h-3 text-green-400" /> +{metric.trend}%
                                     </div>
                                 </div>
-                                <div className="space-y-1">
-                                    <div className={clsx("text-3xl font-black", metric.glow && "text-green-400 glow-text")}>
-                                        <CountUp end={metric.value} prefix={metric.prefix || ''} suffix={metric.suffix || ''} decimals={metric.prefix === '$' ? 2 : 0} />
+                                <div>
+                                    <div className="text-3xl font-black text-white/90">
+                                        <CountUp end={metric.value} prefix={metric.prefix} suffix={metric.suffix} decimals={metric.value % 1 !== 0 ? 1 : 0} />
                                     </div>
-                                    <div className="text-sm text-white/60 font-medium">{metric.label}</div>
+                                    <div className="text-sm text-white/40 font-medium mt-1">{metric.label}</div>
                                 </div>
                             </motion.div>
                         ))}
                     </div>
 
-                    {/* Row 2: Console / GhostChat */}
-                    <div className="h-[600px] w-full relative glass-dark rounded-2xl border border-white/10 overflow-hidden shadow-2xl">
-                        {/* Pass height prop or wrap style if needed, but GhostChat usually handles its own height. We force container here. */}
-                        <div className="absolute inset-0">
-                            <GhostChat />
+                    {/* 2. Intelligence Summary Box */}
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.3 }}
+                        className="bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border border-indigo-500/20 p-6 rounded-2xl relative overflow-hidden shrink-0"
+                    >
+                        <div className="absolute top-0 right-0 p-3 opacity-20">
+                            <Zap className="w-24 h-24 text-white" />
                         </div>
-                    </div>
-                </div>
+                        <h3 className="text-lg font-bold text-indigo-300 mb-2 flex items-center gap-2">
+                            <Sparkles className="w-4 h-4" /> Daily Intelligence
+                        </h3>
+                        <p className="text-white/80 text-lg leading-relaxed max-w-2xl relative z-10">
+                            "I've handled <span className="text-white font-bold">142 customer interactions</span> today. The most common question was about the <span className="text-indigo-300 underline decoration-dotted">Neon Hoodie sizing</span>. I saved you approximately 4.5 hours of typing."
+                        </p>
+                    </motion.div>
 
-                {/* RIGHT SIDEBAR COLUMN (1fr) */}
-                <div className="lg:col-span-1">
-                    <div className="sticky top-6 glass-dark rounded-2xl border border-white/10 overflow-hidden flex flex-col h-[calc(100vh-6rem)] backdrop-blur-md">
-                        <div className="p-4 border-b border-white/10 flex items-center justify-between bg-white/5">
+                    {/* 3. Live IG Feed */}
+                    <div className="flex-1 glass-dark rounded-2xl border border-white/10 overflow-hidden flex flex-col min-h-[300px]">
+                        <div className="p-4 border-b border-white/10 bg-white/5 flex items-center justify-between sticky top-0 z-10 backdrop-blur-md">
                             <h3 className="font-bold flex items-center gap-2 text-sm uppercase tracking-wide">
-                                <Activity className="w-4 h-4 text-primary" />
-                                {autopilot ? "Live Activity" : "Approvals"}
+                                <Instagram className="w-4 h-4 text-pink-500" />
+                                Live Feed
                             </h3>
-                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                            <div className="flex items-center gap-2 text-[10px] font-mono text-white/40">
+                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                                LISTENING
+                            </div>
                         </div>
-
-                        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-4">
-                            <AnimatePresence mode="wait">
-                                {!autopilot ? (
-                                    <motion.div
-                                        key="approval-queue"
-                                        initial={{ opacity: 0, x: 20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        exit={{ opacity: 0, x: -20 }}
-                                    >
-                                        <ApprovalQueue />
-                                    </motion.div>
-                                ) : (
-                                    <motion.div
-                                        key="recent-activity"
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        className="space-y-4"
-                                    >
-                                        {activities.length === 0 ? (
-                                            <div className="flex flex-col items-center justify-center py-12 text-center opacity-70">
-                                                <div className="relative w-32 h-32 mb-6">
-                                                    <div className="absolute inset-0 border-2 border-green-500/20 rounded-full shadow-[0_0_15px_rgba(34,197,94,0.1)]" />
-                                                    <div className="absolute inset-[10%] border border-green-500/10 rounded-full" />
-                                                    <motion.div
-                                                        animate={{ rotate: 360 }}
-                                                        transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                                                        className="absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_0deg,transparent_270deg,rgba(34,197,94,0.3)_360deg)]"
-                                                    />
-                                                </div>
-                                                <div className="font-mono text-green-400 text-[10px] tracking-widest uppercase animate-pulse">
-                                                    SCANNING...
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            activities.map((log) => (
-                                                <div key={log.id} className="p-4 glass rounded-xl border border-white/5 hover:bg-white/10 transition-colors group">
-                                                    <div className="flex items-center gap-3 mb-2">
-                                                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center border border-white/5 text-xs font-bold text-white/70">
-                                                            {log.event_type.slice(0, 1)}
-                                                        </div>
-                                                        <span className="font-bold text-white/90 text-xs">{log.event_type}</span>
-                                                    </div>
-                                                    <p className="text-white/60 text-xs leading-relaxed pl-1">{log.description}</p>
-                                                    <div className="mt-2 text-right">
-                                                        <span className="text-[10px] text-white/30 font-mono">{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        )}
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
+                        <div className="p-4 space-y-3 overflow-y-auto">
+                            {igActivities.map((activity, i) => (
+                                <motion.div
+                                    key={activity.id}
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: 0.4 + (i * 0.1) }}
+                                    className="flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-colors group"
+                                >
+                                    <div className="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center border border-white/10 group-hover:border-primary/50 transition-colors">
+                                        <activity.icon className="w-5 h-5 text-white/70 group-hover:text-primary transition-colors" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="font-bold text-white/90 truncate">{activity.action}</span>
+                                            <span className="text-xs font-mono text-white/30">{activity.time}</span>
+                                        </div>
+                                        <p className="text-sm text-white/50 truncate">
+                                            {activity.detail} <span className="text-white/30">•</span> <span className="text-primary/70">{activity.target}</span>
+                                        </p>
+                                    </div>
+                                </motion.div>
+                            ))}
+                            {/* Fake Loader at bottom */}
+                            <div className="py-4 flex justify-center">
+                                <span className="text-xs font-mono text-white/20 animate-pulse">Waiting for new events...</span>
+                            </div>
                         </div>
                     </div>
                 </div>
+
+                {/* RIGHT ASSISTANT SECTION (30%) - DESKTOP */}
+                <div className="hidden lg:flex lg:col-span-3 flex-col h-full bg-black/20 rounded-2xl border border-white/10 overflow-hidden relative">
+                    <div className="absolute inset-0 bg-grid-white/[0.02] bg-[length:20px_20px]" />
+                    <div className="p-4 bg-white/5 border-b border-white/10 backdrop-blur-md z-10">
+                        <h3 className="font-bold flex items-center gap-2 text-sm uppercase tracking-wide text-cyan-400">
+                            <Activity className="w-4 h-4" />
+                            Ghost Operator
+                        </h3>
+                    </div>
+                    <div className="flex-1 overflow-hidden relative z-10 p-2">
+                        <GhostChat />
+                    </div>
+                </div>
+
             </div>
+
+            {/* MOBILE: Floating Action Button for Chat */}
+            <div className="lg:hidden fixed bottom-6 right-6 z-50">
+                <button
+                    onClick={() => setIsMobileChatOpen(true)}
+                    className="w-14 h-14 rounded-full bg-cyan-500 shadow-[0_0_30px_rgba(6,182,212,0.5)] flex items-center justify-center text-black hover:scale-110 active:scale-95 transition-all"
+                >
+                    <MessageSquare className="w-6 h-6" />
+                </button>
+            </div>
+
+            {/* MOBILE: Chat Drawer */}
+            <AnimatePresence>
+                {isMobileChatOpen && (
+                    <div className="lg:hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center pointer-events-none">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-black/80 backdrop-blur-sm pointer-events-auto"
+                            onClick={() => setIsMobileChatOpen(false)}
+                        />
+                        <motion.div
+                            initial={{ y: "100%" }}
+                            animate={{ y: 0 }}
+                            exit={{ y: "100%" }}
+                            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                            className="w-full sm:w-[500px] h-[85vh] sm:h-[600px] bg-black border-t sm:border border-white/10 sm:rounded-2xl relative pointer-events-auto overflow-hidden flex flex-col"
+                        >
+                            <div className="flex items-center justify-between p-4 border-b border-white/10 bg-white/5">
+                                <span className="font-bold text-white">Ghost Operator</span>
+                                <button
+                                    onClick={() => setIsMobileChatOpen(false)}
+                                    className="p-2 text-white/50 hover:text-white"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                            <div className="flex-1 overflow-hidden">
+                                <GhostChat />
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
+
 
