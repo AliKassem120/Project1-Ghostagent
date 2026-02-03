@@ -1,18 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Save, Bot, DollarSign, Bell, Globe, Sparkles, Upload, Building2, Loader2, Check } from 'lucide-react';
+import { Save, Bot, DollarSign, Bell, Globe, Sparkles, Upload, Building2, Loader2, Check, FileSpreadsheet, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
+import Papa from 'papaparse';
 
 export default function SettingsPage() {
     const supabase = createClient();
     const toast = useToast();
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [uploadedFile, setUploadedFile] = useState<{ name: string; rowCount: number } | null>(null);
 
     // Initial state with empty values (No fake data!)
     const [settings, setSettings] = useState({
@@ -69,6 +73,98 @@ export default function SettingsPage() {
 
         fetchSettings();
     }, []);
+
+    // CSV Upload Handler
+    const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.name.endsWith('.csv')) {
+            toast.error('Please upload a CSV file');
+            return;
+        }
+
+        setUploading(true);
+
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                toast.error('Please log in to upload a catalog');
+                setUploading(false);
+                return;
+            }
+
+            // Parse CSV with papaparse
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: async (results) => {
+                    const rows = results.data as Record<string, string>[];
+
+                    if (rows.length === 0) {
+                        toast.error('CSV file is empty');
+                        setUploading(false);
+                        return;
+                    }
+
+                    // Convert to JSON string
+                    const jsonContent = JSON.stringify(rows, null, 2);
+
+                    // Upsert to business_knowledge (replace existing)
+                    const { error } = await supabase
+                        .from('business_knowledge')
+                        .upsert({
+                            user_id: user.id,
+                            file_name: file.name,
+                            content: jsonContent,
+                            updated_at: new Date().toISOString()
+                        }, {
+                            onConflict: 'user_id'
+                        });
+
+                    if (error) {
+                        console.error('Upload error:', error);
+                        toast.error('Failed to save catalog. Please try again.');
+                    } else {
+                        setUploadedFile({ name: file.name, rowCount: rows.length });
+                        toast.success(`Uploaded "${file.name}" with ${rows.length} products!`);
+                    }
+
+                    setUploading(false);
+                },
+                error: (parseError) => {
+                    console.error('CSV parse error:', parseError);
+                    toast.error('Failed to parse CSV file');
+                    setUploading(false);
+                }
+            });
+        } catch (err) {
+            console.error('Upload error:', err);
+            toast.error('Upload failed');
+            setUploading(false);
+        }
+
+        // Clear the input
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    const handleRemoveCatalog = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { error } = await supabase
+            .from('business_knowledge')
+            .delete()
+            .eq('user_id', user.id);
+
+        if (!error) {
+            setUploadedFile(null);
+            toast.info('Product catalog removed');
+        }
+    };
 
     const handleSave = async () => {
         setSaving(true);
@@ -388,13 +484,53 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-3">
-                        <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Product Catalog (Optional CSV)</label>
-                        <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center hover:border-primary/30 hover:bg-white/5 transition-all cursor-pointer group">
-                            <Upload className="w-12 h-12 mx-auto mb-4 text-white/40 group-hover:text-primary transition-colors" />
-                            <input type="file" className="hidden" accept=".csv,.json" />
-                            <div className="text-white/60 mb-2 font-medium text-base">Drop CSV/JSON here or click to upload</div>
-                            <div className="text-xs text-white/40">Fields: name, price, description, stock</div>
-                        </div>
+                        <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Product Catalog (CSV)</label>
+
+                        {uploadedFile ? (
+                            <div className="border-2 border-green-500/30 bg-green-500/10 rounded-2xl p-6 flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-green-500/20 rounded-xl">
+                                        <FileSpreadsheet className="w-6 h-6 text-green-400" />
+                                    </div>
+                                    <div>
+                                        <div className="font-bold text-green-400">{uploadedFile.name}</div>
+                                        <div className="text-sm text-white/50">{uploadedFile.rowCount} products loaded</div>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={handleRemoveCatalog}
+                                    className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                        ) : (
+                            <div
+                                onClick={() => fileInputRef.current?.click()}
+                                className={clsx(
+                                    "border-2 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer group",
+                                    uploading ? "border-primary/50 bg-primary/10" : "border-white/10 hover:border-primary/30 hover:bg-white/5"
+                                )}
+                            >
+                                {uploading ? (
+                                    <Loader2 className="w-12 h-12 mx-auto mb-4 text-primary animate-spin" />
+                                ) : (
+                                    <Upload className="w-12 h-12 mx-auto mb-4 text-white/40 group-hover:text-primary transition-colors" />
+                                )}
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    className="hidden"
+                                    accept=".csv"
+                                    onChange={handleCsvUpload}
+                                    disabled={uploading}
+                                />
+                                <div className="text-white/60 mb-2 font-medium text-base">
+                                    {uploading ? 'Processing...' : 'Click to upload CSV'}
+                                </div>
+                                <div className="text-xs text-white/40">Required columns: name, price, description, stock</div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

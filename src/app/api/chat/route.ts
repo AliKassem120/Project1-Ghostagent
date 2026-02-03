@@ -34,6 +34,7 @@ export async function POST(req: Request) {
 
         // 2. FETCH CURRENT INVENTORY FOR CONTEXT
         let inventoryContext = "No inventory items listed currently.";
+        let catalogContext = "";
 
         if (ownerId) {
             const { data: inventory } = await supabase
@@ -47,15 +48,36 @@ export async function POST(req: Request) {
                         `- ${i.item_name}: ${i.stock_level} in stock ($${i.price})`)
                     .join('\n');
             }
+
+            // FETCH CSV PRODUCT CATALOG FROM business_knowledge
+            const { data: knowledgeData } = await supabase
+                .from('business_knowledge')
+                .select('content, file_name')
+                .eq('user_id', ownerId)
+                .single();
+
+            if (knowledgeData?.content) {
+                try {
+                    const catalogItems = JSON.parse(knowledgeData.content);
+                    catalogContext = `
+PRODUCT CATALOG (from ${knowledgeData.file_name}):
+---
+${JSON.stringify(catalogItems, null, 2)}
+---`;
+                } catch (e) {
+                    console.warn('Failed to parse catalog JSON:', e);
+                }
+            }
         }
 
         // 3. STORE MANAGER SYSTEM PROMPT
         const systemPrompt = `You are the GhostAgent Store Manager. You have full authority to manage inventory.
 
-CURRENT INVENTORY:
+CURRENT LIVE INVENTORY:
 ---
 ${inventoryContext}
 ---
+${catalogContext ? catalogContext : ''}
 
 INSTRUCTIONS:
 - If the user asks to add stock, set prices, or sell items, USE YOUR TOOLS IMMEDIATELY.
@@ -63,7 +85,13 @@ INSTRUCTIONS:
 - When adding new items, use the 'add' action with the manageInventory tool.
 - When selling or removing items, use the 'remove' action.
 - Always confirm the action you took with the updated stock level.
-- Be professional but efficient. You are a manager, not a customer service agent.`;
+- Be professional but efficient. You are a manager, not a customer service agent.
+
+CATALOG-INVENTORY SYNC RULES:
+- Always prioritize LIVE INVENTORY stock levels over CSV catalog levels if there is a conflict.
+- If a customer asks about a product in the CSV catalog that is NOT in the live inventory, proactively offer to add it using your manageInventory tool.
+- Use the catalog for product details like descriptions and suggested pricing.
+- The live inventory is the source of truth for actual stock availability.`;
 
         // 4. LOG CHAT ACTIVITY
         if (ownerId) {
