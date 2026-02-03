@@ -151,17 +151,29 @@ export default function Navbar() {
                             </div>
 
                             <div className="flex flex-col gap-6">
-                                {links.map((item, i) => (
-                                    <Link
-                                        key={item.name}
-                                        href={item.href}
-                                        onClick={(e) => handleClick(e, item.href)}
-                                        className="text-xl font-medium text-white/80 hover:text-cyan-400 hover:drop-shadow-[0_0_10px_rgba(34,211,238,0.6)] transition-all duration-300 flex items-center gap-3"
-                                    >
-                                        <span className="text-primary/50 text-xs font-mono">0{i + 1}</span>
-                                        {item.name}
-                                    </Link>
-                                ))}
+                                {links.map((item, i) => {
+                                    const isAnchor = item.href.startsWith('#');
+                                    return (
+                                        <Link
+                                            key={item.name}
+                                            href={isAnchor ? '/' + item.href : item.href}
+                                            onClick={(e) => {
+                                                if (isAnchor) {
+                                                    e.preventDefault();
+                                                    const element = document.getElementById(item.href.slice(1));
+                                                    if (element) {
+                                                        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                                    }
+                                                }
+                                                setIsOpen(false);
+                                            }}
+                                            className="text-xl font-medium text-white/80 hover:text-cyan-400 hover:drop-shadow-[0_0_10px_rgba(34,211,238,0.6)] transition-all duration-300 flex items-center gap-3"
+                                        >
+                                            <span className="text-primary/50 text-xs font-mono">0{i + 1}</span>
+                                            {item.name}
+                                        </Link>
+                                    );
+                                })}
                                 <hr className="border-white/10 my-2" />
                                 <Link
                                     href="/login"

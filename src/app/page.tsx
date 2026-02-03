@@ -19,6 +19,14 @@ export default function Home() {
 
   return (
     <main className="min-h-screen text-white overflow-hidden relative selection:bg-primary/30">
+      {/* Cyberpunk Grid Background */}
+      <div className="fixed inset-0 bg-black">
+        <div
+          className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"
+          style={{ maskImage: 'radial-gradient(ellipse 60% 50% at 50% 0%, #000 70%, transparent 100%)' }}
+        />
+      </div>
+
       <StarBackground />
       {/* Floating Particles */}
       <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
@@ -45,22 +53,27 @@ export default function Home() {
             transition={{ duration: 0.8 }}
           >
             <div className="relative mb-6">
-              <h1 className="text-5xl md:text-8xl font-black tracking-tighter leading-[0.9] text-white/90 mb-2 drop-shadow-2xl">
-                {/* Typewriter Effect */}
-                {"YOUR GHOST".split("").map((char, index) => (
-                  <motion.span
-                    key={index}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: index * 0.08, duration: 0.01 }}
-                  >
-                    {char}
-                  </motion.span>
-                ))}
+              <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-[0.9] mb-2 drop-shadow-2xl">
+                {/* Typewriter Effect with Gradient Text */}
+                <span className="bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-500">
+                  {"YOUR GHOST".split("").map((char, index) => (
+                    <motion.span
+                      key={index}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: index * 0.08, duration: 0.01 }}
+                      className="bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-500"
+                    >
+                      {char}
+                    </motion.span>
+                  ))}
+                </span>
                 <br />
                 <span className="relative inline-block mt-2">
-                  <span className="relative z-10 text-purple-300 font-black tracking-widest drop-shadow-[0_0_10px_rgba(168,85,247,0.5)]">SALES AGENT</span>
-                  {/* Chromatic Aberration Layers - Reduced Opacity for Legibility */}
+                  <span className="relative z-10 bg-clip-text text-transparent bg-gradient-to-b from-purple-300 to-purple-600 font-black tracking-widest drop-shadow-[0_0_30px_rgba(168,85,247,0.5)]">
+                    SALES AGENT
+                  </span>
+                  {/* Chromatic Aberration Layers */}
                   <motion.span
                     className="absolute inset-0 text-red-500/40 z-0 mix-blend-screen select-none"
                     animate={{ x: [-2, 2, -2], opacity: [0.4, 0, 0.4] }}
