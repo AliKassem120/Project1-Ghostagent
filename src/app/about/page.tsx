@@ -112,7 +112,7 @@ export default function AboutPage() {
                             </p>
                         </motion.div>
 
-                        {/* Right: 3D Wireframe Cube with Mouse Tracking */}
+                        {/* Right: Tesseract Animation */}
                         <motion.div
                             initial={{ opacity: 0, x: 30 }}
                             whileInView={{ opacity: 1, x: 0 }}
@@ -121,25 +121,36 @@ export default function AboutPage() {
                             className="flex items-center justify-center"
                         >
                             <motion.div
-                                className="relative w-80 h-80"
+                                className="relative w-64 h-64"
                                 style={{
                                     rotateY: mousePosition.x * 0.5,
                                     rotateX: -mousePosition.y * 0.5,
                                 }}
                             >
-                                {/* Rotating Wireframe Cube */}
+                                {/* Tesseract Structure */}
                                 <motion.div
-                                    animate={{ rotateX: 360, rotateY: 360 }}
+                                    animate={{ rotate: 360 }}
                                     transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-                                    className="w-full h-full"
-                                    style={{ transformStyle: 'preserve-3d' }}
+                                    className="relative w-full h-full"
                                 >
-                                    <div className="absolute inset-0 border-2 border-purple-500/30 rounded-lg shadow-[0_0_30px_rgba(168,85,247,0.3)]" />
-                                    <div className="absolute inset-[10%] border border-cyan-500/20 rounded-lg" />
-                                    <div className="absolute inset-[25%] border border-purple-500/40 rounded-lg shadow-[0_0_20px_rgba(168,85,247,0.2)]" />
+                                    {/* Outer pulsing ring */}
+                                    <div className="absolute inset-0 border-2 border-purple-500/30 rounded-full animate-pulse shadow-[0_0_30px_rgba(168,85,247,0.3)]" />
+
+                                    {/* Rotated inner square */}
+                                    <div className="absolute inset-4 border border-cyan-400/20 rotate-45" />
+
+                                    {/* Middle ring */}
+                                    <div className="absolute inset-8 border border-purple-500/50 rounded-full" />
+
+                                    {/* Additional geometric layers */}
+                                    <div className="absolute inset-12 border border-cyan-400/30 rotate-[22.5deg]" />
+                                    <div className="absolute inset-16 border border-purple-400/40 rounded-full animate-pulse" />
 
                                     {/* Glowing Core */}
-                                    <div className="absolute inset-[40%] bg-purple-500/20 rounded-full blur-xl animate-pulse" />
+                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-purple-500/10 blur-xl rounded-full" />
+
+                                    {/* Inner bright core */}
+                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-cyan-400/30 blur-md rounded-full animate-pulse" />
                                 </motion.div>
                             </motion.div>
                         </motion.div>

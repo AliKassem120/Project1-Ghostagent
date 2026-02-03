@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Trash2, Save, X, Package, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { createClient } from '@/utils/supabase/client';
+import { useToast } from '@/contexts/ToastContext';
 
 type Product = {
     id: string;
@@ -16,6 +17,7 @@ type Product = {
 
 export default function InventoryPage() {
     const supabase = createClient();
+    const toast = useToast();
     const [loading, setLoading] = useState(true);
     const [products, setProducts] = useState<Product[]>([]);
     const [isAdding, setIsAdding] = useState(false);
@@ -73,7 +75,7 @@ export default function InventoryPage() {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
-                alert('Please log in.');
+                toast.error('Please log in.');
                 return;
             }
 
@@ -112,10 +114,11 @@ export default function InventoryPage() {
                 setProducts(prev => [newItem, ...prev]);
                 setIsAdding(false);
                 setNewProduct({ name: '', price: 0, stock: 0 });
+                toast.success(`Added "${data.item_name}" to inventory!`);
             }
         } catch (error) {
             console.error('Error saving product:', error);
-            alert('Failed to save product. Check console.');
+            toast.error('Failed to save product. Check console.');
         }
     };
 
@@ -131,9 +134,10 @@ export default function InventoryPage() {
             if (error) throw error;
 
             setProducts(prev => prev.filter(p => p.id !== id));
+            toast.success('Product deleted successfully.');
         } catch (error) {
             console.error('Error deleting product:', error);
-            alert('Failed to delete product.');
+            toast.error('Failed to delete product.');
         }
     };
 

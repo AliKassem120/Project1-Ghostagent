@@ -5,6 +5,7 @@ import { Check, Crown, Zap, CreditCard, Calendar, AlertCircle, X } from 'lucide-
 import { clsx } from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
+import { useToast } from '@/contexts/ToastContext';
 
 export default function BillingPage() {
     const [currentPlan, setCurrentPlan] = useState<string>('Pro Agent');
@@ -14,6 +15,7 @@ export default function BillingPage() {
     const [isUpdating, setIsUpdating] = useState(false);
     const [usage, setUsage] = useState({ replies: 0, conversations: 0, revenue: 0 });
     const supabase = createClient();
+    const toast = useToast();
 
     useEffect(() => {
         const fetchUsage = async () => {
@@ -54,7 +56,7 @@ export default function BillingPage() {
         setTimeout(() => {
             setCurrentPlan(planName);
             setIsUpdating(false);
-            alert(`✅ Successfully ${planName === 'Starter' ? 'downgraded to' : 'upgraded to'} ${planName}!`);
+            toast.success(`Successfully ${planName === 'Starter' ? 'downgraded to' : 'upgraded to'} ${planName}!`);
         }, 1500);
     };
 
@@ -65,7 +67,7 @@ export default function BillingPage() {
             setPaymentMethod('•••• 5678');
             setShowPaymentModal(false);
             setIsUpdating(false);
-            alert('✅ Payment method updated successfully!');
+            toast.success('Payment method updated successfully!');
         }, 1500);
     };
 
@@ -75,7 +77,7 @@ export default function BillingPage() {
             setCurrentPlan('Starter');
             setShowCancelModal(false);
             setIsUpdating(false);
-            alert('Subscription cancelled. You\'ll remain on Pro until Feb 23, 2026.');
+            toast.info('Subscription cancelled. You\'ll remain on Pro until Feb 23, 2026.');
         }, 1500);
     };
 

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Check, Edit2, Share, Loader2 } from 'lucide-react';
 import { approveInteraction } from '@/app/actions/agent';
+import { useToast } from '@/contexts/ToastContext';
 
 type Interaction = {
     id: number;
@@ -21,6 +22,7 @@ const MOCK_INTERACTIONS: Interaction[] = [];
 export default function InteractionsPage() {
     const [interactions, setInteractions] = useState<Interaction[]>([]);
     const [processingId, setProcessingId] = useState<number | null>(null);
+    const toast = useToast();
 
     const handleApprove = async (id: number, comment: string) => {
         setProcessingId(id);
@@ -32,7 +34,7 @@ export default function InteractionsPage() {
             ));
         } catch (error) {
             console.error("Failed to approve:", error);
-            alert("Failed to process interaction");
+            toast.error("Failed to process interaction");
         } finally {
             setProcessingId(null);
         }

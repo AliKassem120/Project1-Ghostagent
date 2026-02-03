@@ -156,7 +156,7 @@ export default function Navbar() {
                                         key={item.name}
                                         href={item.href}
                                         onClick={(e) => handleClick(e, item.href)}
-                                        className="text-lg font-medium text-white/80 hover:text-primary transition-colors flex items-center gap-3"
+                                        className="text-xl font-medium text-white/80 hover:text-cyan-400 hover:drop-shadow-[0_0_10px_rgba(34,211,238,0.6)] transition-all duration-300 flex items-center gap-3"
                                     >
                                         <span className="text-primary/50 text-xs font-mono">0{i + 1}</span>
                                         {item.name}
@@ -166,7 +166,7 @@ export default function Navbar() {
                                 <Link
                                     href="/login"
                                     onClick={() => setIsOpen(false)}
-                                    className="px-6 py-3 rounded-xl bg-primary text-black font-bold text-center hover:bg-white transition-colors"
+                                    className="px-6 py-3 rounded-xl border border-purple-500 text-purple-400 font-bold text-center hover:bg-purple-500/10 hover:text-purple-300 transition-all"
                                 >
                                     Login
                                 </Link>

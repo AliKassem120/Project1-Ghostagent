@@ -7,9 +7,11 @@ import { ArrowLeft, Loader2, Lock, Mail, User } from 'lucide-react';
 import StarBackground from '@/components/StarBackground';
 import GhostLogo from '@/components/GhostLogo';
 import { supabase } from '@/lib/supabase';
+import { useToast } from '@/contexts/ToastContext';
 
 export default function RegisterPage() {
     const router = useRouter();
+    const toast = useToast();
     const [loading, setLoading] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -30,12 +32,12 @@ export default function RegisterPage() {
         });
 
         if (error) {
-            alert(error.message);
+            toast.error(error.message);
             setLoading(false);
             return;
         }
 
-        alert('Registration successful! Please check your email for verification.');
+        toast.success('Registration successful! Please check your email for verification.');
         router.push('/login');
     };
 

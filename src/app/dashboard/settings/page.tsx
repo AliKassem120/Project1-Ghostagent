@@ -5,9 +5,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Save, Bot, DollarSign, Bell, Globe, Sparkles, Upload, Building2, Loader2, Check } from 'lucide-react';
 import { clsx } from 'clsx';
 import { createClient } from '@/utils/supabase/client';
+import { useToast } from '@/contexts/ToastContext';
 
 export default function SettingsPage() {
     const supabase = createClient();
+    const toast = useToast();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState(false);
@@ -74,7 +76,7 @@ export default function SettingsPage() {
             const { data: { user } } = await supabase.auth.getUser();
 
             if (!user) {
-                alert('You must be logged in to save settings.');
+                toast.error('You must be logged in to save settings.');
                 setSaving(false);
                 return;
             }
@@ -104,7 +106,7 @@ export default function SettingsPage() {
             setTimeout(() => setSuccess(false), 2000);
         } catch (error) {
             console.error('Error saving settings:', error);
-            alert('Failed to save settings.');
+            toast.error('Failed to save settings.');
         } finally {
             setSaving(false);
         }
