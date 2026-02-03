@@ -94,18 +94,20 @@ CATALOG-INVENTORY SYNC RULES:
 - The live inventory is the source of truth for actual stock availability.`;
 
         // 4. LOG CHAT ACTIVITY
-        if (ownerId) {
-            try {
-                await supabase.from('activity_log').insert({
-                    user_id: ownerId,
-                    event_type: 'CHAT_QUERY',
-                    description: 'Store Manager processed a message',
-                    timestamp: new Date().toISOString()
-                });
-            } catch (logError) {
-                console.warn('Failed to log activity:', logError);
-            }
-        }
+        // 4. LOG CHAT ACTIVITY
+        // Only log critical tool usage, not every generic chat.
+        // if (ownerId) {
+        //     try {
+        //         await supabase.from('activity_log').insert({
+        //             user_id: ownerId,
+        //             event_type: 'CHAT_QUERY',
+        //             description: 'Store Manager processed a message',
+        //             timestamp: new Date().toISOString()
+        //         });
+        //     } catch (logError) {
+        //         console.warn('Failed to log activity:', logError);
+        //     }
+        // }
 
         // Create the manageInventory tool with proper typing (AI SDK v5+ uses inputSchema, not parameters)
         const manageInventoryTool = tool({

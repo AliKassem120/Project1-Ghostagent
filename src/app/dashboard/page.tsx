@@ -17,19 +17,39 @@ export default function DashboardPage() {
 
     // Stats & Activities
     const [stats, setStats] = useState({ comments: 0, sales: 0, stock: 0 });
-    const [igActivities, setIgActivities] = useState([
-        { id: 1, action: 'Replied to comment', target: '@sarah_j', detail: 'Price sent via DM', time: '2m ago', icon: MessageCircle },
-        { id: 2, action: 'Inventory Check', target: 'Neon Hoodie', detail: 'Stock confirmed (45 left)', time: '5m ago', icon: Package },
-        { id: 3, action: 'DM Automation', target: '@mike_ross', detail: 'Sent checkout link', time: '12m ago', icon: Zap },
-        { id: 4, action: 'Story Reply', target: '@jessica_l', detail: 'Reacted with 🔥', time: '24m ago', icon: Instagram },
-    ]);
+    const [activities, setActivities] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchStats = async () => {
+        const loadDashboardData = async () => {
+            setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            // Fetch comments count
+            // 1. Auto-Clean logs older than 24 hours
+            const yesterday = new Date();
+            yesterday.setHours(yesterday.getHours() - 24);
+            await supabase
+                .from('activity_log')
+                .delete()
+                .lt('timestamp', yesterday.toISOString());
+
+            // 2. Fetch real logs (filtered)
+            const { data: logs } = await supabase
+                .from('activity_log')
+                .select('*')
+                .neq('event_type', 'CHAT_QUERY') // Filter out generic chats at db level too if possible
+                .order('timestamp', { ascending: false })
+                .limit(20);
+
+            if (logs) {
+                // Client-side filter just in case
+                const highValueLogs = logs.filter(l => l.event_type !== 'CHAT_QUERY');
+                setActivities(highValueLogs);
+            }
+
+            // 3. Fetch Stats
+            // Fetch comments count (all time or last 24h?) - keeping all time for now as "Total"
             const { count: commentsCount } = await supabase
                 .from('activity_log')
                 .select('*', { count: 'exact', head: true })
@@ -45,11 +65,12 @@ export default function DashboardPage() {
 
             setStats({
                 comments: commentsCount || 0,
-                sales: 1240, // Mocked for "Money Made" visualization
+                sales: 1240, // Mocked for now
                 stock: totalStock
             });
+            setLoading(false);
         };
-        fetchStats();
+        loadDashboardData();
     }, []);
 
     const metrics = [
@@ -93,9 +114,22 @@ export default function DashboardPage() {
                     <p className="text-white/40 text-sm">Real-time neural link established.</p>
                 </div>
                 <div className="flex items-center gap-4">
-                    <div className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10">
-                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                        <span className="text-xs font-mono text-green-400">SYSTEM OPTIMAL</span>
+                    {/* Agent Status Bar */}
+                    <div className="hidden md:flex items-center gap-6 bg-white/5 border border-white/10 px-6 py-2 rounded-full backdrop-blur-md">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-white/40 uppercase tracking-widest">Handled</span>
+                            <span className="font-bold text-white">{stats.comments}</span>
+                        </div>
+                        <div className="w-px h-4 bg-white/10" />
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-white/40 uppercase tracking-widest">Saved</span>
+                            <span className="font-bold text-cyan-400">4.2 Hrs</span>
+                        </div>
+                        <div className="w-px h-4 bg-white/10" />
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                            <span className="text-xs font-mono text-green-400">ACTIVE IN DMs</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -168,32 +202,42 @@ export default function DashboardPage() {
                             </div>
                         </div>
                         <div className="p-4 space-y-3 overflow-y-auto">
-                            {igActivities.map((activity, i) => (
-                                <motion.div
-                                    key={activity.id}
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: 0.4 + (i * 0.1) }}
-                                    className="flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-colors group"
-                                >
-                                    <div className="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center border border-white/10 group-hover:border-primary/50 transition-colors">
-                                        <activity.icon className="w-5 h-5 text-white/70 group-hover:text-primary transition-colors" />
+                            {activities.length === 0 && !loading ? (
+                                <div className="flex flex-col items-center justify-center py-12 text-center opacity-50">
+                                    <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4">
+                                        <Sparkles className="w-6 h-6 text-white/30" />
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="font-bold text-white/90 truncate">{activity.action}</span>
-                                            <span className="text-xs font-mono text-white/30">{activity.time}</span>
+                                    <p className="font-medium text-white/60">The Ghost is working in silence...</p>
+                                    <p className="text-xs text-white/30 mt-1">No critical events to report yet, but Im watching.</p>
+                                </div>
+                            ) : (
+                                activities.map((activity, i) => (
+                                    <motion.div
+                                        key={activity.id}
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: i * 0.1 }}
+                                        className="flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-colors group"
+                                    >
+                                        <div className="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center border border-white/10 group-hover:border-primary/50 transition-colors">
+                                            {activity.event_type === 'SALE' ? <DollarSign className="w-5 h-5 text-green-400" /> :
+                                                activity.event_type === 'RESTOCK' ? <Package className="w-5 h-5 text-purple-400" /> :
+                                                    <MessageCircle className="w-5 h-5 text-white/70" />}
                                         </div>
-                                        <p className="text-sm text-white/50 truncate">
-                                            {activity.detail} <span className="text-white/30">•</span> <span className="text-primary/70">{activity.target}</span>
-                                        </p>
-                                    </div>
-                                </motion.div>
-                            ))}
-                            {/* Fake Loader at bottom */}
-                            <div className="py-4 flex justify-center">
-                                <span className="text-xs font-mono text-white/20 animate-pulse">Waiting for new events...</span>
-                            </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="font-bold text-white/90 truncate">{activity.event_type}</span>
+                                                <span className="text-xs font-mono text-white/30">
+                                                    {new Date(activity.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
+                                            <p className="text-sm text-white/50 truncate">
+                                                {activity.description}
+                                            </p>
+                                        </div>
+                                    </motion.div>
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>
@@ -258,7 +302,7 @@ export default function DashboardPage() {
                     </div>
                 )}
             </AnimatePresence>
-        </div>
+        </div >
     );
 }
 
