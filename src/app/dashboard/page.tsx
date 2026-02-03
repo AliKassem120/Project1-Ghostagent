@@ -105,8 +105,8 @@ export default function DashboardPage() {
 
     return (
         <div className="h-[calc(100vh-2rem)] flex flex-col overflow-hidden pb-safe">
-            {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-6 shrink-0">
+            {/* STICKY Header */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-6 shrink-0 sticky top-0 z-50 py-4 glass-dark -mx-4 px-4 lg:static lg:bg-transparent lg:p-0 lg:m-0 backdrop-blur-xl border-b border-white/10 lg:border-none">
                 <div>
                     <h1 className="text-3xl font-black mb-1 bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60 flex items-center gap-3">
                         COMMAND CENTER <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded border border-primary/30 tracking-widest">LIVE</span>
@@ -140,14 +140,32 @@ export default function DashboardPage() {
                 {/* LEFT HERO SECTION (70%) */}
                 <div className="lg:col-span-7 flex flex-col gap-6 overflow-y-auto pr-2 custom-scrollbar">
 
-                    {/* 1. Stats Row */}
+                    {/* 1. Intelligence Summary Box (TOP) */}
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.1 }}
+                        className="bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border border-indigo-500/20 p-6 rounded-2xl relative overflow-hidden shrink-0"
+                    >
+                        <div className="absolute top-0 right-0 p-3 opacity-20">
+                            <Zap className="w-24 h-24 text-white" />
+                        </div>
+                        <h3 className="text-lg font-bold text-indigo-300 mb-2 flex items-center gap-2">
+                            <Sparkles className="w-4 h-4" /> Daily Intelligence
+                        </h3>
+                        <p className="text-white/80 text-lg leading-relaxed max-w-2xl relative z-10">
+                            "I've handled <span className="text-white font-bold">142 customer interactions</span> today. The most common question was about the <span className="text-indigo-300 underline decoration-dotted">Neon Hoodie sizing</span>. I saved you approximately 4.5 hours of typing."
+                        </p>
+                    </motion.div>
+
+                    {/* 2. Stats Row */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0">
                         {metrics.map((metric, index) => (
                             <motion.div
                                 key={metric.label}
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: index * 0.1 }}
+                                transition={{ delay: 0.2 + (index * 0.1) }}
                                 className={clsx(
                                     "glass-dark p-6 rounded-2xl border border-white/10 hover:border-white/20 transition-all group",
                                     metric.glow && "shadow-[0_0_30px_rgba(34,197,94,0.1)] hover:shadow-[0_0_30px_rgba(34,197,94,0.2)]"
@@ -171,24 +189,6 @@ export default function DashboardPage() {
                         ))}
                     </div>
 
-                    {/* 2. Intelligence Summary Box */}
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.3 }}
-                        className="bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border border-indigo-500/20 p-6 rounded-2xl relative overflow-hidden shrink-0"
-                    >
-                        <div className="absolute top-0 right-0 p-3 opacity-20">
-                            <Zap className="w-24 h-24 text-white" />
-                        </div>
-                        <h3 className="text-lg font-bold text-indigo-300 mb-2 flex items-center gap-2">
-                            <Sparkles className="w-4 h-4" /> Daily Intelligence
-                        </h3>
-                        <p className="text-white/80 text-lg leading-relaxed max-w-2xl relative z-10">
-                            "I've handled <span className="text-white font-bold">142 customer interactions</span> today. The most common question was about the <span className="text-indigo-300 underline decoration-dotted">Neon Hoodie sizing</span>. I saved you approximately 4.5 hours of typing."
-                        </p>
-                    </motion.div>
-
                     {/* 3. Live IG Feed */}
                     <div className="flex-1 glass-dark rounded-2xl border border-white/10 overflow-hidden flex flex-col min-h-[300px]">
                         <div className="p-4 border-b border-white/10 bg-white/5 flex items-center justify-between sticky top-0 z-10 backdrop-blur-md">
@@ -208,35 +208,37 @@ export default function DashboardPage() {
                                         <Sparkles className="w-6 h-6 text-white/30" />
                                     </div>
                                     <p className="font-medium text-white/60">The Ghost is working in silence...</p>
-                                    <p className="text-xs text-white/30 mt-1">No critical events to report yet, but Im watching.</p>
+                                    <p className="text-xs text-white/30 mt-1">No critical events to report yet, but I'm watching.</p>
                                 </div>
                             ) : (
-                                activities.map((activity, i) => (
-                                    <motion.div
-                                        key={activity.id}
-                                        initial={{ opacity: 0, x: -20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: i * 0.1 }}
-                                        className="flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-colors group"
-                                    >
-                                        <div className="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center border border-white/10 group-hover:border-primary/50 transition-colors">
-                                            {activity.event_type === 'SALE' ? <DollarSign className="w-5 h-5 text-green-400" /> :
-                                                activity.event_type === 'RESTOCK' ? <Package className="w-5 h-5 text-purple-400" /> :
-                                                    <MessageCircle className="w-5 h-5 text-white/70" />}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <span className="font-bold text-white/90 truncate">{activity.event_type}</span>
-                                                <span className="text-xs font-mono text-white/30">
-                                                    {new Date(activity.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
+                                activities
+                                    .filter(a => a.event_type !== 'CHAT_QUERY')
+                                    .map((activity, i) => (
+                                        <motion.div
+                                            key={activity.id}
+                                            initial={{ opacity: 0, x: -20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            transition={{ delay: i * 0.1 }}
+                                            className="flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-colors group"
+                                        >
+                                            <div className="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center border border-white/10 group-hover:border-primary/50 transition-colors">
+                                                {activity.event_type === 'SALE' ? <DollarSign className="w-5 h-5 text-green-400" /> :
+                                                    activity.event_type === 'RESTOCK' ? <Package className="w-5 h-5 text-purple-400" /> :
+                                                        <MessageCircle className="w-5 h-5 text-white/70" />}
                                             </div>
-                                            <p className="text-sm text-white/50 truncate">
-                                                {activity.description}
-                                            </p>
-                                        </div>
-                                    </motion.div>
-                                ))
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <span className="font-bold text-white/90 truncate">{activity.event_type}</span>
+                                                    <span className="text-xs font-mono text-white/30">
+                                                        {new Date(activity.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-white/50 truncate">
+                                                    {activity.description}
+                                                </p>
+                                            </div>
+                                        </motion.div>
+                                    ))
                             )}
                         </div>
                     </div>
@@ -284,7 +286,7 @@ export default function DashboardPage() {
                             animate={{ y: 0 }}
                             exit={{ y: "100%" }}
                             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                            className="w-full sm:w-[500px] h-[85vh] sm:h-[600px] bg-black border-t sm:border border-white/10 sm:rounded-2xl relative pointer-events-auto overflow-hidden flex flex-col"
+                            className="w-full sm:w-[500px] max-h-[500px] h-[50vh] bg-black border-t sm:border border-white/10 sm:rounded-tl-2xl sm:rounded-tr-2xl relative pointer-events-auto overflow-hidden flex flex-col"
                         >
                             <div className="flex items-center justify-between p-4 border-b border-white/10 bg-white/5">
                                 <span className="font-bold text-white">Ghost Operator</span>
@@ -302,7 +304,7 @@ export default function DashboardPage() {
                     </div>
                 )}
             </AnimatePresence>
-        </div >
+        </div>
     );
 }
 
