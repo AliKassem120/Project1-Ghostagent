@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { createClient } from '@supabase/supabase-js';
+
+// Create a Supabase client with the SERVICE ROLE key to bypass RLS
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY!
+);
 
 // GET handler for testing
 export async function GET() {
@@ -31,9 +37,9 @@ export async function POST(req: Request) {
                 return NextResponse.json({ status: 'acknowledged' });
             }
 
-            const supabase = await createClient();
+            // const supabase = await createClient();
 
-            const { data, error } = await supabase
+            const { data, error } = await supabaseAdmin
                 .from('user_connections')
                 .upsert({
                     user_id: userId,
@@ -77,9 +83,9 @@ export async function POST(req: Request) {
             if (message === 'CONNECTED') {
                 console.log('✅ Account fully connected, updating...');
 
-                const supabase = await createClient();
+                // const supabase = await createClient();
 
-                const { data, error } = await supabase
+                const { data, error } = await supabaseAdmin
                     .from('user_connections')
                     .update({
                         metadata: body.AccountStatus
@@ -107,9 +113,9 @@ export async function POST(req: Request) {
                 return NextResponse.json({ status: 'ignored', reason: 'Missing user_id' });
             }
 
-            const supabase = await createClient();
+            // const supabase = await createClient();
 
-            const { data, error } = await supabase
+            const { data, error } = await supabaseAdmin
                 .from('user_connections')
                 .upsert({
                     user_id: userId,
