@@ -17,6 +17,7 @@ export default function SettingsPage() {
     const [success, setSuccess] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [connecting, setConnecting] = useState(false);
+    const [instagramStatus, setInstagramStatus] = useState<{ connected: boolean; accounts: any[] }>({ connected: false, accounts: [] });
     const [uploadedFile, setUploadedFile] = useState<{ name: string; rowCount: number } | null>(null);
 
     // Initial state with empty values (No fake data!)
@@ -74,6 +75,16 @@ export default function SettingsPage() {
 
         fetchSettings();
     }, []);
+
+    const checkInstagramStatus = async () => {
+        try {
+            const res = await fetch('/api/instagram/status');
+            const data = await res.json();
+            setInstagramStatus(data);
+        } catch (e) {
+            console.error('Failed to check Instagram status:', e);
+        }
+    };
 
     // CSV Upload Handler
     const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -188,6 +199,19 @@ export default function SettingsPage() {
             setConnecting(false);
         }
     };
+
+    // Check for success redirect
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('success') === 'true') {
+            toast.success('Instagram connected successfully!');
+            checkInstagramStatus();
+            // Clean URL
+            window.history.replaceState({}, '', window.location.pathname);
+        }
+    }, []);
+
+    
 
     const handleSave = async () => {
         setSaving(true);
@@ -467,18 +491,39 @@ export default function SettingsPage() {
                             <Instagram className="w-7 h-7 text-white" />
                         </div>
                         <div>
-                            <h3 className="font-bold text-lg">Instagram</h3>
-                            <p className="text-white/50 text-sm">Connect to read DMs and comments</p>
+                            <div className="flex items-center gap-2">
+                                <h3 className="font-bold text-lg">Instagram</h3>
+                                {instagramStatus.connected && (
+                                    <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded-full flex items-center gap-1">
+                                        <Check className="w-3 h-3" />
+                                        Connected
+                                    </span>
+                                )}
+                            </div>
+                            {instagramStatus.connected && instagramStatus.accounts.length > 0 ? (
+                                <p className="text-white/70 text-sm">@{instagramStatus.accounts[0].username}</p>
+                            ) : (
+                                <p className="text-white/50 text-sm">Connect to read DMs and auto-reply</p>
+                            )}
                         </div>
                     </div>
-                    <button
-                        onClick={handleConnectInstagram}
-                        disabled={connecting}
-                        className="px-6 py-3 bg-white text-black font-bold rounded-xl hover:bg-white/90 transition-colors disabled:opacity-50 flex items-center gap-2"
-                    >
-                        {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Instagram className="w-4 h-4" />}
-                        {connecting ? 'Connecting...' : 'Connect Account'}
-                    </button>
+                    {!instagramStatus.connected ? (
+                        <button
+                            onClick={handleConnectInstagram}
+                            disabled={connecting}
+                            className="px-6 py-3 bg-white text-black font-bold rounded-xl hover:bg-white/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+                        >
+                            {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Instagram className="w-4 h-4" />}
+                            {connecting ? 'Connecting...' : 'Connect Account'}
+                        </button>
+                    ) : (
+                        <button
+                            onClick={checkInstagramStatus}
+                            className="px-4 py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-colors text-sm"
+                        >
+                            Refresh Status
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -620,3 +665,5 @@ export default function SettingsPage() {
         </div>
     );
 }
+
+
