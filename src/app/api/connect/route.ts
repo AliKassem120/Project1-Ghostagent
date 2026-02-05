@@ -2,18 +2,20 @@ import { NextResponse } from 'next/server';
 
 export async function POST() {
     const UNIPILE_KEY = process.env.UNIPILE_API_KEY;
-    const UNIPILE_URL = 'https://api4.unipile.com:15373/api/v1/hosted/accounts/link';
+    // Switching back to api23 because it was reachable (returned 400), whereas api4 returned ECONNREFUSED.
+    // The original 400 error was due to invalid parameters which are now fixed.
+    const UNIPILE_URL = 'https://api23.unipile.com:15397/api/v1/hosted/accounts/link';
 
     // 1. Check for API Key
     if (!UNIPILE_KEY) {
         console.error('CRITICAL: UNIPILE_API_KEY is missing in environment variables.');
         return NextResponse.json({
             error: 'Configuration Error: UNIPILE_API_KEY is missing. Please add it to Vercel Environment Variables.'
-        }, { status: 401 }); // Using 401 to distinguish from code crash
+        }, { status: 401 });
     }
 
     try {
-        console.log('Attempting to contact Unipile Link API...');
+        console.log(`Attempting to contact Unipile Link API at ${UNIPILE_URL}...`);
         const response = await fetch(UNIPILE_URL, {
             method: 'POST',
             headers: {
@@ -37,7 +39,6 @@ export async function POST() {
             const errorText = await response.text();
             console.error(`Unipile API Error (${response.status}):`, errorText);
 
-            // Try to parse JSON error if possible
             let errorDetail = errorText;
             try {
                 const errorJson = JSON.parse(errorText);
@@ -55,13 +56,9 @@ export async function POST() {
 
     } catch (error: any) {
         console.error('Connect Route EXCEPTION:', error);
-        // RETURNING 200 to ensure client sees the error details (bypassing generic Next.js 500 page)
         return NextResponse.json({
-            error: 'Internal Logic Error',
-            details: error.message,
-            stack: error.stack,
-            key_preview: UNIPILE_KEY ? `${UNIPILE_KEY.substring(0, 5)}...` : 'MISSING',
-            url_used: UNIPILE_URL
-        }, { status: 200 });
+            error: 'Internal Server Error during connection attempt.',
+            details: error.message
+        }, { status: 500 });
     }
 }
