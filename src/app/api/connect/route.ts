@@ -17,10 +17,15 @@ export async function POST(req: Request) {
     try {
         console.log(`Attempting to contact Unipile Link API at ${UNIPILE_URL}...`);
 
+        // Dynamically construct base URL from request to avoid hardcoding deployment URLs
+        const protocol = req.headers.get('x-forwarded-proto') || 'https';
+        const host = req.headers.get('host') || 'project1-ghostagent-2r5k.vercel.app';
+        const baseUrl = `${protocol}://${host}`;
+
         // Context: 'name' helps link the connected account to a user in your system via webhooks
         let name = 'GhostUser';
         try {
-            const body = await req.clone().json(); // Clone to avoid stream errors if read later
+            const body = await req.clone().json();
             if (body.userId) name = body.userId;
         } catch (e) { /* ignore request body errors */ }
 
@@ -36,9 +41,9 @@ export async function POST(req: Request) {
                 providers: ['INSTAGRAM'], // MUST be uppercase per Unipile enum validation
                 api_url: 'https://api23.unipile.com:15397',
                 expiresOn: new Date(Date.now() + 3600 * 1000 * 24).toISOString(),
-                success_redirect_url: 'https://project1-ghostagent.vercel.app/dashboard/settings',
-                failure_redirect_url: 'https://project1-ghostagent.vercel.app/dashboard/settings?error=true',
-                notify_url: 'https://project1-ghostagent.vercel.app/api/webhook',
+                success_redirect_url: `${baseUrl}/dashboard/settings`,
+                failure_redirect_url: `${baseUrl}/dashboard/settings?error=true`,
+                notify_url: `${baseUrl}/api/webhook`,
                 name: name
             })
         });
