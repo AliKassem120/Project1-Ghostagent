@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-export async function POST() {
+export async function POST(req: Request) {
     const UNIPILE_KEY = process.env.UNIPILE_API_KEY;
     // Switching back to api23 because it was reachable (returned 400), whereas api4 returned ECONNREFUSED.
     // The original 400 error was due to invalid parameters which are now fixed.
@@ -16,6 +16,14 @@ export async function POST() {
 
     try {
         console.log(`Attempting to contact Unipile Link API at ${UNIPILE_URL}...`);
+
+        // Context: 'name' helps link the connected account to a user in your system via webhooks
+        let name = 'GhostUser';
+        try {
+            const body = await req.clone().json(); // Clone to avoid stream errors if read later
+            if (body.userId) name = body.userId;
+        } catch (e) { /* ignore request body errors */ }
+
         const response = await fetch(UNIPILE_URL, {
             method: 'POST',
             headers: {
@@ -26,11 +34,12 @@ export async function POST() {
             body: JSON.stringify({
                 type: 'create',
                 providers: ['instagram'],
-                api_url: 'https://project1-ghostagent.vercel.app',
+                api_url: 'https://api23.unipile.com:15397', // CRITICAL: Must be the Unipile Server URL
                 expiresOn: new Date(Date.now() + 3600 * 1000 * 24).toISOString(),
                 success_redirect_url: 'https://project1-ghostagent.vercel.app/dashboard/settings',
                 failure_redirect_url: 'https://project1-ghostagent.vercel.app/dashboard/settings?error=true',
-                notify_url: 'https://project1-ghostagent.vercel.app/api/webhook'
+                notify_url: 'https://project1-ghostagent.vercel.app/api/webhook',
+                name: name
             })
         });
 
