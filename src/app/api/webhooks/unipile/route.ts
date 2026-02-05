@@ -112,6 +112,37 @@ export async function POST(req: Request) {
             return NextResponse.json({ status: 'acknowledged', message });
         }
 
+        // Handle message.received
+        if (body.event === 'message.received') {
+            const { account_id, text, sender_id, chat_id } = body.data;
+
+            console.log('📩 Message Received for account:', account_id);
+
+            // 1. Find the user who owns this account
+            const { data: connection } = await supabaseAdmin
+                .from('user_connections')
+                .select('user_id')
+                .eq('account_id', account_id)
+                .single();
+
+            if (!connection) {
+                console.warn('⚠️ Received message for unknown account:', account_id);
+                return NextResponse.json({ status: 'ignored', reason: 'Unknown account' });
+            }
+
+            // 2. Log activity
+            await supabaseAdmin.from('activity_log').insert({
+                user_id: connection.user_id,
+                event_type: 'INCOMING_DM',
+                description: `Received: "${text?.substring(0, 50) || 'Image/Attachment'}${text?.length > 50 ? '...' : ''}"`,
+                metadata: body.data,
+                timestamp: new Date().toISOString()
+            });
+
+            console.log('✅ Logged DM activity for user:', connection.user_id);
+            return NextResponse.json({ status: 'success', message: 'Message processed' });
+        }
+
         // Handle old-style events if they exist
         if (body.event === 'account.created') {
             const { account_id, provider, name, username } = body.data;

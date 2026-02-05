@@ -212,10 +212,34 @@ export default function DashboardPage() {
                     {/* 3. Live IG Feed */}
                     <div className="flex-1 glass-dark rounded-2xl border border-white/10 overflow-hidden flex flex-col min-h-[300px]">
                         <div className="p-4 border-b border-white/10 bg-white/5 flex items-center justify-between sticky top-0 z-10 backdrop-blur-md">
-                            <h3 className="font-bold flex items-center gap-2 text-sm uppercase tracking-wide">
-                                <Instagram className="w-4 h-4 text-pink-500" />
-                                Live Feed
-                            </h3>
+                            <div className="flex items-center gap-3">
+                                <h3 className="font-bold flex items-center gap-2 text-sm uppercase tracking-wide">
+                                    <Instagram className="w-4 h-4 text-pink-500" />
+                                    Live Feed
+                                </h3>
+                                {(activities.length > 0 || totalInteractions > 0) && (
+                                    <button
+                                        onClick={async () => {
+                                            if (!confirm('Are you sure? This will clear all activity history and stats.')) return;
+
+                                            setActivities([]);
+                                            setStats({ timeSaved: 0, moneySaved: 0, repliesSent: 0, stock: stats.stock });
+                                            setTotalInteractions(0);
+
+                                            const { data: { user } } = await supabase.auth.getUser();
+                                            if (user) {
+                                                await supabase
+                                                    .from('activity_log')
+                                                    .delete()
+                                                    .eq('user_id', user.id);
+                                            }
+                                        }}
+                                        className="text-[10px] bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded hover:bg-red-500/20 transition-colors uppercase tracking-wider"
+                                    >
+                                        Clear
+                                    </button>
+                                )}
+                            </div>
                             <div className="flex items-center gap-2 text-[10px] font-mono text-white/40">
                                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
                                 LISTENING
