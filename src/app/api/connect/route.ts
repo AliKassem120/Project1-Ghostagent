@@ -41,9 +41,9 @@ export async function POST(req: Request) {
                 providers: ['INSTAGRAM'], // MUST be uppercase per Unipile enum validation
                 api_url: 'https://api23.unipile.com:15397',
                 expiresOn: new Date(Date.now() + 3600 * 1000 * 24).toISOString(),
-                success_redirect_url: `${baseUrl}/dashboard/settings`,
+                success_redirect_url: `${baseUrl}/dashboard/settings?success=true`,
                 failure_redirect_url: `${baseUrl}/dashboard/settings?error=true`,
-                notify_url: `${baseUrl}/api/webhook`,
+                notify_url: `${baseUrl}/api/webhooks/unipile`,
                 name: name
             })
         });

@@ -1,38 +1,35 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@/utils/supabase/server';
 
 export async function GET() {
-    const unipileKey = process.env.UNIPILE_API_KEY;
-
-    if (!unipileKey) {
-        return NextResponse.json({ error: 'Missing API Key' }, { status: 500 });
-    }
-
     try {
-        // Fetch all connected accounts from Unipile
-        const response = await fetch('https://api23.unipile.com:15397/api/v1/accounts', {
-            method: 'GET',
-            headers: {
-                'X-API-KEY': unipileKey,
-                'accept': 'application/json'
-            }
-        });
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
 
-        if (!response.ok) {
-            console.error('Unipile accounts fetch failed:', await response.text());
+        if (!user) {
             return NextResponse.json({ connected: false, accounts: [] });
         }
 
-        const data = await response.json();
-        const instagramAccounts = Array.isArray(data.items)
-            ? data.items.filter((acc: any) => acc.provider === 'INSTAGRAM')
-            : [];
+        // Fetch connections from database
+        const { data: connections, error } = await supabase
+            .from('user_connections')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('provider', 'INSTAGRAM');
+
+        if (error) {
+            console.error('Error fetching connections:', error);
+            return NextResponse.json({ connected: false, accounts: [] });
+        }
+
+        const instagramAccounts = connections || [];
 
         return NextResponse.json({
             connected: instagramAccounts.length > 0,
-            accounts: instagramAccounts.map((acc: any) => ({
-                id: acc.account_id,
-                username: acc.username || 'Instagram Account',
-                provider: acc.provider
+            accounts: instagramAccounts.map(conn => ({
+                id: conn.account_id,
+                username: conn.account_username || 'Instagram Account',
+                provider: conn.provider
             }))
         });
 

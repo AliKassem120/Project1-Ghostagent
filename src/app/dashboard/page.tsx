@@ -16,9 +16,10 @@ export default function DashboardPage() {
     const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
 
     // Stats & Activities
-    const [stats, setStats] = useState({ comments: 0, sales: 0, stock: 0 });
+    const [stats, setStats] = useState({ timeSaved: 0, moneySaved: 0, repliesSent: 0, stock: 0 });
     const [activities, setActivities] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [totalInteractions, setTotalInteractions] = useState(0);
 
     useEffect(() => {
         const loadDashboardData = async () => {
@@ -26,34 +27,46 @@ export default function DashboardPage() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            // 1. Auto-Clean logs older than 24 hours
-            const yesterday = new Date();
-            yesterday.setHours(yesterday.getHours() - 24);
+            // 1. Auto-Clean logs older than 7 days
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
             await supabase
                 .from('activity_log')
                 .delete()
-                .lt('timestamp', yesterday.toISOString());
+                .lt('timestamp', sevenDaysAgo.toISOString());
 
-            // 2. Fetch real logs (filtered)
+            // 2. Fetch real activity logs
             const { data: logs } = await supabase
                 .from('activity_log')
                 .select('*')
-                .neq('event_type', 'CHAT_QUERY') // Filter out generic chats at db level too if possible
+                .eq('user_id', user.id)
                 .order('timestamp', { ascending: false })
                 .limit(20);
 
-            if (logs) {
-                // Client-side filter just in case
-                const highValueLogs = logs.filter(l => l.event_type !== 'CHAT_QUERY');
-                setActivities(highValueLogs);
-            }
+            setActivities(logs || []);
 
-            // 3. Fetch Stats
-            // Fetch comments count (all time or last 24h?) - keeping all time for now as "Total"
-            const { count: commentsCount } = await supabase
+            // 3. Calculate Real Stats from activity_log
+            const { count: totalLogs } = await supabase
                 .from('activity_log')
                 .select('*', { count: 'exact', head: true })
                 .eq('user_id', user.id);
+
+            const { data: salesLogs } = await supabase
+                .from('activity_log')
+                .select('description')
+                .eq('user_id', user.id)
+                .eq('event_type', 'IG_SALE');
+
+            // Sum money from sales (parse from description)
+            let totalMoney = 0;
+            salesLogs?.forEach(log => {
+                const match = log.description.match(/\$([\d.]+)/);
+                if (match) totalMoney += parseFloat(match[1]);
+            });
+
+            // Time saved: Each interaction saves ~2 minutes
+            const timeSavedMinutes = (totalLogs || 0) * 2;
+            const timeSavedHours = timeSavedMinutes / 60;
 
             // Fetch inventory stock
             const { data: inventory } = await supabase
@@ -64,10 +77,12 @@ export default function DashboardPage() {
             const totalStock = inventory?.reduce((sum, item) => sum + (item.stock_level || 0), 0) || 0;
 
             setStats({
-                comments: commentsCount || 0,
-                sales: 1240, // Mocked for now
+                timeSaved: timeSavedHours,
+                moneySaved: totalMoney,
+                repliesSent: totalLogs || 0,
                 stock: totalStock
             });
+            setTotalInteractions(totalLogs || 0);
             setLoading(false);
         };
         loadDashboardData();
@@ -77,30 +92,34 @@ export default function DashboardPage() {
         {
             icon: Clock,
             label: 'Time Saved',
-            value: 4.5,
+            value: stats.timeSaved,
             suffix: ' hrs',
-            trend: 12,
             color: 'text-blue-400',
             bgColor: 'bg-blue-500/20'
         },
         {
             icon: DollarSign,
             label: 'Money Made',
-            value: stats.sales,
+            value: stats.moneySaved,
             prefix: '$',
-            trend: 8,
             color: 'text-green-400',
             bgColor: 'bg-green-500/20',
-            glow: true
+            glow: stats.moneySaved > 0
         },
         {
             icon: MessageSquare,
             label: 'Replies Sent',
-            value: stats.comments,
-            trend: 24,
+            value: stats.repliesSent,
             color: 'text-purple-400',
             bgColor: 'bg-purple-500/20'
         },
+        {
+            icon: Package,
+            label: 'Items in Stock',
+            value: stats.stock,
+            color: 'text-orange-400',
+            bgColor: 'bg-orange-500/20'
+        }
     ];
 
     return (
@@ -118,12 +137,12 @@ export default function DashboardPage() {
                     <div className="hidden md:flex items-center gap-6 bg-white/5 border border-white/10 px-6 py-2 rounded-full backdrop-blur-md">
                         <div className="flex items-center gap-2">
                             <span className="text-xs text-white/40 uppercase tracking-widest">Handled</span>
-                            <span className="font-bold text-white">{stats.comments}</span>
+                            <span className="font-bold text-white">{stats.repliesSent}</span>
                         </div>
                         <div className="w-px h-4 bg-white/10" />
                         <div className="flex items-center gap-2">
                             <span className="text-xs text-white/40 uppercase tracking-widest">Saved</span>
-                            <span className="font-bold text-cyan-400">4.2 Hrs</span>
+                            <span className="font-bold text-cyan-400">{stats.timeSaved.toFixed(1)} Hrs</span>
                         </div>
                         <div className="w-px h-4 bg-white/10" />
                         <div className="flex items-center gap-2">
@@ -154,7 +173,11 @@ export default function DashboardPage() {
                             <Sparkles className="w-4 h-4" /> Daily Intelligence
                         </h3>
                         <p className="text-white/80 text-lg leading-relaxed max-w-2xl relative z-10">
-                            "I've handled <span className="text-white font-bold">142 customer interactions</span> today. The most common question was about the <span className="text-indigo-300 underline decoration-dotted">Neon Hoodie sizing</span>. I saved you approximately 4.5 hours of typing."
+                            {totalInteractions > 10 ? (
+                                `"I've handled ${totalInteractions} interactions. I saved you approximately ${stats.timeSaved.toFixed(1)} hours of work."`
+                            ) : (
+                                <span className="text-white/60 italic">"Waiting for enough data to generate your first briefing..."</span>
+                            )}
                         </p>
                     </motion.div>
 
@@ -174,9 +197,6 @@ export default function DashboardPage() {
                                 <div className="flex justify-between items-start mb-4">
                                     <div className={`p-3 rounded-xl ${metric.bgColor} ${metric.color}`}>
                                         <metric.icon className="w-6 h-6" />
-                                    </div>
-                                    <div className="text-xs font-mono text-white/40 flex items-center gap-1">
-                                        <TrendingUp className="w-3 h-3 text-green-400" /> +{metric.trend}%
                                     </div>
                                 </div>
                                 <div>
@@ -307,5 +327,6 @@ export default function DashboardPage() {
         </div>
     );
 }
+
 
 
