@@ -73,23 +73,33 @@ export async function POST(req: Request) {
             }
         }
 
-        const systemPrompt = `You are the GhostAgent Store Manager handling an Instagram DM.
-        
+        const systemPrompt = `Act as the 'Ghost Agent' Instagram Manager. Your goal is to process incoming data from the Unipile API and generate helpful, human-like replies for business customers.
+
 CURRENT LIVE INVENTORY:
 ---
 ${inventoryContext}
 ---
 ${catalogContext}
 
-INSTRUCTIONS:
-- Answer the customer's question based on the inventory and catalog.
-- If they want to buy, you can "reserve" items by removing them from stock using the tool (simulating a sale or hold).
-- Be concise and friendly. This is Instagram.
-- Use emojis.
-- IF YOU USE A TOOL, DO NOT SAY "I have used the tool". Just say "I've added that to your order!" or similar.
+YOUR RESPONSIBILITIES:
+1. IDENTIFY INTENT: Determine if the user is asking about pricing, availability, or general information.
+2. GENERATE RESPONSE: Create a reply that fits the brand voice (professional yet friendly).
+3. MANAGE INVENTORY: If the user explicitly asks to buy or check stock, use the 'manageInventory' tool.
+
+CONSTRAINTS:
+- If a message is a complaint, set the "review_needed" flag to true in the JSON output.
+- Never mention that you are an AI or using Unipile. 
+- Keep responses under 500 characters.
+- Your final output (after any tool use) MUST be a valid JSON object.
+
+OUTPUT JSON FORMAT:
+{
+  "text": "Your generated reply goes here.",
+  "review_needed": boolean
+}
 `;
 
-        // 3. DEFINE TOOLS
+        // 3. DEFINE TOOLS (Keep existing manageInventoryTool)
         const manageInventoryTool = tool({
             description: 'Update stock levels (sell/add).',
             inputSchema: z.object({
@@ -99,7 +109,6 @@ INSTRUCTIONS:
                 action: z.enum(['add', 'remove']),
             }),
             execute: async ({ itemName, quantity, price, action }) => {
-                // Simplified execute logic for brevity - copying core parts
                 const { data: existingItem } = await supabase.from('inventory').select('*').eq('user_id', ownerId).ilike('item_name', itemName).single();
 
                 if (action === 'remove') {
@@ -108,7 +117,7 @@ INSTRUCTIONS:
                     await supabase.from('inventory').update({ stock_level: newStock }).eq('id', existingItem.id);
                     await supabase.from('activity_log').insert({
                         user_id: ownerId,
-                        event_type: 'IG_SALE', // distinct event
+                        event_type: 'IG_SALE',
                         description: `Sold ${quantity} ${itemName} via Instagram DM`,
                         timestamp: new Date().toISOString()
                     });
@@ -118,19 +127,33 @@ INSTRUCTIONS:
             },
         });
 
-        // 4. GENERATE AI RESPONSE (Non-streaming)
-        const { text: aiResponse } = await generateText({
-            model: google("gemini-2.5-flash"),
+        // 4. GENERATE AI RESPONSE
+        const { text: rawAiResponse } = await generateText({
+            model: google("gemini-2.5-flash"), // 2.5-flash is good for JSON
             system: systemPrompt,
             messages: [
-                { role: 'user', content: text } // Single turn context for now
+                { role: 'user', content: text }
             ],
             tools: { manageInventory: manageInventoryTool },
-            // @ts-ignore - maxSteps is supported in AI SDK Core but types might be lagging
-            maxSteps: 5, // Allow multi-step tool use
+            // @ts-ignore
+            maxSteps: 5,
         });
 
-        console.log(`AI Response: ${aiResponse}`);
+        console.log(`Raw AI Response: ${rawAiResponse}`);
+
+        // Parse JSON output
+        let replyText = rawAiResponse;
+        let reviewNeeded = false;
+
+        try {
+            // Attempt to clean markdown code blocks if present (common with LLMs)
+            const cleanJson = rawAiResponse.replace(/```json\n?|\n?```/g, '').trim();
+            const parsed = JSON.parse(cleanJson);
+            replyText = parsed.text || rawAiResponse;
+            reviewNeeded = parsed.review_needed || false;
+        } catch (e) {
+            console.warn('AI did not return valid JSON, using raw text.');
+        }
 
         // 5. REPLY VIA UNIPILE
         const replyResponse = await fetch(`https://api23.unipile.com:15397/api/v1/chats/${chatId}/messages`, {
@@ -140,24 +163,24 @@ INSTRUCTIONS:
                 'X-API-KEY': unipileKey,
             },
             body: JSON.stringify({
-                text: aiResponse
+                text: replyText
             }),
         });
 
         if (!replyResponse.ok) {
             console.error('Failed to send reply to Unipile:', await replyResponse.text());
-            // We still return 200 to the webhook provider to acknowledge receipt
         }
 
         // Log the interaction
+        const eventType = reviewNeeded ? 'MANUAL_REVIEW' : 'IG_INTERACTION';
         await supabase.from('activity_log').insert({
             user_id: ownerId,
-            event_type: 'IG_INTERACTION',
-            description: `Replied to DM from ${sender_id}`,
+            event_type: eventType,
+            description: reviewNeeded ? `Complaint flagged: ${text.substring(0, 30)}...` : `Replied to DM from ${sender_id}`,
             timestamp: new Date().toISOString()
         });
 
-        return NextResponse.json({ status: 'processed', reply: aiResponse });
+        return NextResponse.json({ status: 'processed', reply: replyText, review_needed: reviewNeeded });
 
     } catch (e: any) {
         console.error('Webhook Error:', e);
