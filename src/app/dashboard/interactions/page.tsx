@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Edit2, Share, Loader2, MessageCircle, User, Instagram, Search, Send, Sparkles, Ghost } from 'lucide-react';
+import { Check, Edit2, Share, Loader2, MessageCircle, User, Instagram, Search, Send, Sparkles, Ghost, Menu, ArrowLeft, PlayCircle } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import clsx from 'clsx';
 
@@ -10,9 +10,9 @@ type Message = {
     id: string;
     text: string;
     sender: string;
-    is_sender: boolean; // True if from Bot or Owner
-    is_bot: boolean;    // True if AI
-    is_manual: boolean; // True if Owner
+    is_sender: boolean;
+    is_bot: boolean;
+    is_manual: boolean;
     timestamp: string;
     type: string;
 };
@@ -23,33 +23,74 @@ type Conversation = {
     lastMessage: string;
     timestamp: string;
     messages: Message[];
+    is_muted?: boolean; // We'll infer or fetch this
 };
 
 export default function InteractionsPage() {
     const [logs, setLogs] = useState<any[]>([]);
+    const [mutedChats, setMutedChats] = useState<Set<string>>(new Set());
     const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false); // For mobile sidebar
     const supabase = createClient();
 
     const fetchLogs = async () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
+        // Fetch Logs
         const { data: logsData } = await supabase
             .from('activity_log')
             .select('*')
             .eq('user_id', user.id)
             .order('timestamp', { ascending: true });
 
+        // Fetch Muted States
+        const { data: states } = await supabase
+            .from('conversation_states')
+            .select('external_chat_id, is_muted')
+            .eq('user_id', user.id)
+            .eq('is_muted', true);
+
         if (logsData) setLogs(logsData);
+        if (states) {
+            setMutedChats(new Set(states.map(s => s.external_chat_id)));
+        }
         setLoading(false);
     };
 
+    const handleResumeAI = async (chatId: string) => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            await supabase.from('conversation_states')
+                .update({ is_muted: false, muted_until: null })
+                .eq('user_id', user.id)
+                .eq('external_chat_id', chatId);
+
+            // creating a local update for speed
+            const newMuted = new Set(mutedChats);
+            newMuted.delete(chatId);
+            setMutedChats(newMuted);
+
+            // Optional: Log it
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
     useEffect(() => {
         fetchLogs();
+
+        // Subscription for logs
         const channel = supabase
             .channel('interactions-sync')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_log' }, () => {
+                fetchLogs();
+            })
+            // Subscribe to state changes too
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'conversation_states' }, () => {
                 fetchLogs();
             })
             .subscribe();
@@ -64,14 +105,12 @@ export default function InteractionsPage() {
             const meta = log.metadata || {};
             const chatId = meta.chat_id || 'unknown';
 
-            // Deduplication: Ignore incoming duplicates loopback
             if (log.event_type === 'INCOMING_DM' && log.description.includes('ghostagent.ai')) return;
 
-            // Extract content and sender
             let text = log.description;
             let senderName = 'Unknown';
             let isBot = log.event_type === 'AI_REPLY';
-            let isManual = log.event_type === 'MANUAL_REPLY' || (meta.is_sender && !isBot); // Catch-all for manual
+            let isManual = log.event_type === 'MANUAL_REPLY' || (meta.is_sender && !isBot);
 
             if (log.event_type === 'INCOMING_DM') {
                 const parts = log.description.split('from');
@@ -112,8 +151,7 @@ export default function InteractionsPage() {
 
             threads[chatId].lastMessage = text;
             threads[chatId].timestamp = log.timestamp;
-            // Update username if it was 'User' and we found a real one
-            if (threads[chatId].username === 'User' && senderName !== 'User' && senderName !== 'You' && senderName !== 'Ghost AI') {
+            if (threads[chatId].username === 'User' && senderName !== 'User' && senderName !== 'You') {
                 threads[chatId].username = senderName;
             }
         });
@@ -124,12 +162,25 @@ export default function InteractionsPage() {
     }, [logs]);
 
     const activeChat = conversations.find(c => c.chat_id === selectedChatId);
+    const isMuted = selectedChatId ? mutedChats.has(selectedChatId) : false;
 
     return (
-        <div className="h-[calc(100vh-160px)] flex gap-4 overflow-hidden font-sans">
-            {/* Sidebar */}
-            <div className="w-80 flex flex-col gap-3 h-full">
-                <div className="flex items-center justify-between mb-2">
+        <div className="h-[calc(100dvh-100px)] md:h-[calc(100vh-160px)] flex gap-4 overflow-hidden font-sans relative">
+            {/* Mobile Header Toggle */}
+            <div className="md:hidden absolute top-4 left-4 z-50">
+                {!selectedChatId && (
+                    <h1 className="text-xl font-bold flex items-center gap-2">
+                        <Instagram className="w-5 h-5 text-pink-500" /> Inbox
+                    </h1>
+                )}
+            </div>
+
+            {/* Sidebar (Responsive) */}
+            <div className={clsx(
+                "w-full md:w-80 flex flex-col gap-3 h-full absolute md:relative z-20 bg-[#0a0a0a] md:bg-transparent transition-transform duration-300",
+                selectedChatId ? "-translate-x-full md:translate-x-0" : "translate-x-0"
+            )}>
+                <div className="hidden md:flex items-center justify-between mb-2">
                     <h1 className="text-xl font-bold flex items-center gap-2">
                         <Instagram className="w-5 h-5 text-pink-500" />
                         Inbox
@@ -140,7 +191,7 @@ export default function InteractionsPage() {
                     </h1>
                 </div>
 
-                <div className="relative mb-2">
+                <div className="relative mb-2 mt-12 md:mt-0">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
                     <input
                         placeholder="Search chats..."
@@ -148,7 +199,7 @@ export default function InteractionsPage() {
                     />
                 </div>
 
-                <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar pb-20 md:pb-0">
                     {conversations.map((conv) => (
                         <button
                             key={conv.chat_id}
@@ -160,7 +211,6 @@ export default function InteractionsPage() {
                                     : "border-white/5 hover:bg-white/5"
                             )}
                         >
-                            {/* Pulse for new thread feeling */}
                             <div className={clsx("absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full transition-transform duration-1000", selectedChatId === conv.chat_id ? "translate-x-full" : "")} />
 
                             <div className="flex items-center gap-3 relative z-10">
@@ -187,26 +237,53 @@ export default function InteractionsPage() {
                 </div>
             </div>
 
-            {/* Chat Area */}
-            <div className="flex-1 glass-dark rounded-3xl border border-white/10 flex flex-col overflow-hidden relative backdrop-blur-xl">
+            {/* Chat Area (Responsive) */}
+            <div className={clsx(
+                "fixed inset-0 md:static flex-1 glass-dark md:rounded-3xl border-0 md:border border-white/10 flex flex-col overflow-hidden relative backdrop-blur-xl z-30 transition-transform duration-300 bg-[#000000]",
+                selectedChatId ? "translate-x-0" : "translate-x-full md:translate-x-0"
+            )}>
                 {activeChat ? (
                     <>
                         {/* Header */}
-                        <div className="p-4 border-b border-white/10 bg-white/5 flex items-center gap-3">
+                        <div className="p-4 border-b border-white/10 bg-white/5 flex items-center gap-3 pt-12 md:pt-4">
+                            <button
+                                onClick={() => setSelectedChatId(null)}
+                                className="md:hidden p-2 -ml-2 text-white/60"
+                            >
+                                <ArrowLeft className="w-5 h-5" />
+                            </button>
                             <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
                                 {activeChat.username[0].toUpperCase()}
                             </div>
-                            <div>
+                            <div className="flex-1">
                                 <h2 className="font-bold text-sm">{activeChat.username}</h2>
-                                <span className="text-[10px] text-green-400 flex items-center gap-1">
-                                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                                    Active Trace
-                                </span>
+                                {isMuted ? (
+                                    <span className="text-[10px] text-yellow-400 flex items-center gap-1">
+                                        <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full" />
+                                        Manual Takeover (Muted)
+                                    </span>
+                                ) : (
+                                    <span className="text-[10px] text-green-400 flex items-center gap-1">
+                                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                                        Ghost Active
+                                    </span>
+                                )}
                             </div>
+
+                            {/* Resolve Button */}
+                            {isMuted && (
+                                <button
+                                    onClick={() => handleResumeAI(activeChat.chat_id)}
+                                    className="px-3 py-1.5 bg-green-500/10 text-green-400 text-xs rounded-lg hover:bg-green-500/20 border border-green-500/20 flex items-center gap-1 transition-colors"
+                                >
+                                    <PlayCircle className="w-3 h-3" />
+                                    Resume AI
+                                </button>
+                            )}
                         </div>
 
                         {/* Messages */}
-                        <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+                        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 custom-scrollbar pb-20">
                             <AnimatePresence>
                                 {activeChat.messages.map((msg, i) => (
                                     <motion.div
@@ -214,12 +291,11 @@ export default function InteractionsPage() {
                                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
                                         className={clsx(
-                                            "flex flex-col max-w-[75%]",
+                                            "flex flex-col max-w-[85%] md:max-w-[75%]",
                                             msg.is_sender ? "ml-auto items-end" : "mr-auto items-start"
                                         )}
                                     >
                                         <div className="flex items-end gap-2">
-                                            {/* Ghost Icon for Bot */}
                                             {msg.is_bot && (
                                                 <div className="w-6 h-6 rounded-full bg-cyan-500/10 flex items-center justify-center mb-1">
                                                     <Ghost className="w-3 h-3 text-cyan-400" />
@@ -227,12 +303,12 @@ export default function InteractionsPage() {
                                             )}
 
                                             <div className={clsx(
-                                                "px-5 py-3 rounded-2xl text-sm leading-relaxed backdrop-blur-md border",
+                                                "px-4 py-2.5 md:px-5 md:py-3 rounded-2xl text-[15px] md:text-sm leading-relaxed backdrop-blur-md border break-words",
                                                 msg.is_bot
-                                                    ? "bg-cyan-950/40 border-cyan-500/30 text-cyan-50 rounded-tr-none shadow-[0_0_20px_rgba(34,211,238,0.15)]" // Ghost Style
+                                                    ? "bg-cyan-950/40 border-cyan-500/30 text-cyan-50 rounded-tr-none shadow-[0_0_20px_rgba(34,211,238,0.15)]"
                                                     : msg.is_manual
-                                                        ? "bg-white/10 border-white/10 text-white rounded-tr-none" // Owner Style
-                                                        : "bg-black/40 border-white/5 text-white/90 rounded-tl-none" // Customer Style
+                                                        ? "bg-white/10 border-white/10 text-white rounded-tr-none"
+                                                        : "bg-black/40 border-white/5 text-white/90 rounded-tl-none"
                                             )}>
                                                 {msg.text}
                                             </div>
@@ -247,27 +323,9 @@ export default function InteractionsPage() {
                                 ))}
                             </AnimatePresence>
                         </div>
-
-                        {/* Footer */}
-                        <div className="p-4 bg-white/5 border-t border-white/10">
-                            <div className="relative group">
-                                <input
-                                    // Placeholder only, assumes owner replies via phone/native app for now
-                                    placeholder={`Reply as Operator to ${activeChat.username}...`}
-                                    className="w-full bg-black/40 border border-white/10 rounded-2xl py-3 pl-4 pr-12 text-sm focus:outline-none focus:border-primary/50 transition-colors"
-                                />
-                                <button className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-black transition-all">
-                                    <Send className="w-4 h-4" />
-                                </button>
-                            </div>
-                            <p className="text-[10px] text-white/20 mt-2 text-center uppercase tracking-widest flex justify-center gap-2">
-                                <span>Ghost Protocol Active</span>
-                                <span className="text-green-500">• Monitoring</span>
-                            </p>
-                        </div>
                     </>
                 ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center opacity-30 select-none">
+                    <div className="hidden md:flex flex-1 flex-col items-center justify-center opacity-30 select-none">
                         <div className="relative">
                             <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
                             <Ghost className="w-24 h-24 mb-6 relative z-10 text-primary" />
@@ -291,10 +349,6 @@ export default function InteractionsPage() {
                 }
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
                     background: rgba(255, 255, 255, 0.2);
-                }
-                  .glass-effect {
-                    backdrop-filter: blur(12px);
-                    background: rgba(255, 255, 255, 0.05);
                 }
             `}</style>
         </div>
