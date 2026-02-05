@@ -55,9 +55,13 @@ export async function POST() {
 
     } catch (error: any) {
         console.error('Connect Route EXCEPTION:', error);
+        // RETURNING 200 to ensure client sees the error details (bypassing generic Next.js 500 page)
         return NextResponse.json({
-            error: 'Internal Server Error during connection attempt.',
-            details: error.message
-        }, { status: 500 });
+            error: 'Internal Logic Error',
+            details: error.message,
+            stack: error.stack,
+            key_preview: UNIPILE_KEY ? `${UNIPILE_KEY.substring(0, 5)}...` : 'MISSING',
+            url_used: UNIPILE_URL
+        }, { status: 200 });
     }
 }
