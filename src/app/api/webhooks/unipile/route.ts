@@ -14,21 +14,66 @@ export async function POST(req: Request) {
     try {
         const body = await req.json();
         console.log('=== UNIPILE WEBHOOK RECEIVED ===');
-        console.log('Event Type:', body.event);
         console.log('Full Body:', JSON.stringify(body, null, 2));
 
-        // Handle account.created event
-        if (body.event === 'account.created') {
-            const { account_id, provider, name, username } = body.data;
+        // Unipile sends AccountStatus updates
+        if (body.AccountStatus) {
+            const { account_id, message, account_type } = body.AccountStatus;
 
-            console.log('Account Created Data:', {
+            console.log('Account Status Update:', {
                 account_id,
-                provider,
-                name,
-                username
+                status: message,
+                account_type
             });
 
-            // Extract user_id from the 'name' field (we passed userId as name in connect route)
+            // Only save when account is fully connected
+            if (message === 'CONNECTED') {
+                console.log('✅ Account connected, attempting to save...');
+
+                // We need to get the user_id from somewhere
+                // Since we don't have it in the webhook, we'll need to look it up or use a different approach
+                // For now, let's try to use the account_id to find existing connection or create with service role
+
+                const supabase = await createClient();
+
+                // Try to save with account_id only, we'll update user_id later via status endpoint
+                const { data, error } = await supabase
+                    .from('user_connections')
+                    .upsert({
+                        account_id: account_id,
+                        provider: account_type,
+                        account_username: null, // We don't have username in this webhook
+                        metadata: body.AccountStatus,
+                        connected_at: new Date().toISOString()
+                    }, {
+                        onConflict: 'account_id',
+                        ignoreDuplicates: false
+                    })
+                    .select();
+
+                if (error) {
+                    console.error('❌ Failed to save connection:', error);
+                    return NextResponse.json({
+                        status: 'error',
+                        error: error.message
+                    }, { status: 500 });
+                }
+
+                console.log('✅ Saved connection successfully:', data);
+                return NextResponse.json({
+                    status: 'success',
+                    message: 'Connection saved',
+                    data
+                });
+            }
+
+            console.log('ℹ️ Status is not CONNECTED yet, ignoring');
+            return NextResponse.json({ status: 'acknowledged', message });
+        }
+
+        // Handle old-style events if they exist
+        if (body.event === 'account.created') {
+            const { account_id, provider, name, username } = body.data;
             const userId = name;
 
             if (!userId) {
@@ -36,11 +81,8 @@ export async function POST(req: Request) {
                 return NextResponse.json({ status: 'ignored', reason: 'Missing user_id' });
             }
 
-            console.log('Attempting to save for userId:', userId);
-
             const supabase = await createClient();
 
-            // Insert or update connection
             const { data, error } = await supabase
                 .from('user_connections')
                 .upsert({
@@ -63,9 +105,9 @@ export async function POST(req: Request) {
             return NextResponse.json({ status: 'success', message: 'Connection saved', data });
         }
 
-        // Log other events
-        console.log('ℹ️ Ignoring event:', body.event);
-        return NextResponse.json({ status: 'ignored', event: body.event });
+        // Unknown webhook type
+        console.log('ℹ️ Unknown webhook structure');
+        return NextResponse.json({ status: 'ignored', reason: 'Unknown webhook type' });
 
     } catch (error: any) {
         console.error('Webhook processing error:', error);
