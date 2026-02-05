@@ -4,45 +4,58 @@ import { createClient } from '@/utils/supabase/server';
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        console.log('Unipile Webhook Event:', body.event, body.data);
+        console.log('=== UNIPILE WEBHOOK RECEIVED ===');
+        console.log('Event Type:', body.event);
+        console.log('Full Body:', JSON.stringify(body, null, 2));
 
         // Handle account.created event
         if (body.event === 'account.created') {
             const { account_id, provider, name, username } = body.data;
 
+            console.log('Account Created Data:', {
+                account_id,
+                provider,
+                name,
+                username
+            });
+
             // Extract user_id from the 'name' field (we passed userId as name in connect route)
-            const userId = name; // This is the userId we sent in the connect request
+            const userId = name;
 
             if (!userId) {
-                console.warn('No user_id found in webhook data');
+                console.warn('❌ No user_id found in webhook data');
                 return NextResponse.json({ status: 'ignored', reason: 'Missing user_id' });
             }
+
+            console.log('Attempting to save for userId:', userId);
 
             const supabase = await createClient();
 
             // Insert or update connection
-            const { error } = await supabase
+            const { data, error } = await supabase
                 .from('user_connections')
                 .upsert({
                     user_id: userId,
                     provider: provider,
                     account_id: account_id,
                     account_username: username || null,
-                    metadata: body.data // Store full webhook data
+                    metadata: body.data
                 }, {
-                    onConflict: 'user_id,provider' // Update if already exists
-                });
+                    onConflict: 'user_id,provider'
+                })
+                .select();
 
             if (error) {
-                console.error('Failed to save connection:', error);
-                return NextResponse.json({ error: 'Database error' }, { status: 500 });
+                console.error('❌ Failed to save connection:', error);
+                return NextResponse.json({ error: 'Database error', details: error }, { status: 500 });
             }
 
-            console.log(`✓ Saved connection for user ${userId}: ${provider} (${username || account_id})`);
-            return NextResponse.json({ status: 'success', message: 'Connection saved' });
+            console.log('✅ Saved connection successfully:', data);
+            return NextResponse.json({ status: 'success', message: 'Connection saved', data });
         }
 
-        // Acknowledge other events but don't process
+        // Log other events
+        console.log('ℹ️ Ignoring event:', body.event);
         return NextResponse.json({ status: 'ignored', event: body.event });
 
     } catch (error: any) {
