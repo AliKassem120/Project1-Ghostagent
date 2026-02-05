@@ -38,12 +38,13 @@ export async function POST(req: Request) {
             },
             body: JSON.stringify({
                 type: 'create',
-                providers: ['INSTAGRAM'], // MUST be uppercase per Unipile enum validation
+                providers: ['INSTAGRAM'],
                 api_url: 'https://api23.unipile.com:15397',
                 expiresOn: new Date(Date.now() + 3600 * 1000 * 24).toISOString(),
                 success_redirect_url: `${baseUrl}/dashboard/settings?success=true`,
                 failure_redirect_url: `${baseUrl}/dashboard/settings?error=true`,
                 notify_url: `${baseUrl}/api/webhooks/unipile`,
+                bypass_success_screen: true, // Auto-redirect instead of showing success page
                 name: name
             })
         });
