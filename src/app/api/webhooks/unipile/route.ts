@@ -2,10 +2,16 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 // Create a Supabase client with the SERVICE ROLE key to bypass RLS
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY!
-);
+const getSupabaseAdmin = () => {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY!;
+
+    if (!supabaseServiceKey) {
+        throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY');
+    }
+
+    return createClient(supabaseUrl, supabaseServiceKey);
+}
 
 // GET handler for testing
 export async function GET() {
@@ -21,6 +27,9 @@ export async function POST(req: Request) {
         const body = await req.json();
         console.log('=== UNIPILE WEBHOOK RECEIVED ===');
         console.log('Full Body:', JSON.stringify(body, null, 2));
+
+        // Initialize admin client lazily to avoid build-time errors
+        const supabaseAdmin = getSupabaseAdmin();
 
         // Handle CREATION_SUCCESS webhook (contains user_id in name field)
         if (body.status === 'CREATION_SUCCESS') {
