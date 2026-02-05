@@ -211,7 +211,12 @@ export default function SettingsPage() {
         }
     }, []);
 
-    
+    // Check status on mount
+    useEffect(() => {
+        checkInstagramStatus();
+    }, []);
+
+
 
     const handleSave = async () => {
         setSaving(true);
