@@ -22,6 +22,8 @@ export default function DashboardPage() {
     const [totalInteractions, setTotalInteractions] = useState(0);
 
     useEffect(() => {
+        let channel: any;
+
         const loadDashboardData = async () => {
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
@@ -57,14 +59,14 @@ export default function DashboardPage() {
                 .eq('user_id', user.id)
                 .eq('event_type', 'IG_SALE');
 
-            // Sum money from sales (parse from description)
+            // Sum money from sales
             let totalMoney = 0;
             salesLogs?.forEach(log => {
                 const match = log.description.match(/\$([\d.]+)/);
                 if (match) totalMoney += parseFloat(match[1]);
             });
 
-            // Time saved: Each interaction saves ~2 minutes
+            // Time saved
             const timeSavedMinutes = (totalLogs || 0) * 2;
             const timeSavedHours = timeSavedMinutes / 60;
 
@@ -84,8 +86,37 @@ export default function DashboardPage() {
             });
             setTotalInteractions(totalLogs || 0);
             setLoading(false);
+
+            // 4. Realtime Subscription
+            channel = supabase
+                .channel('dashboard-activity')
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'INSERT',
+                        schema: 'public',
+                        table: 'activity_log',
+                        filter: `user_id=eq.${user.id}`
+                    },
+                    (payload) => {
+                        setActivities((prev) => [payload.new, ...prev]);
+                        // Update basic stats optimistically
+                        setStats((prev) => ({
+                            ...prev,
+                            repliesSent: prev.repliesSent + 1,
+                            timeSaved: prev.timeSaved + (2 / 60)
+                        }));
+                        setTotalInteractions((prev) => prev + 1);
+                    }
+                )
+                .subscribe();
         };
+
         loadDashboardData();
+
+        return () => {
+            if (channel) supabase.removeChannel(channel);
+        };
     }, []);
 
     const metrics = [

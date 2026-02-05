@@ -116,6 +116,11 @@ export async function POST(req: Request) {
         // Handle message.received
         // Handle message_received (Unipile sends user message)
         if (body.event === 'message_received') {
+            // Ignore own messages to prevent duplicate logs and loops
+            if (body.is_sender === true) {
+                return NextResponse.json({ status: 'success', message: 'Ignored self message' });
+            }
+
             const { account_id, message, sender, chat_id } = body;
             const text = message;
 
