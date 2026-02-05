@@ -250,11 +250,12 @@ CATALOG-INVENTORY SYNC RULES:
 
                     if (!searchRes.ok) return `Error searching chats: ${await searchRes.text()}`;
 
-                    const { items: chats } = await searchRes.json();
+                    const searchData = await searchRes.json();
+                    const chats = searchData.items || [];
 
                     // Find chat where an attendee matches the username
                     const targetChat = chats.find((c: any) =>
-                        c.attendees.some((a: any) =>
+                        c.attendees?.some((a: any) =>
                             a.attendee_specifics?.public_identifier?.toLowerCase() === username.toLowerCase() ||
                             a.attendee_name?.toLowerCase().includes(username.toLowerCase())
                         )
