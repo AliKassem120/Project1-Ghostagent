@@ -161,7 +161,7 @@ export async function POST(req: Request) {
 
                         // Parse DSN to get URL and Key dynamically
                         const dsn = process.env.UNIPILE_DSN || '';
-                        let baseUrl = 'https://api1.unipile.com:1337'; // Default fallback
+                        let baseUrl = 'https://api23.unipile.com:15397'; // Changed default to api23 which works for this user
                         let apiKey = process.env.UNIPILE_API_KEY || '';
 
                         if (dsn.includes('@')) {
