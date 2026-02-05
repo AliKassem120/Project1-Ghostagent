@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { generateGhostReply } from '@/utils/ghost-brain';
 
 // Create a Supabase client with the SERVICE ROLE key to bypass RLS
 const getSupabaseAdmin = () => {
@@ -148,7 +149,47 @@ export async function POST(req: Request) {
             }
 
             console.log('✅ Logged DM activity for user:', connection.user_id);
-            return NextResponse.json({ status: 'success', message: 'Message processed' });
+
+            // 3. AUTO-REPLY (The Ghost)
+            if (body.is_sender === false) {
+                console.log('🤖 Generating Ghost Reply...');
+                try {
+                    const replyText = await generateGhostReply(connection.user_id, text || '', supabaseAdmin);
+
+                    if (replyText) {
+                        console.log('👻 Ghost says:', replyText);
+                        const unipileKey = process.env.UNIPILE_API_KEY;
+                        if (unipileKey && chat_id) {
+                            const sendRes = await fetch(`https://api23.unipile.com:15397/api/v1/chats/${chat_id}/messages`, {
+                                method: 'POST',
+                                headers: {
+                                    'X-API-KEY': unipileKey,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ text: replyText })
+                            });
+
+                            if (sendRes.ok) {
+                                console.log('✅ Reply sent');
+                                // Log the reply
+                                await supabaseAdmin.from('activity_log').insert({
+                                    user_id: connection.user_id,
+                                    event_type: 'AI_REPLY',
+                                    description: `Sent: "${replyText.substring(0, 50)}..."`,
+                                    timestamp: new Date().toISOString()
+                                });
+                            } else {
+                                const errData = await sendRes.text();
+                                console.error('❌ Failed to send Unipile message:', errData);
+                            }
+                        }
+                    }
+                } catch (replyError) {
+                    console.error('Auto-reply failed:', replyError);
+                }
+            }
+
+            return NextResponse.json({ status: 'success', message: 'Message processed and replied' });
         }
 
         // Handle old-style events if they exist
