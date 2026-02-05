@@ -4,12 +4,16 @@ export async function POST() {
     const UNIPILE_KEY = process.env.UNIPILE_API_KEY;
     const UNIPILE_URL = 'https://api4.unipile.com:15373/api/v1/hosted/accounts/link';
 
+    // 1. Check for API Key
     if (!UNIPILE_KEY) {
-        console.error('Missing UNIPILE_API_KEY');
-        return NextResponse.json({ error: 'Server Configuration Error: Missing API Key' }, { status: 500 });
+        console.error('CRITICAL: UNIPILE_API_KEY is missing in environment variables.');
+        return NextResponse.json({
+            error: 'Configuration Error: UNIPILE_API_KEY is missing. Please add it to Vercel Environment Variables.'
+        }, { status: 401 }); // Using 401 to distinguish from code crash
     }
 
     try {
+        console.log('Attempting to contact Unipile Link API...');
         const response = await fetch(UNIPILE_URL, {
             method: 'POST',
             headers: {
@@ -28,15 +32,32 @@ export async function POST() {
             })
         });
 
-        const data = await response.json();
+        // 2. Handle API Response
         if (!response.ok) {
-            console.error('Unipile Error:', JSON.stringify(data, null, 2));
-            return NextResponse.json({ error: data.message || 'Failed to connect' }, { status: response.status });
+            const errorText = await response.text();
+            console.error(`Unipile API Error (${response.status}):`, errorText);
+
+            // Try to parse JSON error if possible
+            let errorDetail = errorText;
+            try {
+                const errorJson = JSON.parse(errorText);
+                errorDetail = errorJson.message || errorJson.detail || errorText;
+            } catch (e) { /* ignore parse error */ }
+
+            return NextResponse.json({
+                error: `Unipile API Failed: ${errorDetail}`,
+                details: errorText
+            }, { status: response.status });
         }
 
+        const data = await response.json();
         return NextResponse.json(data);
+
     } catch (error: any) {
-        console.error('Connect Route Internal Error:', error);
-        return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+        console.error('Connect Route EXCEPTION:', error);
+        return NextResponse.json({
+            error: 'Internal Server Error during connection attempt.',
+            details: error.message
+        }, { status: 500 });
     }
 }
