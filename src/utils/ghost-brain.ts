@@ -1,5 +1,5 @@
 import { google } from "@ai-sdk/google";
-import { generateText, tool } from "ai";
+import { generateText } from "ai";
 import { z } from "zod";
 
 export async function generateGhostReply(
@@ -15,14 +15,27 @@ export async function generateGhostReply(
     let businessName = "Ghost Agent Store";
 
     try {
-        // Fetch Settings
+        // Fetch Settings with Ghost Protocol fields
         const { data: settings } = await supabase
             .from('bot_settings')
-            .select('business_name, tone, system_instructions')
+            .select('business_name, tone, system_instructions, urgency_mode, handoff_keywords')
             .eq('user_id', userId)
             .single();
 
         if (settings?.business_name) businessName = settings.business_name;
+
+        // --- GHOST PROTOCOL: Hand-off Check ---
+        const handoffKeywords = settings?.handoff_keywords || [];
+        if (Array.isArray(handoffKeywords) && handoffKeywords.some((kw: string) => userMessage.toLowerCase().includes(kw.toLowerCase()))) {
+            console.log('🛑 Ghost Protocol: Handoff Keyword Detected. Pausing AI.');
+            return null; // Signals the webhook to NOT send a reply
+        }
+
+        // --- GHOST PROTOCOL: Urgency Mode ---
+        let urgencyPrompt = "";
+        if (settings?.urgency_mode) {
+            urgencyPrompt = `\n🔥 URGENCY MODE AGENT: Subtly emphasize scarcity (e.g., "only a few left", "high demand") in your response to encourage a faster decision. Be professional but create a sense of FOMO (Fear Of Missing Out).`;
+        }
 
         // Fetch Inventory
         const { data: inventory } = await supabase
@@ -61,6 +74,8 @@ ${catalogContext}
 
 USER INSTRUCTIONS (Tone: ${settings?.tone || 'Professional'}):
 ${settings?.system_instructions || 'Be helpful and concise.'}
+
+${urgencyPrompt}
 
 GOAL: cancel orders, answer questions about stock, price, and availability.
 Refuse to sell items that are out of stock.
