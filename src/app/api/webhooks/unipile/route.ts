@@ -192,6 +192,11 @@ export async function POST(req: Request) {
             return NextResponse.json({ status: 'success', message: 'Message processed and replied' });
         }
 
+        // Handle other message events (ignore to prevent log noise)
+        if (body.event === 'message_sent' || body.event === 'message_read') {
+            return NextResponse.json({ status: 'acknowledged' });
+        }
+
         // Handle old-style events if they exist
         if (body.event === 'account.created') {
             const { account_id, provider, name, username } = body.data;
