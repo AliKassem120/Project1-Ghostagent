@@ -1,6 +1,15 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 
+// GET handler for testing
+export async function GET() {
+    return NextResponse.json({
+        status: 'ok',
+        message: 'Unipile webhook endpoint is ready',
+        timestamp: new Date().toISOString()
+    });
+}
+
 export async function POST(req: Request) {
     try {
         const body = await req.json();
