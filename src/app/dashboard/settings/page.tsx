@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Save, Bot, DollarSign, Bell, Globe, Sparkles, Upload, Building2, Loader2, Check, FileSpreadsheet, X } from 'lucide-react';
+import { Save, Bot, DollarSign, Bell, Globe, Sparkles, Upload, Building2, Loader2, Check, FileSpreadsheet, X, Instagram } from 'lucide-react';
 import { clsx } from 'clsx';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
@@ -16,6 +16,7 @@ export default function SettingsPage() {
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [connecting, setConnecting] = useState(false);
     const [uploadedFile, setUploadedFile] = useState<{ name: string; rowCount: number } | null>(null);
 
     // Initial state with empty values (No fake data!)
@@ -163,6 +164,28 @@ export default function SettingsPage() {
         if (!error) {
             setUploadedFile(null);
             toast.info('Product catalog removed');
+        }
+    };
+
+    const handleConnectInstagram = async () => {
+        setConnecting(true);
+        try {
+            const res = await fetch('/api/connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: (await supabase.auth.getUser()).data.user?.id })
+            });
+            const data = await res.json();
+            if (data.url) {
+                window.location.href = data.url;
+            } else {
+                toast.error('Failed to get connection link');
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error('Connection failed');
+        } finally {
+            setConnecting(false);
         }
     };
 
@@ -423,6 +446,39 @@ export default function SettingsPage() {
                             → Opens: <code className="bg-white/10 px-2 py-1 rounded text-xs">wa.me/{settings.emergencyWhatsApp.replace(/[\s\-+]/g, '')}</code>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            {/* Integrations */}
+            <div className="glass-dark p-8 rounded-3xl border border-white/10 mb-8">
+                <div className="flex items-center gap-4 pb-6 border-b border-white/10 mb-6">
+                    <div className="p-3 bg-pink-500/20 rounded-xl">
+                        <Instagram className="w-7 h-7 text-pink-500" />
+                    </div>
+                    <div>
+                        <h2 className="text-2xl font-bold">Integrations</h2>
+                        <p className="text-white/50">Connect your social channels</p>
+                    </div>
+                </div>
+
+                <div className="flex items-center justify-between bg-white/5 p-6 rounded-2xl border border-white/10">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 rounded-xl flex items-center justify-center">
+                            <Instagram className="w-7 h-7 text-white" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-lg">Instagram</h3>
+                            <p className="text-white/50 text-sm">Connect to read DMs and comments</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={handleConnectInstagram}
+                        disabled={connecting}
+                        className="px-6 py-3 bg-white text-black font-bold rounded-xl hover:bg-white/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+                    >
+                        {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Instagram className="w-4 h-4" />}
+                        {connecting ? 'Connecting...' : 'Connect Account'}
+                    </button>
                 </div>
             </div>
 
