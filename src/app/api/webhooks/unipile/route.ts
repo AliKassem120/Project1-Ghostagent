@@ -113,8 +113,10 @@ export async function POST(req: Request) {
         }
 
         // Handle message.received
-        if (body.event === 'message.received') {
-            const { account_id, text, sender_id, chat_id } = body.data;
+        // Handle message_received (Unipile sends user message)
+        if (body.event === 'message_received') {
+            const { account_id, message, sender, chat_id } = body;
+            const text = message;
 
             console.log('📩 Message Received for account:', account_id);
 
@@ -131,13 +133,19 @@ export async function POST(req: Request) {
             }
 
             // 2. Log activity
-            await supabaseAdmin.from('activity_log').insert({
-                user_id: connection.user_id,
-                event_type: 'INCOMING_DM',
-                description: `Received: "${text?.substring(0, 50) || 'Image/Attachment'}${text?.length > 50 ? '...' : ''}"`,
-                metadata: body.data,
-                timestamp: new Date().toISOString()
-            });
+            try {
+                const { error: insertError } = await supabaseAdmin.from('activity_log').insert({
+                    user_id: connection.user_id,
+                    event_type: 'INCOMING_DM',
+                    description: `Received: "${text?.substring(0, 50) || '(No Text)'}${text?.length > 50 ? '...' : ''}" from ${sender?.attendee_name || 'Unknown'}`,
+                    metadata: body,
+                    timestamp: new Date().toISOString()
+                });
+
+                if (insertError) throw insertError;
+            } catch (e) {
+                console.error('Error logging DM:', e);
+            }
 
             console.log('✅ Logged DM activity for user:', connection.user_id);
             return NextResponse.json({ status: 'success', message: 'Message processed' });
