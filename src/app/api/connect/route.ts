@@ -33,8 +33,8 @@ export async function POST(req: Request) {
             },
             body: JSON.stringify({
                 type: 'create',
-                providers: ['instagram'],
-                api_url: 'https://api23.unipile.com:15397', // CRITICAL: Must be the Unipile Server URL
+                providers: ['INSTAGRAM'], // MUST be uppercase per Unipile enum validation
+                api_url: 'https://api23.unipile.com:15397',
                 expiresOn: new Date(Date.now() + 3600 * 1000 * 24).toISOString(),
                 success_redirect_url: 'https://project1-ghostagent.vercel.app/dashboard/settings',
                 failure_redirect_url: 'https://project1-ghostagent.vercel.app/dashboard/settings?error=true',
