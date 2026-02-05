@@ -16,6 +16,53 @@ export async function POST(req: Request) {
         console.log('=== UNIPILE WEBHOOK RECEIVED ===');
         console.log('Full Body:', JSON.stringify(body, null, 2));
 
+        // Handle CREATION_SUCCESS webhook (contains user_id in name field)
+        if (body.status === 'CREATION_SUCCESS') {
+            const { account_id, name } = body;
+            const userId = name; // This is the user_id we passed in connect route
+
+            console.log('✅ Creation Success - Saving connection:', {
+                account_id,
+                userId
+            });
+
+            if (!userId) {
+                console.warn('❌ No user_id in CREATION_SUCCESS');
+                return NextResponse.json({ status: 'acknowledged' });
+            }
+
+            const supabase = await createClient();
+
+            const { data, error } = await supabase
+                .from('user_connections')
+                .upsert({
+                    user_id: userId,
+                    account_id: account_id,
+                    provider: 'INSTAGRAM',
+                    account_username: null, // Will be populated by status endpoint
+                    metadata: body,
+                    connected_at: new Date().toISOString()
+                }, {
+                    onConflict: 'account_id'
+                })
+                .select();
+
+            if (error) {
+                console.error('❌ Failed to save connection:', error);
+                return NextResponse.json({
+                    status: 'error',
+                    error: error.message
+                }, { status: 500 });
+            }
+
+            console.log('✅ Saved connection with user_id:', data);
+            return NextResponse.json({
+                status: 'success',
+                message: 'Connection saved',
+                data
+            });
+        }
+
         // Unipile sends AccountStatus updates
         if (body.AccountStatus) {
             const { account_id, message, account_type } = body.AccountStatus;
@@ -26,48 +73,27 @@ export async function POST(req: Request) {
                 account_type
             });
 
-            // Only save when account is fully connected
+            // Update existing connection when fully connected
             if (message === 'CONNECTED') {
-                console.log('✅ Account connected, attempting to save...');
-
-                // We need to get the user_id from somewhere
-                // Since we don't have it in the webhook, we'll need to look it up or use a different approach
-                // For now, let's try to use the account_id to find existing connection or create with service role
+                console.log('✅ Account fully connected, updating...');
 
                 const supabase = await createClient();
 
-                // Try to save with account_id only, we'll update user_id later via status endpoint
                 const { data, error } = await supabase
                     .from('user_connections')
-                    .upsert({
-                        account_id: account_id,
-                        provider: account_type,
-                        account_username: null, // We don't have username in this webhook
-                        metadata: body.AccountStatus,
-                        connected_at: new Date().toISOString()
-                    }, {
-                        onConflict: 'account_id',
-                        ignoreDuplicates: false
+                    .update({
+                        metadata: body.AccountStatus
                     })
+                    .eq('account_id', account_id)
                     .select();
 
                 if (error) {
-                    console.error('❌ Failed to save connection:', error);
-                    return NextResponse.json({
-                        status: 'error',
-                        error: error.message
-                    }, { status: 500 });
+                    console.warn('⚠️ Could not update connection status:', error);
+                } else {
+                    console.log('✅ Updated connection status:', data);
                 }
-
-                console.log('✅ Saved connection successfully:', data);
-                return NextResponse.json({
-                    status: 'success',
-                    message: 'Connection saved',
-                    data
-                });
             }
 
-            console.log('ℹ️ Status is not CONNECTED yet, ignoring');
             return NextResponse.json({ status: 'acknowledged', message });
         }
 
@@ -107,7 +133,7 @@ export async function POST(req: Request) {
 
         // Unknown webhook type
         console.log('ℹ️ Unknown webhook structure');
-        return NextResponse.json({ status: 'ignored', reason: 'Unknown webhook type' });
+        return NextResponse.json({ status: 'acknowledged' });
 
     } catch (error: any) {
         console.error('Webhook processing error:', error);
