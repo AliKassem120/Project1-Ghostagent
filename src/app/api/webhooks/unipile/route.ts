@@ -158,15 +158,33 @@ export async function POST(req: Request) {
 
                     if (replyText) {
                         console.log('👻 Ghost says:', replyText);
-                        const unipileKey = process.env.UNIPILE_API_KEY;
-                        if (unipileKey && chat_id) {
-                            const sendRes = await fetch(`https://api23.unipile.com:15397/api/v1/chats/${chat_id}/messages`, {
+
+                        // Parse DSN to get URL and Key dynamically
+                        const dsn = process.env.UNIPILE_DSN || '';
+                        let baseUrl = 'https://api1.unipile.com:1337'; // Default fallback
+                        let apiKey = process.env.UNIPILE_API_KEY || '';
+
+                        if (dsn.includes('@')) {
+                            const [proto, rest] = dsn.split('://');
+                            const [auth, domain] = rest.split('@');
+                            baseUrl = `${proto}://${domain}`;
+                            apiKey = auth;
+                        } else if (dsn.startsWith('http')) {
+                            baseUrl = dsn;
+                        }
+
+                        if (chat_id) {
+                            // Link: https://developer.unipile.com/reference/post_chats-chat-id-messages
+                            const sendRes = await fetch(`${baseUrl}/api/v1/chats/${chat_id}/messages`, {
                                 method: 'POST',
                                 headers: {
-                                    'X-API-KEY': unipileKey,
+                                    'X-API-KEY': apiKey,
                                     'Content-Type': 'application/json'
                                 },
-                                body: JSON.stringify({ text: replyText })
+                                body: JSON.stringify({
+                                    text: replyText,
+                                    sender_id: account_id // Explicitly specify sender
+                                })
                             });
 
                             if (sendRes.ok) {
@@ -181,6 +199,7 @@ export async function POST(req: Request) {
                             } else {
                                 const errData = await sendRes.text();
                                 console.error('❌ Failed to send Unipile message:', errData);
+                                console.error('Request URL:', `${baseUrl}/api/v1/chats/${chat_id}/messages`);
                             }
                         }
                     }
