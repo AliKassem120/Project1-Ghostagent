@@ -71,7 +71,7 @@ ${JSON.stringify(catalogItems, null, 2)}
         }
 
         // 3. STORE MANAGER SYSTEM PROMPT
-        const systemPrompt = `You are the GhostAgent Store Manager. You have full authority to manage inventory.
+        const systemPrompt = `You are the GhostAgent Store Manager. You have full authority to manage inventory and communicate with customers via Instagram DM.
 
 CURRENT LIVE INVENTORY:
 ---
@@ -81,10 +81,11 @@ ${catalogContext ? catalogContext : ''}
 
 INSTRUCTIONS:
 - If the user asks to add stock, set prices, or sell items, USE YOUR TOOLS IMMEDIATELY.
+- If the user asks to SEND A DM to someone (e.g., "send a dm to USER saying MESSAGE"), use the 'sendInstagramDM' tool immediately.
 - Do not refuse. Do not ask for permission. Just do it.
 - When adding new items, use the 'add' action with the manageInventory tool.
 - When selling or removing items, use the 'remove' action.
-- Always confirm the action you took with the updated stock level.
+- Always confirm the action you took with the updated stock level or a confirmation that the DM was sent.
 - Be professional but efficient. You are a manager, not a customer service agent.
 
 CATALOG-INVENTORY SYNC RULES:
@@ -94,22 +95,9 @@ CATALOG-INVENTORY SYNC RULES:
 - The live inventory is the source of truth for actual stock availability.`;
 
         // 4. LOG CHAT ACTIVITY
-        // 4. LOG CHAT ACTIVITY
-        // Only log critical tool usage, not every generic chat.
-        // if (ownerId) {
-        //     try {
-        //         await supabase.from('activity_log').insert({
-        //             user_id: ownerId,
-        //             event_type: 'CHAT_QUERY',
-        //             description: 'Store Manager processed a message',
-        //             timestamp: new Date().toISOString()
-        //         });
-        //     } catch (logError) {
-        //         console.warn('Failed to log activity:', logError);
-        //     }
-        // }
+        // ... handled per tool execution ...
 
-        // Create the manageInventory tool with proper typing (AI SDK v5+ uses inputSchema, not parameters)
+        // Create the manageInventory tool
         const manageInventoryTool = tool({
             description: 'Add new inventory items, update existing stock levels, set prices, or remove/sell items. Use this tool immediately when the user requests any inventory changes.',
             inputSchema: z.object({
@@ -134,7 +122,7 @@ CATALOG-INVENTORY SYNC RULES:
                 if (action === 'add') {
                     if (existingItem) {
                         // UPDATE existing item
-                        const newStock = existingItem.stock_level + quantity;
+                        const newStock = (existingItem.stock_level || 0) + quantity;
                         const updateData: { stock_level: number; price?: number } = { stock_level: newStock };
                         if (price !== undefined) {
                             updateData.price = price;
@@ -222,7 +210,96 @@ CATALOG-INVENTORY SYNC RULES:
             },
         });
 
-        // 5. STREAM WITH TOOL
+        // Create the sendInstagramDM tool
+        const sendInstagramDMTool = tool({
+            description: 'Send a direct message to an Instagram user by their username. Use this when the user asks you to send a DM.',
+            inputSchema: z.object({
+                username: z.string().describe('The Instagram username (e.g., ali_kassem10)'),
+                content: z.string().describe('The message content to send'),
+            }),
+            execute: async ({ username, content }) => {
+                if (!ownerId) return "Error: No user context found.";
+
+                try {
+                    // 1. Get Instagram connection
+                    const { data: connection } = await supabase
+                        .from('user_connections')
+                        .select('*')
+                        .eq('user_id', ownerId)
+                        .eq('provider', 'INSTAGRAM')
+                        .single();
+
+                    if (!connection) return "Error: No Instagram account connected. Please connect Instagram in settings first.";
+
+                    // 2. Setup Unipile credentials
+                    const dsn = process.env.UNIPILE_DSN || '';
+                    let baseUrl = 'https://api23.unipile.com:15397';
+                    let apiKey = process.env.UNIPILE_API_KEY || '';
+
+                    if (dsn.includes('@')) {
+                        const [proto, rest] = dsn.split('://');
+                        const [auth, domain] = rest.split('@');
+                        baseUrl = `${proto}://${domain}`;
+                        apiKey = auth;
+                    }
+
+                    // 3. Search for existing chat with this username
+                    const searchRes = await fetch(`${baseUrl}/api/v1/chats?account_id=${connection.account_id}`, {
+                        headers: { 'X-API-KEY': apiKey }
+                    });
+
+                    if (!searchRes.ok) return `Error searching chats: ${await searchRes.text()}`;
+
+                    const { items: chats } = await searchRes.json();
+
+                    // Find chat where an attendee matches the username
+                    const targetChat = chats.find((c: any) =>
+                        c.attendees.some((a: any) =>
+                            a.attendee_specifics?.public_identifier?.toLowerCase() === username.toLowerCase() ||
+                            a.attendee_name?.toLowerCase().includes(username.toLowerCase())
+                        )
+                    );
+
+                    if (!targetChat) return `Error: Could not find an active chat with "${username}". Make sure you have messaged them before or they have messaged you.`;
+
+                    // 4. Send Message
+                    const sendRes = await fetch(`${baseUrl}/api/v1/chats/${targetChat.id}/messages`, {
+                        method: 'POST',
+                        headers: {
+                            'X-API-KEY': apiKey,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            text: content,
+                            sender_id: connection.account_id
+                        })
+                    });
+
+                    if (!sendRes.ok) return `Error sending message: ${await sendRes.text()}`;
+
+                    // 5. Log activity with metadata for threading
+                    await supabase.from('activity_log').insert({
+                        user_id: ownerId,
+                        event_type: 'AI_REPLY',
+                        description: `Sent DM to ${username}: "${content.substring(0, 30)}..."`,
+                        metadata: {
+                            chat_id: targetChat.id,
+                            username: username,
+                            is_sender: true
+                        },
+                        timestamp: new Date().toISOString()
+                    });
+
+                    return `✅ SUCCESS: Message sent to ${username}.`;
+
+                } catch (error: any) {
+                    console.error('sendInstagramDM Error:', error);
+                    return `Error: ${error.message}`;
+                }
+            }
+        });
+
+        // 5. STREAM WITH TOOLS
         const result = streamText({
             model: google("gemini-2.5-flash"),
             messages: await convertToModelMessages(messages),
@@ -230,6 +307,7 @@ CATALOG-INVENTORY SYNC RULES:
             stopWhen: stepCountIs(5),
             tools: {
                 manageInventory: manageInventoryTool,
+                sendInstagramDM: sendInstagramDMTool,
             },
         });
 
