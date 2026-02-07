@@ -140,16 +140,11 @@ export async function POST(req: Request) {
                     .single();
 
                 if (settings?.emergency_whatsapp) {
-                    // Find a WhatsApp connection
-                    const { data: waConnection } = await supabaseAdmin
-                        .from('user_connections')
-                        .select('*')
-                        .eq('user_id', connection.user_id)
-                        .or('provider.eq.WHATSAPP,provider.eq.whatsapp,metadata->>type.eq.WHATSAPP,metadata->>type.eq.whatsapp') // Check multiple variations
-                        .limit(1)
-                        .maybeSingle();
-
-                    if (waConnection) {
+                    const adminWaId = process.env.ADMIN_WHATSAPP_ID;
+                    if (!adminWaId) {
+                        console.error('❌ ADMIN_WHATSAPP_ID missing. Cannot send admin alert.');
+                    } else {
+                        // Authenticate Unipile (SaaS Owner)
                         const dsn = process.env.UNIPILE_DSN || '';
                         let baseUrl = 'https://api23.unipile.com:15397';
                         let apiKey = process.env.UNIPILE_API_KEY || '';
@@ -161,37 +156,38 @@ export async function POST(req: Request) {
                         }
 
                         try {
-                            console.log(`📱 Sending WA Alert to ${settings.emergency_whatsapp} via ${waConnection.account_id}`);
-                            // Create Chat to establish ID
+                            console.log(`📱 Sending Admin Alert to User (${settings.emergency_whatsapp})`);
+
+                            // 1. Create DM Chat (Admin -> User Phone)
                             const chatRes = await fetch(`${baseUrl}/api/v1/chats`, {
                                 method: 'POST',
                                 headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
-                                    account_id: waConnection.account_id,
-                                    attendees: [settings.emergency_whatsapp]
+                                    account_id: adminWaId, // FROM ADMIN
+                                    attendees: [settings.emergency_whatsapp] // TO USER
                                 })
                             });
 
                             const chatData = await chatRes.json();
-                            console.log('💬 WA Chat Created:', chatData.id || chatData); // Log result
 
                             if (chatRes.ok) {
-                                // Send Alert
-                                const msgRes = await fetch(`${baseUrl}/api/v1/chats/${chatData.id}/messages`, {
+                                // 2. Send Message
+                                const alertBody = `⚠️ GhostAgent Alert: A customer on your Instagram just said "${text}". Please check your dashboard.`;
+                                await fetch(`${baseUrl}/api/v1/chats/${chatData.id}/messages`, {
                                     method: 'POST',
                                     headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
-                                        text: `🚨 ALERT: Customer ${sender?.attendee_name} said "${text}". Check Dashboard.`,
-                                        sender_id: waConnection.account_id
+                                        text: alertBody,
+                                        sender_id: adminWaId
                                     })
                                 });
-                                console.log('✅ Alert Sent Response:', msgRes.status);
+                                console.log('✅ Admin Alert Sent');
+                            } else {
+                                console.error('❌ Failed to create alert chat:', chatData);
                             }
                         } catch (e) {
-                            console.error('Failed to send WhatsApp alert', e);
+                            console.error('Failed to send Admin alert', e);
                         }
-                    } else {
-                        console.log('❌ No WhatsApp connection found for user');
                     }
                 }
 
@@ -249,11 +245,17 @@ export async function POST(req: Request) {
                     });
 
                     if (sendRes.ok) {
+                        const msgData = await sendRes.json();
                         await supabaseAdmin.from('activity_log').insert({
                             user_id: connection.user_id,
                             event_type: 'AI_REPLY',
-                            description: `Sent: "${replyText.substring(0, 50)}..."`,
-                            metadata: { chat_id, username: sender?.attendee_name, is_sender: true },
+                            description: `Sent: "${replyText}"`,
+                            metadata: {
+                                chat_id,
+                                username: sender?.attendee_name,
+                                is_sender: true,
+                                unipile_message_id: msgData.id
+                            },
                             timestamp: new Date().toISOString()
                         });
                     } else {
