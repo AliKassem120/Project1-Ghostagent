@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Edit2, Share, Loader2, MessageCircle, User, Instagram, Search, Send, Sparkles, Ghost, Menu, ArrowLeft, PlayCircle, PauseCircle, Phone } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import clsx from 'clsx';
-import { toast } from 'sonner'; // Assuming sonner or similar toast lib is available or we use context
+import { useToast } from '@/contexts/ToastContext';
 
 type Message = {
     id: string;
@@ -27,6 +27,7 @@ type Conversation = {
 };
 
 export default function InteractionsPage() {
+    const { success, error } = useToast(); // Destructure methods from hook
     const [logs, setLogs] = useState<any[]>([]);
     const [mutedChats, setMutedChats] = useState<Set<string>>(new Set());
     const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
@@ -80,8 +81,12 @@ export default function InteractionsPage() {
             else newMuted.delete(chatId);
             setMutedChats(newMuted);
 
+            if (newStatus) success('Ghost AI Muted');
+            else success('Ghost AI Resumed');
+
         } catch (e) {
             console.error(e);
+            error('Failed to update status');
         }
     }
 
