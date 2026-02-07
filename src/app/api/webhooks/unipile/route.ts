@@ -163,16 +163,32 @@ export async function POST(req: Request) {
                             const toWaId = `${toPhone}@s.whatsapp.net`;
 
                             console.log(`Formatted WA ID: ${toWaId}`);
+                            if (!adminWaId.includes('_')) console.warn('⚠️ ADMIN_WHATSAPP_ID looks like a raw number. It should be a Unipile Account ID (e.g. acc_...).');
 
                             // 1. Create DM Chat (Admin -> User Phone)
-                            const chatRes = await fetch(`${baseUrl}/api/v1/chats`, {
+                            let chatRes = await fetch(`${baseUrl}/api/v1/chats`, {
                                 method: 'POST',
                                 headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
                                     account_id: adminWaId,
-                                    attendees_ids: [toWaId] // Use attendees_ids and proper format
+                                    attendees_ids: [toWaId]
                                 })
                             });
+
+                            // Fallback for 422 (Possible Legacy/Object Requirement)
+                            if (chatRes.status === 422) {
+                                console.log('🔄 422 received. Retrying with attendees object format...');
+                                chatRes = await fetch(`${baseUrl}/api/v1/chats`, {
+                                    method: 'POST',
+                                    headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        account_id: adminWaId,
+                                        attendees: [{
+                                            provider_id: toWaId
+                                        }]
+                                    })
+                                });
+                            }
 
                             const chatData = await chatRes.json();
 
