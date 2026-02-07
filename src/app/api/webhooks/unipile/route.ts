@@ -158,47 +158,22 @@ export async function POST(req: Request) {
                         try {
                             console.log(`📱 Sending Admin Alert to User (${settings.emergency_whatsapp})`);
 
-                            // Format Phone Number for WhatsApp (e.g., 961...@s.whatsapp.net)
-                            let toPhone = settings.emergency_whatsapp.replace(/\D/g, ''); // Extract digits
-                            const toWaId = `${toPhone}@s.whatsapp.net`;
-
-                            console.log(`Formatted WA ID: ${toWaId}`);
-                            if (!adminWaId.includes('_')) console.warn('⚠️ ADMIN_WHATSAPP_ID looks like a raw number. It should be a Unipile Account ID (e.g. acc_...).');
-
                             // 1. Create DM Chat (Admin -> User Phone)
-                            let chatRes = await fetch(`${baseUrl}/api/v1/chats`, {
+                            const chatRes = await fetch(`${baseUrl}/api/v1/chats`, {
                                 method: 'POST',
                                 headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
-                                    account_id: adminWaId,
-                                    attendees_ids: [toWaId]
+                                    account_id: adminWaId, // FROM ADMIN
+                                    attendees: [settings.emergency_whatsapp] // TO USER
                                 })
                             });
 
-                            // Fallback for 422 (Possible Legacy/Object Requirement)
-                            if (chatRes.status === 422) {
-                                console.log('🔄 422 received. Retrying with attendees object format...');
-                                chatRes = await fetch(`${baseUrl}/api/v1/chats`, {
-                                    method: 'POST',
-                                    headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        account_id: adminWaId,
-                                        attendees: [{
-                                            provider_id: toWaId
-                                        }]
-                                    })
-                                });
-                            }
-
                             const chatData = await chatRes.json();
 
-                            // Success (200/201) or Existing (409 logic if API behaves that way, but usually returns object)
-                            const chatId = chatData.id || (chatData.status === 409 ? chatData.meta?.id : null);
-
-                            if (chatRes.ok || chatId) {
+                            if (chatRes.ok) {
                                 // 2. Send Message
-                                const alertBody = `⚠️ GhostAgent Alert: A customer on your Instagram said "${text}". Check Dashboard.`;
-                                const msgRes = await fetch(`${baseUrl}/api/v1/chats/${chatId}/messages`, {
+                                const alertBody = `⚠️ GhostAgent Alert: A customer on your Instagram just said "${text}". Please check your dashboard.`;
+                                await fetch(`${baseUrl}/api/v1/chats/${chatData.id}/messages`, {
                                     method: 'POST',
                                     headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
@@ -206,8 +181,7 @@ export async function POST(req: Request) {
                                         sender_id: adminWaId
                                     })
                                 });
-                                if (msgRes.ok) console.log('✅ Admin Alert Sent');
-                                else console.error('❌ Failed to send alert message:', await msgRes.text());
+                                console.log('✅ Admin Alert Sent');
                             } else {
                                 console.error('❌ Failed to create alert chat:', chatData);
                             }
