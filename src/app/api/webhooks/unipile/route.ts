@@ -53,9 +53,10 @@ export async function POST(req: Request) {
         // --- MESSAGE EVENTS ---
         if (body.event === 'message_received') {
             const { account_id, message, sender, chat_id } = body;
-            const text = message;
+            // Handle both: message as object { text: "..." } or raw string
+            const text = typeof message === 'object' ? (message?.text || message?.body || JSON.stringify(message)) : message;
 
-            console.log('📩 DM Received:', account_id);
+            console.log('📩 DM Received:', account_id, '| Text:', text?.substring?.(0, 50) || 'N/A');
 
             // 1. Identify User
             const { data: connection } = await supabaseAdmin
@@ -66,15 +67,15 @@ export async function POST(req: Request) {
 
             if (!connection) return NextResponse.json({ status: 'ignored', reason: 'Unknown account' });
 
-            // 2. SELF-MESSAGE CHECK (Primary Guard)
-            // If sender is the connected account itself AND this is marked as sender message,
-            // it's either: (a) Bot/Dashboard API echo (should have ID in DB), or (b) Phone reply (new)
-            const senderId = body.message?.sender_id || body.sender_id;
-            if (body.is_sender === true && senderId && senderId === account_id) {
-                console.log(`👻 Self-message detected from account ${account_id}. Checking if already logged...`);
+            // 2. SELF-MESSAGE / OWNER MESSAGE CHECK
+            // Only process as "owner sent" if EXPLICITLY marked as is_sender: true
+            const isSenderMessage = body.is_sender === true;
 
-                // Check if we already logged this message (Bot or Dashboard API)
-                if (body.id) {
+            if (isSenderMessage) {
+                const senderId = body.message?.sender_id || body.sender_id;
+
+                // Check if this is a bot/dashboard echo (already in DB)
+                if (senderId === account_id && body.id) {
                     const { data: existing } = await supabaseAdmin
                         .from('activity_log')
                         .select('id')
@@ -83,17 +84,13 @@ export async function POST(req: Request) {
                         .maybeSingle();
 
                     if (existing) {
-                        console.log(`🔄 Loopback: Message already logged. Ignoring webhook echo.`);
-                        return NextResponse.json({ status: 'ignored', reason: 'Bot/Dashboard echo' });
+                        console.log(`🔄 Loopback: Message ${body.id} already logged. Ignoring.`);
+                        return NextResponse.json({ status: 'ignored', reason: 'Bot echo' });
                     }
                 }
 
-                // If not in DB, it's a manual reply from phone
-                console.log('📱 Manual reply from phone detected.');
-            }
-
-            if (body.is_sender === true) {
-                console.log('👤 Owner replied manually. Logging.');
+                // Log as manual reply
+                console.log('👤 Owner message detected. Logging as manual reply.');
                 await supabaseAdmin.from('activity_log').insert({
                     user_id: connection.user_id,
                     event_type: 'MANUAL_REPLY',
@@ -109,6 +106,9 @@ export async function POST(req: Request) {
                 });
                 return NextResponse.json({ status: 'success', message: 'Logged manual reply' });
             }
+
+            // If we reach here, it's an INCOMING message from a customer
+            console.log('📬 Processing incoming customer message...');
 
             // 3. CHECK MUTED STATUS (Incoming)
             const { data: convState } = await supabaseAdmin.from('conversation_states')
