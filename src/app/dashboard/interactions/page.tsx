@@ -118,7 +118,7 @@ export default function InteractionsPage() {
             if (res.ok) {
                 setInputMessage('');
                 success('Message sent');
-                fetchLogs(); // Refresh logs immediately
+                // fetchLogs(); // Disabled to prevent duplicate/race condition (Rely on Realtime)
             } else {
                 const errData = await res.json();
                 error(errData.error || 'Failed to send');
@@ -135,8 +135,13 @@ export default function InteractionsPage() {
         fetchLogs();
         const channel = supabase
             .channel('interactions-sync')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_log' }, () => {
-                fetchLogs();
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_log' }, (payload) => {
+                const newLog = payload.new;
+                setLogs((prev) => {
+                    // Strict Deduping: Only add if ID doesn't exist
+                    if (prev.some(l => l.id === newLog.id)) return prev;
+                    return [...prev, newLog];
+                });
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'conversation_states' }, () => {
                 fetchLogs();
