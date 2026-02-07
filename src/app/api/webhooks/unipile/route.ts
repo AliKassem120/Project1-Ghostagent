@@ -109,10 +109,29 @@ export async function POST(req: Request) {
             }
 
             if (body.is_sender === true) {
-                if (!messageId) {
-                    console.warn('🛑 Skipping identifying as Manual Reply because ID is missing (likely Webhook Echo).');
-                    return NextResponse.json({ status: 'ignored', reason: 'No ID for sender message' });
+                // FUZZY DEDUPLICATION (Fallback if ID is missing)
+                // Check if we logged an AI_REPLY with this text recently (prevent Bot Echo)
+                if (text) {
+                    const timeWindow = new Date(Date.now() - 60000).toISOString(); // 1 minute lookback
+                    // Clean text (remove quotes if we added them in description)
+                    const cleanText = text.trim();
+
+                    const { data: fuzzyMatch } = await supabaseAdmin
+                        .from('activity_log')
+                        .select('id, description')
+                        .eq('user_id', connection.user_id)
+                        .eq('event_type', 'AI_REPLY')
+                        .gte('timestamp', timeWindow)
+                        .ilike('description', `%${cleanText}%`)
+                        .maybeSingle();
+
+                    if (fuzzyMatch) {
+                        console.log(`🤖 Fuzzy Dedupe: Found recent AI_REPLY matching text "${cleanText}". Ignoring echo.`);
+                        return NextResponse.json({ status: 'ignored', reason: 'Bot Echo (Fuzzy Match)' });
+                    }
                 }
+
+                if (!messageId) console.warn('⚠️ Logging Manual Reply without Message ID (Risk of duplicates if Fuzzy Match failed).');
 
                 // Self-Check via Sender ID (Extra Safety)
                 if (senderId === account_id) {
@@ -120,7 +139,7 @@ export async function POST(req: Request) {
                     // If we are here, ID is new. So likely Manual Reply from Phone.
                 }
 
-                console.log('👤 Owner manual reply. Logging with ID:', messageId);
+                console.log('👤 Owner manual reply. Logging.');
                 await supabaseAdmin.from('activity_log').insert({
                     user_id: connection.user_id,
                     event_type: 'MANUAL_REPLY',
