@@ -64,10 +64,32 @@ export async function POST(req: Request) {
 
             if (!connection) return NextResponse.json({ status: 'ignored', reason: 'Unknown account' });
 
-            // 2. MANUAL REPLY LOGIC (No Auto-Mute)
+            // 2. CHECK FOR LOOPBACK (Deduping Logic)
             if (body.is_sender === true) {
-                console.log('👤 Owner replied manually. Logging only.');
+                // Check if we just logged this message (within last 30s) as AI_REPLY or MANUAL_REPLY
+                const cutoff = new Date(Date.now() - 30 * 1000).toISOString();
+                const { data: existingLogs } = await supabaseAdmin
+                    .from('activity_log')
+                    .select('id, description')
+                    .eq('user_id', connection.user_id)
+                    .or('event_type.eq.AI_REPLY,event_type.eq.MANUAL_REPLY')
+                    .gte('timestamp', cutoff)
+                    .limit(5);
 
+                const isDuplicate = existingLogs?.some(log => {
+                    // Check if content is roughly same (ignoring "Sent: " prefix)
+                    const cleanLog = log.description.replace(/^Sent.*: "/, '').replace(/"$/, '').trim();
+                    const cleanBody = text.trim();
+                    return cleanLog.includes(cleanBody) || cleanBody.includes(cleanLog);
+                });
+
+                if (isDuplicate) {
+                    console.log('🔄 Loopback detected (Message already logged). Ignoring.');
+                    return NextResponse.json({ status: 'ignored', reason: 'Loopback' });
+                }
+
+                // If not duplicate, it's a REAL manual reply from Phone
+                console.log('👤 Owner replied manually (Phone). Logging.');
                 await supabaseAdmin.from('activity_log').insert({
                     user_id: connection.user_id,
                     event_type: 'MANUAL_REPLY',
@@ -167,6 +189,10 @@ export async function POST(req: Request) {
                         }
                     }
                 }
+
+                // CRITICAL: Stop AI from replying to this message
+                console.log('🛑 Manager requested. Skipping AI reply.');
+                return NextResponse.json({ status: 'escalated', message: 'Manager alert sent' });
             }
 
             // 6. SAFETY SHIELD (Anti-Ban)
