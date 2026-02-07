@@ -43,11 +43,26 @@ export async function POST(req: Request) {
 
         const msgData = await sendRes.json();
 
+        // CHECK FOR DUPLICATE (Race Condition Fix)
+        if (msgData.id) {
+            const { data: existing } = await supabase
+                .from('activity_log')
+                .select('id')
+                .eq('user_id', user.id)
+                .or(`metadata->>unipile_message_id.eq.${msgData.id},metadata->>id.eq.${msgData.id}`)
+                .maybeSingle();
+
+            if (existing) {
+                console.log('Log already exists (via Webhook). Skipping insert.');
+                return NextResponse.json({ success: true, data: msgData });
+            }
+        }
+
         // Log to Activity Log (so it shows in UI)
         await supabase.from('activity_log').insert({
             user_id: user.id,
             event_type: 'MANUAL_REPLY',
-            description: `Sent (Manual): "${text.substring(0, 50)}..."`,
+            description: `Sent (Manual): "${text}"`,
             metadata: {
                 chat_id: chatId,
                 username: 'You',

@@ -85,7 +85,7 @@ export async function POST(req: Request) {
                 await supabaseAdmin.from('activity_log').insert({
                     user_id: connection.user_id,
                     event_type: 'MANUAL_REPLY',
-                    description: `Sent (Manual): "${text?.substring(0, 50)}..."`,
+                    description: `Sent (Manual): "${text}"`,
                     metadata: {
                         chat_id,
                         username: 'You',
@@ -110,7 +110,7 @@ export async function POST(req: Request) {
                 await supabaseAdmin.from('activity_log').insert({
                     user_id: connection.user_id,
                     event_type: 'INCOMING_DM',
-                    description: `Received (Muted): "${text?.substring(0, 50)}..."`,
+                    description: `Received (Muted): "${text}"`,
                     metadata: { ...body, is_muted: true },
                     timestamp: new Date().toISOString()
                 });
@@ -121,7 +121,7 @@ export async function POST(req: Request) {
             await supabaseAdmin.from('activity_log').insert({
                 user_id: connection.user_id,
                 event_type: 'INCOMING_DM',
-                description: `Received: "${text?.substring(0, 50)}..." from ${sender?.attendee_name || 'Unknown'}`,
+                description: `Received: "${text}" from ${sender?.attendee_name || 'Unknown'}`,
                 metadata: body,
                 timestamp: new Date().toISOString()
             });
@@ -159,6 +159,7 @@ export async function POST(req: Request) {
                         }
 
                         try {
+                            console.log(`📱 Sending WA Alert to ${settings.emergency_whatsapp} via ${waConnection.account_id}`);
                             // Create Chat to establish ID
                             const chatRes = await fetch(`${baseUrl}/api/v1/chats`, {
                                 method: 'POST',
@@ -169,10 +170,12 @@ export async function POST(req: Request) {
                                 })
                             });
 
+                            const chatData = await chatRes.json();
+                            console.log('💬 WA Chat Created:', chatData.id || chatData); // Log result
+
                             if (chatRes.ok) {
-                                const chatData = await chatRes.json();
                                 // Send Alert
-                                await fetch(`${baseUrl}/api/v1/chats/${chatData.id}/messages`, {
+                                const msgRes = await fetch(`${baseUrl}/api/v1/chats/${chatData.id}/messages`, {
                                     method: 'POST',
                                     headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
@@ -180,11 +183,13 @@ export async function POST(req: Request) {
                                         sender_id: waConnection.account_id
                                     })
                                 });
-                                console.log('✅ Alert sent to WhatsApp');
+                                console.log('✅ Alert Sent Response:', msgRes.status);
                             }
                         } catch (e) {
                             console.error('Failed to send WhatsApp alert', e);
                         }
+                    } else {
+                        console.log('❌ No WhatsApp connection found for user');
                     }
                 }
 
