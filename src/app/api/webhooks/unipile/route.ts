@@ -19,7 +19,6 @@ export async function GET() {
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        console.log('⚡ WEBHOOK HIT:', body.event, '| ID:', body.id, '| Account:', body.account_id);
         const supabaseAdmin = getSupabaseAdmin();
 
         // --- ACCOUNT CONNECTION EVENTS ---
@@ -52,95 +51,49 @@ export async function POST(req: Request) {
         }
 
         // --- MESSAGE EVENTS ---
-        if (body.event === 'message.received' || body.event === 'message_received') {
-            const account_id = body.account_id;
+        if (body.event === 'message_received') {
+            const { account_id, message, sender, chat_id } = body;
+            const text = message;
 
-            // Robust Text Extraction (Handle String vs Object)
-            let text = '';
-            if (typeof body.message === 'string') {
-                text = body.message;
-            } else if (body.message?.text) {
-                text = body.message.text;
-            } else if (body.text) {
-                text = body.text;
-            }
+            console.log('📩 DM Received:', account_id);
 
-            const chat_id = body.chat_id;
-            const messageId = body.id || body.message_id || (typeof body.message === 'object' ? body.message?.id : undefined);
-
-            // Robust Sender Extraction
-            const sender = body.sender || (typeof body.message === 'object' ? body.message?.sender : null);
-            const senderId = body.sender_id || sender?.id;
-
-            console.log('📩 DM Received:', chat_id, '| ID:', messageId, '| Event:', body.event, '| Sender:', senderId);
-            console.log('🔍 Keys:', Object.keys(body));
-
-            // 1. GET USER CONNECTION
+            // 1. Identify User
             const { data: connection } = await supabaseAdmin
                 .from('user_connections')
-                .select('*')
+                .select('user_id')
                 .eq('account_id', account_id)
                 .single();
 
             if (!connection) return NextResponse.json({ status: 'ignored', reason: 'Unknown account' });
 
-            // 2. LOOPBACK CHECK (Enhanced with Debug Logging)
-            if (messageId) {
-                console.log(`🔍 Checking for duplicate with ID: ${messageId}`);
+            // 2. SELF-MESSAGE CHECK (Primary Guard)
+            // If sender is the connected account itself AND this is marked as sender message,
+            // it's either: (a) Bot/Dashboard API echo (should have ID in DB), or (b) Phone reply (new)
+            const senderId = body.message?.sender_id || body.sender_id;
+            if (body.is_sender === true && senderId && senderId === account_id) {
+                console.log(`👻 Self-message detected from account ${account_id}. Checking if already logged...`);
 
-                const { data: existing, error: loopbackError } = await supabaseAdmin
-                    .from('activity_log')
-                    .select('id, event_type, metadata')
-                    .eq('user_id', connection.user_id)
-                    .or(`metadata->>unipile_message_id.eq.${messageId},metadata->>id.eq.${messageId}`)
-                    .maybeSingle();
-
-                if (loopbackError) {
-                    console.error('⚠️ Loopback check error:', loopbackError);
-                }
-
-                if (existing) {
-                    console.log(`🔄 DUPLICATE DETECTED! Already logged as ${existing.event_type}.`);
-                    return NextResponse.json({ status: 'ignored', reason: 'Duplicate message ID' });
-                }
-
-                console.log('✅ New message (not in DB)');
-            } else {
-                console.warn('⚠️ No message ID provided. Skipping Loopback Check.');
-            }
-
-            if (body.is_sender === true) {
-                // FUZZY DEDUPLICATION (Fallback if ID is missing)
-                // Check if we logged an AI_REPLY with this text recently (prevent Bot Echo)
-                if (text) {
-                    const timeWindow = new Date(Date.now() - 60000).toISOString(); // 1 minute lookback
-                    // Clean text (remove quotes if we added them in description)
-                    const cleanText = text.trim();
-
-                    const { data: fuzzyMatch } = await supabaseAdmin
+                // Check if we already logged this message (Bot or Dashboard API)
+                if (body.id) {
+                    const { data: existing } = await supabaseAdmin
                         .from('activity_log')
-                        .select('id, description')
+                        .select('id')
                         .eq('user_id', connection.user_id)
-                        .eq('event_type', 'AI_REPLY')
-                        .gte('timestamp', timeWindow)
-                        .ilike('description', `%${cleanText}%`)
+                        .or(`metadata->>unipile_message_id.eq.${body.id},metadata->>id.eq.${body.id}`)
                         .maybeSingle();
 
-                    if (fuzzyMatch) {
-                        console.log(`🤖 Fuzzy Dedupe: Found recent AI_REPLY matching text "${cleanText}". Ignoring echo.`);
-                        return NextResponse.json({ status: 'ignored', reason: 'Bot Echo (Fuzzy Match)' });
+                    if (existing) {
+                        console.log(`🔄 Loopback: Message already logged. Ignoring webhook echo.`);
+                        return NextResponse.json({ status: 'ignored', reason: 'Bot/Dashboard echo' });
                     }
                 }
 
-                if (!messageId) console.warn('⚠️ Logging Manual Reply without Message ID (Risk of duplicates if Fuzzy Match failed).');
+                // If not in DB, it's a manual reply from phone
+                console.log('📱 Manual reply from phone detected.');
+            }
 
-                // Self-Check via Sender ID (Extra Safety)
-                if (senderId === account_id) {
-                    console.log('👻 Self-message confirmed via Sender ID.');
-                    // If we are here, ID is new. So likely Manual Reply from Phone.
-                }
-
-                console.log('👤 Owner manual reply. Logging.');
+            if (body.is_sender === true) {
+                console.log('👤 Owner replied manually. Logging.');
                 await supabaseAdmin.from('activity_log').insert({
                     user_id: connection.user_id,
                     event_type: 'MANUAL_REPLY',
@@ -150,8 +103,7 @@ export async function POST(req: Request) {
                         username: 'You',
                         is_sender: true,
                         is_manual: true,
-                        unipile_message_id: messageId,
-                        id: messageId
+                        unipile_message_id: body.id
                     },
                     timestamp: new Date().toISOString()
                 });
@@ -235,11 +187,10 @@ export async function POST(req: Request) {
 
                                     console.log(`📋 Found ${accountList.length} accounts:`, accountList.map((a: any) => `${a.type}:${a.status}`).join(', '));
 
-                                    // Broader search: WhatsApp with any "active" status (check sources[0].status)
+                                    // Broader search: WhatsApp with any "active" status
                                     const waAccount = accountList.find((a: any) => {
                                         const typeMatch = (a.type || '').toUpperCase() === 'WHATSAPP';
-                                        const sourceStatus = a.sources?.[0]?.status || a.status || '';
-                                        const statusOk = ['OK', 'CONNECTED', 'ACTIVE'].includes(sourceStatus.toUpperCase());
+                                        const statusOk = ['OK', 'CONNECTED', 'ACTIVE'].includes((a.status || '').toUpperCase());
                                         return typeMatch && statusOk;
                                     });
 
