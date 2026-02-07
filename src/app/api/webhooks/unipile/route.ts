@@ -25,11 +25,13 @@ export async function POST(req: Request) {
         if (body.status === 'CREATION_SUCCESS' || body.event === 'account.created') {
             const accountId = body.account_id || body.data?.account_id;
             const userId = body.name || body.data?.name;
+            const providerType = (body.type || body.data?.type || 'INSTAGRAM').toUpperCase();
+
             if (userId) {
                 await supabaseAdmin.from('user_connections').upsert({
                     user_id: userId,
                     account_id: accountId,
-                    provider: 'INSTAGRAM', // Defaulting, but could be inferred from body
+                    provider: providerType,
                     metadata: body,
                     connected_at: new Date().toISOString()
                 }, { onConflict: 'account_id' });
@@ -143,9 +145,9 @@ export async function POST(req: Request) {
                         .from('user_connections')
                         .select('*')
                         .eq('user_id', connection.user_id)
-                        .eq('provider', 'WHATSAPP') // Assumes provider field is set correctly
+                        .or('provider.eq.WHATSAPP,provider.eq.whatsapp,metadata->>type.eq.WHATSAPP,metadata->>type.eq.whatsapp') // Check multiple variations
                         .limit(1)
-                        .single();
+                        .maybeSingle();
 
                     if (waConnection) {
                         const dsn = process.env.UNIPILE_DSN || '';

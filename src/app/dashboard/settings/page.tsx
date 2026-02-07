@@ -475,8 +475,8 @@ export default function SettingsPage() {
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <h3 className="font-bold text-lg truncate max-w-[150px]">{acc.username || 'Insta User'}</h3>
-                                        <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-[10px] font-bold rounded-full flex items-center gap-1">
-                                            <Check className="w-3 h-3" /> ACTIVE
+                                        <span className="self-center px-2 py-0.5 bg-green-500/20 text-green-400 text-[10px] font-bold rounded-full flex items-center gap-1">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Running
                                         </span>
                                     </div>
                                     <p className="text-white/50 text-xs font-mono">{acc.id}</p>

@@ -55,7 +55,11 @@ export default function InteractionsPage() {
             .eq('user_id', user.id)
             .eq('is_muted', true);
 
-        if (logsData) setLogs(logsData);
+        if (logsData) {
+            // Force Deduplication (UI Side)
+            const uniqueLogs = Array.from(new Map(logsData.map(log => [log.id, log])).values());
+            setLogs(uniqueLogs);
+        }
         if (states) {
             setMutedChats(new Set(states.map(s => s.external_chat_id)));
         }
