@@ -24,14 +24,17 @@ type Conversation = {
     lastMessage: string;
     timestamp: string;
     messages: Message[];
+    account_id?: string; // Store account context
 };
 
 export default function InteractionsPage() {
-    const { success, error } = useToast(); // Destructure methods from hook
+    const { success, error } = useToast();
     const [logs, setLogs] = useState<any[]>([]);
     const [mutedChats, setMutedChats] = useState<Set<string>>(new Set());
     const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [inputMessage, setInputMessage] = useState('');
+    const [sending, setSending] = useState(false);
     const supabase = createClient();
 
     const fetchLogs = async () => {
@@ -71,11 +74,10 @@ export default function InteractionsPage() {
                 external_chat_id: chatId,
                 platform: 'INSTAGRAM',
                 is_muted: newStatus,
-                muted_until: newStatus ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null, // Mute for 24h default
+                muted_until: newStatus ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null,
                 last_interaction_at: new Date().toISOString()
             }, { onConflict: 'user_id, external_chat_id' });
 
-            // Optimistic Update
             const newMuted = new Set(mutedChats);
             if (newStatus) newMuted.add(chatId);
             else newMuted.delete(chatId);
@@ -90,6 +92,41 @@ export default function InteractionsPage() {
         }
     }
 
+    const handleSendMessage = async () => {
+        if (!inputMessage.trim() || !selectedChatId) return;
+
+        // Find current chat to get account_id
+        const activeChat = conversations.find(c => c.chat_id === selectedChatId);
+        if (!activeChat) return;
+
+        setSending(true);
+        try {
+            const res = await fetch('/api/messages/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chatId: selectedChatId,
+                    text: inputMessage,
+                    accountId: activeChat.account_id
+                })
+            });
+
+            if (res.ok) {
+                setInputMessage('');
+                success('Message sent');
+                fetchLogs(); // Refresh logs immediately
+            } else {
+                const errData = await res.json();
+                error(errData.error || 'Failed to send');
+            }
+        } catch (e) {
+            console.error(e);
+            error('Network error sending message');
+        } finally {
+            setSending(false);
+        }
+    };
+
     useEffect(() => {
         fetchLogs();
         const channel = supabase
@@ -98,7 +135,7 @@ export default function InteractionsPage() {
                 fetchLogs();
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'conversation_states' }, () => {
-                fetchLogs(); // Refresh mute states
+                fetchLogs();
             })
             .subscribe();
 
@@ -114,35 +151,58 @@ export default function InteractionsPage() {
 
             if (log.event_type === 'INCOMING_DM' && log.description.includes('ghostagent.ai')) return;
 
-            let text = log.description;
+            let text = log.description || '';
             let senderName = 'Unknown';
             let isBot = log.event_type === 'AI_REPLY';
             let isManual = log.event_type === 'MANUAL_REPLY' || (meta.is_sender && !isBot);
 
+            // Extract Sender Name & Text
             if (log.event_type === 'INCOMING_DM') {
-                const parts = log.description.split('from');
-                senderName = parts[parts.length - 1]?.trim() || 'User';
-                text = parts.slice(0, parts.length - 1).join('from').replace('Received:', '').replace(/"/g, '').trim();
+                // Try to get robust name from metadata first
+                if (meta.sender && meta.sender.attendee_name) {
+                    senderName = meta.sender.attendee_name;
+                } else if (meta.username && meta.username !== 'You') {
+                    senderName = meta.username;
+                } else {
+                    const parts = log.description.split('from');
+                    senderName = parts[parts.length - 1]?.trim() || 'User';
+                }
+                text = text.replace(/^Received: "(.*)" from .*$/, '$1').replace(/"/g, '').trim();
             } else if (isBot) {
                 senderName = 'Ghost AI';
-                text = text.replace('Sent DM to', '').replace(/".*"/, '').trim();
-                const contentMatch = log.description.match(/"(.*)"/);
-                if (contentMatch) text = contentMatch[1];
+                text = text.replace(/^Sent: "(.*)"$/, '$1').replace(/"/g, '').trim();
             } else if (isManual) {
                 senderName = 'You';
-                text = text.replace('Sent (Manual):', '').replace(/".*"/, '').trim();
-                const contentMatch = log.description.match(/"(.*)"/);
-                if (contentMatch) text = contentMatch[1];
+                text = text.replace(/^Sent \(Manual\): "(.*)"$/, '$1').replace(/"/g, '').trim();
             }
+
+            // Cleanup text quotes if regex didn't catch
+            if (text.startsWith('"') && text.endsWith('"')) text = text.slice(1, -1);
 
             if (!threads[chatId]) {
                 threads[chatId] = {
                     chat_id: chatId,
-                    username: meta.username || senderName,
+                    username: 'User', // Default
                     lastMessage: text,
                     timestamp: log.timestamp,
-                    messages: []
+                    messages: [],
+                    account_id: meta.account_id // Capture account_id if available
                 };
+            }
+
+            // Capture account_id if missing and available in this log
+            if (!threads[chatId].account_id && meta.account_id) {
+                threads[chatId].account_id = meta.account_id;
+            }
+
+            // Update Username Logic (Prioritize Customer Name)
+            // If current name is generic ('User', 'You', 'Ghost AI'), try to update it
+            const currentName = threads[chatId].username;
+            const isGenericName = currentName === 'User' || currentName === 'You' || currentName === 'Ghost AI';
+            const isNewSenderGeneric = senderName === 'User' || senderName === 'You' || senderName === 'Ghost AI';
+
+            if (isGenericName && !isNewSenderGeneric) {
+                threads[chatId].username = senderName;
             }
 
             threads[chatId].messages.push({
@@ -158,9 +218,6 @@ export default function InteractionsPage() {
 
             threads[chatId].lastMessage = text;
             threads[chatId].timestamp = log.timestamp;
-            if (threads[chatId].username === 'User' && senderName !== 'User' && senderName !== 'You') {
-                threads[chatId].username = senderName;
-            }
         });
 
         return Object.values(threads).sort((a, b) =>
@@ -179,6 +236,7 @@ export default function InteractionsPage() {
                 "w-full md:w-80 flex flex-col gap-3 h-full absolute md:relative z-20 bg-[#0a0a0a] md:bg-transparent transition-transform duration-300",
                 selectedChatId ? "-translate-x-full md:translate-x-0" : "translate-x-0"
             )}>
+                {/* ... Header & Search (Keep Same) ... */}
                 <div className="flex items-center justify-between mb-2 px-1">
                     <h1 className="text-xl font-bold flex items-center gap-2">
                         <Instagram className="w-5 h-5 text-pink-500" />
@@ -329,22 +387,28 @@ export default function InteractionsPage() {
                             </AnimatePresence>
                         </div>
 
-                        {/* Footer - Always Visible */}
+                        {/* Footer - Send Input */}
                         <div className="p-4 bg-white/5 border-t border-white/10 pb-safe-bottom">
                             <div className="relative group">
                                 <input
+                                    value={inputMessage}
+                                    onChange={(e) => setInputMessage(e.target.value)}
                                     placeholder={`Reply manually... (Bot is ${isMuted ? 'OFF' : 'ON'})`}
-                                    className="w-full bg-black/40 border border-white/10 rounded-2xl py-3 pl-4 pr-12 text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                                    className="w-full bg-black/40 border border-white/10 rounded-2xl py-3 pl-4 pr-12 text-sm focus:outline-none focus:border-primary/50 transition-colors disabled:opacity-50"
                                     onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                            // Ideally, implement manual send here if API exists
-                                            // For now, placeholder functionality as requested (UI only)
-                                            // You'd call Unipile API here
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault();
+                                            handleSendMessage();
                                         }
                                     }}
+                                    disabled={sending}
                                 />
-                                <button className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-black transition-all">
-                                    <Send className="w-4 h-4" />
+                                <button
+                                    onClick={handleSendMessage}
+                                    disabled={sending || !inputMessage.trim()}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-black transition-all disabled:opacity-0"
+                                >
+                                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                                 </button>
                             </div>
                             <p className="text-[10px] text-white/20 mt-2 text-center uppercase tracking-widest flex justify-center gap-2">
@@ -359,6 +423,7 @@ export default function InteractionsPage() {
                     </>
                 ) : (
                     <div className="hidden md:flex flex-1 flex-col items-center justify-center opacity-30 select-none">
+                        {/* Empty State */}
                         <div className="relative">
                             <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
                             <Ghost className="w-24 h-24 mb-6 relative z-10 text-primary" />
