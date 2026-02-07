@@ -51,14 +51,26 @@ export async function POST(req: Request) {
         }
 
         // --- MESSAGE EVENTS ---
-        if (body.event === 'message.received') {
+        if (body.event === 'message.received' || body.event === 'message_received') {
             const account_id = body.account_id;
-            const text = body.message?.text || body.text;
+
+            // Robust Text Extraction (Handle String vs Object)
+            let text = '';
+            if (typeof body.message === 'string') {
+                text = body.message;
+            } else if (body.message?.text) {
+                text = body.message.text;
+            } else if (body.text) {
+                text = body.text;
+            }
+
             const chat_id = body.chat_id;
             const messageId = body.id;
-            const sender = body.message?.sender || body.sender;
 
-            console.log('📩 DM Received:', chat_id, '| ID:', messageId, '| is_sender:', body.is_sender);
+            // Robust Sender Extraction
+            const sender = body.sender || (typeof body.message === 'object' ? body.message?.sender : null);
+
+            console.log('📩 DM Received:', chat_id, '| ID:', messageId, '| Event:', body.event);
 
             // 1. GET USER CONNECTION
             const { data: connection } = await supabaseAdmin
