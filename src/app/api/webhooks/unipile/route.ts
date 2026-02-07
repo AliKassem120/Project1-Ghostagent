@@ -163,32 +163,40 @@ export async function POST(req: Request) {
                             const toWaId = `${toPhone}@s.whatsapp.net`;
 
                             console.log(`Formatted WA ID: ${toWaId}`);
-                            if (!adminWaId.includes('_')) console.warn('⚠️ ADMIN_WHATSAPP_ID looks like a raw number. It should be a Unipile Account ID (e.g. acc_...).');
+                            let sendingAccountId = adminWaId;
+
+                            // Auto-Resolve Account ID if user provided a phone number
+                            if (!adminWaId.includes('_')) {
+                                console.log('🔍 Resolving valid Account ID from Unipile...');
+                                try {
+                                    const accRes = await fetch(`${baseUrl}/api/v1/accounts`, {
+                                        headers: { 'X-API-KEY': apiKey }
+                                    });
+                                    const accounts = await accRes.json(); // Unipile usually returns array direct or { items: [] }
+                                    const accountList = Array.isArray(accounts) ? accounts : (accounts.items || []);
+
+                                    const waAccount = accountList.find((a: any) => (a.type === 'WHATSAPP' || a.type === 'whatsapp') && a.status === 'OK');
+
+                                    if (waAccount) {
+                                        sendingAccountId = waAccount.id;
+                                        console.log(`✅ Auto-resolved Admin Account: ${waAccount.name} (${sendingAccountId})`);
+                                    } else {
+                                        console.error('❌ No connected WhatsApp account found in Unipile DSN.');
+                                    }
+                                } catch (e) {
+                                    console.error('Failed to resolve accounts:', e);
+                                }
+                            }
 
                             // 1. Create DM Chat (Admin -> User Phone)
                             let chatRes = await fetch(`${baseUrl}/api/v1/chats`, {
                                 method: 'POST',
                                 headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
-                                    account_id: adminWaId,
+                                    account_id: sendingAccountId,
                                     attendees_ids: [toWaId]
                                 })
                             });
-
-                            // Fallback for 422 (Possible Legacy/Object Requirement)
-                            if (chatRes.status === 422) {
-                                console.log('🔄 422 received. Retrying with attendees object format...');
-                                chatRes = await fetch(`${baseUrl}/api/v1/chats`, {
-                                    method: 'POST',
-                                    headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        account_id: adminWaId,
-                                        attendees: [{
-                                            provider_id: toWaId
-                                        }]
-                                    })
-                                });
-                            }
 
                             const chatData = await chatRes.json();
 
