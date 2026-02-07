@@ -51,13 +51,16 @@ export async function POST(req: Request) {
         }
 
         // --- MESSAGE EVENTS ---
-        if (body.event === 'message_received') {
-            const { account_id, message, sender, chat_id } = body;
-            const text = message;
+        if (body.event === 'message.received') {
+            const account_id = body.account_id;
+            const text = body.message?.text || body.text;
+            const chat_id = body.chat_id;
+            const messageId = body.id;
+            const sender = body.message?.sender || body.sender;
 
-            console.log('📩 DM Received:', account_id);
+            console.log('📩 DM Received:', chat_id, '| ID:', messageId, '| is_sender:', body.is_sender);
 
-            // 1. Identify User
+            // 1. GET USER CONNECTION
             const { data: connection } = await supabaseAdmin
                 .from('user_connections')
                 .select('user_id')
@@ -66,34 +69,33 @@ export async function POST(req: Request) {
 
             if (!connection) return NextResponse.json({ status: 'ignored', reason: 'Unknown account' });
 
-            // 2. SELF-MESSAGE CHECK (Primary Guard)
-            // If sender is the connected account itself AND this is marked as sender message,
-            // it's either: (a) Bot/Dashboard API echo (should have ID in DB), or (b) Phone reply (new)
-            const senderId = body.message?.sender_id || body.sender_id;
-            if (body.is_sender === true && senderId && senderId === account_id) {
-                console.log(`👻 Self-message detected from account ${account_id}. Checking if already logged...`);
+            // 2. LOOPBACK CHECK (Enhanced with Debug Logging)
+            if (messageId) {
+                console.log(`🔍 Checking for duplicate with ID: ${messageId}`);
 
-                // Check if we already logged this message (Bot or Dashboard API)
-                if (body.id) {
-                    const { data: existing } = await supabaseAdmin
-                        .from('activity_log')
-                        .select('id')
-                        .eq('user_id', connection.user_id)
-                        .or(`metadata->>unipile_message_id.eq.${body.id},metadata->>id.eq.${body.id}`)
-                        .maybeSingle();
+                const { data: existing, error: loopbackError } = await supabaseAdmin
+                    .from('activity_log')
+                    .select('id, event_type, metadata')
+                    .eq('user_id', connection.user_id)
+                    .or(`metadata->>unipile_message_id.eq.${messageId},metadata->>id.eq.${messageId}`)
+                    .maybeSingle();
 
-                    if (existing) {
-                        console.log(`🔄 Loopback: Message already logged. Ignoring webhook echo.`);
-                        return NextResponse.json({ status: 'ignored', reason: 'Bot/Dashboard echo' });
-                    }
+                if (loopbackError) {
+                    console.error('⚠️ Loopback check error:', loopbackError);
                 }
 
-                // If not in DB, it's a manual reply from phone
-                console.log('📱 Manual reply from phone detected.');
+                if (existing) {
+                    console.log(`🔄 DUPLICATE DETECTED! Already logged as ${existing.event_type}. Metadata:`, existing.metadata);
+                    return NextResponse.json({ status: 'ignored', reason: 'Duplicate message ID' });
+                }
+
+                console.log('✅ New message (not in DB)');
+            } else {
+                console.warn('⚠️ No message ID provided by Unipile. Cannot check for duplicates.');
             }
 
             if (body.is_sender === true) {
-                console.log('👤 Owner replied manually. Logging.');
+                console.log('👤 Owner manual reply. Logging with ID:', messageId);
                 await supabaseAdmin.from('activity_log').insert({
                     user_id: connection.user_id,
                     event_type: 'MANUAL_REPLY',
@@ -103,7 +105,8 @@ export async function POST(req: Request) {
                         username: 'You',
                         is_sender: true,
                         is_manual: true,
-                        unipile_message_id: body.id
+                        unipile_message_id: messageId,
+                        id: messageId
                     },
                     timestamp: new Date().toISOString()
                 });
@@ -187,10 +190,11 @@ export async function POST(req: Request) {
 
                                     console.log(`📋 Found ${accountList.length} accounts:`, accountList.map((a: any) => `${a.type}:${a.status}`).join(', '));
 
-                                    // Broader search: WhatsApp with any "active" status
+                                    // Broader search: WhatsApp with any "active" status (check sources[0].status)
                                     const waAccount = accountList.find((a: any) => {
                                         const typeMatch = (a.type || '').toUpperCase() === 'WHATSAPP';
-                                        const statusOk = ['OK', 'CONNECTED', 'ACTIVE'].includes((a.status || '').toUpperCase());
+                                        const sourceStatus = a.sources?.[0]?.status || a.status || '';
+                                        const statusOk = ['OK', 'CONNECTED', 'ACTIVE'].includes(sourceStatus.toUpperCase());
                                         return typeMatch && statusOk;
                                     });
 
