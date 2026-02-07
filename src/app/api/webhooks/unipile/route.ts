@@ -163,32 +163,24 @@ export async function POST(req: Request) {
                             const whatsAppId = `${cleanNumber}@s.whatsapp.net`;
                             console.log(`Formatted WhatsApp ID: ${whatsAppId}`);
 
-                            // 1. Create DM Chat (Admin -> User Phone)
+                            // Atomic: Create chat AND send message in one call
+                            const alertBody = `⚠️ GhostAgent Alert: A customer on your Instagram just said "${text}". Please check your dashboard.`;
+
                             const chatRes = await fetch(`${baseUrl}/api/v1/chats`, {
                                 method: 'POST',
                                 headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
-                                    account_id: adminWaId, // FROM ADMIN
-                                    attendees_ids: [whatsAppId] // TO USER (formatted)
+                                    account_id: adminWaId,
+                                    attendees_ids: [whatsAppId],
+                                    text: alertBody // Include message in chat creation
                                 })
                             });
 
-                            const chatData = await chatRes.json();
-
-                            if (chatRes.ok) {
-                                // 2. Send Message
-                                const alertBody = `⚠️ GhostAgent Alert: A customer on your Instagram just said "${text}". Please check your dashboard.`;
-                                await fetch(`${baseUrl}/api/v1/chats/${chatData.id}/messages`, {
-                                    method: 'POST',
-                                    headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        text: alertBody,
-                                        sender_id: adminWaId
-                                    })
-                                });
+                            if (chatRes.ok || chatRes.status === 201) {
                                 console.log('✅ Admin Alert Sent');
                             } else {
-                                console.error('❌ Failed to create alert chat:', chatData);
+                                const chatData = await chatRes.json();
+                                console.error('❌ Failed to send alert:', chatRes.status, chatData);
                             }
                         } catch (e) {
                             console.error('Failed to send Admin alert', e);
