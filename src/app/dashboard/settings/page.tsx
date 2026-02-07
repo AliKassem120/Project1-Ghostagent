@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Save, Bot, DollarSign, Bell, Globe, Sparkles, Upload, Building2, Loader2, Check, FileSpreadsheet, X, Instagram } from 'lucide-react';
+import { Save, Bot, DollarSign, Bell, Globe, Sparkles, Upload, Building2, Loader2, Check, FileSpreadsheet, X, Instagram, Phone, Trash2, Plus } from 'lucide-react';
 import { clsx } from 'clsx';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
@@ -20,7 +20,7 @@ export default function SettingsPage() {
     const [instagramStatus, setInstagramStatus] = useState<{ connected: boolean; accounts: any[] }>({ connected: false, accounts: [] });
     const [uploadedFile, setUploadedFile] = useState<{ name: string; rowCount: number } | null>(null);
 
-    // Initial state with empty values (No fake data!)
+    // Initial state
     const [settings, setSettings] = useState({
         businessName: '',
         tone: 'Professional',
@@ -48,10 +48,6 @@ export default function SettingsPage() {
                     .select('*')
                     .eq('user_id', user.id)
                     .single();
-
-                if (error && error.code !== 'PGRST116') {
-                    console.error('Error fetching settings:', error);
-                }
 
                 if (data) {
                     setSettings({
@@ -91,7 +87,6 @@ export default function SettingsPage() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Validate file type
         if (!file.name.endsWith('.csv')) {
             toast.error('Please upload a CSV file');
             return;
@@ -107,7 +102,6 @@ export default function SettingsPage() {
                 return;
             }
 
-            // Parse CSV with papaparse
             Papa.parse(file, {
                 header: true,
                 skipEmptyLines: true,
@@ -120,10 +114,8 @@ export default function SettingsPage() {
                         return;
                     }
 
-                    // Convert to JSON string
                     const jsonContent = JSON.stringify(rows, null, 2);
 
-                    // Upsert to business_knowledge (replace existing)
                     const { error } = await supabase
                         .from('business_knowledge')
                         .upsert({
@@ -157,7 +149,6 @@ export default function SettingsPage() {
             setUploading(false);
         }
 
-        // Clear the input
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
@@ -200,22 +191,42 @@ export default function SettingsPage() {
         }
     };
 
-    // Check for success redirect
+    const handleDisconnect = async (accountId: string) => {
+        if (!confirm('Are you sure you want to disconnect this account?')) return;
+
+        try {
+            // Optimistic update
+            setInstagramStatus(prev => ({
+                ...prev,
+                accounts: prev.accounts.filter(a => a.id !== accountId)
+            }));
+
+            await fetch('/api/disconnect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ accountId })
+            });
+
+            toast.success('Account disconnected');
+            checkInstagramStatus(); // Refresh to be sure
+        } catch (e) {
+            toast.error('Failed to disconnect');
+            checkInstagramStatus(); // Revert on error
+        }
+    };
+
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         if (params.get('success') === 'true') {
             toast.success('Instagram connected successfully!');
             checkInstagramStatus();
-            // Clean URL
             window.history.replaceState({}, '', window.location.pathname);
         }
     }, []);
 
-    // Check status on mount
     useEffect(() => {
         checkInstagramStatus();
     }, []);
-
 
 
     const handleSave = async () => {
@@ -249,7 +260,7 @@ export default function SettingsPage() {
                 throw error;
             }
 
-            console.log('✅ Settings Saved Successfully!'); // Verification Log
+            console.log('✅ Settings Saved Successfully!');
             setSuccess(true);
             setTimeout(() => setSuccess(false), 2000);
         } catch (error) {
@@ -269,7 +280,7 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-8 pb-32 md:pb-12 min-h-[100dvh]">
             {/* Header */}
             <div>
                 <h1 className="text-4xl font-black mb-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
@@ -360,8 +371,37 @@ export default function SettingsPage() {
                 </div>
             </div>
 
+            {/* Manager Alert System */}
+            <div className="glass-dark p-8 rounded-3xl border border-white/10">
+                <div className="flex items-center gap-4 pb-6 border-b border-white/10 mb-6">
+                    <div className="p-3 bg-yellow-500/20 rounded-xl">
+                        <Bell className="w-7 h-7 text-yellow-400" />
+                    </div>
+                    <div>
+                        <h2 className="text-2xl font-bold">Manager Alerts</h2>
+                        <p className="text-white/50">Human escalation settings (WhatsApp)</p>
+                    </div>
+                </div>
+
+                <div className="space-y-3">
+                    <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Owner WhatsApp Number</label>
+                    <div className="relative">
+                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+                        <input
+                            type="tel"
+                            value={settings.emergencyWhatsApp}
+                            onChange={(e) => setSettings({ ...settings, emergencyWhatsApp: e.target.value })}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl p-4 pl-12 text-base focus:border-primary/50 outline-none hover:bg-white/10 transition-all"
+                            placeholder="+1 234 567 8900"
+                        />
+                    </div>
+                    <p className="text-xs text-white/40 italic">Ghost Agent will text this number if a customer says "Manager", "Scam", or "Bot".</p>
+                </div>
+            </div>
+
             {/* Sales Rules */}
             <div className="glass-dark p-8 rounded-3xl border border-white/10">
+                {/* ... existing sales UI ... */}
                 <div className="flex items-center gap-4 pb-6 border-b border-white/10 mb-6">
                     <div className="p-3 bg-green-500/20 rounded-xl">
                         <DollarSign className="w-7 h-7 text-green-400" />
@@ -408,77 +448,11 @@ export default function SettingsPage() {
                             />
                             <span className="absolute right-5 top-1/2 -translate-y-1/2 text-white/40 text-sm">USD</span>
                         </div>
-                        <p className="text-xs text-white/40 italic">Agent won't offer discounts below this amount</p>
                     </div>
                 </div>
             </div>
 
-            {/* Notification Settings */}
-            <div className="glass-dark p-8 rounded-3xl border border-white/10">
-                <div className="flex items-center gap-4 pb-6 border-b border-white/10 mb-6">
-                    <div className="p-3 bg-yellow-500/20 rounded-xl">
-                        <Bell className="w-7 h-7 text-yellow-400" />
-                    </div>
-                    <div>
-                        <h2 className="text-2xl font-bold">Notifications</h2>
-                        <p className="text-white/50">Human escalation settings</p>
-                    </div>
-                </div>
-
-                <div className="space-y-3">
-                    <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Emergency WhatsApp Number</label>
-                    <input
-                        type="tel"
-                        value={settings.emergencyWhatsApp}
-                        onChange={(e) => setSettings({ ...settings, emergencyWhatsApp: e.target.value })}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-base focus:border-primary/50 outline-none hover:bg-white/10 transition-all"
-                        placeholder="+961 70 123 456"
-                    />
-                    <p className="text-xs text-white/40 italic">Agent will escalate complex issues to this number</p>
-                </div>
-            </div>
-
-            {/* WhatsApp Smart Link */}
-            <div className="glass-dark p-8 rounded-3xl border border-white/10">
-                <div className="flex items-center gap-4 pb-6 border-b border-white/10 mb-6">
-                    <div className="p-3 bg-green-500/20 rounded-xl">
-                        <Bell className="w-7 h-7 text-green-400" />
-                    </div>
-                    <div>
-                        <h2 className="text-2xl font-bold">WhatsApp Smart Link</h2>
-                        <p className="text-white/50">Customize the pre-filled message for customers</p>
-                    </div>
-                </div>
-
-                <div className="space-y-6">
-                    <div className="space-y-3">
-                        <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Message Template</label>
-                        <textarea
-                            className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-base focus:border-primary/50 outline-none hover:bg-white/10 transition-all h-24 resize-none font-mono"
-                            value={settings.whatsappTemplate}
-                            onChange={(e) => setSettings({ ...settings, whatsappTemplate: e.target.value })}
-                            placeholder="Hello! I saw the {product} on Instagram for ${price} USD and I would like to order it."
-                        />
-                        <p className="text-xs text-white/40 italic">
-                            Use <code className="bg-white/10 px-1 rounded">{'{product}'}</code> and <code className="bg-white/10 px-1 rounded">{'{price}'}</code> as placeholders
-                        </p>
-                    </div>
-
-                    <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                        <div className="text-xs text-white/40 uppercase tracking-wide mb-2">Live Preview</div>
-                        <p className="text-white/80 font-medium mb-3">
-                            {settings.whatsappTemplate
-                                .replace('{product}', 'Neon Ghost Light')
-                                .replace('{price}', '49.99')}
-                        </p>
-                        <div className="text-xs text-primary">
-                            → Opens: <code className="bg-white/10 px-2 py-1 rounded text-xs">wa.me/{settings.emergencyWhatsApp.replace(/[\s\-+]/g, '')}</code>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Integrations */}
+            {/* Integrations (Connected Accounts) */}
             <div className="glass-dark p-8 rounded-3xl border border-white/10 mb-8">
                 <div className="flex items-center gap-4 pb-6 border-b border-white/10 mb-6">
                     <div className="p-3 bg-pink-500/20 rounded-xl">
@@ -486,49 +460,49 @@ export default function SettingsPage() {
                     </div>
                     <div>
                         <h2 className="text-2xl font-bold">Integrations</h2>
-                        <p className="text-white/50">Connect your social channels</p>
+                        <p className="text-white/50">Manage connected social accounts</p>
                     </div>
                 </div>
 
-                <div className="flex items-center justify-between bg-white/5 p-6 rounded-2xl border border-white/10">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 rounded-xl flex items-center justify-center">
-                            <Instagram className="w-7 h-7 text-white" />
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <h3 className="font-bold text-lg">Instagram</h3>
-                                {instagramStatus.connected && (
-                                    <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded-full flex items-center gap-1">
-                                        <Check className="w-3 h-3" />
-                                        Connected
-                                    </span>
-                                )}
+                <div className="space-y-4">
+                    {/* List Connected Accounts */}
+                    {instagramStatus.accounts.length > 0 && instagramStatus.accounts.map((acc: any) => (
+                        <div key={acc.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white/5 p-4 rounded-2xl border border-white/10 gap-4">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 rounded-xl flex items-center justify-center shrink-0">
+                                    <Instagram className="w-6 h-6 text-white" />
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="font-bold text-lg truncate max-w-[150px]">{acc.username || 'Insta User'}</h3>
+                                        <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-[10px] font-bold rounded-full flex items-center gap-1">
+                                            <Check className="w-3 h-3" /> ACTIVE
+                                        </span>
+                                    </div>
+                                    <p className="text-white/50 text-xs font-mono">{acc.id}</p>
+                                </div>
                             </div>
-                            {instagramStatus.connected && instagramStatus.accounts.length > 0 ? (
-                                <p className="text-white/70 text-sm">@{instagramStatus.accounts[0].username}</p>
-                            ) : (
-                                <p className="text-white/50 text-sm">Connect to read DMs and auto-reply</p>
-                            )}
+                            <button
+                                onClick={() => handleDisconnect(acc.id)}
+                                className="px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors w-full sm:w-auto justify-center"
+                            >
+                                <Trash2 className="w-3 h-3" /> Disconnect
+                            </button>
                         </div>
-                    </div>
-                    {!instagramStatus.connected ? (
-                        <button
-                            onClick={handleConnectInstagram}
-                            disabled={connecting}
-                            className="px-6 py-3 bg-white text-black font-bold rounded-xl hover:bg-white/90 transition-colors disabled:opacity-50 flex items-center gap-2"
-                        >
-                            {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Instagram className="w-4 h-4" />}
-                            {connecting ? 'Connecting...' : 'Connect Account'}
-                        </button>
-                    ) : (
-                        <button
-                            onClick={checkInstagramStatus}
-                            className="px-4 py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-colors text-sm"
-                        >
-                            Refresh Status
-                        </button>
-                    )}
+                    ))}
+
+                    {/* Add Account Button */}
+                    <button
+                        onClick={handleConnectInstagram}
+                        disabled={connecting}
+                        className="w-full py-4 border-2 border-dashed border-white/10 hover:border-white/30 hover:bg-white/5 rounded-2xl flex items-center justify-center gap-2 text-white/60 hover:text-white transition-all group"
+                    >
+                        {connecting ? <Loader2 className="w-5 h-5 animate-spin" /> :
+                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-primary group-hover:text-black transition-colors">
+                                <Plus className="w-5 h-5" />
+                            </div>}
+                        <span className="font-bold">Add Another Account</span>
+                    </button>
                 </div>
             </div>
 
@@ -591,9 +565,9 @@ export default function SettingsPage() {
 
                     <div className="space-y-3">
                         <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Product Catalog (CSV)</label>
-
                         {uploadedFile ? (
                             <div className="border-2 border-green-500/30 bg-green-500/10 rounded-2xl p-6 flex items-center justify-between">
+                                {/* ... existing file UI ... */}
                                 <div className="flex items-center gap-4">
                                     <div className="p-3 bg-green-500/20 rounded-xl">
                                         <FileSpreadsheet className="w-6 h-6 text-green-400" />
@@ -603,14 +577,12 @@ export default function SettingsPage() {
                                         <div className="text-sm text-white/50">{uploadedFile.rowCount} products loaded</div>
                                     </div>
                                 </div>
-                                <button
-                                    onClick={handleRemoveCatalog}
-                                    className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
-                                >
+                                <button onClick={handleRemoveCatalog} className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
                         ) : (
+                            // ... existing upload UI ...
                             <div
                                 onClick={() => fileInputRef.current?.click()}
                                 className={clsx(
@@ -642,24 +614,19 @@ export default function SettingsPage() {
             </div>
 
             {/* Save Button */}
-            <div className="flex justify-center pt-6 pb-12">
+            <div className="flex justify-center pt-6 pb-24 md:pb-12 sticky bottom-6 md:static z-40">
                 <button
                     onClick={handleSave}
                     disabled={saving || success}
                     className={clsx(
-                        "px-16 py-5 rounded-2xl font-black text-xl transition-all shadow-[0_0_40px_rgba(192,132,252,0.5)] flex items-center gap-3 disabled:opacity-80 disabled:cursor-not-allowed transform",
+                        "px-16 py-5 rounded-2xl font-black text-xl transition-all shadow-[0_0_40px_rgba(192,132,252,0.5)] flex items-center gap-3 disabled:opacity-80 disabled:cursor-not-allowed transform w-full md:w-auto justify-center mx-4 md:mx-0",
                         success ? "bg-green-500 text-black scale-105" : "bg-primary text-black hover:scale-105 active:scale-95"
                     )}
                 >
                     {saving ? (
                         <Loader2 className="w-6 h-6 animate-spin" />
                     ) : success ? (
-                        <motion.div
-                            initial={{ scale: 0.5, opacity: 0 }}
-                            animate={{ scale: 1.25, opacity: 1 }}
-                            transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                            className="flex items-center gap-2"
-                        >
+                        <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1.25, opacity: 1 }} transition={{ type: "spring", stiffness: 400, damping: 15 }} className="flex items-center gap-2">
                             <Check className="w-8 h-8" /> Saved!
                         </motion.div>
                     ) : (
@@ -670,5 +637,3 @@ export default function SettingsPage() {
         </div>
     );
 }
-
-

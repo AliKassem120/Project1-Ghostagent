@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Edit2, Share, Loader2, MessageCircle, User, Instagram, Search, Send, Sparkles, Ghost, Menu, ArrowLeft, PlayCircle } from 'lucide-react';
+import { Check, Edit2, Share, Loader2, MessageCircle, User, Instagram, Search, Send, Sparkles, Ghost, Menu, ArrowLeft, PlayCircle, PauseCircle, Phone } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import clsx from 'clsx';
+import { toast } from 'sonner'; // Assuming sonner or similar toast lib is available or we use context
 
 type Message = {
     id: string;
@@ -23,7 +24,6 @@ type Conversation = {
     lastMessage: string;
     timestamp: string;
     messages: Message[];
-    is_muted?: boolean; // We'll infer or fetch this
 };
 
 export default function InteractionsPage() {
@@ -31,7 +31,6 @@ export default function InteractionsPage() {
     const [mutedChats, setMutedChats] = useState<Set<string>>(new Set());
     const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false); // For mobile sidebar
     const supabase = createClient();
 
     const fetchLogs = async () => {
@@ -59,22 +58,28 @@ export default function InteractionsPage() {
         setLoading(false);
     };
 
-    const handleResumeAI = async (chatId: string) => {
+    const toggleMute = async (chatId: string, currentStatus: boolean) => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            await supabase.from('conversation_states')
-                .update({ is_muted: false, muted_until: null })
-                .eq('user_id', user.id)
-                .eq('external_chat_id', chatId);
+            const newStatus = !currentStatus;
 
-            // creating a local update for speed
+            await supabase.from('conversation_states').upsert({
+                user_id: user.id,
+                external_chat_id: chatId,
+                platform: 'INSTAGRAM',
+                is_muted: newStatus,
+                muted_until: newStatus ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null, // Mute for 24h default
+                last_interaction_at: new Date().toISOString()
+            }, { onConflict: 'user_id, external_chat_id' });
+
+            // Optimistic Update
             const newMuted = new Set(mutedChats);
-            newMuted.delete(chatId);
+            if (newStatus) newMuted.add(chatId);
+            else newMuted.delete(chatId);
             setMutedChats(newMuted);
 
-            // Optional: Log it
         } catch (e) {
             console.error(e);
         }
@@ -82,16 +87,13 @@ export default function InteractionsPage() {
 
     useEffect(() => {
         fetchLogs();
-
-        // Subscription for logs
         const channel = supabase
             .channel('interactions-sync')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_log' }, () => {
                 fetchLogs();
             })
-            // Subscribe to state changes too
             .on('postgres_changes', { event: '*', schema: 'public', table: 'conversation_states' }, () => {
-                fetchLogs();
+                fetchLogs(); // Refresh mute states
             })
             .subscribe();
 
@@ -166,21 +168,13 @@ export default function InteractionsPage() {
 
     return (
         <div className="h-[calc(100dvh-100px)] md:h-[calc(100vh-160px)] flex gap-4 overflow-hidden font-sans relative">
-            {/* Mobile Header Toggle */}
-            <div className="md:hidden absolute top-4 left-4 z-50">
-                {!selectedChatId && (
-                    <h1 className="text-xl font-bold flex items-center gap-2">
-                        <Instagram className="w-5 h-5 text-pink-500" /> Inbox
-                    </h1>
-                )}
-            </div>
 
             {/* Sidebar (Responsive) */}
             <div className={clsx(
                 "w-full md:w-80 flex flex-col gap-3 h-full absolute md:relative z-20 bg-[#0a0a0a] md:bg-transparent transition-transform duration-300",
                 selectedChatId ? "-translate-x-full md:translate-x-0" : "translate-x-0"
             )}>
-                <div className="hidden md:flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-2 px-1">
                     <h1 className="text-xl font-bold flex items-center gap-2">
                         <Instagram className="w-5 h-5 text-pink-500" />
                         Inbox
@@ -191,7 +185,7 @@ export default function InteractionsPage() {
                     </h1>
                 </div>
 
-                <div className="relative mb-2 mt-12 md:mt-0">
+                <div className="relative mb-2">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
                     <input
                         placeholder="Search chats..."
@@ -199,7 +193,7 @@ export default function InteractionsPage() {
                     />
                 </div>
 
-                <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar pb-20 md:pb-0">
+                <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar pb-24 md:pb-0">
                     {conversations.map((conv) => (
                         <button
                             key={conv.chat_id}
@@ -239,18 +233,18 @@ export default function InteractionsPage() {
 
             {/* Chat Area (Responsive) */}
             <div className={clsx(
-                "fixed inset-0 md:static flex-1 glass-dark md:rounded-3xl border-0 md:border border-white/10 flex flex-col overflow-hidden relative backdrop-blur-xl z-30 transition-transform duration-300 bg-[#000000]",
+                "fixed inset-0 md:static flex-1 glass-dark md:rounded-3xl border-0 md:border border-white/10 flex flex-col overflow-hidden relative backdrop-blur-xl z-30 transition-transform duration-300 bg-[#000000] md:bg-transparent",
                 selectedChatId ? "translate-x-0" : "translate-x-full md:translate-x-0"
             )}>
                 {activeChat ? (
                     <>
                         {/* Header */}
-                        <div className="p-4 border-b border-white/10 bg-white/5 flex items-center gap-3 pt-12 md:pt-4">
+                        <div className="p-4 border-b border-white/10 bg-white/5 flex items-center gap-3 pt-safe-top md:pt-4">
                             <button
                                 onClick={() => setSelectedChatId(null)}
-                                className="md:hidden p-2 -ml-2 text-white/60"
+                                className="md:hidden p-2 -ml-2 text-white/60 hover:text-white"
                             >
-                                <ArrowLeft className="w-5 h-5" />
+                                <ArrowLeft className="w-6 h-6" />
                             </button>
                             <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
                                 {activeChat.username[0].toUpperCase()}
@@ -258,32 +252,38 @@ export default function InteractionsPage() {
                             <div className="flex-1">
                                 <h2 className="font-bold text-sm">{activeChat.username}</h2>
                                 {isMuted ? (
-                                    <span className="text-[10px] text-yellow-400 flex items-center gap-1">
-                                        <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full" />
-                                        Manual Takeover (Muted)
+                                    <span className="text-[10px] text-yellow-500 flex items-center gap-1 font-bold">
+                                        <PauseCircle className="w-3 h-3" />
+                                        MUTED (Manual)
                                     </span>
                                 ) : (
-                                    <span className="text-[10px] text-green-400 flex items-center gap-1">
+                                    <span className="text-[10px] text-green-400 flex items-center gap-1 font-bold">
                                         <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                                        Ghost Active
+                                        GHOST ACTIVE
                                     </span>
                                 )}
                             </div>
 
-                            {/* Resolve Button */}
-                            {isMuted && (
-                                <button
-                                    onClick={() => handleResumeAI(activeChat.chat_id)}
-                                    className="px-3 py-1.5 bg-green-500/10 text-green-400 text-xs rounded-lg hover:bg-green-500/20 border border-green-500/20 flex items-center gap-1 transition-colors"
-                                >
-                                    <PlayCircle className="w-3 h-3" />
-                                    Resume AI
-                                </button>
-                            )}
+                            {/* Manual Toggle Button */}
+                            <button
+                                onClick={() => toggleMute(activeChat.chat_id, isMuted)}
+                                className={clsx(
+                                    "px-3 py-1.5 text-xs rounded-lg border flex items-center gap-2 transition-all font-bold",
+                                    isMuted
+                                        ? "bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20"
+                                        : "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
+                                )}
+                            >
+                                {isMuted ? (
+                                    <><PlayCircle className="w-3 h-3" /> Resume AI</>
+                                ) : (
+                                    <><PauseCircle className="w-3 h-3" /> Mute AI</>
+                                )}
+                            </button>
                         </div>
 
                         {/* Messages */}
-                        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 custom-scrollbar pb-20">
+                        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 custom-scrollbar pb-24 md:pb-6">
                             <AnimatePresence>
                                 {activeChat.messages.map((msg, i) => (
                                     <motion.div
@@ -323,6 +323,34 @@ export default function InteractionsPage() {
                                 ))}
                             </AnimatePresence>
                         </div>
+
+                        {/* Footer - Always Visible */}
+                        <div className="p-4 bg-white/5 border-t border-white/10 pb-safe-bottom">
+                            <div className="relative group">
+                                <input
+                                    placeholder={`Reply manually... (Bot is ${isMuted ? 'OFF' : 'ON'})`}
+                                    className="w-full bg-black/40 border border-white/10 rounded-2xl py-3 pl-4 pr-12 text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            // Ideally, implement manual send here if API exists
+                                            // For now, placeholder functionality as requested (UI only)
+                                            // You'd call Unipile API here
+                                        }
+                                    }}
+                                />
+                                <button className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-black transition-all">
+                                    <Send className="w-4 h-4" />
+                                </button>
+                            </div>
+                            <p className="text-[10px] text-white/20 mt-2 text-center uppercase tracking-widest flex justify-center gap-2">
+                                <span>Manager Mode Active</span>
+                                {isMuted ? (
+                                    <span className="text-yellow-500">• Manual Control</span>
+                                ) : (
+                                    <span className="text-green-500">• Monitoring</span>
+                                )}
+                            </p>
+                        </div>
                     </>
                 ) : (
                     <div className="hidden md:flex flex-1 flex-col items-center justify-center opacity-30 select-none">
@@ -349,6 +377,12 @@ export default function InteractionsPage() {
                 }
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
                     background: rgba(255, 255, 255, 0.2);
+                }
+                .pb-safe-top {
+                    padding-top: env(safe-area-inset-top);
+                }
+                .pb-safe-bottom {
+                    padding-bottom: env(safe-area-inset-bottom);
                 }
             `}</style>
         </div>

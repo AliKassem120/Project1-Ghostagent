@@ -23,15 +23,13 @@ export async function POST(req: Request) {
 
         // --- ACCOUNT CONNECTION EVENTS ---
         if (body.status === 'CREATION_SUCCESS' || body.event === 'account.created') {
-            // ... existing logic simplified for brevity but kept functional ...
             const accountId = body.account_id || body.data?.account_id;
-            const userId = body.name || body.data?.name; // 'name' field holds user_id
-
+            const userId = body.name || body.data?.name;
             if (userId) {
                 await supabaseAdmin.from('user_connections').upsert({
                     user_id: userId,
                     account_id: accountId,
-                    provider: 'INSTAGRAM',
+                    provider: 'INSTAGRAM', // Defaulting, but could be inferred from body
                     metadata: body,
                     connected_at: new Date().toISOString()
                 }, { onConflict: 'account_id' });
@@ -66,22 +64,10 @@ export async function POST(req: Request) {
 
             if (!connection) return NextResponse.json({ status: 'ignored', reason: 'Unknown account' });
 
-            // 2. MUTE/HANDOFF LOGIC
-            // If OWNER replied manually:
+            // 2. MANUAL REPLY LOGIC (No Auto-Mute)
             if (body.is_sender === true) {
-                console.log('👤 Owner replied. Muting bot.');
-                // Mute for 1 hour
-                await supabaseAdmin.from('conversation_states').upsert({
-                    user_id: connection.user_id,
-                    external_chat_id: chat_id,
-                    platform: 'INSTAGRAM',
-                    external_username: 'You',
-                    is_muted: true,
-                    muted_until: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-                    last_interaction_at: new Date().toISOString()
-                }, { onConflict: 'user_id, external_chat_id' });
+                console.log('👤 Owner replied manually. Logging only.');
 
-                // Log manual reply for UI
                 await supabaseAdmin.from('activity_log').insert({
                     user_id: connection.user_id,
                     event_type: 'MANUAL_REPLY',
@@ -89,18 +75,18 @@ export async function POST(req: Request) {
                     metadata: { chat_id, username: 'You', is_sender: true, is_manual: true },
                     timestamp: new Date().toISOString()
                 });
-                return NextResponse.json({ status: 'success', message: 'Muted bot' });
+                return NextResponse.json({ status: 'success', message: 'Logged manual reply' });
             }
 
-            // Check if Muted (incoming)
+            // 3. CHECK MUTED STATUS (Incoming)
             const { data: convState } = await supabaseAdmin.from('conversation_states')
                 .select('is_muted, muted_until')
                 .eq('user_id', connection.user_id)
                 .eq('external_chat_id', chat_id)
                 .single();
 
-            if (convState?.is_muted && convState.muted_until && new Date(convState.muted_until) > new Date()) {
-                console.log('🤐 Bot Muted.');
+            if (convState?.is_muted) {
+                console.log('🤐 Bot Muted. Logging Incoming.');
                 await supabaseAdmin.from('activity_log').insert({
                     user_id: connection.user_id,
                     event_type: 'INCOMING_DM',
@@ -111,7 +97,7 @@ export async function POST(req: Request) {
                 return NextResponse.json({ status: 'ignored', reason: 'Bot is muted' });
             }
 
-            // 3. LOG INCOMING
+            // 4. LOG INCOMING
             await supabaseAdmin.from('activity_log').insert({
                 user_id: connection.user_id,
                 event_type: 'INCOMING_DM',
@@ -120,8 +106,70 @@ export async function POST(req: Request) {
                 timestamp: new Date().toISOString()
             });
 
-            // 4. SAFETY SHIELD (Anti-Ban)
-            // 4.1 Daily Cap Check
+            // 5. MANAGER ALERT SYSTEM (WhatsApp)
+            const alertKeywords = ['manager', 'scam', 'fake', 'bot'];
+            if (alertKeywords.some(kw => text?.toLowerCase().includes(kw))) {
+                console.log('🚨 Manager Alert Triggered!');
+
+                const { data: settings } = await supabaseAdmin
+                    .from('bot_settings')
+                    .select('emergency_whatsapp')
+                    .eq('user_id', connection.user_id)
+                    .single();
+
+                if (settings?.emergency_whatsapp) {
+                    // Find a WhatsApp connection
+                    const { data: waConnection } = await supabaseAdmin
+                        .from('user_connections')
+                        .select('*')
+                        .eq('user_id', connection.user_id)
+                        .eq('provider', 'WHATSAPP') // Assumes provider field is set correctly
+                        .limit(1)
+                        .single();
+
+                    if (waConnection) {
+                        const dsn = process.env.UNIPILE_DSN || '';
+                        let baseUrl = 'https://api23.unipile.com:15397';
+                        let apiKey = process.env.UNIPILE_API_KEY || '';
+                        if (dsn.includes('@')) {
+                            const [proto, rest] = dsn.split('://');
+                            const [auth, domain] = rest.split('@');
+                            baseUrl = `${proto}://${domain}`;
+                            apiKey = auth;
+                        }
+
+                        try {
+                            // Create Chat to establish ID
+                            const chatRes = await fetch(`${baseUrl}/api/v1/chats`, {
+                                method: 'POST',
+                                headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    account_id: waConnection.account_id,
+                                    attendees: [settings.emergency_whatsapp]
+                                })
+                            });
+
+                            if (chatRes.ok) {
+                                const chatData = await chatRes.json();
+                                // Send Alert
+                                await fetch(`${baseUrl}/api/v1/chats/${chatData.id}/messages`, {
+                                    method: 'POST',
+                                    headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        text: `🚨 ALERT: Customer ${sender?.attendee_name} said "${text}". Check Dashboard.`,
+                                        sender_id: waConnection.account_id
+                                    })
+                                });
+                                console.log('✅ Alert sent to WhatsApp');
+                            }
+                        } catch (e) {
+                            console.error('Failed to send WhatsApp alert', e);
+                        }
+                    }
+                }
+            }
+
+            // 6. SAFETY SHIELD (Anti-Ban)
             const startOfDay = new Date();
             startOfDay.setHours(0, 0, 0, 0);
             const { count } = await supabaseAdmin.from('activity_log')
@@ -140,24 +188,19 @@ export async function POST(req: Request) {
                 return NextResponse.json({ status: 'ignored', reason: 'Daily limit' });
             }
 
-            // 4.2 Human-like Pacing
-            if (body.is_sender === false) {
-                // Short delay to avoid 'instant-bot' detection (5s safe for Vercel)
-                // Note: user requested 20-50s. This requires background jobs. 
-                // Using 6s to be safe within 10s timeout range of some tiers.
-                console.log('⏳ Pacing...');
-                await delay(6000);
-            }
+            // Human-like Pacing
+            console.log('⏳ Pacing...');
+            await delay(6000);
 
-            // 5. GHOST BRAIN
+            // 7. GHOST BRAIN (with Context)
             console.log('🤖 Generating Reply...');
             try {
-                const replyText = await generateGhostReply(connection.user_id, text || '', supabaseAdmin);
+                // Pass chat_id for context fetching
+                const replyText = await generateGhostReply(connection.user_id, text || '', supabaseAdmin, chat_id);
 
                 if (replyText) {
                     console.log('👻 Sending:', replyText);
 
-                    // Unipile API Send
                     const dsn = process.env.UNIPILE_DSN || '';
                     let baseUrl = 'https://api23.unipile.com:15397';
                     let apiKey = process.env.UNIPILE_API_KEY || '';

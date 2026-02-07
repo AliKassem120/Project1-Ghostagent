@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS conversation_states (
 ALTER TABLE conversation_states ENABLE ROW LEVEL SECURITY;
 
 -- Policies
+DROP POLICY IF EXISTS "Users can manage their own conversations" ON conversation_states;
 CREATE POLICY "Users can manage their own conversations"
 ON conversation_states FOR ALL
 USING (auth.uid() = user_id);

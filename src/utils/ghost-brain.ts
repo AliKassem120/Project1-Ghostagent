@@ -5,7 +5,8 @@ import { z } from "zod";
 export async function generateGhostReply(
     userId: string,
     userMessage: string,
-    supabase: any
+    supabase: any,
+    chatId?: string
 ) {
     console.log('👻 Ghost Brain: Generating reply for', userId);
 
@@ -13,9 +14,10 @@ export async function generateGhostReply(
     let inventoryContext = "No inventory items listed currently.";
     let catalogContext = "";
     let businessName = "Ghost Agent Store";
+    let historyContext = "";
 
     try {
-        // Fetch Settings with Ghost Protocol fields
+        // Fetch Settings (Including Ghost Protocol)
         const { data: settings } = await supabase
             .from('bot_settings')
             .select('business_name, tone, system_instructions, urgency_mode, handoff_keywords')
@@ -24,7 +26,7 @@ export async function generateGhostReply(
 
         if (settings?.business_name) businessName = settings.business_name;
 
-        // --- GHOST PROTOCOL: Hand-off Check ---
+        // --- GHOST PROTOCOL: Handoff Check ---
         const handoffKeywords = settings?.handoff_keywords || [];
         if (Array.isArray(handoffKeywords) && handoffKeywords.some((kw: string) => userMessage.toLowerCase().includes(kw.toLowerCase()))) {
             console.log('🛑 Ghost Protocol: Handoff Keyword Detected. Pausing AI.');
@@ -35,6 +37,31 @@ export async function generateGhostReply(
         let urgencyPrompt = "";
         if (settings?.urgency_mode) {
             urgencyPrompt = `\n🔥 URGENCY MODE AGENT: Subtly emphasize scarcity (e.g., "only a few left", "high demand") in your response to encourage a faster decision. Be professional but create a sense of FOMO (Fear Of Missing Out).`;
+        }
+
+        // History Fetch (Goldfish Fix)
+        if (chatId) {
+            const { data: history } = await supabase
+                .from('activity_log')
+                .select('description, event_type, metadata')
+                .eq('user_id', userId)
+                .order('timestamp', { ascending: false })
+                .limit(10);
+
+            // Filter in memory for simplicity or use specific metadata check if indexed
+            // Since activity_log mixes all chats, we must filter. 
+            // Note: In production, adding an index on metadata->>chat_id is recommended.
+            const relevantHistory = history?.filter((h: any) => h.metadata?.chat_id === chatId).reverse() || [];
+
+            historyContext = relevantHistory.map((h: any) => {
+                const role = h.event_type === 'AI_REPLY' ? 'AI' : (h.event_type === 'MANUAL_REPLY' ? 'OWNER' : 'CUSTOMER');
+                // Clean description
+                let content = h.description;
+                if (content.includes('Sent:')) content = content.split('Sent:')[1];
+                if (content.includes('Sent (Manual):')) content = content.split('Sent (Manual):')[1];
+                if (content.includes('Received:')) content = content.split('Received:')[1];
+                return `${role}: ${content.replace(/"/g, '').trim()}`;
+            }).join('\n');
         }
 
         // Fetch Inventory
@@ -71,6 +98,9 @@ CURRENT LIVE INVENTORY:
 ${inventoryContext}
 ---
 ${catalogContext}
+
+PREVIOUS CONVERSATION HISTORY (Use this context to reply relevantly):
+${historyContext}
 
 USER INSTRUCTIONS (Tone: ${settings?.tone || 'Professional'}):
 ${settings?.system_instructions || 'Be helpful and concise.'}
