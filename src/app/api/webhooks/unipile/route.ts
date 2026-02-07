@@ -158,22 +158,31 @@ export async function POST(req: Request) {
                         try {
                             console.log(`📱 Sending Admin Alert to User (${settings.emergency_whatsapp})`);
 
+                            // Format Phone Number for WhatsApp (e.g., 961...@s.whatsapp.net)
+                            let toPhone = settings.emergency_whatsapp.replace(/\D/g, ''); // Extract digits
+                            const toWaId = `${toPhone}@s.whatsapp.net`;
+
+                            console.log(`Formatted WA ID: ${toWaId}`);
+
                             // 1. Create DM Chat (Admin -> User Phone)
                             const chatRes = await fetch(`${baseUrl}/api/v1/chats`, {
                                 method: 'POST',
                                 headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
-                                    account_id: adminWaId, // FROM ADMIN
-                                    attendees: [settings.emergency_whatsapp] // TO USER
+                                    account_id: adminWaId,
+                                    attendees_ids: [toWaId] // Use attendees_ids and proper format
                                 })
                             });
 
                             const chatData = await chatRes.json();
 
-                            if (chatRes.ok) {
+                            // Success (200/201) or Existing (409 logic if API behaves that way, but usually returns object)
+                            const chatId = chatData.id || (chatData.status === 409 ? chatData.meta?.id : null);
+
+                            if (chatRes.ok || chatId) {
                                 // 2. Send Message
-                                const alertBody = `⚠️ GhostAgent Alert: A customer on your Instagram just said "${text}". Please check your dashboard.`;
-                                await fetch(`${baseUrl}/api/v1/chats/${chatData.id}/messages`, {
+                                const alertBody = `⚠️ GhostAgent Alert: A customer on your Instagram said "${text}". Check Dashboard.`;
+                                const msgRes = await fetch(`${baseUrl}/api/v1/chats/${chatId}/messages`, {
                                     method: 'POST',
                                     headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
@@ -181,7 +190,8 @@ export async function POST(req: Request) {
                                         sender_id: adminWaId
                                     })
                                 });
-                                console.log('✅ Admin Alert Sent');
+                                if (msgRes.ok) console.log('✅ Admin Alert Sent');
+                                else console.error('❌ Failed to send alert message:', await msgRes.text());
                             } else {
                                 console.error('❌ Failed to create alert chat:', chatData);
                             }
