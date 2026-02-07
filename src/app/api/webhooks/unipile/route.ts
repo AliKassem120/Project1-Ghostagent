@@ -19,6 +19,7 @@ export async function GET() {
 export async function POST(req: Request) {
     try {
         const body = await req.json();
+        console.log('⚡ WEBHOOK HIT:', body.event, '| ID:', body.id, '| Account:', body.account_id);
         const supabaseAdmin = getSupabaseAdmin();
 
         // --- ACCOUNT CONNECTION EVENTS ---
