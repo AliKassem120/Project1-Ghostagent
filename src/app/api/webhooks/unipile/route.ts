@@ -158,13 +158,18 @@ export async function POST(req: Request) {
                         try {
                             console.log(`📱 Sending Admin Alert to User (${settings.emergency_whatsapp})`);
 
+                            // Format phone number for WhatsApp API
+                            const cleanNumber = settings.emergency_whatsapp.replace(/\D/g, ''); // Remove + and spaces
+                            const whatsAppId = `${cleanNumber}@s.whatsapp.net`;
+                            console.log(`Formatted WhatsApp ID: ${whatsAppId}`);
+
                             // 1. Create DM Chat (Admin -> User Phone)
                             const chatRes = await fetch(`${baseUrl}/api/v1/chats`, {
                                 method: 'POST',
                                 headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
                                     account_id: adminWaId, // FROM ADMIN
-                                    attendees: [settings.emergency_whatsapp] // TO USER
+                                    attendees_ids: [whatsAppId] // TO USER (formatted)
                                 })
                             });
 
