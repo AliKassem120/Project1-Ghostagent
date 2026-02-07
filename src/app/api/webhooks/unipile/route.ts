@@ -66,20 +66,30 @@ export async function POST(req: Request) {
 
             if (!connection) return NextResponse.json({ status: 'ignored', reason: 'Unknown account' });
 
-            // 2. CHECK FOR LOOPBACK (Exact ID Match)
-            // Prevents duplicate logs if we already logged this via API or previous webhook
-            if (body.id) {
-                const { data: existing } = await supabaseAdmin
-                    .from('activity_log')
-                    .select('id')
-                    .eq('user_id', connection.user_id)
-                    .or(`metadata->>unipile_message_id.eq.${body.id},metadata->>id.eq.${body.id}`)
-                    .maybeSingle(); // Use maybeSingle to avoid 406 on multiple
+            // 2. SELF-MESSAGE CHECK (Primary Guard)
+            // If sender is the connected account itself AND this is marked as sender message,
+            // it's either: (a) Bot/Dashboard API echo (should have ID in DB), or (b) Phone reply (new)
+            const senderId = body.message?.sender_id || body.sender_id;
+            if (body.is_sender === true && senderId && senderId === account_id) {
+                console.log(`👻 Self-message detected from account ${account_id}. Checking if already logged...`);
 
-                if (existing) {
-                    console.log(`🔄 Loopback detected (ID: ${body.id}). Ignoring.`);
-                    return NextResponse.json({ status: 'ignored', reason: 'Loopback ID' });
+                // Check if we already logged this message (Bot or Dashboard API)
+                if (body.id) {
+                    const { data: existing } = await supabaseAdmin
+                        .from('activity_log')
+                        .select('id')
+                        .eq('user_id', connection.user_id)
+                        .or(`metadata->>unipile_message_id.eq.${body.id},metadata->>id.eq.${body.id}`)
+                        .maybeSingle();
+
+                    if (existing) {
+                        console.log(`🔄 Loopback: Message already logged. Ignoring webhook echo.`);
+                        return NextResponse.json({ status: 'ignored', reason: 'Bot/Dashboard echo' });
+                    }
                 }
+
+                // If not in DB, it's a manual reply from phone
+                console.log('📱 Manual reply from phone detected.');
             }
 
             if (body.is_sender === true) {
@@ -172,16 +182,24 @@ export async function POST(req: Request) {
                                     const accRes = await fetch(`${baseUrl}/api/v1/accounts`, {
                                         headers: { 'X-API-KEY': apiKey }
                                     });
-                                    const accounts = await accRes.json(); // Unipile usually returns array direct or { items: [] }
+                                    const accounts = await accRes.json();
                                     const accountList = Array.isArray(accounts) ? accounts : (accounts.items || []);
 
-                                    const waAccount = accountList.find((a: any) => (a.type === 'WHATSAPP' || a.type === 'whatsapp') && a.status === 'OK');
+                                    console.log(`📋 Found ${accountList.length} accounts:`, accountList.map((a: any) => `${a.type}:${a.status}`).join(', '));
+
+                                    // Broader search: WhatsApp with any "active" status
+                                    const waAccount = accountList.find((a: any) => {
+                                        const typeMatch = (a.type || '').toUpperCase() === 'WHATSAPP';
+                                        const statusOk = ['OK', 'CONNECTED', 'ACTIVE'].includes((a.status || '').toUpperCase());
+                                        return typeMatch && statusOk;
+                                    });
 
                                     if (waAccount) {
                                         sendingAccountId = waAccount.id;
-                                        console.log(`✅ Auto-resolved Admin Account: ${waAccount.name} (${sendingAccountId})`);
+                                        console.log(`✅ Auto-resolved Admin Account: ${waAccount.name || 'WhatsApp'} (${sendingAccountId})`);
                                     } else {
-                                        console.error('❌ No connected WhatsApp account found in Unipile DSN.');
+                                        console.error('❌ No active WhatsApp account found. Please connect a WhatsApp account in Unipile.');
+                                        console.error('Available accounts:', JSON.stringify(accountList, null, 2));
                                     }
                                 } catch (e) {
                                     console.error('Failed to resolve accounts:', e);
