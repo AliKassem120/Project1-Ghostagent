@@ -64,37 +64,35 @@ export async function POST(req: Request) {
 
             if (!connection) return NextResponse.json({ status: 'ignored', reason: 'Unknown account' });
 
-            // 2. CHECK FOR LOOPBACK (Deduping Logic)
-            if (body.is_sender === true) {
-                // Check if we just logged this message (within last 30s) as AI_REPLY or MANUAL_REPLY
-                const cutoff = new Date(Date.now() - 30 * 1000).toISOString();
-                const { data: existingLogs } = await supabaseAdmin
+            // 2. CHECK FOR LOOPBACK (Exact ID Match)
+            // Prevents duplicate logs if we already logged this via API or previous webhook
+            if (body.id) {
+                const { data: existing } = await supabaseAdmin
                     .from('activity_log')
-                    .select('id, description')
+                    .select('id')
                     .eq('user_id', connection.user_id)
-                    .or('event_type.eq.AI_REPLY,event_type.eq.MANUAL_REPLY')
-                    .gte('timestamp', cutoff)
-                    .limit(5);
+                    .or(`metadata->>unipile_message_id.eq.${body.id},metadata->>id.eq.${body.id}`)
+                    .maybeSingle(); // Use maybeSingle to avoid 406 on multiple
 
-                const isDuplicate = existingLogs?.some(log => {
-                    // Check if content is roughly same (ignoring "Sent: " prefix)
-                    const cleanLog = log.description.replace(/^Sent.*: "/, '').replace(/"$/, '').trim();
-                    const cleanBody = text.trim();
-                    return cleanLog.includes(cleanBody) || cleanBody.includes(cleanLog);
-                });
-
-                if (isDuplicate) {
-                    console.log('🔄 Loopback detected (Message already logged). Ignoring.');
-                    return NextResponse.json({ status: 'ignored', reason: 'Loopback' });
+                if (existing) {
+                    console.log(`🔄 Loopback detected (ID: ${body.id}). Ignoring.`);
+                    return NextResponse.json({ status: 'ignored', reason: 'Loopback ID' });
                 }
+            }
 
-                // If not duplicate, it's a REAL manual reply from Phone
-                console.log('👤 Owner replied manually (Phone). Logging.');
+            if (body.is_sender === true) {
+                console.log('👤 Owner replied manually. Logging.');
                 await supabaseAdmin.from('activity_log').insert({
                     user_id: connection.user_id,
                     event_type: 'MANUAL_REPLY',
                     description: `Sent (Manual): "${text?.substring(0, 50)}..."`,
-                    metadata: { chat_id, username: 'You', is_sender: true, is_manual: true },
+                    metadata: {
+                        chat_id,
+                        username: 'You',
+                        is_sender: true,
+                        is_manual: true,
+                        unipile_message_id: body.id
+                    },
                     timestamp: new Date().toISOString()
                 });
                 return NextResponse.json({ status: 'success', message: 'Logged manual reply' });

@@ -53,7 +53,8 @@ export async function POST(req: Request) {
                 username: 'You',
                 is_sender: true,
                 is_manual: true,
-                account_id: accountId
+                account_id: accountId,
+                unipile_message_id: msgData.id
             },
             timestamp: new Date().toISOString()
         });
