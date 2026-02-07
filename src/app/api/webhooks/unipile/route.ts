@@ -65,17 +65,19 @@ export async function POST(req: Request) {
             }
 
             const chat_id = body.chat_id;
-            const messageId = body.id;
+            const messageId = body.id || body.message_id || (typeof body.message === 'object' ? body.message?.id : undefined);
 
             // Robust Sender Extraction
             const sender = body.sender || (typeof body.message === 'object' ? body.message?.sender : null);
+            const senderId = body.sender_id || sender?.id;
 
-            console.log('📩 DM Received:', chat_id, '| ID:', messageId, '| Event:', body.event);
+            console.log('📩 DM Received:', chat_id, '| ID:', messageId, '| Event:', body.event, '| Sender:', senderId);
+            console.log('🔍 Keys:', Object.keys(body));
 
             // 1. GET USER CONNECTION
             const { data: connection } = await supabaseAdmin
                 .from('user_connections')
-                .select('user_id')
+                .select('*')
                 .eq('account_id', account_id)
                 .single();
 
@@ -97,16 +99,27 @@ export async function POST(req: Request) {
                 }
 
                 if (existing) {
-                    console.log(`🔄 DUPLICATE DETECTED! Already logged as ${existing.event_type}. Metadata:`, existing.metadata);
+                    console.log(`🔄 DUPLICATE DETECTED! Already logged as ${existing.event_type}.`);
                     return NextResponse.json({ status: 'ignored', reason: 'Duplicate message ID' });
                 }
 
                 console.log('✅ New message (not in DB)');
             } else {
-                console.warn('⚠️ No message ID provided by Unipile. Cannot check for duplicates.');
+                console.warn('⚠️ No message ID provided. Skipping Loopback Check.');
             }
 
             if (body.is_sender === true) {
+                if (!messageId) {
+                    console.warn('🛑 Skipping identifying as Manual Reply because ID is missing (likely Webhook Echo).');
+                    return NextResponse.json({ status: 'ignored', reason: 'No ID for sender message' });
+                }
+
+                // Self-Check via Sender ID (Extra Safety)
+                if (senderId === account_id) {
+                    console.log('👻 Self-message confirmed via Sender ID.');
+                    // If we are here, ID is new. So likely Manual Reply from Phone.
+                }
+
                 console.log('👤 Owner manual reply. Logging with ID:', messageId);
                 await supabaseAdmin.from('activity_log').insert({
                     user_id: connection.user_id,
