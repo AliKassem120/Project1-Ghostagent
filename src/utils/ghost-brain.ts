@@ -115,7 +115,7 @@ Keep responses short (under 500 chars) as this is Instagram DM.
 
         // 3. GENERATE
         const result = await generateText({
-            model: google("gemini-2.5-flash"),
+            model: google("gemini-1.5-flash"),
             system: systemPrompt,
             messages: [{ role: 'user', content: userMessage }],
             // Note: Tools excluded in V1 for safety/speed, can be added later
