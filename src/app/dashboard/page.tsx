@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { MessageSquare, DollarSign, Package, TrendingUp, TrendingDown, Activity, Instagram, Clock, Zap, MessageCircle, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from '@/components/CountUp';
@@ -8,118 +8,96 @@ import FloatingGhost from '@/components/FloatingGhost';
 import GhostChat from '@/app/components/GhostChat'; // Checked path
 import GhostModal from '@/components/GhostModal';
 import { useAutopilot } from '@/context/AutopilotContext';
+import { useRealtime, useRealtimeCount } from '@/hooks/useRealtime';
 import clsx from 'clsx';
 import { createClient } from '@/utils/supabase/client';
+
+// Database types
+type ActivityLog = {
+    id: string;
+    user_id: string;
+    event_type: string;
+    description: string;
+    timestamp: string;
+    metadata?: any;
+};
+
+type InventoryItem = {
+    id: string;
+    stock_level: number;
+};
 
 export default function DashboardPage() {
     const { autopilot } = useAutopilot();
     const supabase = createClient();
     const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
-
-    // Stats & Activities
-    const [stats, setStats] = useState({ timeSaved: 0, moneySaved: 0, repliesSent: 0, stock: 0 });
-    const [activities, setActivities] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [totalInteractions, setTotalInteractions] = useState(0);
+    const [userId, setUserId] = useState<string | null>(null);
     const [clearModalOpen, setClearModalOpen] = useState(false);
 
+    // Get user ID on mount
     useEffect(() => {
-        let channel: any;
-
-        const loadDashboardData = async () => {
-            setLoading(true);
+        const getUser = async () => {
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            // 1. Auto-Clean logs older than 7 days
-            const sevenDaysAgo = new Date();
-            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-            await supabase
-                .from('activity_log')
-                .delete()
-                .lt('timestamp', sevenDaysAgo.toISOString());
-
-            // 2. Fetch real activity logs
-            const { data: logs } = await supabase
-                .from('activity_log')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('timestamp', { ascending: false })
-                .limit(20);
-
-            setActivities(logs || []);
-
-            // 3. Calculate Real Stats from activity_log
-            const { count: totalLogs } = await supabase
-                .from('activity_log')
-                .select('*', { count: 'exact', head: true })
-                .eq('user_id', user.id);
-
-            const { data: salesLogs } = await supabase
-                .from('activity_log')
-                .select('description')
-                .eq('user_id', user.id)
-                .eq('event_type', 'IG_SALE');
-
-            // Sum money from sales
-            let totalMoney = 0;
-            salesLogs?.forEach(log => {
-                const match = log.description.match(/\$([\d.]+)/);
-                if (match) totalMoney += parseFloat(match[1]);
-            });
-
-            // Time saved
-            const timeSavedMinutes = (totalLogs || 0) * 2;
-            const timeSavedHours = timeSavedMinutes / 60;
-
-            // Fetch inventory stock
-            const { data: inventory } = await supabase
-                .from('inventory')
-                .select('stock_level')
-                .eq('user_id', user.id);
-
-            const totalStock = inventory?.reduce((sum, item) => sum + (item.stock_level || 0), 0) || 0;
-
-            setStats({
-                timeSaved: timeSavedHours,
-                moneySaved: totalMoney,
-                repliesSent: totalLogs || 0,
-                stock: totalStock
-            });
-            setTotalInteractions(totalLogs || 0);
-            setLoading(false);
-
-            // 4. Realtime Subscription
-            channel = supabase
-                .channel('dashboard-activity')
-                .on(
-                    'postgres_changes',
-                    {
-                        event: 'INSERT',
-                        schema: 'public',
-                        table: 'activity_log',
-                        filter: `user_id=eq.${user.id}`
-                    },
-                    (payload) => {
-                        setActivities((prev) => [payload.new, ...prev]);
-                        // Update basic stats optimistically
-                        setStats((prev) => ({
-                            ...prev,
-                            repliesSent: prev.repliesSent + 1,
-                            timeSaved: prev.timeSaved + (2 / 60)
-                        }));
-                        setTotalInteractions((prev) => prev + 1);
-                    }
-                )
-                .subscribe();
+            if (user) setUserId(user.id);
         };
-
-        loadDashboardData();
-
-        return () => {
-            if (channel) supabase.removeChannel(channel);
-        };
+        getUser();
     }, []);
+
+    // 🔥 REALTIME: Subscribe to activity_log changes
+    const { data: activities, loading: activitiesLoading, refetch: refetchActivities } = useRealtime<ActivityLog>(
+        'activity_log',
+        '*',
+        {
+            filter: userId ? { column: 'user_id', value: userId } : undefined,
+            orderBy: 'timestamp',
+            orderDirection: 'desc',
+            limit: 50,
+            enabled: !!userId,
+        }
+    );
+
+    // 🔥 REALTIME: Get live count of all activities
+    const { count: totalInteractions } = useRealtimeCount(
+        'activity_log',
+        userId ? { column: 'user_id', value: userId } : undefined
+    );
+
+    // 🔥 REALTIME: Subscribe to inventory for stock count
+    const { data: inventoryItems } = useRealtime<InventoryItem>(
+        'inventory',
+        'id, stock_level',
+        {
+            filter: userId ? { column: 'user_id', value: userId } : undefined,
+            enabled: !!userId,
+        }
+    );
+
+    // 📊 COMPUTED STATS: Derived from realtime data (single source of truth)
+    const stats = useMemo(() => {
+        // Calculate money from sales
+        let moneySaved = 0;
+        activities.forEach(log => {
+            if (log.event_type === 'IG_SALE' && log.description) {
+                const match = log.description.match(/\$([\d.]+)/);
+                if (match) moneySaved += parseFloat(match[1]);
+            }
+        });
+
+        // Time saved: 2 minutes per interaction
+        const timeSaved = (totalInteractions * 2) / 60;
+
+        // Total stock from inventory
+        const stock = inventoryItems.reduce((sum, item) => sum + (item.stock_level || 0), 0);
+
+        return {
+            timeSaved,
+            moneySaved,
+            repliesSent: totalInteractions,
+            stock,
+        };
+    }, [activities, totalInteractions, inventoryItems]);
+
+    const loading = activitiesLoading;
 
     const metrics = [
         {
@@ -377,16 +355,14 @@ export default function DashboardPage() {
                 confirmText="Clear Everything"
                 cancelText="Keep Data"
                 onConfirm={async () => {
-                    setActivities([]);
-                    setStats({ timeSaved: 0, moneySaved: 0, repliesSent: 0, stock: stats.stock });
-                    setTotalInteractions(0);
-
-                    const { data: { user } } = await supabase.auth.getUser();
-                    if (user) {
+                    // Just delete from database - realtime hook will update UI automatically!
+                    if (userId) {
                         await supabase
                             .from('activity_log')
                             .delete()
-                            .eq('user_id', user.id);
+                            .eq('user_id', userId);
+                        // Refetch to ensure UI updates
+                        refetchActivities();
                     }
                 }}
                 onCancel={() => setClearModalOpen(false)}

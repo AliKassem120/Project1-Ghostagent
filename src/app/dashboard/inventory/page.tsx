@@ -7,7 +7,19 @@ import { clsx } from 'clsx';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
 import GhostModal from '@/components/GhostModal';
+import { useRealtime } from '@/hooks/useRealtime';
 
+// Database row type
+type InventoryRow = {
+    id: string;
+    user_id: string;
+    item_name: string;
+    price: number;
+    stock_level: number;
+    created_at: string;
+};
+
+// UI display type
 type Product = {
     id: string;
     name: string;
@@ -19,48 +31,46 @@ type Product = {
 export default function InventoryPage() {
     const supabase = createClient();
     const toast = useToast();
-    const [loading, setLoading] = useState(true);
-    const [products, setProducts] = useState<Product[]>([]);
+    const [userId, setUserId] = useState<string | null>(null);
     const [isAdding, setIsAdding] = useState(false);
     const [newProduct, setNewProduct] = useState({ name: '', price: 0, stock: 0 });
     const [deleteModal, setDeleteModal] = useState<{ open: boolean; productId: string | null; productName: string }>({ open: false, productId: null, productName: '' });
 
+    // Get user ID on mount
     useEffect(() => {
-        fetchInventory();
+        const getUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) setUserId(user.id);
+        };
+        getUser();
     }, []);
 
-    const fetchInventory = async () => {
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            const { data, error } = await supabase
-                .from('inventory')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false });
-
-            if (error) {
-                console.error('Error fetching inventory:', error);
-                return;
-            }
-
-            if (data) {
-                const mappedProducts: Product[] = data.map(item => ({
-                    id: item.id,
-                    name: item.item_name,
-                    price: item.price,
-                    stock: item.stock_level,
-                    status: item.stock_level > 0 ? 'In Stock' : 'Out of Stock'
-                }));
-                setProducts(mappedProducts);
-            }
-        } catch (error) {
-            console.error('Unexpected error:', error);
-        } finally {
-            setLoading(false);
+    // 🔥 REALTIME: Subscribe to inventory changes
+    const { data: inventoryData, loading } = useRealtime<InventoryRow>(
+        'inventory',
+        '*',
+        {
+            filter: userId ? { column: 'user_id', value: userId } : undefined,
+            orderBy: 'created_at',
+            orderDirection: 'desc',
+            enabled: !!userId,
+            onInsert: (item) => {
+                toast.ghost('Inventory Updated', { description: `"${item.item_name}" was added.` });
+            },
+            onDelete: (item) => {
+                toast.info('Item Removed', { description: `"${item.item_name}" was deleted.` });
+            },
         }
-    };
+    );
+
+    // Transform database rows to UI products
+    const products: Product[] = inventoryData.map(item => ({
+        id: item.id,
+        name: item.item_name,
+        price: item.price,
+        stock: item.stock_level,
+        status: item.stock_level > 0 ? 'In Stock' : 'Out of Stock'
+    }));
 
     const handleAddClick = () => {
         setIsAdding(true);
@@ -72,22 +82,16 @@ export default function InventoryPage() {
     };
 
     const handleSaveProduct = async () => {
-        if (!newProduct.name) return;
+        if (!newProduct.name || !userId) return;
 
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                toast.error('Please log in.');
-                return;
-            }
-
             const stock = Number(newProduct.stock) || 0;
             const price = Number(newProduct.price) || 0;
 
             const { data, error } = await supabase
                 .from('inventory')
                 .insert({
-                    user_id: user.id,
+                    user_id: userId,
                     item_name: newProduct.name,
                     price: price,
                     stock_level: stock,
@@ -98,25 +102,18 @@ export default function InventoryPage() {
             if (error) throw error;
 
             if (data) {
-                // Log activity
+                // Log activity (will trigger toast via RealtimeProvider)
                 await supabase.from('activity_log').insert({
-                    user_id: user.id,
+                    user_id: userId,
                     event_type: 'INVENTORY_ADD',
                     description: `Added "${data.item_name}" to stock`,
                     timestamp: new Date().toISOString()
                 });
 
-                const newItem: Product = {
-                    id: data.id,
-                    name: data.item_name,
-                    price: data.price,
-                    stock: data.stock_level,
-                    status: data.stock_level > 0 ? 'In Stock' : 'Out of Stock'
-                };
-                setProducts(prev => [newItem, ...prev]);
+                // ✅ NO MANUAL STATE UPDATE - Realtime hook handles it!
                 setIsAdding(false);
                 setNewProduct({ name: '', price: 0, stock: 0 });
-                toast.success(`Added "${data.item_name}" to inventory!`);
+                toast.success('Product Added', { description: `"${data.item_name}" is now in your inventory.` });
             }
         } catch (error) {
             console.error('Error saving product:', error);
@@ -133,8 +130,8 @@ export default function InventoryPage() {
 
             if (error) throw error;
 
-            setProducts(prev => prev.filter(p => p.id !== id));
-            toast.success('Product deleted successfully.');
+            // ✅ NO MANUAL STATE UPDATE - Realtime hook handles it!
+            toast.success('Product Deleted');
         } catch (error) {
             console.error('Error deleting product:', error);
             toast.error('Failed to delete product.');

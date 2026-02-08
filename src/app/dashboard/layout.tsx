@@ -4,11 +4,12 @@ import Link from 'next/link';
 import { LayoutDashboard, MessageSquareText, Package, Settings, LogOut, CreditCard, Zap } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import GhostLogo from '@/components/GhostLogo';
 import StarBackground from '@/components/StarBackground';
 import ActivityFeed from '@/components/ActivityFeed';
 import { AutopilotProvider, useAutopilot } from '@/context/AutopilotContext';
+import { RealtimeProvider } from '@/contexts/RealtimeContext';
 import { Menu, X, Activity as ActivityIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
@@ -171,20 +172,34 @@ export default function DashboardLayout({
 }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isFeedOpen, setIsFeedOpen] = useState(false);
+    const [userId, setUserId] = useState<string | undefined>(undefined);
+
+    // Get user ID for realtime subscriptions
+    useEffect(() => {
+        const getUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                setUserId(user.id);
+            }
+        };
+        getUser();
+    }, []);
 
     return (
         <AutopilotProvider>
-            <div className="min-h-screen bg-black text-white flex relative overflow-hidden">
-                <StarBackground />
-                <DashboardSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-                <DashboardContent
-                    toggleSidebar={() => setIsSidebarOpen(true)}
-                    toggleFeed={() => setIsFeedOpen(!isFeedOpen)}
-                >
-                    {children}
-                </DashboardContent>
-                <DashboardActivityFeed isOpen={isFeedOpen} onClose={() => setIsFeedOpen(false)} />
-            </div>
+            <RealtimeProvider userId={userId}>
+                <div className="min-h-screen bg-black text-white flex relative overflow-hidden">
+                    <StarBackground />
+                    <DashboardSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+                    <DashboardContent
+                        toggleSidebar={() => setIsSidebarOpen(true)}
+                        toggleFeed={() => setIsFeedOpen(!isFeedOpen)}
+                    >
+                        {children}
+                    </DashboardContent>
+                    <DashboardActivityFeed isOpen={isFeedOpen} onClose={() => setIsFeedOpen(false)} />
+                </div>
+            </RealtimeProvider>
         </AutopilotProvider>
     );
 }
