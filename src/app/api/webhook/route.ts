@@ -5,10 +5,13 @@ import { createGroq } from '@ai-sdk/groq';
 import { z } from 'zod';
 
 export const maxDuration = 60;
+export const dynamic = 'force-dynamic'; // Ensure webhook is always dynamic
 
 export async function POST(req: Request) {
+    console.log(" [DEBUG] /api/webhook HIT", new Date().toISOString());
     try {
         const body = await req.json();
+        console.log(" [DEBUG] /api/webhook Body:", JSON.stringify(body).slice(0, 100));
         const unipileKey = process.env.UNIPILE_API_KEY;
 
         if (!unipileKey) {

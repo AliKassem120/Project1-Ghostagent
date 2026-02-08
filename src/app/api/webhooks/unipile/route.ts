@@ -12,13 +12,17 @@ const getSupabaseAdmin = () => {
     return createClient(supabaseUrl, supabaseServiceKey);
 }
 
+export const dynamic = 'force-dynamic'; // Prevent static generation
+
 export async function GET() {
     return NextResponse.json({ status: 'ok', message: 'Ghost Agent Webhook Active' });
 }
 
 export async function POST(req: Request) {
+    console.log(" [DEBUG] /api/webhooks/unipile HIT", new Date().toISOString());
     try {
         const body = await req.json();
+        console.log(" [DEBUG] /api/webhooks/unipile Body:", JSON.stringify(body).slice(0, 100));
 
         // === 🔇 PRIVACY SILENCE FILTER (FIRST LINE OF DEFENSE) ===
         // If this webhook is from the admin's personal WhatsApp, ignore it completely.
