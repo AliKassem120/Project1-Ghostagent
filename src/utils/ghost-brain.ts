@@ -1,5 +1,5 @@
-import Groq from "groq-sdk";
-import { createClient } from "@/utils/supabase/server";
+import { createGroq } from '@ai-sdk/groq';
+import { generateText } from "ai";
 
 export async function generateGhostReply(
     userId: string,
@@ -7,7 +7,6 @@ export async function generateGhostReply(
     supabase: any,
     chatId?: string
 ) {
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     console.log('👻 Ghost Brain: Generating reply for', userId);
 
     // 1. FETCH CONTEXT
@@ -107,24 +106,20 @@ ${settings?.system_instructions || 'Be helpful and concise.'}
 
 ${urgencyPrompt}
 
-GOAL: cancel orders, answer questions about stock, price, and availability.
+GOAL: Answer questions about stock, price, and availability.
 Refuse to sell items that are out of stock.
-If you sell an item, act as if you are processing it (activity log will be updated).
 Keep responses short (under 500 chars) as this is Instagram DM.
 `;
 
-        // 3. GENERATE WITH GROQ
-        const completion = await groq.chat.completions.create({
-            messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: userMessage }
-            ],
-            model: "llama-3.3-70b-versatile",
-            temperature: 0.7,
-            max_tokens: 1024,
+        // 3. GENERATE WITH GROQ (AI SDK)
+        const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
+        const result = await generateText({
+            model: groq("llama-3.3-70b-versatile"),
+            system: systemPrompt,
+            messages: [{ role: 'user', content: userMessage }],
         });
 
-        return completion.choices[0]?.message?.content || "I'm having trouble connecting right now.";
+        return result.text;
 
     } catch (error) {
         console.error('Ghost Brain Error:', error);
