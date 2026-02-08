@@ -95,11 +95,16 @@ export async function POST(req: Request) {
                 return NextResponse.json({ status: 'ignored', reason: 'Self-message echo' });
             }
 
-            // Also check if is_sender is true AND the sender matches our account (redundant safety)
+            // === CRITICAL: Handle ALL outgoing messages (is_sender = true) ===
+            // When is_sender is true, this is an OUTGOING message - either from:
+            // 1. Our bot (via API) - already logged, IGNORE the webhook
+            // 2. User's manual reply from Instagram app - should log as MANUAL_REPLY
+            // 
+            // THE FIX: Check if this message was ALREADY logged by our API.
+            // If yes -> IGNORE (it's a bot echo)
+            // If no -> It might be a genuine manual reply, but we need more proof
             if (body.is_sender === true) {
-                // Double-check: is this actually from our connected account (bot) or from the user's device?
-                // If we already passed the kill switch above, is_sender=true means manual reply from user's phone/app
-                // But we need to verify this isn't a bot message that slipped through
+                console.log('📤 Outgoing message detected (is_sender=true). Checking if bot echo...');
 
                 // Check if this message ID was already logged by our API (bot sent it)
                 if (body.id) {
@@ -107,17 +112,35 @@ export async function POST(req: Request) {
                         .from('activity_log')
                         .select('id')
                         .eq('user_id', connection.user_id)
-                        .eq('metadata->>unipile_message_id', body.id)
+                        .filter('metadata->>unipile_message_id', 'eq', body.id)
                         .maybeSingle();
 
                     if (alreadyLogged) {
-                        console.log('👻 KILL SWITCH: Message already logged by API. Ignoring webhook echo.');
+                        console.log('👻 KILL SWITCH: Message ID already logged by API. Ignoring webhook echo.');
                         return NextResponse.json({ status: 'ignored', reason: 'Already logged via API' });
                     }
                 }
 
-                // This is a genuine manual reply from the owner's device
-                console.log('👤 Owner replied manually from their device. Logging.');
+                // EXTRA SAFETY: Check if this exact text was logged in the last 30 seconds as AI_REPLY
+                // This catches cases where message IDs might differ
+                const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
+                const { data: recentBotReply } = await supabaseAdmin
+                    .from('activity_log')
+                    .select('id, description')
+                    .eq('user_id', connection.user_id)
+                    .eq('event_type', 'AI_REPLY')
+                    .gte('timestamp', thirtySecondsAgo)
+                    .ilike('description', `%${text?.substring(0, 50)}%`)
+                    .maybeSingle();
+
+                if (recentBotReply) {
+                    console.log('👻 KILL SWITCH: Matching AI_REPLY found in last 30s. Ignoring webhook echo.');
+                    return NextResponse.json({ status: 'ignored', reason: 'Recent AI reply match' });
+                }
+
+                // If we get here, this MIGHT be a genuine manual reply from the owner's device
+                // But let's be conservative - only log if it's NOT a recent AI message
+                console.log('👤 Outgoing message not from bot. Logging as Manual Reply.');
                 await supabaseAdmin.from('activity_log').insert({
                     user_id: connection.user_id,
                     event_type: 'MANUAL_REPLY',
