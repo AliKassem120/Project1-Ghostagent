@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { generateText, convertToModelMessages, tool } from 'ai';
-import { google } from "@ai-sdk/google";
+import { generateText, tool, stepCountIs } from 'ai';
+import { createGroq } from '@ai-sdk/groq';
 import { z } from 'zod';
 
 export const maxDuration = 60;
@@ -127,16 +127,16 @@ OUTPUT JSON FORMAT:
             },
         });
 
-        // 4. GENERATE AI RESPONSE
+        // 4. GENERATE AI RESPONSE (Groq)
+        const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
         const { text: rawAiResponse } = await generateText({
-            model: google("gemini-1.5-flash-latest"), // 1.5-flash-latest is stable
+            model: groq("llama-3.3-70b-versatile"),
             system: systemPrompt,
             messages: [
                 { role: 'user', content: text }
             ],
             tools: { manageInventory: manageInventoryTool },
-            // @ts-ignore
-            maxSteps: 5,
+            stopWhen: stepCountIs(5),
         });
 
         console.log(`Raw AI Response: ${rawAiResponse}`);

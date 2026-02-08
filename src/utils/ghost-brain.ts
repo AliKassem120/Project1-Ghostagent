@@ -1,6 +1,5 @@
-import { google } from "@ai-sdk/google";
-import { generateText } from "ai";
-import { z } from "zod";
+import Groq from "groq-sdk";
+import { createClient } from "@/utils/supabase/server";
 
 export async function generateGhostReply(
     userId: string,
@@ -8,6 +7,7 @@ export async function generateGhostReply(
     supabase: any,
     chatId?: string
 ) {
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     console.log('👻 Ghost Brain: Generating reply for', userId);
 
     // 1. FETCH CONTEXT
@@ -113,15 +113,18 @@ If you sell an item, act as if you are processing it (activity log will be updat
 Keep responses short (under 500 chars) as this is Instagram DM.
 `;
 
-        // 3. GENERATE
-        const result = await generateText({
-            model: google("gemini-1.5-flash-latest"),
-            system: systemPrompt,
-            messages: [{ role: 'user', content: userMessage }],
-            // Note: Tools excluded in V1 for safety/speed, can be added later
+        // 3. GENERATE WITH GROQ
+        const completion = await groq.chat.completions.create({
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userMessage }
+            ],
+            model: "llama-3.3-70b-versatile",
+            temperature: 0.7,
+            max_tokens: 1024,
         });
 
-        return result.text;
+        return completion.choices[0]?.message?.content || "I'm having trouble connecting right now.";
 
     } catch (error) {
         console.error('Ghost Brain Error:', error);
