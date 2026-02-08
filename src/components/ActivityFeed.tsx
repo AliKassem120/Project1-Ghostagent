@@ -15,10 +15,12 @@ interface ActivityLog {
 }
 
 import { createClient } from '@/utils/supabase/client';
+import { useDashboard } from '@/contexts/DashboardContext';
 
 export default function ActivityFeed({ autopilot, isOpen, onClose }: { autopilot: boolean; isOpen: boolean; onClose: () => void }) {
     const [activities, setActivities] = useState<ActivityLog[]>([]);
     const [mounted, setMounted] = useState(false);
+    const { version } = useDashboard();
     const supabase = createClient();
 
     // Map raw DB record to ActivityLog
@@ -57,7 +59,7 @@ export default function ActivityFeed({ autopilot, isOpen, onClose }: { autopilot
 
         // 🔥 REALTIME: Subscribe to activity_log changes with DEDUPLICATION
         const channel = supabase
-            .channel('activity-feed-realtime')
+            .channel(`activity-feed-realtime-${Date.now()}`)
             .on(
                 'postgres_changes',
                 {
@@ -100,7 +102,7 @@ export default function ActivityFeed({ autopilot, isOpen, onClose }: { autopilot
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [mapActivity]);
+    }, [mapActivity, version]); // Re-run when context version changes
 
     const getIcon = (type: ActivityType) => {
         switch (type) {

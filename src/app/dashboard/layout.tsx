@@ -14,6 +14,7 @@ import { Menu, X, Activity as ActivityIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { DashboardProvider } from '@/contexts/DashboardContext';
 
 function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
     const pathname = usePathname();
@@ -165,6 +166,8 @@ function DashboardActivityFeed({ isOpen, onClose }: { isOpen: boolean; onClose: 
     return <ActivityFeed autopilot={autopilot} isOpen={isOpen} onClose={onClose} />;
 }
 
+
+
 export default function DashboardLayout({
     children,
 }: {
@@ -188,17 +191,19 @@ export default function DashboardLayout({
     return (
         <AutopilotProvider>
             <RealtimeProvider userId={userId}>
-                <div className="min-h-screen bg-black text-white flex relative overflow-hidden">
-                    <StarBackground />
-                    <DashboardSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-                    <DashboardContent
-                        toggleSidebar={() => setIsSidebarOpen(true)}
-                        toggleFeed={() => setIsFeedOpen(!isFeedOpen)}
-                    >
-                        {children}
-                    </DashboardContent>
-                    <DashboardActivityFeed isOpen={isFeedOpen} onClose={() => setIsFeedOpen(false)} />
-                </div>
+                <DashboardProvider>
+                    <div className="min-h-screen bg-black text-white flex relative overflow-hidden">
+                        <StarBackground />
+                        <DashboardSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+                        <DashboardContent
+                            toggleSidebar={() => setIsSidebarOpen(true)}
+                            toggleFeed={() => setIsFeedOpen(!isFeedOpen)}
+                        >
+                            {children}
+                        </DashboardContent>
+                        <DashboardActivityFeed isOpen={isFeedOpen} onClose={() => setIsFeedOpen(false)} />
+                    </div>
+                </DashboardProvider>
             </RealtimeProvider>
         </AutopilotProvider>
     );

@@ -5,6 +5,7 @@ import { Send, Ghost, Sparkles, AlertCircle } from "lucide-react";
 import { useChat, type UIMessage } from "@ai-sdk/react";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
+import { useDashboard } from '@/contexts/DashboardContext';
 
 interface GhostChatProps {
     /** Called when the AI completes an action (inventory update, etc.) */
@@ -12,6 +13,7 @@ interface GhostChatProps {
 }
 
 export default function GhostChat({ onActionComplete }: GhostChatProps) {
+    const { refreshDashboard } = useDashboard();
     const { messages, sendMessage, status, error } = useChat({
         onError: (err) => {
             console.error("GhostChat Client Error:", err);
@@ -36,9 +38,10 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
                     t.toolName === 'create_order'
                 );
 
-            if (hasToolAction && onActionComplete) {
+            if (hasToolAction) {
                 console.log('[GhostChat] Tool action detected, triggering refresh');
-                onActionComplete();
+                refreshDashboard();
+                if (onActionComplete) onActionComplete();
             }
         }
     });

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useDashboard } from '@/contexts/DashboardContext';
 import { MessageSquare, DollarSign, Package, TrendingUp, TrendingDown, Activity, Instagram, Clock, Zap, MessageCircle, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from '@/components/CountUp';
@@ -72,12 +73,16 @@ export default function DashboardPage() {
         }
     );
 
-    // Handler for when GhostChat completes an action (inventory update, etc.)
-    const handleChatActionComplete = () => {
-        console.log('[Dashboard] Chat action complete, refreshing data...');
-        refetchActivities();
-        refetchInventory();
-    };
+    const { version } = useDashboard();
+
+    // Listen for global dashboard refresh triggers (from Chat/Context)
+    useEffect(() => {
+        if (version > 0) {
+            console.log('[Dashboard] Refresh triggered by context version:', version);
+            refetchActivities();
+            refetchInventory();
+        }
+    }, [version, refetchActivities, refetchInventory]);
 
     // 📊 COMPUTED STATS: Derived from realtime data (single source of truth)
     const stats = useMemo(() => {
@@ -302,7 +307,7 @@ export default function DashboardPage() {
                         </h3>
                     </div>
                     <div className="flex-1 overflow-hidden relative z-10 p-2">
-                        <GhostChat onActionComplete={handleChatActionComplete} />
+                        <GhostChat />
                     </div>
                 </div>
 
@@ -346,7 +351,7 @@ export default function DashboardPage() {
                                 </button>
                             </div>
                             <div className="flex-1 overflow-hidden">
-                                <GhostChat onActionComplete={handleChatActionComplete} />
+                                <GhostChat />
                             </div>
                         </motion.div>
                     </div>
