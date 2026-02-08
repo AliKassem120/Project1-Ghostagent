@@ -259,7 +259,8 @@ export function useRealtime<T extends { id: string | number }>(
  */
 export function useRealtimeCount(
     tableName: string,
-    filter?: { column: string; value: string }
+    filter?: { column: string; value: string },
+    options?: { pollingInterval?: number; enabled?: boolean }
 ): { count: number; loading: boolean } {
     const [count, setCount] = useState(0);
     const [loading, setLoading] = useState(true);

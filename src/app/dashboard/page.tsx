@@ -75,13 +75,22 @@ export default function DashboardPage() {
 
     const { version } = useDashboard();
 
-    // Listen for global dashboard refresh triggers (from Chat/Context)
+    // Listen for global dashboard refresh triggers (from Chat/Context) AND Poll
     useEffect(() => {
+        // Context Trigger
         if (version > 0) {
             console.log('[Dashboard] Refresh triggered by context version:', version);
             refetchActivities();
             refetchInventory();
         }
+
+        // Polling Mechanism (Every 3 seconds) as requested
+        const interval = setInterval(() => {
+            refetchActivities();
+            refetchInventory();
+        }, 3000);
+
+        return () => clearInterval(interval);
     }, [version, refetchActivities, refetchInventory]);
 
     // 📊 COMPUTED STATS: Derived from realtime data (single source of truth)

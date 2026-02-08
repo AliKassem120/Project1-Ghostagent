@@ -100,33 +100,6 @@ OUTPUT JSON FORMAT:
 `;
 
         // 3. DEFINE TOOLS (Keep existing manageInventoryTool)
-        const manageInventoryTool = tool({
-            description: 'Update stock levels (sell/add).',
-            inputSchema: z.object({
-                itemName: z.string(),
-                quantity: z.number(),
-                price: z.number().optional(),
-                action: z.enum(['add', 'remove']),
-            }),
-            execute: async ({ itemName, quantity, price, action }) => {
-                const { data: existingItem } = await supabase.from('inventory').select('*').eq('user_id', ownerId).ilike('item_name', itemName).single();
-
-                if (action === 'remove') {
-                    if (!existingItem || existingItem.stock_level < quantity) return `Error: Not enough stock of ${itemName}`;
-                    const newStock = existingItem.stock_level - quantity;
-                    await supabase.from('inventory').update({ stock_level: newStock }).eq('id', existingItem.id);
-                    await supabase.from('activity_log').insert({
-                        user_id: ownerId,
-                        event_type: 'IG_SALE',
-                        description: `Sold ${quantity} ${itemName} via Instagram DM`,
-                        timestamp: new Date().toISOString()
-                    });
-                    return `Success: Sold ${quantity} ${itemName}. Remaining: ${newStock}`;
-                }
-                return "Action not supported in DM mode yet.";
-            },
-        });
-
         // 4. GENERATE AI RESPONSE (Groq)
         const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
         const { text: rawAiResponse } = await generateText({
@@ -135,8 +108,7 @@ OUTPUT JSON FORMAT:
             messages: [
                 { role: 'user', content: text }
             ],
-            tools: { manageInventory: manageInventoryTool },
-            stopWhen: stepCountIs(5),
+            // Tools removed for security in DM context (Read-Only via System Prompt)
         });
 
         console.log(`Raw AI Response: ${rawAiResponse}`);
