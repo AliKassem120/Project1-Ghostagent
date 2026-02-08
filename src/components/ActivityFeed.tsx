@@ -16,6 +16,7 @@ interface ActivityLog {
 
 import { createClient } from '@/utils/supabase/client';
 import { useDashboard } from '@/contexts/DashboardContext';
+import { useRealtime } from '@/hooks/useRealtime';
 
 export default function ActivityFeed({ autopilot, isOpen, onClose }: { autopilot: boolean; isOpen: boolean; onClose: () => void }) {
     const [activities, setActivities] = useState<ActivityLog[]>([]);
@@ -33,76 +34,27 @@ export default function ActivityFeed({ autopilot, isOpen, onClose }: { autopilot
         timestamp: new Date(d.timestamp)
     }), []);
 
+    // 🔥 Use the polling-enabled hook for live updates
+    const { data: rawActivities } = useRealtime<any>(
+        'activity_log',
+        '*',
+        {
+            orderBy: 'timestamp',
+            orderDirection: 'desc',
+            limit: 30,
+            pollingInterval: 3000 // 3-second polling as requested
+        }
+    );
+
     useEffect(() => {
         setMounted(true);
+    }, []);
 
-        const fetchActivity = async () => {
-            const { data } = await supabase
-                .from('activity_log')
-                .select('*')
-                .order('timestamp', { ascending: false })
-                .limit(30);
-
-            if (data) {
-                // Deduplicate on initial fetch
-                const uniqueMap = new Map<string, ActivityLog>();
-                data.forEach((d: any) => {
-                    if (!uniqueMap.has(d.id)) {
-                        uniqueMap.set(d.id, mapActivity(d));
-                    }
-                });
-                setActivities(Array.from(uniqueMap.values()));
-            }
-        };
-
-        fetchActivity();
-
-        // 🔥 REALTIME: Subscribe to activity_log changes with DEDUPLICATION
-        const channel = supabase
-            .channel(`activity-feed-realtime-${Date.now()}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'activity_log',
-                },
-                (payload) => {
-                    const newActivity = mapActivity(payload.new);
-
-                    // ✅ STRICT DEDUPLICATION: Only add if ID doesn't exist
-                    setActivities((current) => {
-                        if (current.some(a => a.id === newActivity.id)) {
-                            console.log('[ActivityFeed] Duplicate blocked:', newActivity.id);
-                            return current;
-                        }
-                        // Add to beginning, limit to 30 items
-                        return [newActivity, ...current].slice(0, 30);
-                    });
-                }
-            )
-            .on(
-                'postgres_changes',
-                {
-                    event: 'DELETE',
-                    schema: 'public',
-                    table: 'activity_log',
-                },
-                (payload) => {
-                    setActivities((current) =>
-                        current.filter(a => a.id !== (payload.old as any).id)
-                    );
-                }
-            )
-            .subscribe((status) => {
-                console.log('[ActivityFeed] Subscription status:', status);
-            });
-
-        // Cleanup - NO POLLING, just realtime!
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [mapActivity, version]); // Re-run when context version changes
+    useEffect(() => {
+        if (rawActivities) {
+            setActivities(rawActivities.map(mapActivity));
+        }
+    }, [rawActivities, mapActivity]);
 
     const getIcon = (type: ActivityType) => {
         switch (type) {

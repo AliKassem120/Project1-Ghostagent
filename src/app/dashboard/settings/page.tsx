@@ -226,6 +226,9 @@ export default function SettingsPage() {
 
     useEffect(() => {
         checkInstagramStatus();
+        // Poll status every 5 seconds to catch connection updates without refresh
+        const interval = setInterval(checkInstagramStatus, 5000);
+        return () => clearInterval(interval);
     }, []);
 
 

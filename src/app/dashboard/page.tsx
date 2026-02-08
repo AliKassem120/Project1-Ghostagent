@@ -54,13 +54,15 @@ export default function DashboardPage() {
             orderDirection: 'desc',
             limit: 50,
             enabled: !!userId,
+            pollingInterval: 3000, // Now handled by the hook
         }
     );
 
     // 🔥 REALTIME: Get live count of all activities
     const { count: totalInteractions } = useRealtimeCount(
         'activity_log',
-        userId ? { column: 'user_id', value: userId } : undefined
+        userId ? { column: 'user_id', value: userId } : undefined,
+        { pollingInterval: 3000 } // Enable polling for count
     );
 
     // 🔥 REALTIME: Subscribe to inventory for stock count
@@ -70,12 +72,13 @@ export default function DashboardPage() {
         {
             filter: userId ? { column: 'user_id', value: userId } : undefined,
             enabled: !!userId,
+            pollingInterval: 3000, // Now handled by the hook
         }
     );
 
     const { version } = useDashboard();
 
-    // Listen for global dashboard refresh triggers (from Chat/Context) AND Poll
+    // Listen for global dashboard refresh triggers (from Chat/Context)
     useEffect(() => {
         // Context Trigger
         if (version > 0) {
@@ -83,14 +86,6 @@ export default function DashboardPage() {
             refetchActivities();
             refetchInventory();
         }
-
-        // Polling Mechanism (Every 3 seconds) as requested
-        const interval = setInterval(() => {
-            refetchActivities();
-            refetchInventory();
-        }, 3000);
-
-        return () => clearInterval(interval);
     }, [version, refetchActivities, refetchInventory]);
 
     // 📊 COMPUTED STATS: Derived from realtime data (single source of truth)

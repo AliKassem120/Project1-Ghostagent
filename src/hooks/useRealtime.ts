@@ -23,6 +23,8 @@ interface UseRealtimeOptions<T> {
     onDelete?: (item: T) => void;
     /** Whether to enable realtime (default: true) */
     enabled?: boolean;
+    /** Polling interval (ms) */
+    pollingInterval?: number;
 }
 
 interface UseRealtimeReturn<T> {
@@ -244,7 +246,16 @@ export function useRealtime<T extends { id: string | number }>(
                 channelRef.current = null;
             }
         };
-    }, [tableName, filter?.column, filter?.value, enabled]);
+    }, [tableName, filter?.column, filter?.value, enabled, fetchData]);
+
+    // Polling Logic
+    useEffect(() => {
+        if (!options.pollingInterval || !enabled) return;
+        const interval = setInterval(() => {
+            fetchData();
+        }, options.pollingInterval);
+        return () => clearInterval(interval);
+    }, [options.pollingInterval, enabled, fetchData]);
 
     return {
         data,
@@ -268,6 +279,7 @@ export function useRealtimeCount(
 
     useEffect(() => {
         const fetchCount = async () => {
+            if (options?.enabled === false) return;
             let query = supabase
                 .from(tableName)
                 .select('*', { count: 'exact', head: true });
@@ -282,6 +294,12 @@ export function useRealtimeCount(
         };
 
         fetchCount();
+
+        // Polling logic for count
+        let interval: NodeJS.Timeout | undefined;
+        if (options?.pollingInterval && options?.enabled !== false) {
+            interval = setInterval(fetchCount, options.pollingInterval);
+        }
 
         // Subscribe to changes to update count
         const channel = supabase
@@ -301,9 +319,10 @@ export function useRealtimeCount(
             .subscribe();
 
         return () => {
+            if (interval) clearInterval(interval);
             supabase.removeChannel(channel);
         };
-    }, [tableName, filter?.column, filter?.value]);
+    }, [tableName, filter?.column, filter?.value, options?.pollingInterval, options?.enabled]);
 
     return { count, loading };
 }
