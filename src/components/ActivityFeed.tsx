@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Activity, MessageSquare, Package, AlertCircle, DollarSign, X } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -16,14 +16,20 @@ interface ActivityLog {
 
 import { createClient } from '@/utils/supabase/client';
 
-// ... (imports)
-
-const MOCK_ACTIVITIES: ActivityLog[] = [];
-
 export default function ActivityFeed({ autopilot, isOpen, onClose }: { autopilot: boolean; isOpen: boolean; onClose: () => void }) {
     const [activities, setActivities] = useState<ActivityLog[]>([]);
     const [mounted, setMounted] = useState(false);
     const supabase = createClient();
+
+    // Map raw DB record to ActivityLog
+    const mapActivity = useCallback((d: any): ActivityLog => ({
+        id: d.id,
+        type: d.event_type?.includes('INVENTORY') ? 'inventory' :
+            d.event_type?.includes('SALE') ? 'sale' :
+                d.event_type?.includes('ALERT') ? 'alert' : 'comment',
+        message: d.description,
+        timestamp: new Date(d.timestamp)
+    }), []);
 
     useEffect(() => {
         setMounted(true);
@@ -33,27 +39,68 @@ export default function ActivityFeed({ autopilot, isOpen, onClose }: { autopilot
                 .from('activity_log')
                 .select('*')
                 .order('timestamp', { ascending: false })
-                .limit(20);
+                .limit(30);
 
             if (data) {
-                const mapped = data.map((d: any) => ({
-                    id: d.id,
-                    type: d.event_type.includes('INVENTORY') ? 'inventory' :
-                        d.event_type.includes('SALE') ? 'sale' :
-                            d.event_type.includes('ALERT') ? 'alert' : 'comment', // Default to comment/chat
-                    message: d.description,
-                    timestamp: new Date(d.timestamp)
-                }));
-                // @ts-ignore
-                setActivities(mapped);
+                // Deduplicate on initial fetch
+                const uniqueMap = new Map<string, ActivityLog>();
+                data.forEach((d: any) => {
+                    if (!uniqueMap.has(d.id)) {
+                        uniqueMap.set(d.id, mapActivity(d));
+                    }
+                });
+                setActivities(Array.from(uniqueMap.values()));
             }
         };
 
         fetchActivity();
-        // Standard polling for now (or could use realtime)
-        const interval = setInterval(fetchActivity, 5000); // Poll every 5s for updates
-        return () => clearInterval(interval);
-    }, []);
+
+        // 🔥 REALTIME: Subscribe to activity_log changes with DEDUPLICATION
+        const channel = supabase
+            .channel('activity-feed-realtime')
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'activity_log',
+                },
+                (payload) => {
+                    const newActivity = mapActivity(payload.new);
+
+                    // ✅ STRICT DEDUPLICATION: Only add if ID doesn't exist
+                    setActivities((current) => {
+                        if (current.some(a => a.id === newActivity.id)) {
+                            console.log('[ActivityFeed] Duplicate blocked:', newActivity.id);
+                            return current;
+                        }
+                        // Add to beginning, limit to 30 items
+                        return [newActivity, ...current].slice(0, 30);
+                    });
+                }
+            )
+            .on(
+                'postgres_changes',
+                {
+                    event: 'DELETE',
+                    schema: 'public',
+                    table: 'activity_log',
+                },
+                (payload) => {
+                    setActivities((current) =>
+                        current.filter(a => a.id !== (payload.old as any).id)
+                    );
+                }
+            )
+            .subscribe((status) => {
+                console.log('[ActivityFeed] Subscription status:', status);
+            });
+
+        // Cleanup - NO POLLING, just realtime!
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [mapActivity]);
 
     const getIcon = (type: ActivityType) => {
         switch (type) {

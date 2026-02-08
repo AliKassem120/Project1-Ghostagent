@@ -35,11 +35,15 @@ export default function InteractionsPage() {
     const [loading, setLoading] = useState(true);
     const [inputMessage, setInputMessage] = useState('');
     const [sending, setSending] = useState(false);
+    const [userId, setUserId] = useState<string | null>(null);
     const supabase = createClient();
 
     const fetchLogs = async () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
+
+        // Store userId for realtime subscription filter
+        setUserId(user.id);
 
         // Fetch Logs
         const { data: logsData } = await supabase
@@ -56,9 +60,10 @@ export default function InteractionsPage() {
             .eq('is_muted', true);
 
         if (logsData) {
-            // Force Deduplication (UI Side)
-            const uniqueLogs = Array.from(new Map(logsData.map(log => [log.id, log])).values());
-            setLogs(uniqueLogs);
+            // Force Deduplication (UI Side) - use Map for guaranteed uniqueness
+            const uniqueMap = new Map<string, any>();
+            logsData.forEach(log => uniqueMap.set(log.id, log));
+            setLogs(Array.from(uniqueMap.values()));
         }
         if (states) {
             setMutedChats(new Set(states.map(s => s.external_chat_id)));
@@ -118,7 +123,7 @@ export default function InteractionsPage() {
             if (res.ok) {
                 setInputMessage('');
                 success('Message sent');
-                // fetchLogs(); // Disabled to prevent duplicate/race condition (Rely on Realtime)
+                // ✅ NO MANUAL STATE UPDATE - Realtime handles it!
             } else {
                 const errData = await res.json();
                 error(errData.error || 'Failed to send');
@@ -133,23 +138,55 @@ export default function InteractionsPage() {
 
     useEffect(() => {
         fetchLogs();
-        const channel = supabase
-            .channel('interactions-sync')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_log' }, (payload) => {
-                const newLog = payload.new;
-                setLogs((prev) => {
-                    // Strict Deduping: Only add if ID doesn't exist
-                    if (prev.some(l => l.id === newLog.id)) return prev;
-                    return [...prev, newLog];
-                });
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'conversation_states' }, () => {
-                fetchLogs();
-            })
-            .subscribe();
-
-        return () => { supabase.removeChannel(channel); };
     }, []);
+
+    // 🔥 REALTIME: Subscribe to activity_log with user filter and strict deduplication
+    useEffect(() => {
+        if (!userId) return;
+
+        const channel = supabase
+            .channel(`interactions-sync-${userId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'activity_log',
+                    filter: `user_id=eq.${userId}`
+                },
+                (payload) => {
+                    const newLog = payload.new;
+                    setLogs((prev) => {
+                        // ✅ STRICT DEDUPLICATION: Only add if ID doesn't exist
+                        if (prev.some(l => l.id === newLog.id)) {
+                            console.log('[Interactions] Duplicate blocked:', newLog.id);
+                            return prev;
+                        }
+                        return [...prev, newLog];
+                    });
+                }
+            )
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'conversation_states',
+                    filter: `user_id=eq.${userId}`
+                },
+                () => {
+                    // Refetch muted states when they change
+                    fetchLogs();
+                }
+            )
+            .subscribe((status) => {
+                console.log('[Interactions] Subscription status:', status);
+            });
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [userId]);
 
     const conversations = useMemo(() => {
         const threads: Record<string, Conversation> = {};

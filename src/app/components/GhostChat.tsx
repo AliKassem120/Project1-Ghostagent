@@ -6,13 +6,33 @@ import { useChat, type UIMessage } from "@ai-sdk/react";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
 
-export default function GhostChat() {
+interface GhostChatProps {
+    /** Called when the AI completes an action (inventory update, etc.) */
+    onActionComplete?: () => void;
+}
+
+export default function GhostChat({ onActionComplete }: GhostChatProps) {
     const { messages, sendMessage, status, error } = useChat({
         onError: (err) => {
             console.error("GhostChat Client Error:", err);
         },
         onFinish: (msg) => {
             console.log("GhostChat Client Finished:", msg);
+
+            // Check if the message contains tool results (inventory actions, etc.)
+            // This triggers a refresh of dashboard stats
+            const content = (msg as any).content || '';
+            const hasToolAction =
+                content.includes('added to inventory') ||
+                content.includes('updated stock') ||
+                content.includes('order') ||
+                content.includes('product') ||
+                content.includes('items');
+
+            if (hasToolAction && onActionComplete) {
+                console.log('[GhostChat] Tool action detected, triggering refresh');
+                onActionComplete();
+            }
         }
     });
 

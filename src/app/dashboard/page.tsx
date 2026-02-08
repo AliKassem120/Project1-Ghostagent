@@ -63,7 +63,7 @@ export default function DashboardPage() {
     );
 
     // 🔥 REALTIME: Subscribe to inventory for stock count
-    const { data: inventoryItems } = useRealtime<InventoryItem>(
+    const { data: inventoryItems, refetch: refetchInventory } = useRealtime<InventoryItem>(
         'inventory',
         'id, stock_level',
         {
@@ -71,6 +71,13 @@ export default function DashboardPage() {
             enabled: !!userId,
         }
     );
+
+    // Handler for when GhostChat completes an action (inventory update, etc.)
+    const handleChatActionComplete = () => {
+        console.log('[Dashboard] Chat action complete, refreshing data...');
+        refetchActivities();
+        refetchInventory();
+    };
 
     // 📊 COMPUTED STATS: Derived from realtime data (single source of truth)
     const stats = useMemo(() => {
@@ -295,7 +302,7 @@ export default function DashboardPage() {
                         </h3>
                     </div>
                     <div className="flex-1 overflow-hidden relative z-10 p-2">
-                        <GhostChat />
+                        <GhostChat onActionComplete={handleChatActionComplete} />
                     </div>
                 </div>
 
@@ -339,7 +346,7 @@ export default function DashboardPage() {
                                 </button>
                             </div>
                             <div className="flex-1 overflow-hidden">
-                                <GhostChat />
+                                <GhostChat onActionComplete={handleChatActionComplete} />
                             </div>
                         </motion.div>
                     </div>
