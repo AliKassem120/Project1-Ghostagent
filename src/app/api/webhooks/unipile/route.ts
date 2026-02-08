@@ -19,6 +19,17 @@ export async function GET() {
 export async function POST(req: Request) {
     try {
         const body = await req.json();
+
+        // === 🔇 PRIVACY SILENCE FILTER (FIRST LINE OF DEFENSE) ===
+        // If this webhook is from the admin's personal WhatsApp, ignore it completely.
+        // No logs, no processing - just acknowledge and exit silently.
+        const adminWhatsAppId = process.env.ADMIN_WHATSAPP_ID;
+        const incomingAccountId = body.account_id;
+        if (adminWhatsAppId && incomingAccountId === adminWhatsAppId) {
+            // Return 200 to satisfy Unipile, but do NOTHING else.
+            return NextResponse.json({ status: 'ignored', reason: 'Admin personal account' }, { status: 200 });
+        }
+
         const supabaseAdmin = getSupabaseAdmin();
 
         // --- ACCOUNT CONNECTION EVENTS ---
