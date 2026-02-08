@@ -54,17 +54,26 @@ export async function POST(req: Request) {
         if (body.event === 'message_received') {
             const { account_id, message, sender, chat_id } = body;
             const text = message;
+            const senderId = body.sender_id || sender?.id || sender?.attendee_id;
 
             console.log('📩 DM Received:', account_id);
 
             // 1. Identify User
             const { data: connection } = await supabaseAdmin
                 .from('user_connections')
-                .select('user_id')
+                .select('user_id, account_id')
                 .eq('account_id', account_id)
                 .single();
 
             if (!connection) return NextResponse.json({ status: 'ignored', reason: 'Unknown account' });
+
+            // 🛑 THE KILL SWITCH: Self-Message Check (Echo Chamber Fix)
+            // If the sender of this webhook message IS the connected account, it's an echo from the bot.
+            const connectedAccountId = connection.account_id;
+            if (senderId && senderId === connectedAccountId) {
+                console.log('👻 Ignoring self-sent message from bot.');
+                return NextResponse.json({ status: 'ignored', reason: 'Self-message echo' });
+            }
 
             // 2. CHECK FOR LOOPBACK (Exact ID Match)
             // Prevents duplicate logs if we already logged this via API or previous webhook

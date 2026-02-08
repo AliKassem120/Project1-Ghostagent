@@ -104,7 +104,7 @@ export default function Home() {
             transition={{ delay: 0.8, duration: 0.8 }}
             className="flex flex-col md:flex-row gap-4 justify-center md:justify-start"
           >
-            <Link href="/login" className="relative overflow-hidden px-8 py-4 bg-primary text-black font-bold rounded-full hover:scale-105 transition-transform flex items-center justify-center gap-2 group shadow-[0_0_20px_rgba(192,132,252,0.3)] hover:shadow-[0_0_30px_rgba(192,132,252,0.5)]">
+            <Link href="/login" className="relative z-50 overflow-hidden px-8 py-4 bg-primary text-black font-bold rounded-full hover:scale-105 transition-transform flex items-center justify-center gap-2 group shadow-[0_0_20px_rgba(192,132,252,0.3)] hover:shadow-[0_0_30px_rgba(192,132,252,0.5)] cursor-pointer touch-manipulation">
               <span className="relative z-10 flex items-center gap-2">Start Free Trial <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></span>
               <motion.div
                 className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent -skew-x-12"
