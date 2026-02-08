@@ -129,7 +129,7 @@ OUTPUT JSON FORMAT:
 
         // 4. GENERATE AI RESPONSE
         const { text: rawAiResponse } = await generateText({
-            model: google("gemini-1.5-flash"), // 1.5-flash is good for JSON
+            model: google("gemini-1.5-flash-latest"), // 1.5-flash-latest is stable
             system: systemPrompt,
             messages: [
                 { role: 'user', content: text }

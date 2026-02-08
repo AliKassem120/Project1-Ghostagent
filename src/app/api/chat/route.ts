@@ -302,7 +302,7 @@ CATALOG-INVENTORY SYNC RULES:
 
         // 5. STREAM WITH TOOLS
         const result = streamText({
-            model: google("gemini-1.5-flash"),
+            model: google("gemini-1.5-flash-latest"),
             messages: await convertToModelMessages(messages),
             system: systemPrompt,
             stopWhen: stepCountIs(5),
