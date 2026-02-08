@@ -132,7 +132,7 @@ export default function SettingsPage() {
                         toast.error('Failed to save catalog. Please try again.');
                     } else {
                         setUploadedFile({ name: file.name, rowCount: rows.length });
-                        toast.success(`Uploaded "${file.name}" with ${rows.length} products!`);
+                        toast.success('Catalog Uploaded', { description: `"${file.name}" with ${rows.length} products loaded.` });
                     }
 
                     setUploading(false);
@@ -207,7 +207,7 @@ export default function SettingsPage() {
                 body: JSON.stringify({ accountId })
             });
 
-            toast.success('Account disconnected');
+            toast.success('Account Disconnected', { description: 'The integration has been removed.' });
             checkInstagramStatus(); // Refresh to be sure
         } catch (e) {
             toast.error('Failed to disconnect');
@@ -218,7 +218,7 @@ export default function SettingsPage() {
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         if (params.get('success') === 'true') {
-            toast.success('Instagram connected successfully!');
+            toast.success('Instagram Connected', { description: 'Your account is now linked to Ghost Agent.' });
             checkInstagramStatus();
             window.history.replaceState({}, '', window.location.pathname);
         }
@@ -261,6 +261,7 @@ export default function SettingsPage() {
             }
 
             console.log('✅ Settings Saved Successfully!');
+            toast.success('Settings Saved', { description: 'Your Ghost Agent configuration has been updated.' });
             setSuccess(true);
             setTimeout(() => setSuccess(false), 2000);
         } catch (error) {
