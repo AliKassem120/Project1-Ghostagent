@@ -22,12 +22,19 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
             // Check if the message contains tool results (inventory actions, etc.)
             // This triggers a refresh of dashboard stats
             const content = (msg as any).content || '';
+            const toolCalls = (msg as any).toolInvocations || [];
+
             const hasToolAction =
                 content.includes('added to inventory') ||
                 content.includes('updated stock') ||
                 content.includes('order') ||
                 content.includes('product') ||
-                content.includes('items');
+                content.includes('items') ||
+                toolCalls.some((t: any) =>
+                    t.toolName === 'add_inventory' ||
+                    t.toolName === 'update_stock' ||
+                    t.toolName === 'create_order'
+                );
 
             if (hasToolAction && onActionComplete) {
                 console.log('[GhostChat] Tool action detected, triggering refresh');

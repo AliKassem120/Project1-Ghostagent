@@ -59,7 +59,7 @@ export async function POST(req: Request) {
         }
 
         // Log to Activity Log (so it shows in UI)
-        await supabase.from('activity_log').insert({
+        const { data: insertedLog, error: insertError } = await supabase.from('activity_log').insert({
             user_id: user.id,
             event_type: 'MANUAL_REPLY',
             description: `Sent (Manual): "${text}"`,
@@ -72,9 +72,13 @@ export async function POST(req: Request) {
                 unipile_message_id: msgData.id
             },
             timestamp: new Date().toISOString()
-        });
+        }).select().single();
 
-        return NextResponse.json({ success: true, data: msgData });
+        if (insertError) {
+            console.error('Activity Log Insert Error:', insertError);
+        }
+
+        return NextResponse.json({ success: true, data: insertedLog || msgData });
 
     } catch (e: any) {
         console.error('Send API Error:', e);

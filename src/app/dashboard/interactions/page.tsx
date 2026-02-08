@@ -108,29 +108,59 @@ export default function InteractionsPage() {
         const activeChat = conversations.find(c => c.chat_id === selectedChatId);
         if (!activeChat) return;
 
+        if (sending) return; // Prevent double sending
         setSending(true);
+
+        // Optimistic Update: Create a temporary message
+        const tempId = `temp-${Date.now()}`;
+        const tempLog = {
+            id: tempId,
+            user_id: userId, // Current user
+            event_type: 'MANUAL_REPLY',
+            description: inputMessage, // Raw text for now, UI cleaner handles quotes
+            timestamp: new Date().toISOString(),
+            metadata: {
+                chat_id: selectedChatId,
+                username: 'You',
+                is_sender: true,
+                is_manual: true,
+                account_id: activeChat.account_id
+            }
+        };
+
+        // Show it immediately
+        setLogs(prev => [...prev, tempLog]);
+        setInputMessage(''); // Clear input early
+
         try {
             const res = await fetch('/api/messages/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     chatId: selectedChatId,
-                    text: inputMessage,
+                    text: tempLog.description, // send raw text
                     accountId: activeChat.account_id
                 })
             });
 
             if (res.ok) {
-                setInputMessage('');
+                const { data } = await res.json(); // Get the real inserted log
                 success('Message sent');
-                // ✅ NO MANUAL STATE UPDATE - Realtime handles it!
+
+                // Replace optimistic log with real log (swaps temp-ID for real UUID)
+                setLogs(prev => prev.map(l => l.id === tempId ? data : l));
             } else {
+                // Remove temp message on failure
+                setLogs(prev => prev.filter(l => l.id !== tempId));
                 const errData = await res.json();
                 error(errData.error || 'Failed to send');
+                setInputMessage(tempLog.description); // Restore text
             }
         } catch (e) {
             console.error(e);
+            setLogs(prev => prev.filter(l => l.id !== tempId));
             error('Network error sending message');
+            setInputMessage(tempLog.description); // Restore text
         } finally {
             setSending(false);
         }
