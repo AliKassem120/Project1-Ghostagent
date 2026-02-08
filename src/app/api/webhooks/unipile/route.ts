@@ -54,11 +54,19 @@ export async function POST(req: Request) {
         if (body.event === 'message_received') {
             const { account_id, message, sender, chat_id } = body;
             const text = message;
-            const senderId = body.sender_id || sender?.id || sender?.attendee_id;
 
-            console.log('📩 DM Received:', account_id);
+            // === DEBUG: Log the full payload structure to understand sender fields ===
+            console.log('📩 DM Webhook Payload:', JSON.stringify({
+                account_id,
+                chat_id,
+                sender_id: body.sender_id,
+                message_sender_id: body.message?.sender_id,
+                sender_object: sender,
+                is_sender: body.is_sender,
+                id: body.id
+            }, null, 2));
 
-            // 1. Identify User
+            // 1. Identify User Connection
             const { data: connection } = await supabaseAdmin
                 .from('user_connections')
                 .select('user_id, account_id')
@@ -67,32 +75,49 @@ export async function POST(req: Request) {
 
             if (!connection) return NextResponse.json({ status: 'ignored', reason: 'Unknown account' });
 
-            // 🛑 THE KILL SWITCH: Self-Message Check (Echo Chamber Fix)
-            // If the sender of this webhook message IS the connected account, it's an echo from the bot.
+            // === 🛑 CRITICAL: SELF-MESSAGE KILL SWITCH (Echo Chamber Fix) ===
+            // Extract sender ID from ALL possible payload locations
             const connectedAccountId = connection.account_id;
-            if (senderId && senderId === connectedAccountId) {
-                console.log('👻 Ignoring self-sent message from bot.');
+            const possibleSenderIds = [
+                body.sender_id,
+                body.message?.sender_id,
+                sender?.id,
+                sender?.attendee_id,
+                sender?.account_id
+            ].filter(Boolean);
+
+            // Log for debugging
+            console.log('🔍 Self-Check:', { connectedAccountId, possibleSenderIds, is_sender: body.is_sender });
+
+            // If ANY of the sender IDs match our connected account, this is a bot/self echo - STOP IMMEDIATELY
+            if (possibleSenderIds.some(sid => sid === connectedAccountId)) {
+                console.log('👻 KILL SWITCH: Ignoring self-sent message (bot echo).');
                 return NextResponse.json({ status: 'ignored', reason: 'Self-message echo' });
             }
 
-            // 2. CHECK FOR LOOPBACK (Exact ID Match)
-            // Prevents duplicate logs if we already logged this via API or previous webhook
-            if (body.id) {
-                const { data: existing } = await supabaseAdmin
-                    .from('activity_log')
-                    .select('id')
-                    .eq('user_id', connection.user_id)
-                    .or(`metadata->>unipile_message_id.eq.${body.id},metadata->>id.eq.${body.id}`)
-                    .maybeSingle(); // Use maybeSingle to avoid 406 on multiple
-
-                if (existing) {
-                    console.log(`🔄 Loopback detected (ID: ${body.id}). Ignoring.`);
-                    return NextResponse.json({ status: 'ignored', reason: 'Loopback ID' });
-                }
-            }
-
+            // Also check if is_sender is true AND the sender matches our account (redundant safety)
             if (body.is_sender === true) {
-                console.log('👤 Owner replied manually. Logging.');
+                // Double-check: is this actually from our connected account (bot) or from the user's device?
+                // If we already passed the kill switch above, is_sender=true means manual reply from user's phone/app
+                // But we need to verify this isn't a bot message that slipped through
+
+                // Check if this message ID was already logged by our API (bot sent it)
+                if (body.id) {
+                    const { data: alreadyLogged } = await supabaseAdmin
+                        .from('activity_log')
+                        .select('id')
+                        .eq('user_id', connection.user_id)
+                        .eq('metadata->>unipile_message_id', body.id)
+                        .maybeSingle();
+
+                    if (alreadyLogged) {
+                        console.log('👻 KILL SWITCH: Message already logged by API. Ignoring webhook echo.');
+                        return NextResponse.json({ status: 'ignored', reason: 'Already logged via API' });
+                    }
+                }
+
+                // This is a genuine manual reply from the owner's device
+                console.log('👤 Owner replied manually from their device. Logging.');
                 await supabaseAdmin.from('activity_log').insert({
                     user_id: connection.user_id,
                     event_type: 'MANUAL_REPLY',
@@ -107,6 +132,21 @@ export async function POST(req: Request) {
                     timestamp: new Date().toISOString()
                 });
                 return NextResponse.json({ status: 'success', message: 'Logged manual reply' });
+            }
+
+            // 2. CHECK FOR LOOPBACK (Exact ID Match) - Prevents duplicate logs
+            if (body.id) {
+                const { data: existing } = await supabaseAdmin
+                    .from('activity_log')
+                    .select('id')
+                    .eq('user_id', connection.user_id)
+                    .or(`metadata->>unipile_message_id.eq.${body.id},metadata->>id.eq.${body.id}`)
+                    .maybeSingle();
+
+                if (existing) {
+                    console.log(`🔄 Loopback detected (ID: ${body.id}). Ignoring.`);
+                    return NextResponse.json({ status: 'ignored', reason: 'Loopback ID' });
+                }
             }
 
             // 3. CHECK MUTED STATUS (Incoming)
