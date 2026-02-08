@@ -307,26 +307,13 @@ CATALOG-INVENTORY SYNC RULES:
             }
         });
 
-        /*
-        // 5. STREAM WITH TOOLS (Gemini)
-        const result = streamText({
-            model: google("gemini-1.5-flash-latest"),
-            messages: await convertToModelMessages(messages),
-            system: systemPrompt,
-            stopWhen: stepCountIs(5),
-            tools: {
-                manageInventory: manageInventoryTool,
-                sendInstagramDM: sendInstagramDMTool,
-            },
-        });
-        */
-
         // 5. STREAM WITH TOOLS (Groq)
         // Note: AI SDK automatically converts tools to OpenAI format compatible with Groq
         const result = streamText({
             model: groq("llama-3.3-70b-versatile"),
             messages: await convertToModelMessages(messages),
             system: systemPrompt,
+            stopWhen: stepCountIs(5),
             tools: {
                 manageInventory: manageInventoryTool,
                 sendInstagramDM: sendInstagramDMTool,
