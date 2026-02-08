@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from '@/components/CountUp';
 import FloatingGhost from '@/components/FloatingGhost';
 import GhostChat from '@/app/components/GhostChat'; // Checked path
+import GhostModal from '@/components/GhostModal';
 import { useAutopilot } from '@/context/AutopilotContext';
 import clsx from 'clsx';
 import { createClient } from '@/utils/supabase/client';
@@ -20,6 +21,7 @@ export default function DashboardPage() {
     const [activities, setActivities] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [totalInteractions, setTotalInteractions] = useState(0);
+    const [clearModalOpen, setClearModalOpen] = useState(false);
 
     useEffect(() => {
         let channel: any;
@@ -250,21 +252,7 @@ export default function DashboardPage() {
                                 </h3>
                                 {(activities.length > 0 || totalInteractions > 0) && (
                                     <button
-                                        onClick={async () => {
-                                            if (!confirm('Are you sure? This will clear all activity history and stats.')) return;
-
-                                            setActivities([]);
-                                            setStats({ timeSaved: 0, moneySaved: 0, repliesSent: 0, stock: stats.stock });
-                                            setTotalInteractions(0);
-
-                                            const { data: { user } } = await supabase.auth.getUser();
-                                            if (user) {
-                                                await supabase
-                                                    .from('activity_log')
-                                                    .delete()
-                                                    .eq('user_id', user.id);
-                                            }
-                                        }}
+                                        onClick={() => setClearModalOpen(true)}
                                         className="text-[10px] bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded hover:bg-red-500/20 transition-colors uppercase tracking-wider"
                                     >
                                         Clear
@@ -379,6 +367,30 @@ export default function DashboardPage() {
                     </div>
                 )}
             </AnimatePresence>
+
+            {/* Clear Activity Confirmation Modal */}
+            <GhostModal
+                isOpen={clearModalOpen}
+                variant="danger"
+                title="Clear All Activity?"
+                message="This will permanently delete all activity history and reset your stats. This action cannot be undone."
+                confirmText="Clear Everything"
+                cancelText="Keep Data"
+                onConfirm={async () => {
+                    setActivities([]);
+                    setStats({ timeSaved: 0, moneySaved: 0, repliesSent: 0, stock: stats.stock });
+                    setTotalInteractions(0);
+
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (user) {
+                        await supabase
+                            .from('activity_log')
+                            .delete()
+                            .eq('user_id', user.id);
+                    }
+                }}
+                onCancel={() => setClearModalOpen(false)}
+            />
         </div>
     );
 }

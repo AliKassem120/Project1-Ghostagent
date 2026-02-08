@@ -6,6 +6,7 @@ import { Save, Bot, DollarSign, Bell, Globe, Sparkles, Upload, Building2, Loader
 import { clsx } from 'clsx';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
+import GhostModal from '@/components/GhostModal';
 import Papa from 'papaparse';
 
 export default function SettingsPage() {
@@ -19,6 +20,7 @@ export default function SettingsPage() {
     const [connecting, setConnecting] = useState(false);
     const [instagramStatus, setInstagramStatus] = useState<{ connected: boolean; accounts: any[] }>({ connected: false, accounts: [] });
     const [uploadedFile, setUploadedFile] = useState<{ name: string; rowCount: number } | null>(null);
+    const [disconnectModal, setDisconnectModal] = useState<{ open: boolean; accountId: string | null }>({ open: false, accountId: null });
 
     // Initial state
     const [settings, setSettings] = useState({
@@ -192,8 +194,6 @@ export default function SettingsPage() {
     };
 
     const handleDisconnect = async (accountId: string) => {
-        if (!confirm('Are you sure you want to disconnect this account?')) return;
-
         try {
             // Optimistic update
             setInstagramStatus(prev => ({
@@ -484,7 +484,7 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                             <button
-                                onClick={() => handleDisconnect(acc.id)}
+                                onClick={() => setDisconnectModal({ open: true, accountId: acc.id })}
                                 className="px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors w-full sm:w-auto justify-center"
                             >
                                 <Trash2 className="w-3 h-3" /> Disconnect
@@ -635,6 +635,22 @@ export default function SettingsPage() {
                     )}
                 </button>
             </div>
+
+            {/* Disconnect Confirmation Modal */}
+            <GhostModal
+                isOpen={disconnectModal.open}
+                variant="danger"
+                title="Disconnect Account?"
+                message="This will remove the Instagram integration. Your Ghost Agent will stop replying to messages on this account."
+                confirmText="Disconnect"
+                cancelText="Keep Connected"
+                onConfirm={() => {
+                    if (disconnectModal.accountId) {
+                        handleDisconnect(disconnectModal.accountId);
+                    }
+                }}
+                onCancel={() => setDisconnectModal({ open: false, accountId: null })}
+            />
         </div>
     );
 }

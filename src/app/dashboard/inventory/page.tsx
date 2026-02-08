@@ -6,6 +6,7 @@ import { Plus, Search, Trash2, Save, X, Package, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
+import GhostModal from '@/components/GhostModal';
 
 type Product = {
     id: string;
@@ -22,6 +23,7 @@ export default function InventoryPage() {
     const [products, setProducts] = useState<Product[]>([]);
     const [isAdding, setIsAdding] = useState(false);
     const [newProduct, setNewProduct] = useState({ name: '', price: 0, stock: 0 });
+    const [deleteModal, setDeleteModal] = useState<{ open: boolean; productId: string | null; productName: string }>({ open: false, productId: null, productName: '' });
 
     useEffect(() => {
         fetchInventory();
@@ -123,8 +125,6 @@ export default function InventoryPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Are you sure you want to delete this ghost item?')) return;
-
         try {
             const { error } = await supabase
                 .from('inventory')
@@ -139,6 +139,10 @@ export default function InventoryPage() {
             console.error('Error deleting product:', error);
             toast.error('Failed to delete product.');
         }
+    };
+
+    const openDeleteModal = (product: Product) => {
+        setDeleteModal({ open: true, productId: product.id, productName: product.name });
     };
 
     if (loading) {
@@ -235,7 +239,7 @@ export default function InventoryPage() {
                                     </div>
                                 </div>
                                 <button
-                                    onClick={() => handleDelete(item.id)}
+                                    onClick={() => openDeleteModal(item)}
                                     className="p-2 text-white/20 hover:text-red-400 active:bg-red-500/10 rounded-xl transition-all"
                                 >
                                     <Trash2 className="w-5 h-5" />
@@ -328,7 +332,7 @@ export default function InventoryPage() {
                                     </td>
                                     <td className="p-6 text-right">
                                         <button
-                                            onClick={() => handleDelete(item.id)}
+                                            onClick={() => openDeleteModal(item)}
                                             className="text-white/20 hover:text-red-400 transition-all p-2 hover:bg-red-500/10 rounded-xl"
                                         >
                                             <Trash2 className="w-5 h-5" />
@@ -363,6 +367,22 @@ export default function InventoryPage() {
                     </div>
                 )}
             </div>
+
+            {/* Delete Confirmation Modal */}
+            <GhostModal
+                isOpen={deleteModal.open}
+                variant="danger"
+                title="Delete Product?"
+                message={<>Are you sure you want to delete <span className="font-bold text-white">"{deleteModal.productName}"</span>? This action cannot be undone.</>}
+                confirmText="Delete"
+                cancelText="Keep It"
+                onConfirm={() => {
+                    if (deleteModal.productId) {
+                        handleDelete(deleteModal.productId);
+                    }
+                }}
+                onCancel={() => setDeleteModal({ open: false, productId: null, productName: '' })}
+            />
         </div>
     );
 }
