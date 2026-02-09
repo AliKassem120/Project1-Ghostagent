@@ -2,9 +2,8 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { updateSession } from '@/utils/supabase/middleware';
 
 export async function middleware(request: NextRequest) {
-    // Skip auth for webhook endpoints (they need to be publicly accessible)
-    if (request.nextUrl.pathname.startsWith('/api/webhooks/') ||
-        request.nextUrl.pathname === '/api/webhook') {
+    // Skip auth for ALL webhook endpoints (singular or plural)
+    if (request.nextUrl.pathname.startsWith('/api/webhook')) {
         return NextResponse.next();
     }
 
