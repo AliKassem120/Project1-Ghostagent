@@ -2,85 +2,66 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 
 export async function GET() {
+    console.log("[Status] Checking Instagram Status...");
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
-        const unipileKey = process.env.UNIPILE_API_KEY;
 
         if (!user) {
+            console.log("[Status] No user logged in.");
             return NextResponse.json({ connected: false, accounts: [] });
         }
 
-        // 1. Check database first (fastest)
-        const { data: dbConnections } = await supabase
+        // 1. Check database
+        // Look for provider='INSTAGRAM' (Meta Graph API)
+        const { data: dbConnections, error } = await supabase
             .from('user_connections')
             .select('*')
             .eq('user_id', user.id)
             .eq('provider', 'INSTAGRAM');
 
+        if (error) {
+            console.error("[Status] DB Error:", error);
+            return NextResponse.json({ connected: false, error: error.message });
+        }
+
+        console.log(`[Status] Found ${dbConnections?.length || 0} connections for user ${user.id}`);
+
         if (dbConnections && dbConnections.length > 0) {
+            const accounts = dbConnections.map(conn => {
+                // Determine display name
+                let name = conn.account_username;
+                const meta = conn.metadata || {};
+
+                // If username is missing, try to find it in metadata or fallback
+                if (!name) {
+                    if (meta.pages && Array.isArray(meta.pages) && meta.pages.length > 0) {
+                        name = meta.pages[0].name; // Use first page name
+                    } else if (meta.username) {
+                        name = meta.username;
+                    } else {
+                        name = 'Connected Account';
+                    }
+                }
+
+                return {
+                    id: conn.account_id,
+                    username: name,
+                    provider: conn.provider,
+                    metadata: meta
+                };
+            });
+
             return NextResponse.json({
                 connected: true,
-                accounts: dbConnections.map(conn => ({
-                    id: conn.account_id,
-                    username: conn.account_username || 'Instagram Account',
-                    provider: conn.provider
-                }))
+                accounts: accounts
             });
-        }
-
-        // 2. Fallback: Check Unipile API directly (in case webhook failed)
-        if (!unipileKey) {
-            return NextResponse.json({ connected: false, accounts: [] });
-        }
-
-        try {
-            const unipileResponse = await fetch('https://api23.unipile.com:15397/api/v1/accounts', {
-                method: 'GET',
-                headers: {
-                    'X-API-KEY': unipileKey,
-                    'accept': 'application/json'
-                }
-            });
-
-            if (unipileResponse.ok) {
-                const data = await unipileResponse.json();
-                const instagramAccounts = Array.isArray(data.items)
-                    ? data.items.filter((acc: any) => acc.provider === 'INSTAGRAM')
-                    : [];
-
-                // If we found accounts in Unipile but not in DB, save them
-                if (instagramAccounts.length > 0) {
-                    for (const acc of instagramAccounts) {
-                        await supabase.from('user_connections').upsert({
-                            user_id: user.id,
-                            provider: 'INSTAGRAM',
-                            account_id: acc.account_id,
-                            account_username: acc.username || null,
-                            metadata: acc
-                        }, {
-                            onConflict: 'user_id,provider'
-                        });
-                    }
-
-                    return NextResponse.json({
-                        connected: true,
-                        accounts: instagramAccounts.map((acc: any) => ({
-                            id: acc.account_id,
-                            username: acc.username || 'Instagram Account',
-                            provider: acc.provider
-                        }))
-                    });
-                }
-            }
-        } catch (apiError) {
-            console.error('Unipile API fallback error:', apiError);
         }
 
         return NextResponse.json({ connected: false, accounts: [] });
 
     } catch (error: any) {
-        console.error('Status check error:', error);
+        console.error('[Status] Check error:', error);
         return NextResponse.json({ connected: false, error: error.message }, { status: 500 });
     }
 }
