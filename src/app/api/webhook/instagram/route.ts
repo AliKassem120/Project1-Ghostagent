@@ -45,11 +45,9 @@ export async function POST(request: NextRequest) {
                 console.log('Processing event:', JSON.stringify(event));
 
                 // 🛑 SAFETY CHECK: Filter out read receipts, deliveries, or non-text events
-                // If event.message is undefined, attempting to access event.message.text would normally crash if not checked carefuly,
-                // but here !event.message catches it first.
                 if (!event.message || !event.message.text) {
-                    console.log('Received non-message event (read receipt/delivery). Returning OK.');
-                    return NextResponse.json({ status: 'ok' });
+                    console.log('Received non-message event (read receipt/delivery). Skipping.');
+                    continue;
                 }
 
                 // If we are here, it is a valid text message
@@ -60,12 +58,18 @@ export async function POST(request: NextRequest) {
 
                 // 2. Identify Owner
                 const supabaseAdmin = getSupabaseAdmin();
-                const { data: inventoryUser } = await supabaseAdmin.from('inventory').select('user_id').limit(1).single();
-                const ownerId = inventoryUser?.user_id;
+                let ownerId;
+                const { data: inventoryUser } = await supabaseAdmin.from('inventory').select('user_id').limit(1).maybeSingle();
+                ownerId = inventoryUser?.user_id;
 
                 if (!ownerId) {
-                    console.error('No Store Owner found in DB');
-                    return NextResponse.json({ error: 'No owner found' }, { status: 404 });
+                    const { data: settingsUser } = await supabaseAdmin.from('bot_settings').select('user_id').limit(1).maybeSingle();
+                    ownerId = settingsUser?.user_id;
+                }
+
+                if (!ownerId) {
+                    console.error('CRITICAL: No Store Owner found in DB');
+                    return NextResponse.json({ status: 'ignored', reason: 'No owner' });
                 }
 
                 // 3. AI Processing
