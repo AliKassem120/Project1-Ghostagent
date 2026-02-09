@@ -1,14 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { generateGhostReply } from '@/utils/ghost-brain';
-
-// Helper to get admin supabase client
-const getSupabaseAdmin = () => {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY!;
-    if (!supabaseServiceKey) throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY');
-    return createClient(supabaseUrl, supabaseServiceKey);
-}
 
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
@@ -16,7 +6,6 @@ export async function GET(request: NextRequest) {
     const token = searchParams.get('hub.verify_token');
     const challenge = searchParams.get('hub.challenge');
 
-    // HARDCODED PASSWORD (To fix the error)
     const MY_SECRET_TOKEN = 'ghost_agent_secret';
 
     console.log('Verifying:', { mode, token, challenge });
@@ -34,105 +23,60 @@ export async function POST(request: NextRequest) {
 
     try {
         const body = await request.json();
+        console.log(" [DEBUG] Incoming Payload:", JSON.stringify(body).slice(0, 500));
 
-        // Loop through all entries and messaging events
-        const entries = body.entry || [];
+        const entry = body.entry?.[0];
+        const messaging = entry?.messaging?.[0];
 
-        for (const entry of entries) {
-            const changes = entry.messaging || [];
-
-            for (const event of changes) {
-                console.log('Processing event:', JSON.stringify(event));
-
-                // 🛑 SAFETY CHECK: Filter out read receipts, deliveries, or non-text events
-                if (!event.message || !event.message.text) {
-                    console.log('Received non-message event (read receipt/delivery). Skipping.');
-                    continue;
-                }
-
-                // If we are here, it is a valid text message
-                const senderId = event.sender.id;
-                const messageText = event.message.text;
-
-                console.log(`Received Message from ${senderId}: ${messageText}`);
-
-                // 2. Identify Owner
-                const supabaseAdmin = getSupabaseAdmin();
-                let ownerId;
-                const { data: inventoryUser } = await supabaseAdmin.from('inventory').select('user_id').limit(1).maybeSingle();
-                ownerId = inventoryUser?.user_id;
-
-                if (!ownerId) {
-                    const { data: settingsUser } = await supabaseAdmin.from('bot_settings').select('user_id').limit(1).maybeSingle();
-                    ownerId = settingsUser?.user_id;
-                }
-
-                if (!ownerId) {
-                    console.error('CRITICAL: No Store Owner found in DB');
-                    return NextResponse.json({ status: 'ignored', reason: 'No owner' });
-                }
-
-                // 3. AI Processing
-                const aiResponse = await generateGhostReply(
-                    ownerId,
-                    messageText,
-                    supabaseAdmin,
-                    senderId
-                );
-
-                if (!aiResponse) {
-                    console.log('No AI response generated.');
-                    return NextResponse.json({ status: 'no_reply' });
-                }
-
-                console.log('AI Reply:', aiResponse);
-
-                // 4. Send Reply via Graph API
-                const PAGE_ACCESS_TOKEN = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN;
-                if (!PAGE_ACCESS_TOKEN) {
-                    console.error('Missing INSTAGRAM_PAGE_ACCESS_TOKEN');
-                    return NextResponse.json({ error: 'Config Error' }, { status: 500 });
-                }
-
-                console.log("Attempting to reply with token:", PAGE_ACCESS_TOKEN ? "Token Exists" : "TOKEN MISSING");
-                console.log("Sending to ID:", senderId);
-
-                const response = await fetch(`https://graph.instagram.com/v24.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        recipient: { id: senderId },
-                        message: { text: aiResponse }
-                    })
-                });
-
-                const responseData = await response.json();
-
-                if (response.ok) {
-                    console.log('Message Sent:', responseData);
-
-                    // Log to DB
-                    await supabaseAdmin.from('activity_log').insert({
-                        user_id: ownerId,
-                        event_type: 'AI_REPLY',
-                        description: `Sent: "${aiResponse}"`,
-                        timestamp: new Date().toISOString(),
-                        metadata: { chat_id: senderId, platform: 'instagram' }
-                    });
-
-                    return NextResponse.json({ status: 'success', data: responseData });
-                } else {
-                    console.error('Instagram API Error:', responseData);
-                    return NextResponse.json({ error: 'Instagram API Failed', details: responseData }, { status: 500 });
-                }
-            }
+        if (!messaging) {
+            console.log("Ignored: No messaging object.");
+            return NextResponse.json({ status: 'ignored' });
         }
 
-        // If no events matched criteria (e.g. empty batch)
-        return NextResponse.json({ status: 'ok' });
+        // Check for Read Receipt (No message text)
+        // Note: Read receipts usually have 'read' property, or 'delivery'. 
+        if (!messaging.message || !messaging.message.text) {
+            console.log("Ignored: Read Receipt or Non-Text Event (No .message.text)");
+            return NextResponse.json({ status: 'ok' });
+        }
 
-    } catch (e: any) {
-        console.error("CRITICAL SEND ERROR:", e);
-        return NextResponse.json({ status: 'error', details: e.message });
+        const senderId = messaging.sender.id;
+        const text = messaging.message.text;
+
+        console.log("Sender ID:", senderId);
+        console.log("Message Text:", text);
+
+        // Reply Logic
+        const PAGE_ACCESS_TOKEN = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN;
+        if (!PAGE_ACCESS_TOKEN) {
+            console.error("CRITICAL: Missing INSTAGRAM_PAGE_ACCESS_TOKEN");
+            return NextResponse.json({ status: 'error', reason: 'Configuration Error' });
+        }
+
+        const replyText = "I received your message: " + text;
+        console.log("Attempting to reply: ", replyText);
+
+        const response = await fetch(`https://graph.facebook.com/v18.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                recipient: { id: senderId },
+                message: { text: replyText }
+            })
+        });
+
+        const responseData = await response.json();
+
+        if (response.ok) {
+            console.log("REPLY SUCCESS:", responseData);
+            return NextResponse.json({ status: 'success', data: responseData });
+        } else {
+            console.error("REPLY FAILED:", responseData);
+            return NextResponse.json({ status: 'error', details: responseData });
+        }
+
+    } catch (error) {
+        console.error("CRITICAL POST ERROR:", error);
+        return NextResponse.json({ status: 'error', message: String(error) }, { status: 500 });
     }
 }

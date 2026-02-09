@@ -171,26 +171,25 @@ export default function SettingsPage() {
         }
     };
 
-    const handleConnectInstagram = async () => {
+    const handleConnectInstagram = () => {
         setConnecting(true);
-        try {
-            const res = await fetch('/api/connect', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: (await supabase.auth.getUser()).data.user?.id })
-            });
-            const data = await res.json();
-            if (data.url) {
-                window.location.href = data.url;
-            } else {
-                toast.error('Failed to get connection link');
-            }
-        } catch (e) {
-            console.error(e);
-            toast.error('Connection failed');
-        } finally {
+
+        // Direct Meta Oauth
+        const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID;
+        // Use window.location.origin for dynamic domain handling (localhost vs production)
+        const redirectUri = `${window.location.origin}/api/auth/callback/instagram`;
+        const scope = 'instagram_basic,instagram_manage_messages,pages_manage_metadata,pages_messaging,pages_show_list';
+
+        if (!appId) {
+            toast.error("Missing NEXT_PUBLIC_FACEBOOK_APP_ID in env");
             setConnecting(false);
+            return;
         }
+
+        const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=code`;
+
+        console.log("Redirecting to Meta:", authUrl);
+        window.location.href = authUrl;
     };
 
     const handleDisconnect = async (accountId: string) => {
