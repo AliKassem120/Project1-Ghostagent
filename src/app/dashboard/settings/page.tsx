@@ -178,7 +178,9 @@ export default function SettingsPage() {
         const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID;
         // Use window.location.origin for dynamic domain handling (localhost vs production)
         const redirectUri = `${window.location.origin}/api/auth/callback/instagram`;
-        const scope = 'instagram_basic,instagram_manage_messages,pages_manage_metadata,pages_messaging,pages_show_list';
+        // instagram_basic is deprecated for business use. 
+        // Using instagram_business_basic + standard messaging scopes.
+        const scope = 'instagram_business_basic,instagram_manage_messages,pages_manage_metadata,pages_messaging,pages_show_list';
 
         if (!appId) {
             toast.error("Missing NEXT_PUBLIC_FACEBOOK_APP_ID in env");
