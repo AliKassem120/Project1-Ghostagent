@@ -33,87 +33,96 @@ export async function POST(request: NextRequest) {
     console.log(" [DEBUG] /api/webhook/instagram POST HIT");
 
     try {
-        // Parse incoming body
         const body = await request.json();
-        console.log(" [DEBUG] Body:", JSON.stringify(body).slice(0, 200));
 
-        // 1. Extract Data
-        const entry = body.entry?.[0];
-        const messaging = entry?.messaging?.[0];
+        // Loop through all entries and messaging events
+        const entries = body.entry || [];
 
-        if (!messaging) {
-            // Might be a different event type, just ignore
-            return NextResponse.json({ status: 'ignored' });
+        for (const entry of entries) {
+            const changes = entry.messaging || [];
+
+            for (const event of changes) {
+                console.log('Processing event:', JSON.stringify(event));
+
+                // 🛑 SAFETY CHECK: Filter out read receipts, deliveries, or non-text events
+                // If event.message is undefined, attempting to access event.message.text would normally crash if not checked carefuly,
+                // but here !event.message catches it first.
+                if (!event.message || !event.message.text) {
+                    console.log('Received non-message event (read receipt/delivery). Returning OK.');
+                    return NextResponse.json({ status: 'ok' });
+                }
+
+                // If we are here, it is a valid text message
+                const senderId = event.sender.id;
+                const messageText = event.message.text;
+
+                console.log(`Received Message from ${senderId}: ${messageText}`);
+
+                // 2. Identify Owner
+                const supabaseAdmin = getSupabaseAdmin();
+                const { data: inventoryUser } = await supabaseAdmin.from('inventory').select('user_id').limit(1).single();
+                const ownerId = inventoryUser?.user_id;
+
+                if (!ownerId) {
+                    console.error('No Store Owner found in DB');
+                    return NextResponse.json({ error: 'No owner found' }, { status: 404 });
+                }
+
+                // 3. AI Processing
+                const aiResponse = await generateGhostReply(
+                    ownerId,
+                    messageText,
+                    supabaseAdmin,
+                    senderId
+                );
+
+                if (!aiResponse) {
+                    console.log('No AI response generated.');
+                    return NextResponse.json({ status: 'no_reply' });
+                }
+
+                console.log('AI Reply:', aiResponse);
+
+                // 4. Send Reply via Graph API
+                const PAGE_ACCESS_TOKEN = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN;
+                if (!PAGE_ACCESS_TOKEN) {
+                    console.error('Missing INSTAGRAM_PAGE_ACCESS_TOKEN');
+                    return NextResponse.json({ error: 'Config Error' }, { status: 500 });
+                }
+
+                const response = await fetch(`https://graph.instagram.com/v24.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        recipient: { id: senderId },
+                        message: { text: aiResponse }
+                    })
+                });
+
+                const responseData = await response.json();
+
+                if (response.ok) {
+                    console.log('Message Sent:', responseData);
+
+                    // Log to DB
+                    await supabaseAdmin.from('activity_log').insert({
+                        user_id: ownerId,
+                        event_type: 'AI_REPLY',
+                        description: `Sent: "${aiResponse}"`,
+                        timestamp: new Date().toISOString(),
+                        metadata: { chat_id: senderId, platform: 'instagram' }
+                    });
+
+                    return NextResponse.json({ status: 'success', data: responseData });
+                } else {
+                    console.error('Instagram API Error:', responseData);
+                    return NextResponse.json({ error: 'Instagram API Failed', details: responseData }, { status: 500 });
+                }
+            }
         }
 
-        const senderId = messaging.sender.id;
-        const messageText = messaging.message?.text;
-
-        if (!messageText) {
-            return NextResponse.json({ status: 'ignored', reason: 'No text' });
-        }
-
-        console.log(`Received Message from ${senderId}: ${messageText}`);
-
-        // 2. Identify Owner (Heuristic: First user with inventory)
-        const supabaseAdmin = getSupabaseAdmin();
-        const { data: inventoryUser } = await supabaseAdmin.from('inventory').select('user_id').limit(1).single();
-        const ownerId = inventoryUser?.user_id;
-
-        if (!ownerId) {
-            console.error('No Store Owner found in DB');
-            return NextResponse.json({ error: 'No owner found' }, { status: 404 });
-        }
-
-        // 3. AI Processing
-        const aiResponse = await generateGhostReply(
-            ownerId,
-            messageText,
-            supabaseAdmin,
-            senderId
-        );
-
-        if (!aiResponse) {
-            return NextResponse.json({ status: 'no_reply' });
-        }
-
-        console.log('AI Reply:', aiResponse);
-
-        // 4. Send Reply via Graph API
-        const PAGE_ACCESS_TOKEN = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN;
-        if (!PAGE_ACCESS_TOKEN) {
-            console.error('Missing INSTAGRAM_PAGE_ACCESS_TOKEN');
-            return NextResponse.json({ error: 'Config Error' }, { status: 500 });
-        }
-
-        const response = await fetch(`https://graph.instagram.com/v24.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                recipient: { id: senderId },
-                message: { text: aiResponse }
-            })
-        });
-
-        const responseData = await response.json();
-
-        if (response.ok) {
-            console.log('Message Sent:', responseData);
-
-            // Log to DB for Dashboard visibility
-            await supabaseAdmin.from('activity_log').insert({
-                user_id: ownerId,
-                event_type: 'AI_REPLY',
-                description: `Sent: "${aiResponse}"`,
-                timestamp: new Date().toISOString(),
-                metadata: { chat_id: senderId, platform: 'instagram' }
-            });
-
-            return NextResponse.json({ status: 'success', data: responseData });
-        } else {
-            console.error('Instagram API Error:', responseData);
-            return NextResponse.json({ error: 'Instagram API Failed', details: responseData }, { status: 500 });
-        }
+        // If no events matched criteria (e.g. empty batch)
+        return NextResponse.json({ status: 'ok' });
 
     } catch (e: any) {
         console.error('Webhook Post Error:', e);
