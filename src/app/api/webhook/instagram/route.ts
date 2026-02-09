@@ -94,6 +94,9 @@ export async function POST(request: NextRequest) {
                     return NextResponse.json({ error: 'Config Error' }, { status: 500 });
                 }
 
+                console.log("Attempting to reply with token:", PAGE_ACCESS_TOKEN ? "Token Exists" : "TOKEN MISSING");
+                console.log("Sending to ID:", senderId);
+
                 const response = await fetch(`https://graph.instagram.com/v24.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -129,7 +132,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ status: 'ok' });
 
     } catch (e: any) {
-        console.error('Webhook Post Error:', e);
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        console.error("CRITICAL SEND ERROR:", e);
+        return NextResponse.json({ status: 'error', details: e.message });
     }
 }
