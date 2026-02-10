@@ -2,36 +2,42 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from '@/utils/supabase/server';
 
 export async function GET(request: NextRequest) {
-    const { searchParams } = new URL(request.url);
+    const { searchParams, origin } = request.nextUrl; // Use dynamic origin
     const code = searchParams.get("code");
-    const error = searchParams.get("error");
-    const origin = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const errorParam = searchParams.get("error");
+    const errorReason = searchParams.get("error_reason");
+    const errorDescription = searchParams.get("error_description");
 
-    if (error) {
-        return NextResponse.redirect(`${origin}/dashboard/settings?error=${error}`);
+    const appUrl = origin; // e.g. http://localhost:3000 or https://myapp.com
+
+    if (errorParam) {
+        console.error('Instagram Auth Error:', errorParam, errorReason, errorDescription);
+        return NextResponse.redirect(`${appUrl}/dashboard/settings?error=${errorParam}&details=${encodeURIComponent(errorDescription || '')}`);
     }
 
     if (!code) {
-        return NextResponse.redirect(`${origin}/dashboard/settings?error=no_code`);
+        return NextResponse.redirect(`${appUrl}/dashboard/settings?error=no_code`);
     }
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-        return NextResponse.redirect(`${origin}/login?error=unauthorized`);
+        return NextResponse.redirect(`${appUrl}/login?error=unauthorized`);
     }
 
     try {
         // 1. Exchange Code for Access Token
-        const tokenUrl = `https://graph.facebook.com/v18.0/oauth/access_token?client_id=${process.env.NEXT_PUBLIC_FACEBOOK_APP_ID}&redirect_uri=${origin}/api/auth/callback/instagram&client_secret=${process.env.FACEBOOK_APP_SECRET}&code=${code}`;
+        // CRITICAL: The redirect_uri here MUST match exactly what was used on the client side login button.
+        // We use the request origin to ensure consistency.
+        const tokenUrl = `https://graph.facebook.com/v18.0/oauth/access_token?client_id=${process.env.NEXT_PUBLIC_FACEBOOK_APP_ID}&redirect_uri=${appUrl}/api/auth/callback/instagram&client_secret=${process.env.FACEBOOK_APP_SECRET}&code=${code}`;
 
         const tokenRes = await fetch(tokenUrl);
         const tokenData = await tokenRes.json();
 
         if (tokenData.error) {
             console.error('FB Token Error:', tokenData.error);
-            return NextResponse.redirect(`${origin}/dashboard/settings?error=token_exchange_failed`);
+            return NextResponse.redirect(`${appUrl}/dashboard/settings?error=token_exchange_failed&details=${encodeURIComponent(tokenData.error.message)}`);
         }
 
         const accessToken = tokenData.access_token;
