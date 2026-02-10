@@ -55,13 +55,6 @@ export function useRealtime<T extends { id: string | number }>(
     options: UseRealtimeOptions<T> = {}
 ): UseRealtimeReturn<T> {
     const {
-        orderBy = 'created_at',
-        orderDirection = 'desc',
-        limit = 100,
-        filter,
-        onInsert,
-        onUpdate,
-        onDelete,
         enabled = true,
     } = options;
 
@@ -73,8 +66,16 @@ export function useRealtime<T extends { id: string | number }>(
     const channelRef = useRef<RealtimeChannel | null>(null);
     const isMountedRef = useRef(true);
 
+    // Keep latest options in ref to avoid dependency cycles with callbacks/filters
+    const optionsRef = useRef(options);
+    useEffect(() => {
+        optionsRef.current = options;
+    });
+
     // Deduplicate and sort data
     const processData = useCallback((items: T[]): T[] => {
+        const { orderBy = 'created_at', orderDirection = 'desc', limit = 100 } = optionsRef.current;
+
         // Deduplicate by id
         const uniqueMap = new Map<string | number, T>();
         items.forEach(item => uniqueMap.set(item.id, item));
@@ -111,15 +112,18 @@ export function useRealtime<T extends { id: string | number }>(
 
         // Apply limit
         return uniqueItems.slice(0, limit);
-    }, [orderBy, orderDirection, limit]);
+    }, []);
 
-    // Initial fetch
+    // Stable fetch function
     const fetchData = useCallback(async () => {
+        // Use ref for latest options to avoid unnecessary re-creations
+        const { enabled = true, orderBy = 'created_at', orderDirection = 'desc', limit = 100, filter } = optionsRef.current;
+
         if (!enabled) return;
 
         try {
-            setLoading(true);
-            setError(null);
+            if (isMountedRef.current) setLoading(true);
+            if (isMountedRef.current) setError(null);
 
             let query = supabase
                 .from(tableName)
@@ -148,7 +152,7 @@ export function useRealtime<T extends { id: string | number }>(
                 setLoading(false);
             }
         }
-    }, [tableName, selectQuery, orderBy, orderDirection, limit, filter, enabled, processData]);
+    }, [tableName, selectQuery, processData]); // Dependencies that actually require re-fetch logic change (excluding options)
 
     // Handle realtime events
     const handleRealtimeEvent = useCallback((
@@ -156,6 +160,8 @@ export function useRealtime<T extends { id: string | number }>(
         payload: { new: T; old: T }
     ) => {
         if (!isMountedRef.current) return;
+
+        const { filter, onInsert, onUpdate, onDelete } = optionsRef.current;
 
         setData(currentData => {
             let newData = [...currentData];
@@ -191,9 +197,13 @@ export function useRealtime<T extends { id: string | number }>(
 
             return processData(newData);
         });
-    }, [filter, onInsert, onUpdate, onDelete, processData]);
+    }, [processData]);
 
     // Setup realtime subscription
+    // We only re-subscribe if tableName or valid filter changes, NOT if options object reference changes
+    const filterColumn = options.filter?.column;
+    const filterValue = options.filter?.value;
+
     useEffect(() => {
         isMountedRef.current = true;
 
@@ -206,11 +216,11 @@ export function useRealtime<T extends { id: string | number }>(
         fetchData();
 
         // Create unique channel name
-        const channelName = `realtime-${tableName}-${filter?.value || 'global'}-${Date.now()}`;
+        const channelName = `realtime-${tableName}-${filterValue || 'global'}-${Date.now()}`;
 
         // Build filter string for realtime
-        const realtimeFilter = filter
-            ? `${filter.column}=eq.${filter.value}`
+        const realtimeFilter = filterColumn && filterValue
+            ? `${filterColumn}=eq.${filterValue}`
             : undefined;
 
         // Subscribe to realtime changes
@@ -225,16 +235,13 @@ export function useRealtime<T extends { id: string | number }>(
                     filter: realtimeFilter,
                 },
                 (payload) => {
-                    console.log(`[useRealtime] ${tableName} ${payload.eventType}:`, payload);
                     handleRealtimeEvent(
                         payload.eventType as RealtimeEvent,
                         { new: payload.new as T, old: payload.old as T }
                     );
                 }
             )
-            .subscribe((status) => {
-                console.log(`[useRealtime] ${tableName} subscription status:`, status);
-            });
+            .subscribe();
 
         channelRef.current = channel;
 
@@ -246,16 +253,17 @@ export function useRealtime<T extends { id: string | number }>(
                 channelRef.current = null;
             }
         };
-    }, [tableName, filter?.column, filter?.value, enabled, fetchData]);
+    }, [tableName, filterColumn, filterValue, enabled, fetchData, handleRealtimeEvent]);
 
     // Polling Logic
+    const pollingInterval = options.pollingInterval;
     useEffect(() => {
-        if (!options.pollingInterval || !enabled) return;
+        if (!pollingInterval || !enabled) return;
         const interval = setInterval(() => {
             fetchData();
-        }, options.pollingInterval);
+        }, pollingInterval);
         return () => clearInterval(interval);
-    }, [options.pollingInterval, enabled, fetchData]);
+    }, [pollingInterval, enabled, fetchData]);
 
     return {
         data,
