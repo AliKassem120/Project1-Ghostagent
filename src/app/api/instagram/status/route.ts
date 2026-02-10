@@ -33,6 +33,16 @@ export async function GET() {
                 let name = conn.account_username;
                 const meta = conn.metadata || {};
 
+                // DEBUG LOGGING
+                if (meta.pages && Array.isArray(meta.pages)) {
+                    meta.pages.forEach((p: any, i: number) => {
+                        console.log(`[Status Debug] Page ${i} (ID: ${p.id}): Has IG? ${!!p.instagram_business_account}`);
+                        if (p.instagram_business_account) {
+                            console.log(`[Status Debug] IG ID: ${p.instagram_business_account.id}`);
+                        }
+                    });
+                }
+
                 // If username is missing, try to find it in metadata or fallback
                 if (!name) {
                     if (meta.pages && Array.isArray(meta.pages) && meta.pages.length > 0) {
