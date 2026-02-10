@@ -64,33 +64,26 @@ export async function POST(req: Request) {
                     if (messageText) {
                         console.log(`📩 Received from ${senderId}: ${messageText}`);
 
-                        // 2. Identify Owner
+                        // 2. Identify Owner (STRICT LOGIC)
+                        // Only reply if the Page/Account (recipientId) is explicitly connected in our DB.
                         let ownerId;
 
-                        // Strategy A: Check User Connections (Matches recipient page ID to user)
-                        // This is the most accurate way for multi-user/multi-page apps.
                         if (recipientId) {
+                            // First, try direct match on account_id
                             const { data: connectedUser } = await supabaseAdmin.from('user_connections')
                                 .select('user_id')
                                 .eq('account_id', recipientId)
                                 .limit(1).maybeSingle();
-                            ownerId = connectedUser?.user_id;
-                        }
 
-                        // Strategy B: Fallback to Inventory/Settings (Legacy single-user logic)
-                        if (!ownerId) {
-                            const { data: settingsUser } = await supabaseAdmin.from('bot_settings').select('user_id').limit(1).maybeSingle();
-                            ownerId = settingsUser?.user_id;
-                        }
-
-                        if (!ownerId) {
-                            const { data: inventoryUser } = await supabaseAdmin.from('inventory').select('user_id').limit(1).maybeSingle();
-                            ownerId = inventoryUser?.user_id;
+                            if (connectedUser) {
+                                ownerId = connectedUser.user_id;
+                            } else {
+                                console.log(`[Strict Check] No owner found for recipient ${recipientId}. Bot will NOT reply.`);
+                            }
                         }
 
                         if (!ownerId) {
-                            console.error('CRITICAL: No Store Owner found in DB. Cannot generate AI reply.');
-                            // We don't crash, just skip.
+                            console.log('🛑 SKIPPING: No connected owner found for this message.');
                             continue;
                         }
 
