@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
+// Keep your existing GET function here...
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const mode = searchParams.get('hub.mode');
@@ -18,65 +19,82 @@ export async function GET(request: NextRequest) {
     return new Response('Forbidden - Token Mismatch', { status: 403 });
 }
 
-export async function POST(request: NextRequest) {
-    console.log(" [DEBUG] /api/webhook/instagram POST HIT");
+export async function POST(req: Request) {
+    try {
+        const body = await req.json();
+        console.log("Incoming Payload:", JSON.stringify(body));
+
+        // 1. Check if this is an Instagram event
+        if (body.object === "instagram") {
+
+            // Loop through entries
+            for (const entry of body.entry) {
+
+                // Loop through messaging events
+                for (const event of entry.messaging) {
+
+                    // 🛑 CRITICAL FIX: Ignore "Echoes" (Bot's own messages)
+                    if (event.message?.is_echo) {
+                        console.log("⚠️ Ignoring Bot's own message (Echo)");
+                        continue; // Skip to the next event
+                    }
+
+                    // 🛑 Ignore "Delivery" or "Read" receipts (no text)
+                    if (event.delivery || event.read) {
+                        console.log("⚠️ Ignoring Delivery/Read receipt");
+                        continue;
+                    }
+
+                    const senderId = event.sender.id;
+                    const messageText = event.message?.text;
+
+                    if (messageText) {
+                        console.log(`📩 Received from ${senderId}: ${messageText}`);
+
+                        // Send the Reply
+                        await sendReply(senderId, `I received your message: ${messageText}`);
+                    }
+                }
+            }
+        }
+
+        return new NextResponse("EVENT_RECEIVED", { status: 200 });
+    } catch (error) {
+        console.error("❌ POST Error:", error);
+        return new NextResponse("Internal Server Error", { status: 500 });
+    }
+}
+
+// Your helper function to send messages
+async function sendReply(recipientId: string, text: string) {
+    // Using INSTAGRAM_PAGE_ACCESS_TOKEN as confirmed in previous steps
+    const token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
+    const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`;
+
+    if (!token) {
+        console.error("❌ REPLY FAILED: Missing Access Token");
+        return;
+    }
+
+    const body = {
+        recipient: { id: recipientId },
+        message: { text: text },
+    };
 
     try {
-        const body = await request.json();
-        console.log(" [DEBUG] Incoming Payload:", JSON.stringify(body).slice(0, 500));
-
-        const entry = body.entry?.[0];
-        const messaging = entry?.messaging?.[0];
-
-        if (!messaging) {
-            console.log("Ignored: No messaging object.");
-            return NextResponse.json({ status: 'ignored' });
-        }
-
-        // Check for Read Receipt (No message text)
-        // Note: Read receipts usually have 'read' property, or 'delivery'. 
-        if (!messaging.message || !messaging.message.text) {
-            console.log("Ignored: Read Receipt or Non-Text Event (No .message.text)");
-            return NextResponse.json({ status: 'ok' });
-        }
-
-        const senderId = messaging.sender.id;
-        const text = messaging.message.text;
-
-        console.log("Sender ID:", senderId);
-        console.log("Message Text:", text);
-
-        // Reply Logic
-        const PAGE_ACCESS_TOKEN = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN;
-        if (!PAGE_ACCESS_TOKEN) {
-            console.error("CRITICAL: Missing INSTAGRAM_PAGE_ACCESS_TOKEN");
-            return NextResponse.json({ status: 'error', reason: 'Configuration Error' });
-        }
-
-        const replyText = "I received your message: " + text;
-        console.log("Attempting to reply: ", replyText);
-
-        const response = await fetch(`https://graph.facebook.com/v18.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                recipient: { id: senderId },
-                message: { text: replyText }
-            })
+        const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
         });
 
-        const responseData = await response.json();
-
-        if (response.ok) {
-            console.log("REPLY SUCCESS:", responseData);
-            return NextResponse.json({ status: 'success', data: responseData });
+        const data = await response.json();
+        if (data.error) {
+            console.error("❌ REPLY FAILED:", data);
         } else {
-            console.error("REPLY FAILED:", responseData);
-            return NextResponse.json({ status: 'error', details: responseData });
+            console.log("✅ REPLY SENT:", data);
         }
-
-    } catch (error) {
-        console.error("CRITICAL POST ERROR:", error);
-        return NextResponse.json({ status: 'error', message: String(error) }, { status: 500 });
+    } catch (fetchError) {
+        console.error("❌ FETCH ERROR:", fetchError);
     }
 }
