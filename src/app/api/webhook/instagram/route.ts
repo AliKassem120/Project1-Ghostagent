@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from '@supabase/supabase-js';
+import { generateGhostReply } from '@/utils/ghost-brain';
 
-// Keep your existing GET function here...
+// Helper to get admin supabase client
+const getSupabaseAdmin = () => {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY!;
+    if (!supabaseServiceKey) throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY');
+    return createClient(supabaseUrl, supabaseServiceKey);
+}
+
+// Keep your existing GET function
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const mode = searchParams.get('hub.mode');
@@ -22,10 +32,12 @@ export async function GET(request: NextRequest) {
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        console.log("Incoming Payload:", JSON.stringify(body));
+        console.log("Incoming Payload:", JSON.stringify(body).slice(0, 500));
 
         // 1. Check if this is an Instagram event
         if (body.object === "instagram") {
+
+            const supabaseAdmin = getSupabaseAdmin();
 
             // Loop through entries
             for (const entry of body.entry) {
@@ -36,10 +48,10 @@ export async function POST(req: Request) {
                     // 🛑 CRITICAL FIX: Ignore "Echoes" (Bot's own messages)
                     if (event.message?.is_echo) {
                         console.log("⚠️ Ignoring Bot's own message (Echo)");
-                        continue; // Skip to the next event
+                        continue;
                     }
 
-                    // 🛑 Ignore "Delivery" or "Read" receipts (no text)
+                    // 🛑 Ignore "Delivery" or "Read" receipts
                     if (event.delivery || event.read) {
                         console.log("⚠️ Ignoring Delivery/Read receipt");
                         continue;
@@ -47,12 +59,67 @@ export async function POST(req: Request) {
 
                     const senderId = event.sender.id;
                     const messageText = event.message?.text;
+                    const recipientId = event.recipient?.id;
 
                     if (messageText) {
                         console.log(`📩 Received from ${senderId}: ${messageText}`);
 
-                        // Send the Reply
-                        await sendReply(senderId, `I received your message: ${messageText}`);
+                        // 2. Identify Owner
+                        let ownerId;
+
+                        // Strategy A: Check User Connections (Matches recipient page ID to user)
+                        // This is the most accurate way for multi-user/multi-page apps.
+                        if (recipientId) {
+                            const { data: connectedUser } = await supabaseAdmin.from('user_connections')
+                                .select('user_id')
+                                .eq('account_id', recipientId)
+                                .limit(1).maybeSingle();
+                            ownerId = connectedUser?.user_id;
+                        }
+
+                        // Strategy B: Fallback to Inventory/Settings (Legacy single-user logic)
+                        if (!ownerId) {
+                            const { data: settingsUser } = await supabaseAdmin.from('bot_settings').select('user_id').limit(1).maybeSingle();
+                            ownerId = settingsUser?.user_id;
+                        }
+
+                        if (!ownerId) {
+                            const { data: inventoryUser } = await supabaseAdmin.from('inventory').select('user_id').limit(1).maybeSingle();
+                            ownerId = inventoryUser?.user_id;
+                        }
+
+                        if (!ownerId) {
+                            console.error('CRITICAL: No Store Owner found in DB. Cannot generate AI reply.');
+                            // We don't crash, just skip.
+                            continue;
+                        }
+
+                        // 3. AI Processing
+                        const aiResponse = await generateGhostReply(
+                            ownerId,
+                            messageText,
+                            supabaseAdmin,
+                            senderId
+                        );
+
+                        if (!aiResponse) {
+                            console.log('Ghost Protocol: No reply (handoff or empty).');
+                            continue;
+                        }
+
+                        console.log('🤖 AI Reply:', aiResponse);
+
+                        // 4. Send the Reply
+                        await sendReply(senderId, aiResponse);
+
+                        // 5. Log Activity
+                        await supabaseAdmin.from('activity_log').insert({
+                            user_id: ownerId,
+                            event_type: 'AI_REPLY',
+                            description: `Sent: "${aiResponse}"`,
+                            timestamp: new Date().toISOString(),
+                            metadata: { chat_id: senderId, platform: 'instagram' }
+                        });
                     }
                 }
             }
@@ -67,7 +134,7 @@ export async function POST(req: Request) {
 
 // Your helper function to send messages
 async function sendReply(recipientId: string, text: string) {
-    // Using INSTAGRAM_PAGE_ACCESS_TOKEN as confirmed in previous steps
+    // Using INSTAGRAM_PAGE_ACCESS_TOKEN
     const token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
     const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`;
 
