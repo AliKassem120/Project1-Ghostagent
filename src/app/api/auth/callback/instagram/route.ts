@@ -45,23 +45,47 @@ export async function GET(request: NextRequest) {
         const accessToken = tokenData.access_token;
         const longLivedToken = accessToken; // In production, exchange for long-lived token here if needed.
 
-        // 4. Fetch User Profile (for Account ID)
-        const userProfileRes = await fetch(`https://graph.facebook.com/v18.0/me?access_token=${accessToken}`);
-        const userProfile = await userProfileRes.json();
-        const accountId = userProfile.id;
+        // 4. Fetch User Pages with Instagram Details
+        const pagesUrl = `https://graph.facebook.com/v18.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${accessToken}`;
+        const pagesRes = await fetch(pagesUrl);
+        const pagesData = await pagesRes.json();
+
+        // Find the first page that has a connected Instagram Business Account
+        let targetAccountId = '';
+        let targetUsername = '';
+        let targetToken = accessToken; // Default to user token
+
+        const connectedPage = pagesData.data?.find((p: any) => p.instagram_business_account?.id);
+
+        if (connectedPage) {
+            targetAccountId = connectedPage.instagram_business_account.id;
+            targetUsername = connectedPage.name; // Page name (proxy for IG handle usually)
+            // Ideally we'd also get the page access token if needed, but user token works for some calls.
+            // Using User Token is safer for "managing" multiple assets.
+        } else {
+            // Fallback: Use the User ID or First Page ID
+            // If no IG account is linked, this connection might be useless for the bot, but we store it anyway.
+            const userProfileRes = await fetch(`https://graph.facebook.com/v18.0/me?access_token=${accessToken}`);
+            const userProfile = await userProfileRes.json();
+            targetAccountId = userProfile.id;
+            targetUsername = userProfile.name || 'Facebook User';
+        }
 
         // 5. Store Token in DB
         const connectionData = {
-            access_token: longLivedToken,
+            access_token: targetToken,
             provider: 'instagram_graph_api',
             connected_at: new Date().toISOString(),
-            token_type: 'user_access_token' // User token allows managing pages if scope granted
+            token_type: 'user_access_token',
+            pages: pagesData.data || [],
+            instagram_account_id: targetAccountId
         };
 
         const { error: dbError } = await supabase.from('user_connections').upsert({
             user_id: user.id,
-            provider: 'INSTAGRAM', // Matches schema enum if applicable
-            account_id: accountId,
+            provider: 'INSTAGRAM',
+            account_id: targetAccountId, // Allows webhook to match recipient.id
+            account_username: targetUsername,
             metadata: connectionData
         }, { onConflict: 'account_id' });
 
