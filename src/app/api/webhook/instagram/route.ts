@@ -64,12 +64,12 @@ export async function POST(req: Request) {
                     if (messageText) {
                         console.log(`📩 Received from ${senderId}: ${messageText}`);
 
-                        // 2. Identify Owner (STRICT LOGIC)
-                        // Only reply if the Page/Account (recipientId) is explicitly connected in our DB.
+                        // 2. Identify Owner (STRICT LOGIC with Metadata Fallback)
                         let ownerId;
 
                         if (recipientId) {
-                            // First, try direct match on account_id
+                            // 1. Strict DB Match
+                            // Try to find the exact account_id match first (fastest)
                             const { data: connectedUser } = await supabaseAdmin.from('user_connections')
                                 .select('user_id')
                                 .eq('account_id', recipientId)
@@ -78,7 +78,32 @@ export async function POST(req: Request) {
                             if (connectedUser) {
                                 ownerId = connectedUser.user_id;
                             } else {
-                                console.log(`[Strict Check] No owner found for recipient ${recipientId}. Bot will NOT reply.`);
+                                // 2. Metadata Scan (Fallback) - Only for INSTAGRAM provider
+                                // The stored account_id might be the Facebook Page ID (e.g. 122...), 
+                                // but webhook sends Instagram ID (e.g. 178...).
+                                // We check if any connected page in metadata links to this IG ID.
+
+                                const { data: allConnections } = await supabaseAdmin.from('user_connections')
+                                    .select('user_id, metadata')
+                                    .eq('provider', 'INSTAGRAM'); // Check exact provider string stored
+
+                                if (allConnections) {
+                                    for (const conn of allConnections) {
+                                        // Metadata structure: { pages: [{ instagram_business_account: { id: "178..." } }] }
+                                        const pages = (conn.metadata as any)?.pages || [];
+                                        const hasPage = Array.isArray(pages) && pages.some((p: any) => p.instagram_business_account?.id === recipientId);
+
+                                        if (hasPage) {
+                                            console.log(`[Loose Match] Found owner ${conn.user_id} via metadata page link. Recipient: ${recipientId}`);
+                                            ownerId = conn.user_id;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if (!ownerId) {
+                                    console.log(`[Strict Check] No owner found for recipient ${recipientId} even after metadata scan. Bot will NOT reply.`);
+                                }
                             }
                         }
 
