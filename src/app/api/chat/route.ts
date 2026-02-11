@@ -109,8 +109,8 @@ CATALOG-INVENTORY SYNC RULES:
             description: 'Add new inventory items, update existing stock levels, set prices, or remove/sell items. Use this tool immediately when the user requests any inventory changes.',
             inputSchema: z.object({
                 itemName: z.string().describe('The name of the inventory item'),
-                quantity: z.number().describe('The quantity to add or remove'),
-                price: z.number().optional().describe('The price per unit (required when adding new items)'),
+                quantity: z.coerce.number().describe('The quantity to add or remove'),
+                price: z.coerce.number().optional().describe('The price per unit (required when adding new items)'),
                 action: z.enum(['add', 'remove']).describe("'add' to add/restock items, 'remove' to sell/decrease stock"),
             }),
             execute: async ({ itemName, quantity, price, action }) => {
