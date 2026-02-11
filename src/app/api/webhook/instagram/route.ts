@@ -112,11 +112,25 @@ export async function POST(req: Request) {
                             continue;
                         }
 
+                        // Fetch Sender Profile Name
+                        const pageToken = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
+                        let senderName = "User";
+
+                        if (pageToken) {
+                            try {
+                                const profileRes = await fetch(`https://graph.facebook.com/v21.0/${senderId}?fields=name,username&access_token=${pageToken}`);
+                                const profileData = await profileRes.json();
+                                senderName = profileData.name || profileData.username || "User";
+                            } catch (e) {
+                                console.error("Profile fetch error:", e);
+                            }
+                        }
+
                         // 🛑 LOG INCOMING MESSAGE
                         await supabaseAdmin.from('activity_log').insert({
                             user_id: ownerId,
                             event_type: 'INCOMING_MESSAGE',
-                            description: `User: "${messageText}"`,
+                            description: `${senderName}: "${messageText}"`,
                             timestamp: new Date().toISOString(),
                             metadata: { chat_id: senderId, platform: 'instagram' }
                         });

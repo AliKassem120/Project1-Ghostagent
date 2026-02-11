@@ -27,7 +27,7 @@ export default function ActivityFeed({ autopilot, isOpen, onClose }: { autopilot
     // Map raw DB record to ActivityLog
     const mapActivity = useCallback((d: any): ActivityLog => ({
         id: d.id,
-        type: d.event_type?.includes('INVENTORY') ? 'inventory' :
+        type: (d.event_type?.includes('INVENTORY') || d.event_type === 'RESTOCK' || d.event_type === 'NEW_ITEM') ? 'inventory' :
             d.event_type?.includes('SALE') ? 'sale' :
                 d.event_type?.includes('ALERT') ? 'alert' : 'comment',
         message: d.description,

@@ -29,12 +29,14 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
             const hasToolAction =
                 content.includes('added to inventory') ||
                 content.includes('updated stock') ||
+                content.includes('Restocked') || // Added keyword
                 content.includes('order') ||
                 content.includes('product') ||
                 content.includes('items') ||
                 toolCalls.some((t: any) =>
                     t.toolName === 'add_inventory' ||
                     t.toolName === 'update_stock' ||
+                    t.toolName === 'manageInventory' || // Added real tool name
                     t.toolName === 'create_order'
                 );
 
@@ -42,11 +44,14 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
                 console.log('[GhostChat] Tool action detected, triggering refresh');
                 refreshDashboard();
                 if (onActionComplete) onActionComplete();
+                setShowSuccess(true);
+                setTimeout(() => setShowSuccess(false), 3000);
             }
         }
     });
 
     const [input, setInput] = useState("");
+    const [showSuccess, setShowSuccess] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const isLoading = status === 'streaming' || status === 'submitted';
@@ -86,6 +91,32 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
 
     return (
         <div className="flex flex-col h-full w-full bg-black/90 border border-cyan-500/30 rounded-xl shadow-[0_0_15px_rgba(6,182,212,0.15)] overflow-hidden backdrop-blur-md relative">
+
+            {/* Success Animation Overlay */}
+            <AnimatePresence>
+                {showSuccess && (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+                    >
+                        <div className="flex flex-col items-center p-6 bg-cyan-950/90 border border-cyan-500/50 rounded-2xl shadow-xl">
+                            <motion.div
+                                initial={{ scale: 0, rotate: -180 }}
+                                animate={{ scale: 1, rotate: 0 }}
+                                transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                                className="w-16 h-16 bg-cyan-500/20 rounded-full flex items-center justify-center mb-4"
+                            >
+                                <Sparkles className="w-8 h-8 text-cyan-400" />
+                            </motion.div>
+                            <h3 className="text-xl font-bold text-cyan-100">Operation Successful</h3>
+                            <p className="text-cyan-400/80 text-sm mt-1">Inventory Synced</p>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* Header */}
             <div className="flex items-center gap-3 p-4 border-b border-cyan-500/20 bg-cyan-950/10 shrink-0">
                 <div className="relative">
