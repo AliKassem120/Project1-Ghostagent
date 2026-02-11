@@ -112,6 +112,15 @@ export async function POST(req: Request) {
                             continue;
                         }
 
+                        // 🛑 LOG INCOMING MESSAGE
+                        await supabaseAdmin.from('activity_log').insert({
+                            user_id: ownerId,
+                            event_type: 'INCOMING_MESSAGE',
+                            description: `User: "${messageText}"`,
+                            timestamp: new Date().toISOString(),
+                            metadata: { chat_id: senderId, platform: 'instagram' }
+                        });
+
                         // 3. AI Processing
                         const aiResponse = await generateGhostReply(
                             ownerId,
