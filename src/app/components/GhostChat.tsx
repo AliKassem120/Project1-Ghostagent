@@ -119,7 +119,7 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
     };
 
     return (
-        <div className="flex flex-col h-full w-full bg-[#161b22] rounded-xl overflow-hidden relative border border-[#1e2530]">
+        <div className="flex flex-col h-full w-full bg-card rounded-xl overflow-hidden relative border border-white/5">
 
             {/* Success Overlay */}
             <AnimatePresence>
@@ -130,7 +130,7 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
                         exit={{ opacity: 0, scale: 0.95 }}
                         className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
                     >
-                        <div className="flex flex-col items-center p-6 bg-[#0d1017] rounded-2xl shadow-xl border border-[#1e2530]">
+                        <div className="flex flex-col items-center p-6 bg-card rounded-2xl shadow-xl border border-white/5">
                             <motion.div
                                 initial={{ scale: 0 }}
                                 animate={{ scale: 1 }}
@@ -171,7 +171,7 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
                             <div
                                 className={`max-w-[80%] px-4 py-2.5 text-sm leading-relaxed ${msg.role === "user"
                                     ? "bg-primary text-white rounded-2xl rounded-br-md"
-                                    : "bg-[#1e2530] text-white/70 rounded-2xl rounded-bl-md prose prose-invert prose-sm max-w-none"
+                                    : "bg-muted text-foreground/90 rounded-2xl rounded-bl-md prose prose-invert prose-sm max-w-none"
                                     }`}
                             >
                                 {(msg as any).content ? (
@@ -196,7 +196,7 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
                             animate={{ opacity: 1 }}
                             className="flex justify-start"
                         >
-                            <div className="bg-[#1e2530] p-3 rounded-2xl rounded-bl-md flex gap-1.5">
+                            <div className="bg-muted p-3 rounded-2xl rounded-bl-md flex gap-1.5">
                                 <span className="w-2 h-2 bg-white/20 rounded-full animate-bounce [animation-delay:-0.3s]" />
                                 <span className="w-2 h-2 bg-white/20 rounded-full animate-bounce [animation-delay:-0.15s]" />
                                 <span className="w-2 h-2 bg-white/20 rounded-full animate-bounce" />
@@ -220,7 +220,7 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
             </div>
 
             {/* Input */}
-            <div className="p-3 border-t border-[#1e2530] shrink-0">
+            <div className="p-3 border-t border-white/5 shrink-0">
                 <form onSubmit={handleSubmit} className="relative flex items-center">
                     <input
                         type="text"
@@ -229,7 +229,7 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         placeholder="Type a message..."
-                        className="w-full bg-[#0d1017] text-white/90 placeholder-white/20 rounded-xl py-3 px-4 pr-12 focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all text-sm border border-[#1e2530]"
+                        className="w-full bg-background text-foreground placeholder-white/20 rounded-xl py-3 px-4 pr-12 focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all text-sm border border-white/5"
                         disabled={isLoading}
                     />
                     <button

@@ -168,7 +168,7 @@ export default function InventoryPage() {
                 <input
                     type="text"
                     placeholder="Search products..."
-                    className="w-full bg-white/5 border border-[#1e2530] rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-primary/50 transition-all text-lg lg:text-base"
+                    className="w-full bg-white/5 border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-primary/50 transition-all text-lg lg:text-base"
                 />
             </div>
 

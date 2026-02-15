@@ -323,7 +323,7 @@ export default function DashboardPage() {
                         className="flex-1 flex flex-col rounded-2xl glass-card overflow-hidden"
                     >
                         {/* Chat Header */}
-                        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#1e2530] shrink-0">
+                        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/5 shrink-0">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 rounded-xl bg-primary/10">
                                     <Zap className="w-4 h-4 text-primary" />
@@ -364,7 +364,7 @@ export default function DashboardPage() {
                         className="flex-1 flex flex-col rounded-2xl glass-card overflow-hidden"
                     >
                         {/* Feed Header */}
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e2530] shrink-0">
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 shrink-0">
                             <div className="flex items-center gap-2">
                                 <Activity className="w-4 h-4 text-white/30" />
                                 <span className="text-xs font-medium text-white/50">Activity</span>
@@ -430,7 +430,7 @@ export default function DashboardPage() {
                                                         <button
                                                             onClick={() => handleApproveDraft(activity)}
                                                             disabled={sendingDrafts.includes(activity.id)}
-                                                            className="h-11 w-11 flex items-center justify-center rounded-full text-purple-500 hover:bg-purple-500/20 transition-all shrink-0 ml-2"
+                                                            className="h-11 w-11 flex items-center justify-center rounded-full text-violet-500 hover:bg-violet-500/20 transition-all shrink-0 ml-2"
                                                             title="Send Now"
                                                         >
                                                             {sendingDrafts.includes(activity.id) ? (

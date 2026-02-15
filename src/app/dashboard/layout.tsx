@@ -66,7 +66,7 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             </AnimatePresence>
 
             <aside className={clsx(
-                "w-[240px] border-r border-[#1e2530] bg-[#0d1017] p-5 flex flex-col fixed h-full z-50 transition-transform duration-300 lg:translate-x-0",
+                "w-[240px] border-r border-white/5 bg-sidebar p-5 flex flex-col fixed h-full z-50 transition-transform duration-300 lg:translate-x-0",
                 isOpen ? "translate-x-0" : "-translate-x-full"
             )}>
                 <div className="flex items-center justify-between mb-8">
@@ -166,7 +166,7 @@ function DashboardContent({ children, toggleSidebar }: { children: React.ReactNo
     return (
         <div className="flex-1 flex flex-col min-w-0">
             {/* Mobile Header */}
-            <header className="lg:hidden h-14 border-b border-[#1e2530] bg-[#0d1017] fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4">
+            <header className="lg:hidden h-14 border-b border-white/5 bg-sidebar fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4">
                 <button onClick={toggleSidebar} className="p-3 text-white/40 hover:text-white">
                     <Menu className="w-5 h-5" />
                 </button>
@@ -211,7 +211,7 @@ export default function DashboardLayout({
         <AutopilotProvider>
             <RealtimeProvider userId={userId}>
                 <DashboardProvider>
-                    <div className="min-h-screen bg-[#0B0C10] text-white flex relative overflow-hidden">
+                    <div className="min-h-screen bg-background text-foreground flex relative overflow-hidden">
                         <StarBackground />
                         <DashboardSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
                         <DashboardContent
