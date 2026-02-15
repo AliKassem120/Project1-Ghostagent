@@ -501,11 +501,10 @@ export default function InteractionsPage() {
                     <div className="hidden md:flex flex-1 flex-col items-center justify-center opacity-30 select-none">
                         {/* Empty State */}
                         <div className="relative">
-                            <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
-                            <Ghost className="w-24 h-24 mb-6 relative z-10 text-primary" />
+                            <Ghost className="w-24 h-24 mb-6 relative z-10 text-white/10" />
                         </div>
-                        <h2 className="text-2xl font-bold uppercase tracking-[0.2em] mb-2">Ghost Operator</h2>
-                        <p className="text-sm font-mono text-primary/60">Select a frequency to intercept</p>
+                        <h2 className="text-xl font-semibold mb-2 text-white/20">Agent Monitor</h2>
+                        <p className="text-sm text-white/15">Select a conversation to view</p>
                     </div>
                 )}
             </div>

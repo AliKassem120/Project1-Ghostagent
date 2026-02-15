@@ -1,14 +1,13 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Ghost, Sparkles, AlertCircle } from "lucide-react";
+import { Send, Ghost, Sparkles, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useChat, type UIMessage } from "@ai-sdk/react";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDashboard } from '@/contexts/DashboardContext';
 
 interface GhostChatProps {
-    /** Called when the AI completes an action (inventory update, etc.) */
     onActionComplete?: () => void;
 }
 
@@ -21,22 +20,20 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
         onFinish: (msg) => {
             console.log("GhostChat Client Finished:", msg);
 
-            // Check if the message contains tool results (inventory actions, etc.)
-            // This triggers a refresh of dashboard stats
             const content = (msg as any).content || '';
             const toolCalls = (msg as any).toolInvocations || [];
 
             const hasToolAction =
                 content.includes('added to inventory') ||
                 content.includes('updated stock') ||
-                content.includes('Restocked') || // Added keyword
+                content.includes('Restocked') ||
                 content.includes('order') ||
                 content.includes('product') ||
                 content.includes('items') ||
                 toolCalls.some((t: any) =>
                     t.toolName === 'add_inventory' ||
                     t.toolName === 'update_stock' ||
-                    t.toolName === 'manageInventory' || // Added real tool name
+                    t.toolName === 'manageInventory' ||
                     t.toolName === 'create_order'
                 );
 
@@ -70,93 +67,86 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log("Submit triggered. Input:", input, "IsLoading:", isLoading);
-
-        if (!input.trim() || isLoading) {
-            console.log("Submit aborted. Empty input or loading.");
-            return;
-        }
+        if (!input.trim() || isLoading) return;
 
         const userMessage = input;
         setInput("");
-        console.log("Calling sendMessage with:", userMessage);
 
         try {
             await sendMessage({ text: userMessage });
-            console.log("sendMessage promise resolved");
         } catch (err) {
             console.error("Error in handleSubmit:", err);
         }
     };
 
     return (
-        <div className="flex flex-col h-full w-full bg-black/90 border border-cyan-500/30 rounded-xl shadow-[0_0_15px_rgba(6,182,212,0.15)] overflow-hidden backdrop-blur-md relative">
+        <div className="flex flex-col h-full w-full bg-[#0E0F15] rounded-xl overflow-hidden relative">
 
-            {/* Success Animation Overlay */}
+            {/* Success Overlay */}
             <AnimatePresence>
                 {showSuccess && (
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.8 }}
+                        initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.8 }}
-                        className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
                     >
-                        <div className="flex flex-col items-center p-6 bg-cyan-950/90 border border-cyan-500/50 rounded-2xl shadow-xl">
+                        <div className="flex flex-col items-center p-6 bg-[#12131A] rounded-2xl shadow-xl">
                             <motion.div
-                                initial={{ scale: 0, rotate: -180 }}
-                                animate={{ scale: 1, rotate: 0 }}
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
                                 transition={{ type: "spring", stiffness: 200, damping: 15 }}
-                                className="w-16 h-16 bg-cyan-500/20 rounded-full flex items-center justify-center mb-4"
+                                className="w-14 h-14 bg-emerald-500/10 rounded-full flex items-center justify-center mb-4"
                             >
-                                <Sparkles className="w-8 h-8 text-cyan-400" />
+                                <CheckCircle2 className="w-7 h-7 text-emerald-400" />
                             </motion.div>
-                            <h3 className="text-xl font-bold text-cyan-100">Operation Successful</h3>
-                            <p className="text-cyan-400/80 text-sm mt-1">Inventory Synced</p>
+                            <h3 className="text-lg font-semibold text-white">Action Complete</h3>
+                            <p className="text-white/40 text-sm mt-1">Data synced successfully</p>
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
             {/* Header */}
-            <div className="flex items-center gap-3 p-4 border-b border-cyan-500/20 bg-cyan-950/10 shrink-0">
-                <div className="relative">
-                    <div className="absolute inset-0 bg-cyan-400 blur-md opacity-20 animate-pulse" />
-                    <Ghost className="w-6 h-6 text-cyan-400 relative z-10" />
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06] shrink-0">
+                <div className="p-1.5 rounded-lg bg-primary/10">
+                    <Ghost className="w-4 h-4 text-primary" />
                 </div>
-                <h2 className="text-cyan-100 font-medium tracking-wide">GHOST AGENT PRO</h2>
+                <h2 className="text-sm font-semibold text-white/80">Agent Monitor</h2>
                 <div className="ml-auto flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${isLoading ? "bg-cyan-300 animate-ping" : "bg-cyan-500 animate-pulse"}`} />
-                    <span className="text-xs text-cyan-400/70">ONLINE</span>
+                    <span className={`w-2 h-2 rounded-full ${isLoading ? "bg-amber-400 animate-pulse" : "bg-emerald-400"}`} />
+                    <span className="text-[11px] text-white/30">{isLoading ? "Processing..." : "Ready"}</span>
                 </div>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-cyan-500/20 scrollbar-track-transparent mb-20 pb-10">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
                 <AnimatePresence>
                     {messages.length === 0 && (
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className="flex flex-col items-center justify-center h-full text-cyan-500/30 space-y-4 mt-20"
+                            className="flex flex-col items-center justify-center h-full text-white/15 space-y-3 mt-16"
                         >
-                            <Sparkles className="w-12 h-12" />
-                            <p className="text-sm font-light">Awaiting neural input...</p>
+                            <div className="w-12 h-12 rounded-2xl bg-white/[0.03] flex items-center justify-center">
+                                <Sparkles className="w-5 h-5" />
+                            </div>
+                            <p className="text-sm">Waiting for new messages...</p>
                         </motion.div>
                     )}
                     {messages.map((msg: UIMessage) => (
                         <motion.div
                             key={msg.id}
-                            initial={{ opacity: 0, y: 10 }}
+                            initial={{ opacity: 0, y: 6 }}
                             animate={{ opacity: 1, y: 0 }}
                             className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                         >
                             <div
-                                className={`max-w-[85%] p-3 rounded-lg text-sm leading-relaxed ${msg.role === "user"
-                                    ? "bg-cyan-500/10 border border-cyan-500/20 text-cyan-100 rounded-br-none"
-                                    : "bg-slate-900 border border-slate-700 text-gray-300 rounded-bl-none prose prose-invert prose-sm max-w-none"
+                                className={`max-w-[80%] px-4 py-2.5 text-sm leading-relaxed ${msg.role === "user"
+                                    ? "bg-primary text-white rounded-2xl rounded-br-md"
+                                    : "bg-[#1A1B23] text-white/70 rounded-2xl rounded-bl-md prose prose-invert prose-sm max-w-none"
                                     }`}
                             >
-                                {/* Use content as primary, parts as fallback */}
                                 {(msg as any).content ? (
                                     <ReactMarkdown>{(msg as any).content}</ReactMarkdown>
                                 ) : msg.parts && msg.parts.length > 0 ? (
@@ -168,7 +158,7 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
                                         </div>
                                     ))
                                 ) : (
-                                    <span className="text-cyan-400/50 italic">Thinking...</span>
+                                    <span className="text-white/30 italic">Processing...</span>
                                 )}
                             </div>
                         </motion.div>
@@ -179,10 +169,10 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
                             animate={{ opacity: 1 }}
                             className="flex justify-start"
                         >
-                            <div className="bg-slate-900 border border-slate-700 p-3 rounded-lg rounded-bl-none flex gap-1">
-                                <span className="w-2 h-2 bg-cyan-500/50 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                                <span className="w-2 h-2 bg-cyan-500/50 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                                <span className="w-2 h-2 bg-cyan-500/50 rounded-full animate-bounce" />
+                            <div className="bg-[#1A1B23] p-3 rounded-2xl rounded-bl-md flex gap-1.5">
+                                <span className="w-2 h-2 bg-white/20 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                                <span className="w-2 h-2 bg-white/20 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                                <span className="w-2 h-2 bg-white/20 rounded-full animate-bounce" />
                             </div>
                         </motion.div>
                     )}
@@ -192,10 +182,10 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
                     <motion.div
                         initial={{ opacity: 0, y: 5 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="flex items-center gap-2 p-3 my-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs"
+                        className="flex items-center gap-2 p-3 my-2 bg-red-500/5 rounded-xl text-red-400/80 text-xs"
                     >
                         <AlertCircle className="w-4 h-4 shrink-0" />
-                        <span>Transmission error: {error.message || "Failed to contact ghost agent."}</span>
+                        <span>Connection error: {error.message || "Failed to reach agent."}</span>
                     </motion.div>
                 )}
 
@@ -203,7 +193,7 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
             </div>
 
             {/* Input */}
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-xl bg-black/80 border border-cyan-500/20 rounded-xl backdrop-blur-md p-2 shadow-2xl shadow-cyan-900/20">
+            <div className="p-3 border-t border-white/[0.06] shrink-0">
                 <form onSubmit={handleSubmit} className="relative flex items-center">
                     <input
                         type="text"
@@ -211,16 +201,16 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
                         id="chat-input"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        placeholder="Transmit message..."
-                        className="w-full bg-slate-900/50 text-cyan-100 placeholder-cyan-700/50 border border-cyan-500/20 rounded-lg py-3 px-4 pr-12 focus:outline-none focus:border-cyan-500/50 focus:shadow-[0_0_10px_rgba(6,182,212,0.1)] transition-all"
+                        placeholder="Type a message..."
+                        className="w-full bg-[#12131A] text-white/90 placeholder-white/20 rounded-xl py-3 px-4 pr-12 focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all text-sm"
                         disabled={isLoading}
                     />
                     <button
                         type="submit"
                         disabled={isLoading || !input.trim()}
-                        className="absolute right-2 p-2 text-cyan-500 hover:text-cyan-300 transition-colors disabled:opacity-50"
+                        className="absolute right-2 p-2 text-primary hover:text-primary/80 transition-colors disabled:opacity-30"
                     >
-                        <Send className="w-5 h-5" />
+                        <Send className="w-4 h-4" />
                     </button>
                 </form>
             </div>

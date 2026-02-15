@@ -358,8 +358,8 @@ export default function InventoryPage() {
                                 <div className="absolute inset-0 border border-primary/20" style={{ transform: 'rotateX(90deg) translateZ(-32px)' }} />
                             </motion.div>
                         </div>
-                        <div className="font-mono text-primary/60 text-xs tracking-widest uppercase animate-pulse">
-                            Vault Empty.<br />Initiate Supply Drop.
+                        <div className="text-white/30 text-sm">
+                            No items yet. Add your first product.
                         </div>
                     </div>
                 )}

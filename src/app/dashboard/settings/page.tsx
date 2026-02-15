@@ -433,7 +433,7 @@ export default function SettingsPage() {
                             />
                             <div className="flex justify-between items-center">
                                 <span className="text-white/40">0%</span>
-                                <span className="text-primary font-black text-3xl glow-text">{settings.maxDiscount}%</span>
+                                <span className="text-primary font-bold text-3xl font-mono">{settings.maxDiscount}%</span>
                                 <span className="text-white/40">50%</span>
                             </div>
                         </div>

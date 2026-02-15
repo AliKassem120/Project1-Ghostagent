@@ -53,37 +53,35 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             </AnimatePresence>
 
             <aside className={clsx(
-                "w-[240px] border-r border-white/[0.06] bg-black/95 lg:bg-[#0a0a0f]/95 p-5 flex flex-col fixed h-full z-50 transition-transform duration-300 lg:translate-x-0 backdrop-blur-xl",
+                "w-[240px] border-r border-white/[0.06] bg-[#0E0F15] p-5 flex flex-col fixed h-full z-50 transition-transform duration-300 lg:translate-x-0",
                 isOpen ? "translate-x-0" : "-translate-x-full"
             )}>
                 <div className="flex items-center justify-between mb-8">
                     <Link href="/" className="flex items-center gap-2.5 px-1 group">
-                        <div className="bg-white/[0.04] p-2 rounded-xl group-hover:bg-white/[0.08] transition-colors border border-white/[0.06]">
+                        <div className="bg-white/[0.04] p-2 rounded-xl group-hover:bg-white/[0.06] transition-colors">
                             <GhostLogo />
                         </div>
-                        <span className="font-bold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
+                        <span className="font-semibold text-lg tracking-tight text-white/90">
                             GhostAgent
                         </span>
                     </Link>
-                    <button onClick={onClose} className="lg:hidden p-2 text-white/60 hover:text-white">
+                    <button onClick={onClose} className="lg:hidden p-2 text-white/40 hover:text-white">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
 
                 {/* Autopilot Toggle */}
-                <div className="mb-5 p-3.5 rounded-xl border border-white/[0.06] bg-white/[0.02]">
+                <div className="mb-5 p-3.5 rounded-xl bg-white/[0.02]">
                     <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs font-semibold flex items-center gap-2 text-white/70">
+                        <span className="text-xs font-medium flex items-center gap-2 text-white/50">
                             <Zap className="w-3.5 h-3.5 text-primary" />
                             Autopilot
                         </span>
                         <button
                             onClick={() => setAutopilot(!autopilot)}
                             className={clsx(
-                                "relative w-10 h-5.5 rounded-full transition-all duration-300",
-                                autopilot
-                                    ? "bg-primary shadow-[0_0_12px_rgba(192,132,252,0.3)]"
-                                    : "bg-white/10"
+                                "relative w-10 rounded-full transition-all duration-300",
+                                autopilot ? "bg-primary" : "bg-white/10"
                             )}
                             style={{ height: '22px' }}
                         >
@@ -93,12 +91,12 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                             )} />
                         </button>
                     </div>
-                    <p className="text-[10px] text-white/30">
+                    <p className="text-[10px] text-white/25">
                         {autopilot ? "Auto-replying to DMs" : "Manual approval mode"}
                     </p>
                 </div>
 
-                <nav className="flex-1 space-y-1">
+                <nav className="flex-1 space-y-0.5">
                     {navItems.map((item) => {
                         const isActive = pathname === item.href;
                         return (
@@ -109,8 +107,8 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                                 className={clsx(
                                     "flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all text-sm font-medium",
                                     isActive
-                                        ? "bg-primary/15 text-primary border border-primary/20 shadow-[0_0_15px_rgba(192,132,252,0.08)]"
-                                        : "text-white/40 hover:text-white/70 hover:bg-white/[0.04] border border-transparent"
+                                        ? "bg-primary/10 text-primary"
+                                        : "text-white/35 hover:text-white/60 hover:bg-white/[0.03]"
                                 )}
                             >
                                 <item.icon className="w-[18px] h-[18px]" />
@@ -122,7 +120,7 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
 
                 <button
                     onClick={handleLogout}
-                    className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-white/30 hover:text-red-400 hover:bg-red-500/[0.06] transition-colors mt-auto w-full text-left text-sm border border-transparent"
+                    className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-white/25 hover:text-red-400 hover:bg-red-500/[0.05] transition-colors mt-auto w-full text-left text-sm"
                 >
                     <LogOut className="w-[18px] h-[18px]" />
                     Sign Out
@@ -136,18 +134,18 @@ function DashboardContent({ children, toggleSidebar }: { children: React.ReactNo
     return (
         <div className="flex-1 flex flex-col min-w-0">
             {/* Mobile Header */}
-            <header className="lg:hidden h-14 border-b border-white/[0.06] bg-[#0a0a0f]/95 fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 backdrop-blur-xl">
-                <button onClick={toggleSidebar} className="p-2 text-white/50 hover:text-white">
+            <header className="lg:hidden h-14 border-b border-white/[0.06] bg-[#0B0C10]/95 fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 backdrop-blur-xl">
+                <button onClick={toggleSidebar} className="p-2 text-white/40 hover:text-white">
                     <Menu className="w-5 h-5" />
                 </button>
                 <div className="flex items-center gap-2">
                     <GhostLogo className="w-5 h-5" />
-                    <span className="font-bold text-base tracking-tight">GhostAgent</span>
+                    <span className="font-semibold text-base tracking-tight">GhostAgent</span>
                 </div>
-                <div className="w-9" /> {/* Spacer for centering */}
+                <div className="w-9" />
             </header>
 
-            {/* Main Content Area — no right margin needed since ActivityFeed is now in-page */}
+            {/* Main Content Area */}
             <div className="flex-1 lg:ml-[240px] relative z-10">
                 <main className="p-4 lg:p-6 pt-[72px] lg:pt-6 overflow-y-auto min-h-screen">
                     <div className="max-w-[1600px] mx-auto">
@@ -167,7 +165,6 @@ export default function DashboardLayout({
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [userId, setUserId] = useState<string | undefined>(undefined);
 
-    // Get user ID for realtime subscriptions
     useEffect(() => {
         const getUser = async () => {
             const { data: { user } } = await supabase.auth.getUser();
@@ -182,7 +179,7 @@ export default function DashboardLayout({
         <AutopilotProvider>
             <RealtimeProvider userId={userId}>
                 <DashboardProvider>
-                    <div className="min-h-screen bg-[#060609] text-white flex relative overflow-hidden">
+                    <div className="min-h-screen bg-[#0B0C10] text-white flex relative overflow-hidden">
                         <StarBackground />
                         <DashboardSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
                         <DashboardContent

@@ -91,7 +91,7 @@ export default function BillingPage() {
             </div>
 
             {/* Current Plan Card */}
-            <div className="glass-dark p-8 rounded-3xl border border-primary/20">
+            <div className="bg-[#12131A] p-8 rounded-2xl shadow-lg">
                 <div className="flex items-start justify-between mb-6">
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-primary/20 rounded-xl">
@@ -103,7 +103,7 @@ export default function BillingPage() {
                         </div>
                     </div>
                     <div className="text-right">
-                        <div className="text-3xl font-bold text-primary glow-text">
+                        <div className="text-3xl font-bold text-primary font-mono">
                             ${currentPlanData?.price || 0} USD
                         </div>
                         <div className="text-sm text-white/40">per month</div>
@@ -142,7 +142,7 @@ export default function BillingPage() {
             </div>
 
             {/* Usage Stats */}
-            <div className="glass-dark p-8 rounded-3xl">
+            <div className="bg-[#12131A] p-8 rounded-2xl shadow-lg">
                 <h3 className="text-xl font-bold mb-6">This Month's Usage</h3>
                 <div className="grid md:grid-cols-3 gap-6">
                     <div>
@@ -157,7 +157,7 @@ export default function BillingPage() {
                     </div>
                     <div>
                         <div className="text-white/60 text-sm mb-2">Revenue Generated</div>
-                        <div className="text-3xl font-bold text-green-400 glow-text">${usage.revenue} USD</div>
+                        <div className="text-3xl font-bold text-emerald-400 font-mono">${usage.revenue} USD</div>
                         <div className="text-green-400 text-sm mt-1">+0% from last month</div>
                     </div>
                 </div>
@@ -173,7 +173,7 @@ export default function BillingPage() {
                             className={clsx(
                                 "p-6 rounded-2xl border transition-all",
                                 plan.name === currentPlan
-                                    ? "border-primary/50 bg-primary/10 shadow-[0_0_30px_rgba(192,132,252,0.2)]"
+                                    ? "border-primary/30 bg-primary/5 shadow-lg"
                                     : "border-white/10 bg-white/5 hover:bg-white/10"
                             )}
                         >

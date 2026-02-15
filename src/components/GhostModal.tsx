@@ -35,32 +35,26 @@ export default function GhostModal({
         switch (variant) {
             case 'danger':
                 return {
-                    iconBg: 'bg-red-500/20',
+                    iconBg: 'bg-red-500/10',
                     iconColor: 'text-red-400',
                     buttonBg: 'bg-red-600 hover:bg-red-500',
-                    buttonShadow: 'shadow-[0_0_20px_rgba(239,68,68,0.4)]',
-                    borderColor: 'border-red-500/30',
-                    glowColor: 'shadow-[0_0_40px_-10px_rgba(239,68,68,0.4)]',
+                    borderColor: 'border-white/[0.08]',
                     defaultIcon: <Trash2 className="w-6 h-6" />,
                 };
             case 'info':
                 return {
-                    iconBg: 'bg-cyan-500/20',
-                    iconColor: 'text-cyan-400',
-                    buttonBg: 'bg-cyan-600 hover:bg-cyan-500',
-                    buttonShadow: 'shadow-[0_0_20px_rgba(34,211,238,0.4)]',
-                    borderColor: 'border-cyan-500/30',
-                    glowColor: 'shadow-[0_0_40px_-10px_rgba(34,211,238,0.4)]',
+                    iconBg: 'bg-blue-500/10',
+                    iconColor: 'text-blue-400',
+                    buttonBg: 'bg-blue-600 hover:bg-blue-500',
+                    borderColor: 'border-white/[0.08]',
                     defaultIcon: <Info className="w-6 h-6" />,
                 };
             default:
                 return {
-                    iconBg: 'bg-purple-500/20',
-                    iconColor: 'text-purple-400',
-                    buttonBg: 'bg-purple-600 hover:bg-purple-500',
-                    buttonShadow: 'shadow-[0_0_20px_rgba(168,85,247,0.5)]',
-                    borderColor: 'border-purple-500/30',
-                    glowColor: 'shadow-[0_0_40px_-10px_rgba(168,85,247,0.4)]',
+                    iconBg: 'bg-primary/10',
+                    iconColor: 'text-primary',
+                    buttonBg: 'bg-primary hover:bg-primary/90',
+                    borderColor: 'border-white/[0.08]',
                     defaultIcon: <AlertTriangle className="w-6 h-6" />,
                 };
         }
@@ -84,23 +78,23 @@ export default function GhostModal({
 
                     {/* Modal Container */}
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                         className={`
                             relative z-10 w-full max-w-md
-                            bg-zinc-950/95 backdrop-blur-xl
+                            bg-[#12131A]
                             border ${styles.borderColor}
                             rounded-2xl
-                            ${styles.glowColor}
+                            shadow-xl
                             overflow-hidden
                         `}
                     >
                         {/* Close Button */}
                         <button
                             onClick={onCancel}
-                            className="absolute top-4 right-4 p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-white/10 transition-colors"
+                            className="absolute top-4 right-4 p-1.5 rounded-lg text-white/20 hover:text-white hover:bg-white/[0.06] transition-colors"
                         >
                             <X className="w-5 h-5" />
                         </button>
@@ -113,12 +107,12 @@ export default function GhostModal({
                             </div>
 
                             {/* Title */}
-                            <h2 className="text-xl font-bold text-white mb-2">
+                            <h2 className="text-xl font-semibold text-white mb-2">
                                 {title}
                             </h2>
 
                             {/* Message */}
-                            <p className="text-zinc-400 leading-relaxed">
+                            <p className="text-white/40 leading-relaxed text-sm">
                                 {message}
                             </p>
 
@@ -128,10 +122,10 @@ export default function GhostModal({
                                     onClick={onCancel}
                                     className="
                                         rounded-xl px-5 py-2.5 
-                                        text-sm font-semibold 
-                                        text-zinc-400 
-                                        hover:text-white hover:bg-zinc-800 
-                                        border border-zinc-800 hover:border-zinc-700
+                                        text-sm font-medium 
+                                        text-white/40 
+                                        hover:text-white hover:bg-white/[0.06] 
+                                        border border-white/[0.08] hover:border-white/[0.12]
                                         transition-all
                                     "
                                 >
@@ -144,9 +138,9 @@ export default function GhostModal({
                                     }}
                                     className={`
                                         rounded-xl px-5 py-2.5 
-                                        text-sm font-bold text-white 
+                                        text-sm font-semibold text-white 
                                         ${styles.buttonBg}
-                                        ${styles.buttonShadow}
+                                        shadow-md
                                         transition-all hover:scale-[1.02] active:scale-[0.98]
                                     `}
                                 >
