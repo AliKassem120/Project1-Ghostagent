@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useDashboard } from '@/contexts/DashboardContext';
-import { MessageSquare, DollarSign, Package, Clock, Zap, MessageCircle, Sparkles, Instagram, Shield, Activity, BarChart3 } from 'lucide-react';
+import { MessageSquare, DollarSign, Package, Clock, Zap, MessageCircle, Sparkles, Instagram, Shield, Activity, BarChart3, Send, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from '@/components/CountUp';
 import GhostChat from '@/app/components/GhostChat';
@@ -11,6 +11,7 @@ import { useAutopilot } from '@/context/AutopilotContext';
 import { useRealtime, useRealtimeCount } from '@/hooks/useRealtime';
 import clsx from 'clsx';
 import { createClient } from '@/utils/supabase/client';
+import { useToast } from '@/contexts/ToastContext';
 
 // Database types
 type ActivityLog = {
@@ -34,6 +35,38 @@ export default function DashboardPage() {
     const [userId, setUserId] = useState<string | null>(null);
     const [clearModalOpen, setClearModalOpen] = useState(false);
     const [mobileTab, setMobileTab] = useState<'command' | 'intel' | 'activity'>('command');
+    const [sendingDrafts, setSendingDrafts] = useState<string[]>([]);
+    const toast = useToast();
+
+    const handleApproveDraft = async (activity: ActivityLog) => {
+        if (!activity.metadata?.reply_text || !activity.metadata?.chat_id) {
+            toast.error("Invalid draft data");
+            return;
+        }
+
+        setSendingDrafts(prev => [...prev, activity.id]);
+
+        try {
+            const response = await fetch('/api/draft/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    activityId: activity.id,
+                    replyText: activity.metadata.reply_text,
+                    recipientId: activity.metadata.chat_id
+                })
+            });
+
+            if (!response.ok) throw new Error('Failed to send');
+
+            toast.success("Message sent successfully");
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to send message");
+        } finally {
+            setSendingDrafts(prev => prev.filter(id => id !== activity.id));
+        }
+    };
 
     useEffect(() => {
         const getUser = async () => {
@@ -104,7 +137,7 @@ export default function DashboardPage() {
     };
 
     const getEventColor = (eventType: string) => {
-        if (eventType === 'SALE' || eventType === 'IG_SALE') return 'text-emerald-400 bg-emerald-500/10';
+        if (eventType === 'SALE' || eventType === 'IG_SALE' || eventType === 'AI_REPLY' || eventType === 'MANUAL_REPLY') return 'text-emerald-400 bg-emerald-500/10';
         if (eventType === 'RESTOCK' || eventType === 'NEW_ITEM') return 'text-amber-400 bg-amber-500/10';
         if (eventType === 'INCOMING_MESSAGE') return 'text-blue-400 bg-blue-500/10';
         return 'text-purple-400 bg-purple-500/10';
@@ -390,6 +423,24 @@ export default function DashboardPage() {
                                                         {formatTime(activity.timestamp)} ago
                                                     </span>
                                                 </div>
+
+                                                {/* Send Action for Drafts */}
+                                                {
+                                                    (activity.event_type === 'DRAFT_REPLY' || activity.description.startsWith('Draft:')) && (
+                                                        <button
+                                                            onClick={() => handleApproveDraft(activity)}
+                                                            disabled={sendingDrafts.includes(activity.id)}
+                                                            className="p-2 rounded-full text-purple-500 hover:bg-purple-500/20 transition-all shrink-0 ml-2"
+                                                            title="Send Now"
+                                                        >
+                                                            {sendingDrafts.includes(activity.id) ? (
+                                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                            ) : (
+                                                                <Send className="w-4 h-4" />
+                                                            )}
+                                                        </button>
+                                                    )
+                                                }
                                             </motion.div>
                                         );
                                     })}
@@ -398,19 +449,21 @@ export default function DashboardPage() {
                         </div>
                     </motion.div>
                 </div>
-            </div>
+            </div >
 
             {/* Mobile floating chat button */}
-            {mobileTab !== 'command' && (
-                <div className="lg:hidden fixed bottom-6 right-6 z-50">
-                    <button
-                        onClick={() => setMobileTab('command')}
-                        className="w-14 h-14 rounded-2xl bg-primary text-white shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
-                    >
-                        <MessageSquare className="w-6 h-6" />
-                    </button>
-                </div>
-            )}
+            {
+                mobileTab !== 'command' && (
+                    <div className="lg:hidden fixed bottom-6 right-6 z-50">
+                        <button
+                            onClick={() => setMobileTab('command')}
+                            className="w-14 h-14 rounded-2xl bg-primary text-white shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                        >
+                            <MessageSquare className="w-6 h-6" />
+                        </button>
+                    </div>
+                )
+            }
 
             {/* Clear Activity Modal */}
             <GhostModal
@@ -431,6 +484,6 @@ export default function DashboardPage() {
                 }}
                 onCancel={() => setClearModalOpen(false)}
             />
-        </div>
+        </div >
     );
 }
