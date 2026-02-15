@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Edit2, Share, Loader2, MessageCircle, User, Instagram, Search, Send, Sparkles, Ghost, Menu, ArrowLeft, PlayCircle, PauseCircle, Phone } from 'lucide-react';
+import { Check, Edit2, Share, Loader2, MessageCircle, User, Instagram, Search, Send, Sparkles, Ghost, Menu, ArrowLeft, PlayCircle, PauseCircle, Phone, Bot } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import clsx from 'clsx';
 import { useToast } from '@/contexts/ToastContext';
@@ -27,7 +27,12 @@ type Conversation = {
     account_id?: string; // Store account context
 };
 
+import { useAutopilot } from '@/context/AutopilotContext';
+
+// ...
+
 export default function InteractionsPage() {
+    const { autopilot, setAutopilot } = useAutopilot();
     const { success, error } = useToast();
     const [logs, setLogs] = useState<any[]>([]);
     const [mutedChats, setMutedChats] = useState<Set<string>>(new Set());
@@ -36,6 +41,8 @@ export default function InteractionsPage() {
     const [inputMessage, setInputMessage] = useState('');
     const [sending, setSending] = useState(false);
     const [userId, setUserId] = useState<string | null>(null);
+    const [draftSending, setDraftSending] = useState<string | null>(null); // Track which draft is being sent
+    const [fetchedProfiles, setFetchedProfiles] = useState<Record<string, string>>({}); // Cache for fetched names
     const supabase = createClient();
 
     const fetchLogs = async () => {
@@ -187,13 +194,22 @@ export default function InteractionsPage() {
                 (payload) => {
                     const newLog = payload.new;
                     setLogs((prev) => {
-                        // ✅ STRICT DEDUPLICATION: Only add if ID doesn't exist
-                        if (prev.some(l => l.id === newLog.id)) {
-                            console.log('[Interactions] Duplicate blocked:', newLog.id);
-                            return prev;
-                        }
+                        if (prev.some(l => l.id === newLog.id)) return prev;
                         return [...prev, newLog];
                     });
+                }
+            )
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'activity_log',
+                    filter: `user_id=eq.${userId}`
+                },
+                (payload) => {
+                    const updatedLog = payload.new;
+                    setLogs((prev) => prev.map(l => l.id === updatedLog.id ? updatedLog : l));
                 }
             )
             .on(
@@ -218,6 +234,85 @@ export default function InteractionsPage() {
         };
     }, [userId]);
 
+    // Fetch Profiles for Unknown Users
+    useEffect(() => {
+        const fetchProfiles = async () => {
+            if (!logs.length) return;
+
+            // Find unknown users from logs who don't have a fetched profile yet
+            const unknowns = logs.filter(l =>
+                (l.event_type === 'INCOMING_DM' || l.event_type === 'DRAFT_REPLY') &&
+                (!l.metadata?.sender?.attendee_name && !l.metadata?.username) &&
+                !fetchedProfiles[l.metadata?.chat_id]
+            );
+
+            // Deduplicate chat IDs
+            const chatIds = Array.from(new Set(unknowns.map(l => l.metadata?.chat_id))).filter(Boolean) as string[];
+            if (!chatIds.length) return;
+
+            // Mark loading
+            setFetchedProfiles(prev => {
+                const next = { ...prev };
+                chatIds.forEach(id => next[id] = 'Loading name...');
+                return next;
+            });
+
+            // Fetch each profile
+            for (const chatId of chatIds) {
+                try {
+                    const res = await fetch(`/api/instagram/profile?id=${chatId}`);
+                    const data = await res.json();
+
+                    if (data.name) {
+                        setFetchedProfiles(prev => ({ ...prev, [chatId]: data.name }));
+
+                        // Optional: Update DB to persist name (Fire and forget)
+                        // We use metadata update via API or client if possible, but client RLS might block update.
+                        // Relying on local state for now as requested ("Update the UI...").
+                    } else {
+                        setFetchedProfiles(prev => ({ ...prev, [chatId]: 'Instagram User' }));
+                    }
+                } catch (e) {
+                    setFetchedProfiles(prev => ({ ...prev, [chatId]: 'Unknown' }));
+                }
+            }
+        };
+
+        fetchProfiles();
+    }, [logs]); // Only runs when logs change
+
+    const handleSendDraft = async (draftId: string, text: string, chatId: string, accountId?: string) => {
+        if (draftSending) return;
+        setDraftSending(draftId);
+
+        try {
+            // Optimistically update logs to show 'sending...' or similar? 
+            // Or just rely on loading state.
+
+            const res = await fetch('/api/messages/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatId, text, accountId })
+            });
+
+            if (res.ok) {
+                success('Draft sent successfully');
+                // Remove the draft log since it's now sent
+                await supabase.from('activity_log').delete().eq('id', draftId);
+                // Update local logs immediately so UI reflects
+                setLogs(prev => prev.filter(l => l.id !== draftId));
+            } else {
+                const err = await res.json();
+                error(err.error || 'Failed to send draft');
+            }
+        } catch (e) {
+            console.error(e);
+            error('Error sending draft');
+        } finally {
+            setDraftSending(null);
+        }
+    };
+
     const conversations = useMemo(() => {
         const threads: Record<string, Conversation> = {};
 
@@ -230,7 +325,8 @@ export default function InteractionsPage() {
             let text = log.description || '';
             let senderName = 'Unknown';
             let isBot = log.event_type === 'AI_REPLY';
-            let isManual = log.event_type === 'MANUAL_REPLY' || (meta.is_sender && !isBot);
+            let isDraft = log.event_type === 'DRAFT_REPLY'; // Capture draft status
+            let isManual = log.event_type === 'MANUAL_REPLY' || (meta.is_sender && !isBot && !isDraft);
 
             // Extract Sender Name & Text
             if (log.event_type === 'INCOMING_DM') {
@@ -247,6 +343,9 @@ export default function InteractionsPage() {
             } else if (isBot) {
                 senderName = 'Ghost AI';
                 text = text.replace(/^Sent: "(.*)"$/, '$1').replace(/"/g, '').trim();
+            } else if (isDraft) {
+                senderName = 'Ghost AI (Draft)';
+                text = text.replace(/^Draft: "(.*)"$/, '$1').replace(/"/g, '').trim();
             } else if (isManual) {
                 senderName = 'You';
                 text = text.replace(/^Sent \(Manual\): "(.*)"$/, '$1').replace(/"/g, '').trim();
@@ -281,11 +380,16 @@ export default function InteractionsPage() {
                 threads[chatId].username = senderName;
             }
 
+            // 🔥 Override with fetched profile if available (e.g. from Meta Graph API)
+            if (fetchedProfiles[chatId]) {
+                threads[chatId].username = fetchedProfiles[chatId];
+            }
+
             threads[chatId].messages.push({
                 id: log.id,
                 text,
                 sender: senderName,
-                is_sender: isBot || isManual,
+                is_sender: isBot || isManual || isDraft,
                 is_bot: isBot,
                 is_manual: isManual,
                 timestamp: log.timestamp,
@@ -299,7 +403,7 @@ export default function InteractionsPage() {
         return Object.values(threads).sort((a, b) =>
             new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
         );
-    }, [logs]);
+    }, [logs, fetchedProfiles]);
 
     const activeChat = conversations.find(c => c.chat_id === selectedChatId);
     const isMuted = selectedChatId ? mutedChats.has(selectedChatId) : false;
@@ -435,21 +539,40 @@ export default function InteractionsPage() {
                                         )}
                                     >
                                         <div className="flex items-end gap-2">
-                                            {msg.is_bot && (
-                                                <div className="w-6 h-6 rounded-full bg-cyan-500/10 flex items-center justify-center mb-1">
-                                                    <Ghost className="w-3 h-3 text-cyan-400" />
+                                            {(msg.is_bot || msg.type === 'DRAFT_REPLY') && (
+                                                <div className={clsx(
+                                                    "w-6 h-6 rounded-full flex items-center justify-center mb-1",
+                                                    msg.type === 'DRAFT_REPLY' ? "bg-yellow-500/10" : "bg-cyan-500/10"
+                                                )}>
+                                                    {msg.type === 'DRAFT_REPLY'
+                                                        ? <Edit2 className="w-3 h-3 text-yellow-500" />
+                                                        : <Ghost className="w-3 h-3 text-cyan-400" />
+                                                    }
                                                 </div>
                                             )}
 
                                             <div className={clsx(
-                                                "px-4 py-2.5 md:px-5 md:py-3 rounded-2xl text-[15px] md:text-sm leading-relaxed border break-words",
-                                                msg.is_bot
-                                                    ? "bg-cyan-950/40 border-cyan-500/30 text-cyan-50 rounded-tr-none shadow-[0_0_20px_rgba(34,211,238,0.15)]"
-                                                    : msg.is_manual
-                                                        ? "bg-surface-3 border-white/[0.08] text-white rounded-tr-none"
-                                                        : "bg-surface-2 border-white/[0.06] text-white/90 rounded-tl-none"
+                                                "px-4 py-2.5 md:px-5 md:py-3 rounded-2xl text-[15px] md:text-sm leading-relaxed border break-words min-w-[120px]",
+                                                msg.type === 'DRAFT_REPLY'
+                                                    ? "bg-yellow-500/10 border-yellow-500/30 text-yellow-100 border-dashed rounded-tr-none"
+                                                    : msg.is_bot
+                                                        ? "bg-cyan-950/40 border-cyan-500/30 text-cyan-50 rounded-tr-none shadow-[0_0_20px_rgba(34,211,238,0.15)]"
+                                                        : msg.is_manual
+                                                            ? "bg-surface-3 border-white/[0.08] text-white rounded-tr-none"
+                                                            : "bg-surface-2 border-white/[0.06] text-white/90 rounded-tl-none"
                                             )}>
                                                 {msg.text}
+
+                                                {msg.type === 'DRAFT_REPLY' && (
+                                                    <button
+                                                        onClick={() => handleSendDraft(msg.id, msg.text, activeChat.chat_id, activeChat.account_id)}
+                                                        disabled={draftSending === msg.id}
+                                                        className="mt-3 w-full bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/40 text-yellow-300 text-xs py-2 rounded-lg flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                                                    >
+                                                        {draftSending === msg.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                                                        Send Now
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
 
@@ -457,6 +580,7 @@ export default function InteractionsPage() {
                                             {msg.is_bot && <Sparkles className="w-2 h-2 text-cyan-500/50" />}
                                             {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             {msg.is_manual && " • YOU"}
+                                            {msg.type === 'DRAFT_REPLY' && " • DRAFT"}
                                         </span>
                                     </motion.div>
                                 ))}
@@ -465,27 +589,43 @@ export default function InteractionsPage() {
 
                         {/* Footer - Send Input */}
                         <div className="p-4 bg-surface-2/50 border-t border-white/[0.06] pb-safe-bottom">
-                            <div className="relative group">
-                                <input
-                                    value={inputMessage}
-                                    onChange={(e) => setInputMessage(e.target.value)}
-                                    placeholder={`Reply manually... (Bot is ${isMuted ? 'OFF' : 'ON'})`}
-                                    className="input-premium w-full rounded-2xl py-3 pl-4 pr-12 disabled:opacity-50"
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                            e.preventDefault();
-                                            handleSendMessage();
-                                        }
-                                    }}
-                                    disabled={sending}
-                                />
+                            <div className="relative group flex gap-3 items-center">
+                                {/* Global Autopilot Toggle */}
                                 <button
-                                    onClick={handleSendMessage}
-                                    disabled={sending || !inputMessage.trim()}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-black transition-all disabled:opacity-0"
+                                    onClick={() => setAutopilot(!autopilot)}
+                                    className={clsx(
+                                        "w-12 h-12 rounded-2xl flex items-center justify-center transition-all border shrink-0",
+                                        autopilot
+                                            ? "bg-primary/10 border-primary/20 text-primary hover:bg-primary/20"
+                                            : "bg-surface-3 border-white/10 text-white/40 hover:text-white"
+                                    )}
+                                    title={autopilot ? "Autopilot ON (Mute)" : "Autopilot OFF (Resume)"}
                                 >
-                                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                    {autopilot ? <Bot className="w-6 h-6" /> : <PauseCircle className="w-6 h-6" />}
                                 </button>
+
+                                <div className="relative flex-1">
+                                    <input
+                                        value={inputMessage}
+                                        onChange={(e) => setInputMessage(e.target.value)}
+                                        placeholder={autopilot ? "Autopilot is active. Type here to intervene..." : "Type a message..."}
+                                        className="input-premium w-full rounded-2xl py-3 pl-4 pr-12 disabled:opacity-50"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                e.preventDefault();
+                                                handleSendMessage();
+                                            }
+                                        }}
+                                        disabled={sending}
+                                    />
+                                    <button
+                                        onClick={handleSendMessage}
+                                        disabled={sending || !inputMessage.trim()}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-black transition-all disabled:opacity-0"
+                                    >
+                                        {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                    </button>
+                                </div>
                             </div>
                             <p className="text-[10px] text-white/20 mt-2 text-center uppercase tracking-widest flex justify-center gap-2">
                                 <span>Manager Mode Active</span>

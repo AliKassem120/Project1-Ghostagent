@@ -14,24 +14,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { DashboardProvider } from '@/contexts/DashboardContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
     const pathname = usePathname();
     const router = useRouter();
     const { autopilot, setAutopilot, isLoading } = useAutopilot();
-    const [userEmail, setUserEmail] = useState<string | null>(null);
-    const [isGoogleUser, setIsGoogleUser] = useState(false);
-
-    useEffect(() => {
-        const fetchUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                setUserEmail(user.email || null);
-                setIsGoogleUser(user.app_metadata?.provider === 'google');
-            }
-        };
-        fetchUser();
-    }, []);
+    const { user } = useAuth();
+    const userEmail = user?.email || null;
+    const isGoogleUser = user?.app_metadata?.provider === 'google';
 
     const navItems = [
         { icon: LayoutDashboard, label: 'Overview', href: '/dashboard' },
@@ -202,17 +193,9 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [userId, setUserId] = useState<string | undefined>(undefined);
-
-    useEffect(() => {
-        const getUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                setUserId(user.id);
-            }
-        };
-        getUser();
-    }, []);
+    const { user } = useAuth();
+    const userId = user?.id; // AutopilotProvider and children handle undefined userId appropriately? Or DashboardContext does?
+    // RealtimeContext expects userId string | undefined, which is what we have.
 
     return (
         <AutopilotProvider>

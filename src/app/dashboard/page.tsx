@@ -12,6 +12,7 @@ import { useRealtime, useRealtimeCount } from '@/hooks/useRealtime';
 import clsx from 'clsx';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Database types
 type ActivityLog = {
@@ -77,11 +78,16 @@ function EventBadge({ type }: { type: string }) {
 }
 
 
+
+
+// ...
+
 export default function DashboardPage() {
     const { autopilot } = useAutopilot();
     const supabase = createClient();
     const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
-    const [userId, setUserId] = useState<string | null>(null);
+    const { user } = useAuth();
+    const userId = user?.id; // Use userId from global auth context
     const [clearModalOpen, setClearModalOpen] = useState(false);
     const [mobileTab, setMobileTab] = useState<'command' | 'intel' | 'activity'>('command');
     const [sendingDrafts, setSendingDrafts] = useState<string[]>([]);
@@ -117,13 +123,7 @@ export default function DashboardPage() {
         }
     };
 
-    useEffect(() => {
-        const getUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) setUserId(user.id);
-        };
-        getUser();
-    }, []);
+    // User fetching logic removed - handled by AuthContext
 
     const { data: activities, loading: activitiesLoading, refetch: refetchActivities } = useRealtime<ActivityLog>(
         'activity_log',

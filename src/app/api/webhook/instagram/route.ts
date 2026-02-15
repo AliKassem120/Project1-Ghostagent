@@ -149,13 +149,24 @@ export async function POST(req: Request) {
                         }
 
                         // CHECK AUTOPILOT STATUS
-                        const { data: settings } = await supabaseAdmin
+                        // Explicitly fetch the boolean value. If the column is NULL, default to true.
+                        // If the row is missing (error), default to true.
+                        // But if is_autopilot_enabled is explicit FALSE, respect it.
+                        const { data: settings, error: settingsError } = await supabaseAdmin
                             .from('users')
                             .select('is_autopilot_enabled')
                             .eq('id', ownerId)
-                            .single();
+                            .maybeSingle();
 
-                        const isAutopilot = settings?.is_autopilot_enabled ?? true; // Default to true if not found
+                        if (settingsError) {
+                            console.error('⚠️ Autopilot Check Failed:', settingsError.message);
+                        }
+
+                        // Default to TRUE only if settings is null or column is null.
+                        // If false, it stays false.
+                        const isAutopilot = settings?.is_autopilot_enabled ?? true;
+
+                        console.log(`🤖 Autopilot Status for ${ownerId}: ${isAutopilot ? 'ON' : 'OFF'}`);
 
                         if (!isAutopilot) {
                             console.log('🛑 AUTOPILOT OFF: Saving draft reply.');
