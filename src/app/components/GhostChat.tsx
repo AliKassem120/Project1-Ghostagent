@@ -119,7 +119,7 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
     };
 
     return (
-        <div className="flex flex-col h-full w-full bg-card rounded-xl overflow-hidden relative border border-white/5">
+        <div className="flex flex-col h-full w-full bg-surface-1 rounded-xl overflow-hidden relative border border-white/[0.06]">
 
             {/* Success Overlay */}
             <AnimatePresence>
@@ -130,7 +130,10 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
                         exit={{ opacity: 0, scale: 0.95 }}
                         className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
                     >
-                        <div className="flex flex-col items-center p-6 bg-card rounded-2xl shadow-xl border border-white/5">
+                        <div
+                            className="flex flex-col items-center p-6 bg-surface-1 rounded-2xl border border-white/[0.06]"
+                            style={{ boxShadow: 'var(--shadow-xl)' }}
+                        >
                             <motion.div
                                 initial={{ scale: 0 }}
                                 animate={{ scale: 1 }}
@@ -140,7 +143,7 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
                                 <CheckCircle2 className="w-7 h-7 text-emerald-400" />
                             </motion.div>
                             <h3 className="text-lg font-semibold text-white">Action Complete</h3>
-                            <p className="text-white/40 text-sm mt-1">Data synced successfully</p>
+                            <p className="text-muted-foreground text-sm mt-1">Data synced successfully</p>
                         </div>
                     </motion.div>
                 )}
@@ -170,8 +173,8 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
                         >
                             <div
                                 className={`max-w-[80%] px-4 py-2.5 text-sm leading-relaxed ${msg.role === "user"
-                                    ? "bg-primary text-white rounded-2xl rounded-br-md"
-                                    : "bg-muted text-foreground/90 rounded-2xl rounded-bl-md prose prose-invert prose-sm max-w-none"
+                                    ? "bg-primary text-white rounded-2xl rounded-br-md shadow-sm"
+                                    : "bg-surface-2 text-foreground/90 rounded-2xl rounded-bl-md prose prose-invert prose-sm max-w-none"
                                     }`}
                             >
                                 {(msg as any).content ? (
@@ -196,7 +199,7 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
                             animate={{ opacity: 1 }}
                             className="flex justify-start"
                         >
-                            <div className="bg-muted p-3 rounded-2xl rounded-bl-md flex gap-1.5">
+                            <div className="bg-surface-2 p-3 rounded-2xl rounded-bl-md flex gap-1.5">
                                 <span className="w-2 h-2 bg-white/20 rounded-full animate-bounce [animation-delay:-0.3s]" />
                                 <span className="w-2 h-2 bg-white/20 rounded-full animate-bounce [animation-delay:-0.15s]" />
                                 <span className="w-2 h-2 bg-white/20 rounded-full animate-bounce" />
@@ -209,7 +212,7 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
                     <motion.div
                         initial={{ opacity: 0, y: 5 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="flex items-center gap-2 p-3 my-2 bg-red-500/5 rounded-xl text-red-400/80 text-xs"
+                        className="flex items-center gap-2 p-3 my-2 bg-red-500/5 rounded-xl text-red-400/80 text-xs border border-red-500/10"
                     >
                         <AlertCircle className="w-4 h-4 shrink-0" />
                         <span>Connection error: {error.message || "Failed to reach agent."}</span>
@@ -220,7 +223,7 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
             </div>
 
             {/* Input */}
-            <div className="p-3 border-t border-white/5 shrink-0">
+            <div className="p-3 border-t border-white/[0.06] shrink-0">
                 <form onSubmit={handleSubmit} className="relative flex items-center">
                     <input
                         type="text"
@@ -229,13 +232,13 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         placeholder="Type a message..."
-                        className="w-full bg-background text-foreground placeholder-white/20 rounded-xl py-3 px-4 pr-12 focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all text-sm border border-white/5"
+                        className="input-premium w-full pr-12"
                         disabled={isLoading}
                     />
                     <button
                         type="submit"
                         disabled={isLoading || !input.trim()}
-                        className="absolute right-2 h-9 w-9 flex items-center justify-center text-primary hover:text-primary/80 transition-colors disabled:opacity-30"
+                        className="absolute right-2 h-8 w-8 flex items-center justify-center rounded-lg text-primary hover:bg-primary/10 transition-colors disabled:opacity-30 press"
                     >
                         <Send className="w-4 h-4" />
                     </button>

@@ -309,7 +309,7 @@ export default function InteractionsPage() {
 
             {/* Sidebar (Responsive) */}
             <div className={clsx(
-                "w-full md:w-80 flex flex-col gap-3 h-full absolute md:relative z-20 bg-[#0a0a0a] md:bg-transparent transition-transform duration-300",
+                "w-full md:w-80 flex flex-col gap-3 h-full absolute md:relative z-20 bg-background md:bg-transparent transition-transform duration-300",
                 selectedChatId ? "-translate-x-full md:translate-x-0" : "translate-x-0"
             )}>
                 {/* ... Header & Search (Keep Same) ... */}
@@ -328,7 +328,7 @@ export default function InteractionsPage() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
                     <input
                         placeholder="Search chats..."
-                        className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-primary/50"
+                        className="input-premium w-full pl-10 py-2"
                     />
                 </div>
 
@@ -372,13 +372,13 @@ export default function InteractionsPage() {
 
             {/* Chat Area (Responsive) */}
             <div className={clsx(
-                "fixed inset-0 md:static flex-1 glass-dark md:rounded-3xl border-0 md:border-0 flex flex-col overflow-hidden relative z-30 transition-transform duration-300 bg-[#12161e] md:bg-transparent",
+                "fixed inset-0 md:static flex-1 glass-dark md:rounded-3xl border-0 md:border-0 flex flex-col overflow-hidden relative z-30 transition-transform duration-300 bg-surface-1 md:bg-transparent",
                 selectedChatId ? "translate-x-0" : "translate-x-full md:translate-x-0"
             )}>
                 {activeChat ? (
                     <>
                         {/* Header */}
-                        <div className="p-4 border-b border-white/10 bg-white/5 flex items-center gap-3 pt-safe-top md:pt-4">
+                        <div className="p-4 border-b border-white/[0.06] bg-surface-2/50 flex items-center gap-3 pt-safe-top md:pt-4">
                             <button
                                 onClick={() => setSelectedChatId(null)}
                                 className="md:hidden p-2 -ml-2 text-white/60 hover:text-white"
@@ -442,12 +442,12 @@ export default function InteractionsPage() {
                                             )}
 
                                             <div className={clsx(
-                                                "px-4 py-2.5 md:px-5 md:py-3 rounded-2xl text-[15px] md:text-sm leading-relaxed backdrop-blur-md border break-words",
+                                                "px-4 py-2.5 md:px-5 md:py-3 rounded-2xl text-[15px] md:text-sm leading-relaxed border break-words",
                                                 msg.is_bot
                                                     ? "bg-cyan-950/40 border-cyan-500/30 text-cyan-50 rounded-tr-none shadow-[0_0_20px_rgba(34,211,238,0.15)]"
                                                     : msg.is_manual
-                                                        ? "bg-white/10 border-white/10 text-white rounded-tr-none"
-                                                        : "bg-black/40 border-white/5 text-white/90 rounded-tl-none"
+                                                        ? "bg-surface-3 border-white/[0.08] text-white rounded-tr-none"
+                                                        : "bg-surface-2 border-white/[0.06] text-white/90 rounded-tl-none"
                                             )}>
                                                 {msg.text}
                                             </div>
@@ -464,13 +464,13 @@ export default function InteractionsPage() {
                         </div>
 
                         {/* Footer - Send Input */}
-                        <div className="p-4 bg-white/5 border-t border-white/10 pb-safe-bottom">
+                        <div className="p-4 bg-surface-2/50 border-t border-white/[0.06] pb-safe-bottom">
                             <div className="relative group">
                                 <input
                                     value={inputMessage}
                                     onChange={(e) => setInputMessage(e.target.value)}
                                     placeholder={`Reply manually... (Bot is ${isMuted ? 'OFF' : 'ON'})`}
-                                    className="w-full bg-black/40 border border-white/10 rounded-2xl py-3 pl-4 pr-12 text-sm focus:outline-none focus:border-primary/50 transition-colors disabled:opacity-50"
+                                    className="input-premium w-full rounded-2xl py-3 pl-4 pr-12 disabled:opacity-50"
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter' && !e.shiftKey) {
                                             e.preventDefault();

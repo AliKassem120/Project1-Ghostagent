@@ -295,7 +295,7 @@ export default function SettingsPage() {
 
             {/* Business Identity */}
             <div className="glass-dark p-8 rounded-3xl">
-                <div className="flex items-center gap-4 pb-6 border-b border-white/10 mb-6">
+                <div className="flex items-center gap-4 pb-6 border-b border-white/[0.06] mb-6">
                     <div className="p-3 bg-indigo-500/20 rounded-xl">
                         <Building2 className="w-7 h-7 text-indigo-400" />
                     </div>
@@ -311,7 +311,7 @@ export default function SettingsPage() {
                         type="text"
                         value={settings.businessName}
                         onChange={(e) => setSettings({ ...settings, businessName: e.target.value })}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-base focus:border-primary/50 outline-none hover:bg-white/10 transition-all placeholder-white/20"
+                        className="input-premium w-full"
                         placeholder="e.g. Joe's Pizza"
                     />
                 </div>
@@ -319,7 +319,7 @@ export default function SettingsPage() {
 
             {/* AI Persona */}
             <div className="glass-dark p-8 rounded-3xl">
-                <div className="flex items-center gap-4 pb-6 border-b border-white/10 mb-6">
+                <div className="flex items-center gap-4 pb-6 border-b border-white/[0.06] mb-6">
                     <div className="p-3 bg-primary/20 rounded-xl">
                         <Bot className="w-7 h-7 text-primary" />
                     </div>
@@ -335,7 +335,7 @@ export default function SettingsPage() {
                         <select
                             value={settings.tone}
                             onChange={(e) => setSettings({ ...settings, tone: e.target.value })}
-                            className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-base focus:border-primary/50 outline-none hover:bg-white/10 transition-all cursor-pointer"
+                            className="input-premium w-full cursor-pointer"
                         >
                             <option value="Casual" className="bg-black">Casual & Friendly</option>
                             <option value="Professional" className="bg-black">Professional</option>
@@ -346,7 +346,7 @@ export default function SettingsPage() {
 
                     <div className="space-y-3">
                         <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Use Emojis</label>
-                        <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10 hover:bg-white/10 transition-all cursor-pointer group"
+                        <div className="flex items-center justify-between p-4 bg-surface-2 rounded-xl border border-white/[0.06] hover:bg-surface-3 transition-all cursor-pointer group"
                             onClick={() => setSettings({ ...settings, useEmojis: !settings.useEmojis })}>
                             <span className="text-base group-hover:text-white transition-colors">Add emojis to responses</span>
                             <div className={clsx(
@@ -377,7 +377,7 @@ export default function SettingsPage() {
 
             {/* Manager Alert System */}
             <div className="glass-dark p-8 rounded-3xl">
-                <div className="flex items-center gap-4 pb-6 border-b border-white/10 mb-6">
+                <div className="flex items-center gap-4 pb-6 border-b border-white/[0.06] mb-6">
                     <div className="p-3 bg-yellow-500/20 rounded-xl">
                         <Bell className="w-7 h-7 text-yellow-400" />
                     </div>
@@ -395,7 +395,7 @@ export default function SettingsPage() {
                             type="tel"
                             value={settings.emergencyWhatsApp}
                             onChange={(e) => setSettings({ ...settings, emergencyWhatsApp: e.target.value })}
-                            className="w-full bg-white/5 border border-white/10 rounded-xl p-4 pl-12 text-base focus:border-primary/50 outline-none hover:bg-white/10 transition-all"
+                            className="input-premium w-full pl-12"
                             placeholder="+1 234 567 8900"
                         />
                     </div>
@@ -406,7 +406,7 @@ export default function SettingsPage() {
             {/* Sales Rules */}
             <div className="glass-dark p-8 rounded-3xl">
                 {/* ... existing sales UI ... */}
-                <div className="flex items-center gap-4 pb-6 border-b border-white/10 mb-6">
+                <div className="flex items-center gap-4 pb-6 border-b border-white/[0.06] mb-6">
                     <div className="p-3 bg-green-500/20 rounded-xl">
                         <DollarSign className="w-7 h-7 text-green-400" />
                     </div>
@@ -447,7 +447,7 @@ export default function SettingsPage() {
                                 type="number"
                                 value={settings.minOrderForDiscount}
                                 onChange={(e) => setSettings({ ...settings, minOrderForDiscount: parseInt(e.target.value) })}
-                                className="w-full bg-white/5 border border-white/10 rounded-xl p-4 pl-12 pr-16 text-lg font-semibold focus:border-primary/50 outline-none hover:bg-white/10 transition-all"
+                                className="input-premium w-full pl-12 pr-16 text-lg font-semibold"
                                 placeholder="50"
                             />
                             <span className="absolute right-5 top-1/2 -translate-y-1/2 text-white/40 text-sm">USD</span>
@@ -458,7 +458,7 @@ export default function SettingsPage() {
 
             {/* Integrations (Connected Accounts) */}
             <div className="glass-dark p-8 rounded-3xl mb-8">
-                <div className="flex items-center gap-4 pb-6 border-b border-white/10 mb-6">
+                <div className="flex items-center gap-4 pb-6 border-b border-white/[0.06] mb-6">
                     <div className="p-3 bg-pink-500/20 rounded-xl">
                         <Instagram className="w-7 h-7 text-pink-500" />
                     </div>
@@ -471,7 +471,7 @@ export default function SettingsPage() {
                 <div className="space-y-4">
                     {/* List Connected Accounts */}
                     {instagramStatus.accounts.length > 0 && instagramStatus.accounts.map((acc: any) => (
-                        <div key={acc.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white/5 p-4 rounded-2xl border border-white/10 gap-4">
+                        <div key={acc.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-surface-2 p-4 rounded-2xl border border-white/[0.06] gap-4">
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 rounded-xl flex items-center justify-center shrink-0">
                                     <Instagram className="w-6 h-6 text-white" />
@@ -499,7 +499,7 @@ export default function SettingsPage() {
                     <button
                         onClick={handleConnectInstagram}
                         disabled={connecting}
-                        className="w-full py-4 border-2 border-dashed border-white/10 hover:border-white/30 hover:bg-white/5 rounded-2xl flex items-center justify-center gap-2 text-white/60 hover:text-white transition-all group"
+                        className="w-full py-4 border-2 border-dashed border-white/[0.06] hover:border-white/20 hover:bg-surface-2 rounded-2xl flex items-center justify-center gap-2 text-white/60 hover:text-white transition-all group press"
                     >
                         {connecting ? <Loader2 className="w-5 h-5 animate-spin" /> :
                             <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-primary group-hover:text-black transition-colors">
@@ -512,7 +512,7 @@ export default function SettingsPage() {
 
             {/* Language */}
             <div className="glass-dark p-8 rounded-3xl">
-                <div className="flex items-center gap-4 pb-6 border-b border-white/10 mb-6">
+                <div className="flex items-center gap-4 pb-6 border-b border-white/[0.06] mb-6">
                     <div className="p-3 bg-blue-500/20 rounded-xl">
                         <Globe className="w-7 h-7 text-blue-400" />
                     </div>
@@ -530,10 +530,10 @@ export default function SettingsPage() {
                                 key={lang}
                                 onClick={() => setSettings({ ...settings, language: lang })}
                                 className={clsx(
-                                    "p-6 rounded-2xl border-2 transition-all font-bold text-lg",
+                                    "p-6 rounded-2xl border-2 transition-all font-bold text-lg press",
                                     settings.language === lang
                                         ? "bg-primary/20 border-primary text-primary shadow-[0_0_25px_rgba(192,132,252,0.3)]"
-                                        : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
+                                        : "bg-white/5 border-white/[0.06] hover:bg-white/10 hover:border-white/15"
                                 )}
                             >
                                 {lang === 'English' ? 'Strict English' : lang}
@@ -545,7 +545,7 @@ export default function SettingsPage() {
 
             {/* Training */}
             <div className="glass-dark p-8 rounded-3xl">
-                <div className="flex items-center gap-4 pb-6 border-b border-white/10 mb-6">
+                <div className="flex items-center gap-4 pb-6 border-b border-white/[0.06] mb-6">
                     <div className="p-3 bg-purple-500/20 rounded-xl">
                         <Sparkles className="w-7 h-7 text-purple-400" />
                     </div>
@@ -559,7 +559,7 @@ export default function SettingsPage() {
                     <div className="space-y-3">
                         <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">KNOWLEDGE BASE (System Instructions)</label>
                         <textarea
-                            className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-base focus:border-primary/50 outline-none h-60 resize-none hover:bg-white/10 transition-all"
+                            className="input-premium w-full h-60 resize-none"
                             value={settings.systemPrompt}
                             onChange={(e) => setSettings({ ...settings, systemPrompt: e.target.value })}
                             placeholder="Example: We are an eco-friendly streetwear brand. Our shipping takes 3-5 days. Return policy is 30 days..."
@@ -591,7 +591,7 @@ export default function SettingsPage() {
                                 onClick={() => fileInputRef.current?.click()}
                                 className={clsx(
                                     "border-2 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer group",
-                                    uploading ? "border-primary/50 bg-primary/10" : "border-white/10 hover:border-primary/30 hover:bg-white/5"
+                                    uploading ? "border-primary/50 bg-primary/10" : "border-white/[0.06] hover:border-primary/30 hover:bg-white/5"
                                 )}
                             >
                                 {uploading ? (

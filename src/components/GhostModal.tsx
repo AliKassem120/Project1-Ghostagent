@@ -84,12 +84,12 @@ export default function GhostModal({
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                         className={`
                             relative z-10 w-full max-w-md
-                            bg-[#12131A]
+                            bg-surface-1
                             border ${styles.borderColor}
                             rounded-2xl
-                            shadow-xl
                             overflow-hidden
                         `}
+                        style={{ boxShadow: 'var(--shadow-xl)' }}
                     >
                         {/* Close Button */}
                         <button

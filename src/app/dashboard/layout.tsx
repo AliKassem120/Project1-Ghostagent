@@ -66,25 +66,25 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             </AnimatePresence>
 
             <aside className={clsx(
-                "w-[240px] border-r border-white/5 bg-sidebar p-5 flex flex-col fixed h-full z-50 transition-transform duration-300 lg:translate-x-0",
+                "w-[240px] border-r border-white/[0.06] bg-surface-0 p-5 flex flex-col fixed h-full z-50 transition-transform duration-300 lg:translate-x-0",
                 isOpen ? "translate-x-0" : "-translate-x-full"
             )}>
                 <div className="flex items-center justify-between mb-8">
                     <Link href="/" className="flex items-center gap-2.5 px-1 group">
-                        <div className="bg-white/[0.04] p-2 rounded-xl group-hover:bg-white/[0.06] transition-colors">
+                        <div className="bg-white/[0.04] p-2 rounded-xl group-hover:bg-white/[0.07] transition-colors">
                             <GhostLogo />
                         </div>
                         <span className="font-semibold text-lg tracking-tight text-white/90">
                             GhostAgent
                         </span>
                     </Link>
-                    <button onClick={onClose} className="lg:hidden p-2 text-white/40 hover:text-white">
+                    <button onClick={onClose} className="lg:hidden p-2 text-white/40 hover:text-white transition-colors">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
 
                 {/* Autopilot Toggle */}
-                <div className="mb-5 p-3.5 rounded-xl bg-white/[0.02]">
+                <div className="mb-5 p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.04]">
                     <div className="flex items-center justify-between mb-1.5">
                         <span className="text-xs font-medium flex items-center gap-2 text-white/50">
                             <Zap className="w-3.5 h-3.5 text-primary" />
@@ -94,7 +94,7 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                             onClick={() => setAutopilot(!autopilot)}
                             disabled={isLoading}
                             className={clsx(
-                                "relative w-10 rounded-full transition-all duration-300",
+                                "relative w-10 rounded-full transition-all duration-300 press",
                                 autopilot ? "bg-primary" : "bg-white/10",
                                 isLoading && "opacity-50 cursor-not-allowed"
                             )}
@@ -120,12 +120,19 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                                 href={item.href}
                                 onClick={() => { if (window.innerWidth < 1024) onClose(); }}
                                 className={clsx(
-                                    "flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all text-sm font-medium",
+                                    "flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all text-sm font-medium relative",
                                     isActive
                                         ? "bg-primary/10 text-primary"
-                                        : "text-white/35 hover:text-white/60 hover:bg-white/[0.03]"
+                                        : "text-white/35 hover:text-white/60 hover:bg-white/[0.04]"
                                 )}
                             >
+                                {isActive && (
+                                    <motion.div
+                                        layoutId="sidebar-active"
+                                        className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-primary"
+                                        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                                    />
+                                )}
                                 <item.icon className="w-[18px] h-[18px]" />
                                 {item.label}
                             </Link>
@@ -135,7 +142,7 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
 
                 {/* User Profile */}
                 {userEmail && (
-                    <div className="mt-auto mb-2 px-3.5 py-3 rounded-xl bg-white/[0.02]">
+                    <div className="mt-auto mb-2 px-3.5 py-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
                         <div className="flex items-center gap-2 min-w-0">
                             {isGoogleUser && (
                                 <svg className="w-3.5 h-3.5 text-white/30 shrink-0" viewBox="0 0 24 24" fill="currentColor">
@@ -150,7 +157,7 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                 <button
                     onClick={handleLogout}
                     className={clsx(
-                        "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-white/25 hover:text-red-400 hover:bg-red-500/[0.05] transition-colors w-full text-left text-sm",
+                        "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-white/25 hover:text-red-400 hover:bg-red-500/[0.05] transition-colors w-full text-left text-sm press",
                         !userEmail && "mt-auto"
                     )}
                 >
@@ -166,13 +173,13 @@ function DashboardContent({ children, toggleSidebar }: { children: React.ReactNo
     return (
         <div className="flex-1 flex flex-col min-w-0">
             {/* Mobile Header */}
-            <header className="lg:hidden h-14 border-b border-white/5 bg-sidebar fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4">
-                <button onClick={toggleSidebar} className="p-3 text-white/40 hover:text-white">
+            <header className="lg:hidden h-14 border-b border-white/[0.06] bg-surface-0 fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4">
+                <button onClick={toggleSidebar} className="p-3 text-white/40 hover:text-white transition-colors">
                     <Menu className="w-5 h-5" />
                 </button>
                 <div className="flex items-center gap-2">
                     <GhostLogo className="w-5 h-5" />
-                    <span className="font-semibold text-base tracking-tight">GhostAgent</span>
+                    <span className="font-semibold text-base tracking-tight text-white">GhostAgent</span>
                 </div>
                 <div className="w-9" />
             </header>

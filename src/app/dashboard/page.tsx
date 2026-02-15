@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useDashboard } from '@/contexts/DashboardContext';
-import { MessageSquare, DollarSign, Package, Clock, Zap, MessageCircle, Sparkles, Instagram, Shield, Activity, BarChart3, Send, Loader2 } from 'lucide-react';
+import { MessageSquare, DollarSign, Package, Clock, Zap, MessageCircle, Sparkles, Instagram, Shield, Activity, BarChart3, Send, Loader2, TrendingUp, ArrowUpRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from '@/components/CountUp';
 import GhostChat from '@/app/components/GhostChat';
@@ -27,6 +27,55 @@ type InventoryItem = {
     id: string;
     stock_level: number;
 };
+
+/* ── Sparkline SVG ─────────────────────────────────────
+   Renders a tiny inline area chart from data points.
+   ───────────────────────────────────────────────────── */
+function Sparkline({ data, color, className }: { data: number[]; color: string; className?: string }) {
+    if (data.length < 2) return null;
+    const max = Math.max(...data);
+    const min = Math.min(...data);
+    const range = max - min || 1;
+    const w = 80;
+    const h = 28;
+    const points = data.map((v, i) => ({
+        x: (i / (data.length - 1)) * w,
+        y: h - ((v - min) / range) * (h - 4) - 2,
+    }));
+    const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+    const areaPath = `${linePath} L${w},${h} L0,${h} Z`;
+
+    return (
+        <svg viewBox={`0 0 ${w} ${h}`} className={clsx("w-20 h-7", className)} preserveAspectRatio="none">
+            <defs>
+                <linearGradient id={`sparkGrad-${color}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+                    <stop offset="100%" stopColor={color} stopOpacity="0" />
+                </linearGradient>
+            </defs>
+            <path d={areaPath} fill={`url(#sparkGrad-${color})`} />
+            <path d={linePath} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+    );
+}
+
+/* ── Event badge for activity feed ──────────────────── */
+function EventBadge({ type }: { type: string }) {
+    const config: Record<string, { label: string; class: string }> = {
+        'AI_REPLY': { label: 'Sent', class: 'badge-success' },
+        'MANUAL_REPLY': { label: 'Manual', class: 'badge-success' },
+        'SALE': { label: 'Sale', class: 'badge-success' },
+        'IG_SALE': { label: 'Sale', class: 'badge-success' },
+        'DRAFT_REPLY': { label: 'Draft', class: 'badge-warning' },
+        'INCOMING_MESSAGE': { label: 'Received', class: 'badge-info' },
+        'INCOMING_DM': { label: 'DM', class: 'badge-info' },
+        'RESTOCK': { label: 'Restock', class: 'badge-warning' },
+        'NEW_ITEM': { label: 'New Item', class: 'badge-purple' },
+    };
+    const c = config[type] || { label: type.replace(/_/g, ' '), class: 'badge-purple' };
+    return <span className={c.class}>{c.label}</span>;
+}
+
 
 export default function DashboardPage() {
     const { autopilot } = useAutopilot();
@@ -132,26 +181,36 @@ export default function DashboardPage() {
     const getEventIcon = (eventType: string) => {
         if (eventType === 'SALE' || eventType === 'IG_SALE') return <DollarSign className="w-3.5 h-3.5" />;
         if (eventType === 'RESTOCK' || eventType === 'NEW_ITEM') return <Package className="w-3.5 h-3.5" />;
-        if (eventType === 'INCOMING_MESSAGE') return <MessageCircle className="w-3.5 h-3.5" />;
+        if (eventType === 'INCOMING_MESSAGE' || eventType === 'INCOMING_DM') return <MessageCircle className="w-3.5 h-3.5" />;
         return <MessageSquare className="w-3.5 h-3.5" />;
     };
 
     const getEventColor = (eventType: string) => {
         if (eventType === 'SALE' || eventType === 'IG_SALE' || eventType === 'AI_REPLY' || eventType === 'MANUAL_REPLY') return 'text-emerald-400 bg-emerald-500/10';
         if (eventType === 'RESTOCK' || eventType === 'NEW_ITEM') return 'text-amber-400 bg-amber-500/10';
-        if (eventType === 'INCOMING_MESSAGE') return 'text-blue-400 bg-blue-500/10';
-        return 'text-purple-400 bg-purple-500/10';
+        if (eventType === 'INCOMING_MESSAGE' || eventType === 'INCOMING_DM') return 'text-blue-400 bg-blue-500/10';
+        return 'text-violet-400 bg-violet-500/10';
     };
 
     const formatTime = (timestamp: string) => {
         const seconds = Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000);
-        if (seconds < 60) return `${seconds}s`;
-        if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-        if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
-        return `${Math.floor(seconds / 86400)}d`;
+        if (seconds < 60) return `${seconds}s ago`;
+        if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+        if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+        return `${Math.floor(seconds / 86400)}d ago`;
     };
 
     const filteredActivities = activities.filter(a => a.event_type !== 'CHAT_QUERY');
+
+    // Generate sparkline data from activities
+    const sparkData = useMemo(() => {
+        const last7 = Array(7).fill(0);
+        activities.forEach(a => {
+            const daysAgo = Math.floor((Date.now() - new Date(a.timestamp).getTime()) / 86400000);
+            if (daysAgo < 7) last7[6 - daysAgo]++;
+        });
+        return last7;
+    }, [activities]);
 
     return (
         <div className="h-[calc(100vh-2rem)] flex flex-col overflow-hidden pb-safe">
@@ -159,30 +218,30 @@ export default function DashboardPage() {
             {/* ═══════════════════════════════════════════════════ */}
             {/* HEADER                                             */}
             {/* ═══════════════════════════════════════════════════ */}
-            <div className="flex items-center justify-between gap-4 mb-5 shrink-0">
+            <div className="flex items-center justify-between gap-4 mb-6 shrink-0">
                 <div className="flex items-center gap-3">
-                    <h1 className="text-2xl font-semibold tracking-tight text-white">
+                    <h1 className="text-[22px] font-semibold tracking-tight text-white">
                         Dashboard
                     </h1>
-                    <span className="text-[10px] font-medium bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                    <span className="badge-success flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                         Active
                     </span>
                 </div>
-                <div className="hidden md:flex items-center gap-5 text-xs text-white/40">
+                <div className="hidden md:flex items-center gap-5 text-xs text-muted-foreground">
                     <div className="flex items-center gap-1.5">
                         <span>Handled</span>
-                        <span className="font-mono text-white/70">{stats.repliesSent}</span>
+                        <span className="font-mono text-white/80 font-medium">{stats.repliesSent}</span>
                     </div>
                     <div className="w-px h-3 bg-white/[0.06]" />
                     <div className="flex items-center gap-1.5">
                         <span>Saved</span>
-                        <span className="font-mono text-white/70">{stats.timeSaved.toFixed(1)}h</span>
+                        <span className="font-mono text-white/80 font-medium">{stats.timeSaved.toFixed(1)}h</span>
                     </div>
                     <div className="w-px h-3 bg-white/[0.06]" />
                     <div className="flex items-center gap-1.5">
                         <span>Revenue</span>
-                        <span className="font-mono text-white/70">${stats.moneySaved.toFixed(0)}</span>
+                        <span className="font-mono text-emerald-400 font-medium">${stats.moneySaved.toFixed(0)}</span>
                     </div>
                 </div>
             </div>
@@ -200,9 +259,9 @@ export default function DashboardPage() {
                         key={tab.key}
                         onClick={() => setMobileTab(tab.key)}
                         className={clsx(
-                            "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-medium transition-all",
+                            "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-medium transition-all press",
                             mobileTab === tab.key
-                                ? "bg-white/[0.06] text-white"
+                                ? "bg-white/[0.08] text-white shadow-sm"
                                 : "text-white/30 hover:text-white/50"
                         )}
                     >
@@ -215,11 +274,11 @@ export default function DashboardPage() {
             {/* ═══════════════════════════════════════════════════ */}
             {/* MAIN 3-COLUMN GRID                                 */}
             {/* ═══════════════════════════════════════════════════ */}
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden min-h-0">
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 overflow-hidden min-h-0">
 
                 {/* ─── ZONE 1: OVERVIEW SIDEBAR (Left, 3 cols) ─── */}
                 <div className={clsx(
-                    "lg:col-span-3 flex flex-col gap-3 overflow-y-auto custom-scrollbar",
+                    "lg:col-span-3 flex flex-col gap-4 overflow-y-auto custom-scrollbar",
                     mobileTab !== 'intel' && "hidden lg:flex"
                 )}>
                     {/* Today's Summary */}
@@ -227,40 +286,45 @@ export default function DashboardPage() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.1 }}
-                        className="glass-card rounded-2xl p-6"
+                        className="glass-card rounded-2xl p-5"
                     >
                         <div className="flex items-center gap-2 mb-3">
-                            <Sparkles className="w-4 h-4 text-purple-400" />
-                            <span className="text-xs font-medium text-white/50 uppercase tracking-wider">Today&apos;s Summary</span>
+                            <div className="p-1.5 rounded-lg bg-violet-500/10">
+                                <Sparkles className="w-3.5 h-3.5 text-violet-400" />
+                            </div>
+                            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Today&apos;s Summary</span>
                         </div>
                         <p className="text-sm text-white/60 leading-relaxed">
                             {totalInteractions > 10 ? (
-                                <>Handled <span className="text-white font-medium font-mono">{totalInteractions}</span> interactions, saving you <span className="text-white font-medium font-mono">{stats.timeSaved.toFixed(1)} hours</span> of work.</>
+                                <>Handled <span className="text-white font-semibold font-mono">{totalInteractions}</span> interactions, saving you <span className="text-white font-semibold font-mono">{stats.timeSaved.toFixed(1)} hours</span> of work.</>
                             ) : (
-                                <span className="text-white/30 italic">Collecting data for your first summary...</span>
+                                <span className="text-white/25 italic">Collecting data for your first summary...</span>
                             )}
                         </p>
                     </motion.div>
 
                     {/* KPI Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {[
-                            { icon: Clock, label: 'Time Saved', value: stats.timeSaved, suffix: 'h', color: 'text-blue-400', bg: 'bg-blue-500/10', decimals: 1 },
-                            { icon: DollarSign, label: 'Revenue', value: stats.moneySaved, prefix: '$', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-                            { icon: MessageSquare, label: 'Replies', value: stats.repliesSent, color: 'text-purple-400', bg: 'bg-purple-500/10' },
-                            { icon: Package, label: 'In Stock', value: stats.stock, color: 'text-amber-400', bg: 'bg-amber-500/10' },
+                            { icon: Clock, label: 'Time Saved', value: stats.timeSaved, suffix: 'h', color: 'text-blue-400', bg: 'bg-blue-500/10', sparkColor: '#60A5FA', decimals: 1 },
+                            { icon: DollarSign, label: 'Revenue', value: stats.moneySaved, prefix: '$', color: 'text-emerald-400', bg: 'bg-emerald-500/10', sparkColor: '#34D399' },
+                            { icon: MessageSquare, label: 'Replies', value: stats.repliesSent, color: 'text-violet-400', bg: 'bg-violet-500/10', sparkColor: '#A78BFA' },
+                            { icon: Package, label: 'In Stock', value: stats.stock, color: 'text-amber-400', bg: 'bg-amber-500/10', sparkColor: '#FBBF24' },
                         ].map((metric, index) => (
                             <motion.div
                                 key={metric.label}
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.15 + (index * 0.05) }}
-                                className="glass-card rounded-xl p-4"
+                                className="metric-card rounded-xl p-4 cursor-default"
                             >
-                                <div className={clsx("p-1.5 rounded-lg w-fit mb-2.5", metric.bg)}>
-                                    <metric.icon className={clsx("w-3.5 h-3.5", metric.color)} />
+                                <div className="flex items-start justify-between mb-3">
+                                    <div className={clsx("p-1.5 rounded-lg", metric.bg)}>
+                                        <metric.icon className={clsx("w-3.5 h-3.5", metric.color)} />
+                                    </div>
+                                    <Sparkline data={sparkData} color={metric.sparkColor} />
                                 </div>
-                                <div className="text-xl font-bold text-white/90 leading-none mb-1 font-mono">
+                                <div className="text-xl font-bold text-white leading-none mb-1 font-mono tracking-tight">
                                     <CountUp
                                         end={metric.value}
                                         prefix={metric.prefix}
@@ -268,7 +332,13 @@ export default function DashboardPage() {
                                         decimals={metric.decimals ?? (metric.value % 1 !== 0 ? 1 : 0)}
                                     />
                                 </div>
-                                <div className="text-[11px] text-white/30 font-medium">{metric.label}</div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[11px] text-muted-foreground font-medium">{metric.label}</span>
+                                    <span className="text-[10px] text-emerald-400/60 font-medium flex items-center gap-0.5">
+                                        <ArrowUpRight className="w-2.5 h-2.5" />
+                                        live
+                                    </span>
+                                </div>
                             </motion.div>
                         ))}
                     </div>
@@ -278,34 +348,53 @@ export default function DashboardPage() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.4 }}
-                        className="glass-card rounded-2xl p-4"
+                        className="glass-card rounded-2xl p-5"
                     >
-                        <div className="flex items-center gap-2 mb-3">
-                            <Shield className="w-4 h-4 text-white/30" />
-                            <span className="text-xs font-medium text-white/40 uppercase tracking-wider">System Status</span>
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="p-1.5 rounded-lg bg-white/5">
+                                <Shield className="w-3.5 h-3.5 text-muted-foreground" />
+                            </div>
+                            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">System Status</span>
                         </div>
-                        <div className="space-y-2.5">
+                        <div className="space-y-3">
                             <div className="flex items-center justify-between">
-                                <span className="text-xs text-white/30">Mode</span>
+                                <span className="text-xs text-muted-foreground">Mode</span>
                                 <span className={clsx(
-                                    "text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full",
+                                    "badge",
                                     autopilot
-                                        ? "text-emerald-400 bg-emerald-500/10"
-                                        : "text-amber-400 bg-amber-500/10"
+                                        ? "bg-emerald-500/10 text-emerald-400"
+                                        : "bg-amber-500/10 text-amber-400"
                                 )}>
                                     {autopilot ? 'Autopilot' : 'Manual'}
                                 </span>
                             </div>
+                            <div className="w-full h-px bg-white/[0.04]" />
                             <div className="flex items-center justify-between">
-                                <span className="text-xs text-white/30">Status</span>
-                                <span className="text-[10px] font-medium text-emerald-400 flex items-center gap-1">
+                                <span className="text-xs text-muted-foreground">Status</span>
+                                <span className="badge-success flex items-center gap-1">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                                     Online
                                 </span>
                             </div>
+                            <div className="w-full h-px bg-white/[0.04]" />
                             <div className="flex items-center justify-between">
-                                <span className="text-xs text-white/30">Availability</span>
-                                <span className="text-[10px] text-white/50 font-mono">24/7</span>
+                                <span className="text-xs text-muted-foreground">Uptime</span>
+                                <span className="text-[11px] text-white/50 font-mono font-medium">24/7</span>
+                            </div>
+                            {/* Response rate bar */}
+                            <div className="pt-1">
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-[10px] text-muted-foreground">Response Rate</span>
+                                    <span className="text-[10px] text-white/60 font-mono">100%</span>
+                                </div>
+                                <div className="w-full h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
+                                    <motion.div
+                                        initial={{ width: '0%' }}
+                                        animate={{ width: '100%' }}
+                                        transition={{ duration: 1.5, ease: 'easeOut', delay: 0.5 }}
+                                        className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </motion.div>
@@ -323,24 +412,24 @@ export default function DashboardPage() {
                         className="flex-1 flex flex-col rounded-2xl glass-card overflow-hidden"
                     >
                         {/* Chat Header */}
-                        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/5 shrink-0">
+                        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06] shrink-0">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 rounded-xl bg-primary/10">
                                     <Zap className="w-4 h-4 text-primary" />
                                 </div>
                                 <div>
                                     <h3 className="text-sm font-semibold text-white">Agent Monitor</h3>
-                                    <p className="text-[11px] text-[#9CA3AF]">System Status: Online</p>
+                                    <p className="text-[11px] text-muted-foreground">System Status: Online</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
-                                <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-white/25 bg-white/[0.03] px-2.5 py-1 rounded-full">
+                                <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-white/25 bg-white/[0.03] px-2.5 py-1 rounded-full border border-white/[0.04]">
                                     <Instagram className="w-3 h-3" />
                                     Connected
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                                    <span className="text-[10px] font-medium text-emerald-400/80">Online</span>
+                                    <span className="text-[10px] font-semibold text-emerald-400/80">Online</span>
                                 </div>
                             </div>
                         </div>
@@ -364,12 +453,14 @@ export default function DashboardPage() {
                         className="flex-1 flex flex-col rounded-2xl glass-card overflow-hidden"
                     >
                         {/* Feed Header */}
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 shrink-0">
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] shrink-0">
                             <div className="flex items-center gap-2">
-                                <Activity className="w-4 h-4 text-white/30" />
-                                <span className="text-xs font-medium text-white/50">Activity</span>
+                                <div className="p-1 rounded-md bg-white/5">
+                                    <Activity className="w-3.5 h-3.5 text-muted-foreground" />
+                                </div>
+                                <span className="text-xs font-semibold text-white/60">Activity</span>
                                 {filteredActivities.length > 0 && (
-                                    <span className="text-[10px] bg-white/[0.04] text-white/25 px-1.5 py-0.5 rounded-full font-mono">
+                                    <span className="badge bg-white/[0.06] text-white/35 font-mono">
                                         {filteredActivities.length}
                                     </span>
                                 )}
@@ -378,7 +469,7 @@ export default function DashboardPage() {
                                 {filteredActivities.length > 0 && (
                                     <button
                                         onClick={() => setClearModalOpen(true)}
-                                        className="text-[10px] text-red-400/50 hover:text-red-400 px-2 py-0.5 rounded-md transition-all font-medium"
+                                        className="text-[10px] text-red-400/50 hover:text-red-400 px-2 py-0.5 rounded-md transition-all font-medium hover:bg-red-500/5 press"
                                     >
                                         Clear
                                     </button>
@@ -407,7 +498,7 @@ export default function DashboardPage() {
                                                 initial={i < 5 ? { opacity: 0, x: 10 } : false}
                                                 animate={{ opacity: 1, x: 0 }}
                                                 transition={{ delay: i < 5 ? i * 0.05 : 0 }}
-                                                className="flex items-start gap-2.5 p-2.5 rounded-xl hover:bg-white/[0.02] transition-colors group"
+                                                className="flex items-start gap-2.5 p-2.5 rounded-xl hover:bg-white/[0.03] transition-all group cursor-default"
                                             >
                                                 <div className={clsx(
                                                     "p-1.5 rounded-lg shrink-0 mt-0.5",
@@ -416,12 +507,15 @@ export default function DashboardPage() {
                                                     {getEventIcon(activity.event_type)}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-xs text-white/50 leading-relaxed line-clamp-2 group-hover:text-white/65 transition-colors">
+                                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                                        <EventBadge type={activity.event_type} />
+                                                        <span className="text-[10px] text-white/20 font-mono">
+                                                            {formatTime(activity.timestamp)}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-white/50 leading-relaxed line-clamp-2 group-hover:text-white/70 transition-colors">
                                                         {activity.description}
                                                     </p>
-                                                    <span className="text-[10px] text-white/15 font-mono mt-1 block">
-                                                        {formatTime(activity.timestamp)} ago
-                                                    </span>
                                                 </div>
 
                                                 {/* Send Action for Drafts */}
@@ -430,13 +524,13 @@ export default function DashboardPage() {
                                                         <button
                                                             onClick={() => handleApproveDraft(activity)}
                                                             disabled={sendingDrafts.includes(activity.id)}
-                                                            className="h-11 w-11 flex items-center justify-center rounded-full text-violet-500 hover:bg-violet-500/20 transition-all shrink-0 ml-2"
+                                                            className="h-9 w-9 flex items-center justify-center rounded-lg text-violet-400 hover:bg-violet-500/15 transition-all shrink-0 press"
                                                             title="Send Now"
                                                         >
                                                             {sendingDrafts.includes(activity.id) ? (
-                                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                                             ) : (
-                                                                <Send className="w-4 h-4" />
+                                                                <Send className="w-3.5 h-3.5" />
                                                             )}
                                                         </button>
                                                     )
@@ -457,7 +551,8 @@ export default function DashboardPage() {
                     <div className="lg:hidden fixed bottom-6 right-6 z-50">
                         <button
                             onClick={() => setMobileTab('command')}
-                            className="w-14 h-14 rounded-2xl bg-primary text-white shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                            className="w-14 h-14 rounded-2xl bg-primary text-white flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                            style={{ boxShadow: 'var(--shadow-glow), var(--shadow-lg)' }}
                         >
                             <MessageSquare className="w-6 h-6" />
                         </button>

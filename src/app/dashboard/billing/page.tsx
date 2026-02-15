@@ -174,7 +174,7 @@ export default function BillingPage() {
                                 "p-6 rounded-2xl border transition-all",
                                 plan.name === currentPlan
                                     ? "border-primary/30 bg-primary/5 shadow-lg"
-                                    : "border-white/10 bg-white/5 hover:bg-white/10"
+                                    : "border-white/[0.06] bg-white/5 hover:bg-white/10"
                             )}
                         >
                             {plan.name === currentPlan && (
@@ -245,7 +245,7 @@ export default function BillingPage() {
                                         <input
                                             type="text"
                                             placeholder="1234 5678 9012 3456"
-                                            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 focus:border-primary/50 outline-none"
+                                            className="input-premium w-full"
                                         />
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
@@ -254,7 +254,7 @@ export default function BillingPage() {
                                             <input
                                                 type="text"
                                                 placeholder="MM/YY"
-                                                className="w-full bg-white/5 border border-white/10 rounded-xl p-3 focus:border-primary/50 outline-none"
+                                                className="input-premium w-full"
                                             />
                                         </div>
                                         <div>
@@ -262,7 +262,7 @@ export default function BillingPage() {
                                             <input
                                                 type="text"
                                                 placeholder="123"
-                                                className="w-full bg-white/5 border border-white/10 rounded-xl p-3 focus:border-primary/50 outline-none"
+                                                className="input-premium w-full"
                                             />
                                         </div>
                                     </div>

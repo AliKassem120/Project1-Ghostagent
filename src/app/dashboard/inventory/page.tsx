@@ -181,7 +181,7 @@ export default function InventoryPage() {
                                 <label className="text-xs font-bold text-primary/60 uppercase">Product Name</label>
                                 <input
                                     autoFocus
-                                    className="bg-white/5 border border-white/10 rounded-xl w-full px-4 py-3 focus:outline-none focus:border-primary transition-colors text-lg"
+                                    className="input-premium w-full"
                                     placeholder="Enter name..."
                                     value={newProduct.name}
                                     onChange={e => setNewProduct({ ...newProduct, name: e.target.value })}
@@ -192,7 +192,7 @@ export default function InventoryPage() {
                                     <label className="text-xs font-bold text-primary/60 uppercase">Price (USD)</label>
                                     <input
                                         type="number"
-                                        className="bg-white/5 border border-white/10 rounded-xl w-full px-4 py-3 focus:outline-none focus:border-primary transition-colors text-lg"
+                                        className="input-premium w-full"
                                         placeholder="0.00"
                                         value={newProduct.price}
                                         onChange={e => setNewProduct({ ...newProduct, price: parseFloat(e.target.value) })}
@@ -202,7 +202,7 @@ export default function InventoryPage() {
                                     <label className="text-xs font-bold text-primary/60 uppercase">Stock</label>
                                     <input
                                         type="number"
-                                        className="bg-white/5 border border-white/10 rounded-xl w-full px-4 py-3 focus:outline-none focus:border-primary transition-colors text-lg"
+                                        className="input-premium w-full"
                                         placeholder="0"
                                         value={newProduct.stock}
                                         onChange={e => setNewProduct({ ...newProduct, stock: parseInt(e.target.value) })}
