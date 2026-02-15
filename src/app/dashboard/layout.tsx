@@ -19,6 +19,19 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     const pathname = usePathname();
     const router = useRouter();
     const { autopilot, setAutopilot } = useAutopilot();
+    const [userEmail, setUserEmail] = useState<string | null>(null);
+    const [isGoogleUser, setIsGoogleUser] = useState(false);
+
+    useEffect(() => {
+        const fetchUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                setUserEmail(user.email || null);
+                setIsGoogleUser(user.app_metadata?.provider === 'google');
+            }
+        };
+        fetchUser();
+    }, []);
 
     const navItems = [
         { icon: LayoutDashboard, label: 'Overview', href: '/dashboard' },
@@ -118,9 +131,26 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                     })}
                 </nav>
 
+                {/* User Profile */}
+                {userEmail && (
+                    <div className="mt-auto mb-2 px-3.5 py-3 rounded-xl bg-white/[0.02]">
+                        <div className="flex items-center gap-2 min-w-0">
+                            {isGoogleUser && (
+                                <svg className="w-3.5 h-3.5 text-white/30 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z" />
+                                </svg>
+                            )}
+                            <span className="text-[11px] text-white/30 truncate">{userEmail}</span>
+                        </div>
+                    </div>
+                )}
+
                 <button
                     onClick={handleLogout}
-                    className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-white/25 hover:text-red-400 hover:bg-red-500/[0.05] transition-colors mt-auto w-full text-left text-sm"
+                    className={clsx(
+                        "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-white/25 hover:text-red-400 hover:bg-red-500/[0.05] transition-colors w-full text-left text-sm",
+                        !userEmail && "mt-auto"
+                    )}
                 >
                     <LogOut className="w-[18px] h-[18px]" />
                     Sign Out
