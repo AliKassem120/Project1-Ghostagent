@@ -1,42 +1,79 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createClient } from '@/utils/supabase/client';
+import { useToast } from '@/contexts/ToastContext';
 
 interface AutopilotContextType {
     autopilot: boolean;
-    setAutopilot: (value: boolean) => void;
+    setAutopilot: (value: boolean) => Promise<void>;
+    isLoading: boolean;
 }
 
 const AutopilotContext = createContext<AutopilotContextType | undefined>(undefined);
 
 export function AutopilotProvider({ children }: { children: React.ReactNode }) {
-    // Initialize state from localStorage if available (client-side only)
-    const [autopilot, setAutopilotState] = useState(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('ghost_autopilot');
-            return saved !== null ? saved === 'true' : true;
-        }
-        return true;
-    });
-    const [mounted, setMounted] = useState(false);
+    const [autopilot, setAutopilotState] = useState(true); // Default robust fallback
+    const [isLoading, setIsLoading] = useState(true);
+    const supabase = createClient();
+    const toast = useToast();
 
-    // Mark as mounted after first render
+    // Fetch initial state
     useEffect(() => {
-        setMounted(true);
+        const fetchAutopilotStatus = async () => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) return;
+
+                const { data, error } = await supabase
+                    .from('bot_settings')
+                    .select('is_autopilot_enabled')
+                    .eq('user_id', user.id)
+                    .single();
+
+                if (data) {
+                    setAutopilotState(data.is_autopilot_enabled ?? true);
+                }
+            } catch (err) {
+                console.error('Failed to fetch autopilot status:', err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchAutopilotStatus();
     }, []);
 
-    const setAutopilot = useMemo(() => (value: boolean) => {
+    const setAutopilot = async (value: boolean) => {
+        // Optimistic update
+        const previousValue = autopilot;
         setAutopilotState(value);
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('ghost_autopilot', String(value));
-        }
-    }, []);
 
-    // Return null or a skeleton during hydration to prevent mismatch
-    if (!mounted) return null;
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('No user found');
+
+            const { error } = await supabase
+                .from('bot_settings')
+                .update({ is_autopilot_enabled: value })
+                .eq('user_id', user.id);
+
+            if (error) throw error;
+
+            toast.success(value ? "Autopilot Enabled" : "Autopilot Disabled", {
+                description: value
+                    ? "Replies are now sent automatically."
+                    : "Replies will now require manual approval."
+            });
+
+        } catch (err) {
+            console.error('Failed to update autopilot:', err);
+            setAutopilotState(previousValue); // Revert on error
+            toast.error("Failed to update autopilot status");
+        }
+    };
 
     return (
-        <AutopilotContext.Provider value={{ autopilot, setAutopilot }}>
+        <AutopilotContext.Provider value={{ autopilot, setAutopilot, isLoading }}>
             {children}
         </AutopilotContext.Provider>
     );

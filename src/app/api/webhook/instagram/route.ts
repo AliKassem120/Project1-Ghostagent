@@ -148,6 +148,32 @@ export async function POST(req: Request) {
                             continue;
                         }
 
+                        // CHECK AUTOPILOT STATUS
+                        const { data: settings } = await supabaseAdmin
+                            .from('bot_settings')
+                            .select('is_autopilot_enabled')
+                            .eq('user_id', ownerId)
+                            .single();
+
+                        const isAutopilot = settings?.is_autopilot_enabled ?? true; // Default to true if not found
+
+                        if (!isAutopilot) {
+                            console.log('🛑 AUTOPILOT OFF: Saving draft reply.');
+                            await supabaseAdmin.from('activity_log').insert({
+                                user_id: ownerId,
+                                event_type: 'DRAFT_REPLY',
+                                description: `Draft: "${aiResponse}"`,
+                                timestamp: new Date().toISOString(),
+                                metadata: {
+                                    chat_id: senderId,
+                                    platform: 'instagram',
+                                    status: 'pending_approval',
+                                    reply_text: aiResponse
+                                }
+                            });
+                            continue; // Skip sending
+                        }
+
                         console.log('🤖 AI Reply:', aiResponse);
 
                         // 4. Send the Reply

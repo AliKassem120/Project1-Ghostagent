@@ -18,7 +18,7 @@ import { DashboardProvider } from '@/contexts/DashboardContext';
 function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
     const pathname = usePathname();
     const router = useRouter();
-    const { autopilot, setAutopilot } = useAutopilot();
+    const { autopilot, setAutopilot, isLoading } = useAutopilot();
     const [userEmail, setUserEmail] = useState<string | null>(null);
     const [isGoogleUser, setIsGoogleUser] = useState(false);
 
@@ -92,9 +92,11 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                         </span>
                         <button
                             onClick={() => setAutopilot(!autopilot)}
+                            disabled={isLoading}
                             className={clsx(
                                 "relative w-10 rounded-full transition-all duration-300",
-                                autopilot ? "bg-primary" : "bg-white/10"
+                                autopilot ? "bg-primary" : "bg-white/10",
+                                isLoading && "opacity-50 cursor-not-allowed"
                             )}
                             style={{ height: '22px' }}
                         >
@@ -105,7 +107,7 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                         </button>
                     </div>
                     <p className="text-[10px] text-white/25">
-                        {autopilot ? "Auto-replying to DMs" : "Manual approval mode"}
+                        {isLoading ? "Syncing status..." : (autopilot ? "Replies are sent automatically." : "Manual approval mode active.")}
                     </p>
                 </div>
 

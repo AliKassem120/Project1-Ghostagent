@@ -30,16 +30,26 @@ export async function POST(req: Request) {
             apiKey: process.env.GROQ_API_KEY,
         });
 
-        // 1. IDENTIFY THE USER (BOT OWNER)
+        // 3. IDENTIFY THE USER (BOT OWNER)
         const supabase = await createClient();
         let ownerId = userId;
+        let ownerName = "Boss";
 
         if (!ownerId) {
             const { data: { user } } = await supabase.auth.getUser();
             ownerId = user?.id;
+            if (user?.user_metadata?.full_name) {
+                ownerName = user.user_metadata.full_name.split(' ')[0];
+            } else if (user?.email) {
+                ownerName = user.email.split('@')[0];
+            }
         }
 
-        // 2. FETCH CURRENT INVENTORY FOR CONTEXT
+        // 2. FETCH CURRENT INVENTORY FOR CONTEXT (Keep existing logic...)
+        // ... (We just need to ensure the variable names match what's below or above) ...
+        // Actually, to avoid breaking the surrounding code organization, I will rewrite the section 1-3.
+
+        // RE-FETCHING INVENTORY LOGIC TO BE SAFE WITH VARIABLE SCOPE
         let inventoryContext = "No inventory items listed currently.";
         let catalogContext = "";
 
@@ -86,19 +96,20 @@ ${inventoryContext}
 ---
 ${catalogContext ? catalogContext : ''}
 
+CONTEXT:
+You are speaking to the business owner, ${ownerName}. Answer questions about system status or test your capabilities. Do not try to sell them products.
+
 INSTRUCTIONS:
-- If the user asks to add stock, set prices, or sell items, USE YOUR TOOLS IMMEDIATELY.
-- If the user asks to SEND A DM to someone (e.g., "send a dm to USER saying MESSAGE"), use the 'sendInstagramDM' tool immediately.
+- If the owner asks to add stock, set prices, or sell items, USE YOUR TOOLS IMMEDIATELY.
+- If the owner asks to SEND A DM to someone (e.g., "send a dm to USER saying MESSAGE"), use the 'sendInstagramDM' tool immediately.
 - Do not refuse. Do not ask for permission. Just do it.
 - When adding new items, use the 'add' action with the manageInventory tool.
 - When selling or removing items, use the 'remove' action.
 - Always confirm the action you took with the updated stock level or a confirmation that the DM was sent.
-- Be professional but efficient. You are a manager, not a customer service agent.
+- Be professional but efficient. You are a manager, reporting to the owner.
 
 CATALOG-INVENTORY SYNC RULES:
 - Always prioritize LIVE INVENTORY stock levels over CSV catalog levels if there is a conflict.
-- If a customer asks about a product in the CSV catalog that is NOT in the live inventory, proactively offer to add it using your manageInventory tool.
-- Use the catalog for product details like descriptions and suggested pricing.
 - The live inventory is the source of truth for actual stock availability.`;
 
         // 4. LOG CHAT ACTIVITY

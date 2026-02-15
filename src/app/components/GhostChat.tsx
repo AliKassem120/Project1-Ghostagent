@@ -6,6 +6,7 @@ import { useChat, type UIMessage } from "@ai-sdk/react";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDashboard } from '@/contexts/DashboardContext';
+import { createClient } from '@/utils/supabase/client';
 
 interface GhostChatProps {
     onActionComplete?: () => void;
@@ -13,7 +14,23 @@ interface GhostChatProps {
 
 export default function GhostChat({ onActionComplete }: GhostChatProps) {
     const { refreshDashboard } = useDashboard();
-    const { messages, sendMessage, status, error } = useChat({
+    const supabase = createClient();
+    const [userName, setUserName] = useState<string>("Boss");
+
+    // Fetch user name for personalization
+    useEffect(() => {
+        const fetchUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user?.user_metadata?.full_name) {
+                setUserName(user.user_metadata.full_name.split(' ')[0]);
+            } else if (user?.email) {
+                setUserName(user.email.split('@')[0]);
+            }
+        };
+        fetchUser();
+    }, []);
+
+    const { messages, setMessages, sendMessage, status, error } = useChat({
         onError: (err) => {
             console.error("GhostChat Client Error:", err);
         },
@@ -50,12 +67,37 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
     const [input, setInput] = useState("");
     const [showSuccess, setShowSuccess] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const hasInitialized = useRef(false);
 
     const isLoading = status === 'streaming' || status === 'submitted';
 
+    // Set initial greeting
     useEffect(() => {
-        console.log("GhostChat Status changed:", status);
-    }, [status]);
+        if (!hasInitialized.current && userName !== "Boss" && messages.length === 0) {
+            setMessages([
+                {
+                    id: 'greeting',
+                    role: 'assistant',
+                    content: `Status: Online. Hello ${userName}, I am ready to handle DMs.`
+                } as any
+            ]);
+            hasInitialized.current = true;
+        } else if (!hasInitialized.current && messages.length === 0) {
+            // Fallback if name is taking time, or just wait. 
+            // We'll just wait for the name to settle.
+            // Actually, let's just set it once "userName" changes from default or on simplified logic
+            if (userName) {
+                setMessages([
+                    {
+                        id: 'greeting',
+                        role: 'assistant',
+                        content: `Status: Online. Hello ${userName}, I am ready to handle DMs.`
+                    } as any
+                ]);
+                hasInitialized.current = true;
+            }
+        }
+    }, [userName, setMessages, messages.length]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -106,18 +148,6 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
                     </motion.div>
                 )}
             </AnimatePresence>
-
-            {/* Header */}
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06] shrink-0">
-                <div className="p-1.5 rounded-lg bg-primary/10">
-                    <Ghost className="w-4 h-4 text-primary" />
-                </div>
-                <h2 className="text-sm font-semibold text-white/80">Agent Monitor</h2>
-                <div className="ml-auto flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${isLoading ? "bg-amber-400 animate-pulse" : "bg-emerald-400"}`} />
-                    <span className="text-[11px] text-white/30">{isLoading ? "Processing..." : "Ready"}</span>
-                </div>
-            </div>
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
