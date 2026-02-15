@@ -9,6 +9,7 @@ import VideoModal from '@/components/VideoModal';
 import Link from 'next/link';
 import { ArrowRight, Bot, MessageCircle, BarChart3, ShoppingBag } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
 
 export default function Home() {
   const [showVideo, setShowVideo] = useState(false);
@@ -20,7 +21,7 @@ export default function Home() {
   return (
     <main className="min-h-screen text-white overflow-hidden relative selection:bg-primary/30">
       {/* Cyberpunk Grid Background */}
-      <div className="fixed inset-0 bg-black">
+      <div className="fixed inset-0 bg-background">
         <div
           className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"
           style={{ maskImage: 'radial-gradient(ellipse 60% 50% at 50% 0%, #000 70%, transparent 100%)' }}
@@ -267,12 +268,8 @@ export default function Home() {
 
       {/* Footer */}
       {/* Footer */}
-      <footer id="contact" className="py-12 border-t border-white/5 text-center text-white/40 text-sm bg-black">
-        <div className="flex items-center justify-center gap-2 mb-4 opacity-50">
-          <GhostLogo className="w-6 h-6 grayscale" /> GhostAgent &copy; 2024
-        </div>
-        <p>Built for the next generation of commerce.</p>
-      </footer>
+      {/* Footer */}
+      <Footer />
 
       <VideoModal isOpen={showVideo} onClose={() => setShowVideo(false)} />
 

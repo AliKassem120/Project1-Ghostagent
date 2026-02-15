@@ -1,331 +1,54 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import Footer from '@/components/Footer';
 import Navbar from '@/components/Navbar';
 import GhostLogo from '@/components/GhostLogo';
-import { Ghost, Eye, Shield, User } from 'lucide-react';
 
-export default function AboutPage() {
-    const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-    const { scrollYProgress } = useScroll();
-
-    // Parallax effects
-    const yHero = useTransform(scrollYProgress, [0, 0.5], [0, 200]);
-    const opacityHero = useTransform(scrollYProgress, [0, 0.3], [1, 0]);
-
-    useEffect(() => {
-        window.scrollTo(0, 0);
-
-        // Mouse tracking
-        const handleMouseMove = (e: MouseEvent) => {
-            setMousePosition({
-                x: (e.clientX / window.innerWidth - 0.5) * 20,
-                y: (e.clientY / window.innerHeight - 0.5) * 20,
-            });
-        };
-
-        window.addEventListener('mousemove', handleMouseMove);
-        return () => window.removeEventListener('mousemove', handleMouseMove);
-    }, []);
-
+export default function AboutUs() {
     return (
-        <main className="min-h-screen bg-black text-white overflow-hidden relative">
-            {/* Scanline Overlay Effect */}
-            <div className="fixed inset-0 pointer-events-none z-50 opacity-10">
-                <motion.div
-                    className="h-1 w-full bg-gradient-to-r from-transparent via-cyan-400 to-transparent"
-                    animate={{ y: ['0%', '100vh'] }}
-                    transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-                />
-            </div>
-
-            {/* Dark Background Gradient with Mouse Tracking */}
-            <motion.div
-                className="fixed inset-0 bg-gradient-to-br from-black via-purple-950/20 to-black -z-10"
-                style={{
-                    backgroundPosition: `${mousePosition.x}px ${mousePosition.y}px`,
-                }}
-            />
-
+        <main className="min-h-screen bg-background text-foreground">
             <Navbar />
+            <div className="max-w-4xl mx-auto px-6 py-32 space-y-24">
 
-            {/* HERO SECTION with Parallax */}
-            <motion.section
-                className="relative min-h-screen flex items-center justify-center px-6 pt-32"
-                style={{ y: yHero, opacity: opacityHero }}
-            >
-                <div className="max-w-5xl mx-auto text-center">
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.8 }}
-                    >
-                        {/* Glitch Headline */}
-                        <h1 className="text-6xl md:text-9xl font-black tracking-tighter mb-8 relative">
-                            <span className="relative z-10 text-white">WE OPERATE IN THE SHADOWS</span>
-                            {/* Red Glitch Layer */}
-                            <motion.span
-                                className="absolute inset-0 text-red-500/60 z-0 select-none"
-                                animate={{ x: [-3, 3, -3], opacity: [0.6, 0.3, 0.6] }}
-                                transition={{ duration: 0.15, repeat: Infinity, repeatDelay: 4 }}
-                            >
-                                WE OPERATE IN THE SHADOWS
-                            </motion.span>
-                            {/* Blue Glitch Layer */}
-                            <motion.span
-                                className="absolute inset-0 text-cyan-500/60 z-0 select-none"
-                                animate={{ x: [3, -3, 3], opacity: [0.6, 0.3, 0.6] }}
-                                transition={{ duration: 0.15, repeat: Infinity, repeatDelay: 4 }}
-                            >
-                                WE OPERATE IN THE SHADOWS
-                            </motion.span>
-                        </h1>
-
-                        {/* Glowing Subtext */}
-                        <p className="text-xl md:text-2xl text-cyan-400 drop-shadow-[0_0_15px_rgba(34,211,238,0.5)] max-w-3xl mx-auto leading-relaxed">
-                            The internet never sleeps. Neither should your business. We are the invisible workforce building the future of automated commerce.
-                        </p>
-                    </motion.div>
+                {/* Hero */}
+                <div className="space-y-8 text-center">
+                    <div className="flex justify-center mb-8">
+                        <div className="p-4 bg-primary/10 rounded-full">
+                            <GhostLogo className="w-16 h-16 text-primary" />
+                        </div>
+                    </div>
+                    <h1 className="text-4xl md:text-6xl font-black tracking-tight text-white leading-tight">
+                        Automating Customer Service for the <span className="text-primary">Modern Business</span>.
+                    </h1>
+                    <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+                        GhostAgent is the AI-powered sidekick that handles your Instagram DMs, so you can focus on building your empire.
+                    </p>
                 </div>
-            </motion.section>
 
-            {/* THE ORIGIN CODE with Mouse Tracking */}
-            <section className="relative py-32 px-6">
-                <div className="max-w-7xl mx-auto">
-                    <div className="grid md:grid-cols-2 gap-12 items-center">
-                        {/* Left: Text */}
-                        <motion.div
-                            initial={{ opacity: 0, x: -30 }}
-                            whileInView={{ opacity: 1, x: 0 }}
-                            viewport={{ once: true }}
-                            transition={{ duration: 0.8 }}
-                        >
-                            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-purple-400 drop-shadow-[0_0_20px_rgba(168,85,247,0.4)]">
-                                THE ORIGIN CODE
-                            </h2>
-                            <p className="text-gray-300 text-lg leading-relaxed">
-                                GhostAgent was born from a simple realization: human potential is wasted on repetition.
-                                While you sleep, opportunities vanish. We built the Ghost Protocol to decouple time from revenue.
-                                Our AI agents don't just answer questions; they understand intent, manage inventory, and close deals
-                                while the world rests. We are not just a tool. <span className="text-purple-400 font-semibold">We are your digital phantom.</span>
+                {/* Story */}
+                <div className="grid md:grid-cols-2 gap-12 items-center">
+                    <div className="space-y-6">
+                        <h2 className="text-3xl font-bold text-white">Our Mission</h2>
+                        <div className="prose prose-invert text-muted-foreground space-y-6">
+                            <p>
+                                We built GhostAgent because we saw small business owners drowning in DMs.
+                                Trying to reply to every customer while managing inventory and shipping orders is impossible to do alone.
                             </p>
-                        </motion.div>
-
-                        {/* Right: Tesseract Animation */}
-                        <motion.div
-                            initial={{ opacity: 0, x: 30 }}
-                            whileInView={{ opacity: 1, x: 0 }}
-                            viewport={{ once: true }}
-                            transition={{ duration: 0.8 }}
-                            className="flex items-center justify-center"
-                        >
-                            <motion.div
-                                className="relative w-64 h-64"
-                                style={{
-                                    rotateY: mousePosition.x * 0.5,
-                                    rotateX: -mousePosition.y * 0.5,
-                                }}
-                            >
-                                {/* Tesseract Structure */}
-                                <motion.div
-                                    animate={{ rotate: 360 }}
-                                    transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-                                    className="relative w-full h-full"
-                                >
-                                    {/* Outer pulsing ring */}
-                                    <div className="absolute inset-0 border-2 border-purple-500/30 rounded-full animate-pulse shadow-[0_0_30px_rgba(168,85,247,0.3)]" />
-
-                                    {/* Rotated inner square */}
-                                    <div className="absolute inset-4 border border-cyan-400/20 rotate-45" />
-
-                                    {/* Middle ring */}
-                                    <div className="absolute inset-8 border border-purple-500/50 rounded-full" />
-
-                                    {/* Additional geometric layers */}
-                                    <div className="absolute inset-12 border border-cyan-400/30 rotate-[22.5deg]" />
-                                    <div className="absolute inset-16 border border-purple-400/40 rounded-full animate-pulse" />
-
-                                    {/* Glowing Core */}
-                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-purple-500/10 blur-xl rounded-full" />
-
-                                    {/* Inner bright core */}
-                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-cyan-400/30 blur-md rounded-full animate-pulse" />
-                                </motion.div>
-                            </motion.div>
-                        </motion.div>
+                            <p>
+                                Traditional chatbots are clunky and robotic. We wanted to build something different—an AI that feels human, understands your brand voice, and actually helps you sell.
+                            </p>
+                            <p>
+                                Today, GhostAgent processes thousands of conversations daily, helping merchants reclaim their time and capture sales they would have otherwise missed.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="relative h-80 rounded-3xl bg-card border border-white/5 overflow-hidden flex items-center justify-center">
+                        {/* Abstract Visual */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-transparent opacity-50" />
+                        <div className="text-8xl font-black text-white/5 select-none">GHOST</div>
                     </div>
                 </div>
-            </section>
 
-            {/* THREE PILLARS */}
-            <section className="relative py-32 px-6 border-t border-white/5">
-                <div className="max-w-7xl mx-auto">
-                    <motion.h2
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        className="text-4xl md:text-5xl font-bold text-center mb-16 text-white"
-                    >
-                        OUR THREE PILLARS
-                    </motion.h2>
-
-                    <div className="grid md:grid-cols-3 gap-8">
-                        {/* Card 1: The Phantom */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 30 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true }}
-                            transition={{ delay: 0 }}
-                            whileHover={{ scale: 1.05, rotateY: 5 }}
-                            className="p-8 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 hover:border-purple-500/50 transition-all group"
-                        >
-                            <div className="w-16 h-16 rounded-xl bg-purple-500/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                                <Ghost className="w-8 h-8 text-purple-400" />
-                            </div>
-                            <h3 className="text-2xl font-bold mb-4 text-white">Invisible Integration</h3>
-                            <p className="text-gray-400 leading-relaxed">
-                                Your customers will never know it's AI. Seamless, natural, and always on brand.
-                            </p>
-                        </motion.div>
-
-                        {/* Card 2: The Vigil */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 30 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true }}
-                            transition={{ delay: 0.1 }}
-                            whileHover={{ scale: 1.05, rotateY: 5 }}
-                            className="p-8 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 hover:border-cyan-500/50 transition-all group"
-                        >
-                            <div className="w-16 h-16 rounded-xl bg-cyan-500/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                                <Eye className="w-8 h-8 text-cyan-400" />
-                            </div>
-                            <h3 className="text-2xl font-bold mb-4 text-white">24/7 Uptime</h3>
-                            <p className="text-gray-400 leading-relaxed">
-                                No breaks, no sleep, no missed DMs. We capture every lead at any hour.
-                            </p>
-                        </motion.div>
-
-                        {/* Card 3: The Shield */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 30 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true }}
-                            transition={{ delay: 0.2 }}
-                            whileHover={{ scale: 1.05, rotateY: 5 }}
-                            className="p-8 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 hover:border-green-500/50 transition-all group"
-                        >
-                            <div className="w-16 h-16 rounded-xl bg-green-500/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                                <Shield className="w-8 h-8 text-green-400" />
-                            </div>
-                            <h3 className="text-2xl font-bold mb-4 text-white">Grade-A Security</h3>
-                            <p className="text-gray-400 leading-relaxed">
-                                Encryption-grade handling of your data, inventory, and sales interactions.
-                            </p>
-                        </motion.div>
-                    </div>
-                </div>
-            </section>
-
-            {/* THE OPERATORS */}
-            <section className="relative py-32 px-6 border-t border-white/5">
-                <div className="max-w-7xl mx-auto">
-                    <motion.h2
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        className="text-4xl md:text-5xl font-bold text-center mb-16 text-white"
-                    >
-                        THE OPERATORS
-                    </motion.h2>
-
-                    <div className="grid md:grid-cols-3 gap-12 max-w-4xl mx-auto">
-                        {/* Operator 1: Lead Architect */}
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            whileInView={{ opacity: 1, scale: 1 }}
-                            viewport={{ once: true }}
-                            transition={{ delay: 0 }}
-                            whileHover={{ scale: 1.1, rotate: 5 }}
-                            className="text-center"
-                        >
-                            {/* Glitch Avatar */}
-                            <div className="relative w-32 h-32 mx-auto mb-6">
-                                <div className="absolute inset-0 rounded-full border-4 border-purple-500/50 shadow-[0_0_30px_rgba(168,85,247,0.6)]" />
-                                <div className="absolute inset-2 rounded-full bg-gradient-to-br from-purple-600/20 to-cyan-600/20 backdrop-blur-sm flex items-center justify-center">
-                                    <motion.div
-                                        animate={{ opacity: [1, 0.5, 1] }}
-                                        transition={{ duration: 0.3, repeat: Infinity, repeatDelay: 4 }}
-                                    >
-                                        <User className="w-12 h-12 text-purple-400" />
-                                    </motion.div>
-                                </div>
-                            </div>
-                            <h3 className="text-xl font-bold text-white mb-2">Lead Architect</h3>
-                            <p className="text-cyan-400 text-sm font-mono">(You)</p>
-                        </motion.div>
-
-                        {/* Operator 2: Neural Core */}
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            whileInView={{ opacity: 1, scale: 1 }}
-                            viewport={{ once: true }}
-                            transition={{ delay: 0.1 }}
-                            whileHover={{ scale: 1.1, rotate: 5 }}
-                            className="text-center"
-                        >
-                            {/* Glitch Avatar */}
-                            <div className="relative w-32 h-32 mx-auto mb-6">
-                                <div className="absolute inset-0 rounded-full border-4 border-cyan-500/50 shadow-[0_0_30px_rgba(34,211,238,0.6)]" />
-                                <div className="absolute inset-2 rounded-full bg-gradient-to-br from-cyan-600/20 to-purple-600/20 backdrop-blur-sm flex items-center justify-center">
-                                    <motion.div
-                                        animate={{ opacity: [1, 0.5, 1] }}
-                                        transition={{ duration: 0.3, repeat: Infinity, repeatDelay: 4.5 }}
-                                    >
-                                        <GhostLogo className="w-12 h-12 text-cyan-400" />
-                                    </motion.div>
-                                </div>
-                            </div>
-                            <h3 className="text-xl font-bold text-white mb-2">Neural Core</h3>
-                            <p className="text-cyan-400 text-sm font-mono">AI Model 1.5 Flash</p>
-                        </motion.div>
-
-                        {/* Operator 3: The Network */}
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            whileInView={{ opacity: 1, scale: 1 }}
-                            viewport={{ once: true }}
-                            transition={{ delay: 0.2 }}
-                            whileHover={{ scale: 1.1, rotate: 5 }}
-                            className="text-center"
-                        >
-                            {/* Glitch Avatar */}
-                            <div className="relative w-32 h-32 mx-auto mb-6">
-                                <div className="absolute inset-0 rounded-full border-4 border-green-500/50 shadow-[0_0_30px_rgba(34,197,94,0.6)]" />
-                                <div className="absolute inset-2 rounded-full bg-gradient-to-br from-green-600/20 to-cyan-600/20 backdrop-blur-sm flex items-center justify-center">
-                                    <motion.div
-                                        animate={{ opacity: [1, 0.5, 1], rotate: [0, 180, 360] }}
-                                        transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-                                    >
-                                        <div className="w-12 h-12 border-2 border-green-400 rounded-full" />
-                                    </motion.div>
-                                </div>
-                            </div>
-                            <h3 className="text-xl font-bold text-white mb-2">The Network</h3>
-                            <p className="text-cyan-400 text-sm font-mono">Global Operations Infrastructure</p>
-                        </motion.div>
-                    </div>
-                </div>
-            </section>
-
-            {/* FOOTER */}
-            <footer className="py-12 border-t border-white/5 text-center text-white/40 text-sm bg-black">
-                <div className="flex items-center justify-center gap-2 mb-4 opacity-50">
-                    <GhostLogo className="w-6 h-6 grayscale" /> GhostAgent &copy; 2024
-                </div>
-                <p>Built for the next generation of commerce.</p>
-            </footer>
+            </div>
+            <Footer />
         </main>
     );
 }
