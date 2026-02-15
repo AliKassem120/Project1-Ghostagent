@@ -91,7 +91,7 @@ export default function BillingPage() {
             </div>
 
             {/* Current Plan Card */}
-            <div className="bg-[#12131A] p-8 rounded-2xl shadow-lg">
+            <div className="glass-card p-8 rounded-2xl">
                 <div className="flex items-start justify-between mb-6">
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-primary/20 rounded-xl">
@@ -142,7 +142,7 @@ export default function BillingPage() {
             </div>
 
             {/* Usage Stats */}
-            <div className="bg-[#12131A] p-8 rounded-2xl shadow-lg">
+            <div className="glass-card p-8 rounded-2xl">
                 <h3 className="text-xl font-bold mb-6">This Month's Usage</h3>
                 <div className="grid md:grid-cols-3 gap-6">
                     <div>

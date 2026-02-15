@@ -157,7 +157,7 @@ export default function DashboardPage() {
             {/* ═══════════════════════════════════════════════════ */}
             {/* MOBILE TAB SELECTOR                                 */}
             {/* ═══════════════════════════════════════════════════ */}
-            <div className="lg:hidden flex items-center gap-1 mb-4 bg-[#12131A] rounded-xl p-1">
+            <div className="lg:hidden flex items-center gap-1 mb-4 glass-card rounded-xl p-1">
                 {[
                     { key: 'command' as const, label: 'Monitor', icon: MessageSquare },
                     { key: 'intel' as const, label: 'Overview', icon: BarChart3 },
@@ -194,7 +194,7 @@ export default function DashboardPage() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.1 }}
-                        className="bg-[#12131A] rounded-2xl p-5 shadow-lg"
+                        className="glass-card rounded-2xl p-5"
                     >
                         <div className="flex items-center gap-2 mb-3">
                             <Sparkles className="w-4 h-4 text-purple-400" />
@@ -222,7 +222,7 @@ export default function DashboardPage() {
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.15 + (index * 0.05) }}
-                                className="bg-[#12131A] rounded-xl p-4 shadow-lg hover:bg-[#15161F] transition-colors"
+                                className="glass-card rounded-xl p-4"
                             >
                                 <div className={clsx("p-1.5 rounded-lg w-fit mb-2.5", metric.bg)}>
                                     <metric.icon className={clsx("w-3.5 h-3.5", metric.color)} />
@@ -245,7 +245,7 @@ export default function DashboardPage() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.4 }}
-                        className="bg-[#12131A] rounded-2xl p-4 shadow-lg"
+                        className="glass-card rounded-2xl p-4"
                     >
                         <div className="flex items-center gap-2 mb-3">
                             <Shield className="w-4 h-4 text-white/30" />
@@ -287,7 +287,7 @@ export default function DashboardPage() {
                         initial={{ opacity: 0, scale: 0.99 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: 0.15, duration: 0.3 }}
-                        className="flex-1 flex flex-col rounded-2xl bg-[#12131A] shadow-lg overflow-hidden"
+                        className="flex-1 flex flex-col rounded-2xl glass-card overflow-hidden"
                     >
                         {/* Chat Header */}
                         <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06] shrink-0">
@@ -328,7 +328,7 @@ export default function DashboardPage() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.25 }}
-                        className="flex-1 flex flex-col rounded-2xl bg-[#12131A] shadow-lg overflow-hidden"
+                        className="flex-1 flex flex-col rounded-2xl glass-card overflow-hidden"
                     >
                         {/* Feed Header */}
                         <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] shrink-0">
