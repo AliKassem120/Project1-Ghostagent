@@ -167,7 +167,7 @@ function DashboardContent({ children, toggleSidebar }: { children: React.ReactNo
         <div className="flex-1 flex flex-col min-w-0">
             {/* Mobile Header */}
             <header className="lg:hidden h-14 border-b border-[#1e2530] bg-[#0d1017] fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4">
-                <button onClick={toggleSidebar} className="p-2 text-white/40 hover:text-white">
+                <button onClick={toggleSidebar} className="p-3 text-white/40 hover:text-white">
                     <Menu className="w-5 h-5" />
                 </button>
                 <div className="flex items-center gap-2">

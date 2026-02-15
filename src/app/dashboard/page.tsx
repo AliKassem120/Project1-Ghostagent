@@ -243,7 +243,7 @@ export default function DashboardPage() {
                     </motion.div>
 
                     {/* KPI Grid */}
-                    <div className="grid grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         {[
                             { icon: Clock, label: 'Time Saved', value: stats.timeSaved, suffix: 'h', color: 'text-blue-400', bg: 'bg-blue-500/10', decimals: 1 },
                             { icon: DollarSign, label: 'Revenue', value: stats.moneySaved, prefix: '$', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
@@ -430,7 +430,7 @@ export default function DashboardPage() {
                                                         <button
                                                             onClick={() => handleApproveDraft(activity)}
                                                             disabled={sendingDrafts.includes(activity.id)}
-                                                            className="p-2 rounded-full text-purple-500 hover:bg-purple-500/20 transition-all shrink-0 ml-2"
+                                                            className="h-11 w-11 flex items-center justify-center rounded-full text-purple-500 hover:bg-purple-500/20 transition-all shrink-0 ml-2"
                                                             title="Send Now"
                                                         >
                                                             {sendingDrafts.includes(activity.id) ? (
