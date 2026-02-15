@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Edit2, Share, Loader2, MessageCircle, User, Instagram, Search, Send, Sparkles, Ghost, Menu, ArrowLeft, PlayCircle, PauseCircle, Phone, Bot } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
@@ -44,6 +44,12 @@ export default function InteractionsPage() {
     const [draftSending, setDraftSending] = useState<string | null>(null); // Track which draft is being sent
     const [fetchedProfiles, setFetchedProfiles] = useState<Record<string, string>>({}); // Cache for fetched names
     const supabase = createClient();
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // Auto-scroll to bottom when messages change or chat opens
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [selectedChatId, logs]); // Logs change when new messages arrive
 
     const fetchLogs = async () => {
         const { data: { user } } = await supabase.auth.getUser();
@@ -585,6 +591,7 @@ export default function InteractionsPage() {
                                     </motion.div>
                                 ))}
                             </AnimatePresence>
+                            <div ref={messagesEndRef}></div>
                         </div>
 
                         {/* Footer - Send Input */}

@@ -28,6 +28,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         const initializeAuth = async () => {
             try {
+                // Check if we are returning from OAuth (Google sends tokens in hash)
+                if (typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
+                    console.log('OAuth return detected, waiting for session...');
+                    return; // Keep loading=true, let onAuthStateChange handle the redirect
+                }
+
                 // Check active session
                 const { data: { session } } = await supabase.auth.getSession();
                 setUser(session?.user ?? null);
@@ -40,7 +46,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } catch (error) {
                 console.error('Auth initialization error:', error);
             } finally {
-                setLoading(false);
+                // Only stop loading if we didn't detect an OAuth hash
+                if (typeof window === 'undefined' || !window.location.hash.includes('access_token')) {
+                    setLoading(false);
+                }
             }
         };
 
