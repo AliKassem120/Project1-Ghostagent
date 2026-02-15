@@ -39,21 +39,31 @@ export async function generateGhostReply(
         }
 
         // History Fetch (Goldfish Fix)
+        let relevantHistory: any[] = [];
+        let hasGreetedRecently = false;
+
         if (chatId) {
+            // Improved Query: Filter by chat_id directly in DB to get relevant history
             const { data: history } = await supabase
                 .from('activity_log')
-                .select('description, event_type, metadata')
+                .select('description, event_type, metadata, timestamp')
                 .eq('user_id', userId)
+                .filter('metadata->>chat_id', 'eq', chatId)
                 .order('timestamp', { ascending: false })
                 .limit(10);
 
-            // Filter in memory for simplicity or use specific metadata check if indexed
-            // Since activity_log mixes all chats, we must filter. 
-            // Note: In production, adding an index on metadata->>chat_id is recommended.
-            const relevantHistory = history?.filter((h: any) => h.metadata?.chat_id === chatId).reverse() || [];
+            relevantHistory = history?.reverse() || [];
+
+            // Check for recent greetings (Last 3 messages from bot)
+            const recentBotMessages = relevantHistory.filter((h: any) => h.event_type === 'AI_REPLY').slice(-3);
+            hasGreetedRecently = recentBotMessages.some((h: any) =>
+                h.description.toLowerCase().includes('welcome') ||
+                h.description.toLowerCase().includes('how can i help') ||
+                h.description.toLowerCase().includes('store manager')
+            );
 
             historyContext = relevantHistory.map((h: any) => {
-                const role = h.event_type === 'AI_REPLY' ? 'AI' : (h.event_type === 'MANUAL_REPLY' ? 'OWNER' : 'CUSTOMER');
+                const role = h.event_type === 'AI_REPLY' ? 'AI' : (h.event_type === 'MANUAL_REPLY' ? 'Owner' : 'User');
                 // Clean description
                 let content = h.description;
                 if (content.includes('Sent:')) content = content.split('Sent:')[1];
@@ -109,6 +119,8 @@ ${urgencyPrompt}
 GOAL: Answer questions about stock, price, and availability.
 Refuse to sell items that are out of stock.
 Keep responses short (under 500 chars) as this is Instagram DM.
+
+${hasGreetedRecently ? "CRITICAL: The user has already been greeted recently. DO NOT repeat your welcome message. Be casual (e.g. 'Hey again') and get straight to the point." : ""}
 `;
 
         // 3. GENERATE WITH GROQ (AI SDK)

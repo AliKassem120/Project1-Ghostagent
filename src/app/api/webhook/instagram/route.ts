@@ -113,18 +113,8 @@ export async function POST(req: Request) {
                         }
 
                         // Fetch Sender Profile Name
-                        const pageToken = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
-                        let senderName = "User";
-
-                        if (pageToken) {
-                            try {
-                                const profileRes = await fetch(`https://graph.facebook.com/v21.0/${senderId}?fields=name,username&access_token=${pageToken}`);
-                                const profileData = await profileRes.json();
-                                senderName = profileData.name || profileData.username || "User";
-                            } catch (e) {
-                                console.error("Profile fetch error:", e);
-                            }
-                        }
+                        const userProfileName = await fetchUserProfile(senderId);
+                        const senderName = userProfileName || `User ${senderId.slice(-4)}`;
 
                         // 🛑 LOG INCOMING MESSAGE
                         await supabaseAdmin.from('activity_log').insert({
@@ -132,7 +122,12 @@ export async function POST(req: Request) {
                             event_type: 'INCOMING_MESSAGE',
                             description: `${senderName}: "${messageText}"`,
                             timestamp: new Date().toISOString(),
-                            metadata: { chat_id: senderId, platform: 'instagram' }
+                            metadata: {
+                                chat_id: senderId,
+                                platform: 'instagram',
+                                username: senderName, // Save explicitly for UI
+                                sender: { attendee_name: senderName } // Robust path
+                            }
                         });
 
                         // 3. AI Processing
@@ -207,6 +202,22 @@ export async function POST(req: Request) {
     } catch (error) {
         console.error("❌ POST Error:", error);
         return new NextResponse("Internal Server Error", { status: 500 });
+    }
+}
+
+// Helper to get Instagram User Profile
+async function fetchUserProfile(senderId: string) {
+    const token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
+    if (!token) return null;
+
+    try {
+        const url = `https://graph.facebook.com/v21.0/${senderId}?fields=name,username&access_token=${token}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        return data.name || data.username || null;
+    } catch (e) {
+        console.error('Failed to fetch profile:', e);
+        return null;
     }
 }
 
