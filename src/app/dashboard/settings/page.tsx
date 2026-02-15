@@ -294,7 +294,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Business Identity */}
-            <div className="glass-dark p-8 rounded-3xl border border-white/10">
+            <div className="glass-dark p-8 rounded-3xl">
                 <div className="flex items-center gap-4 pb-6 border-b border-white/10 mb-6">
                     <div className="p-3 bg-indigo-500/20 rounded-xl">
                         <Building2 className="w-7 h-7 text-indigo-400" />
@@ -318,7 +318,7 @@ export default function SettingsPage() {
             </div>
 
             {/* AI Persona */}
-            <div className="glass-dark p-8 rounded-3xl border border-white/10">
+            <div className="glass-dark p-8 rounded-3xl">
                 <div className="flex items-center gap-4 pb-6 border-b border-white/10 mb-6">
                     <div className="p-3 bg-primary/20 rounded-xl">
                         <Bot className="w-7 h-7 text-primary" />
@@ -376,7 +376,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Manager Alert System */}
-            <div className="glass-dark p-8 rounded-3xl border border-white/10">
+            <div className="glass-dark p-8 rounded-3xl">
                 <div className="flex items-center gap-4 pb-6 border-b border-white/10 mb-6">
                     <div className="p-3 bg-yellow-500/20 rounded-xl">
                         <Bell className="w-7 h-7 text-yellow-400" />
@@ -404,7 +404,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Sales Rules */}
-            <div className="glass-dark p-8 rounded-3xl border border-white/10">
+            <div className="glass-dark p-8 rounded-3xl">
                 {/* ... existing sales UI ... */}
                 <div className="flex items-center gap-4 pb-6 border-b border-white/10 mb-6">
                     <div className="p-3 bg-green-500/20 rounded-xl">
@@ -457,7 +457,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Integrations (Connected Accounts) */}
-            <div className="glass-dark p-8 rounded-3xl border border-white/10 mb-8">
+            <div className="glass-dark p-8 rounded-3xl mb-8">
                 <div className="flex items-center gap-4 pb-6 border-b border-white/10 mb-6">
                     <div className="p-3 bg-pink-500/20 rounded-xl">
                         <Instagram className="w-7 h-7 text-pink-500" />
@@ -511,7 +511,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Language */}
-            <div className="glass-dark p-8 rounded-3xl border border-white/10">
+            <div className="glass-dark p-8 rounded-3xl">
                 <div className="flex items-center gap-4 pb-6 border-b border-white/10 mb-6">
                     <div className="p-3 bg-blue-500/20 rounded-xl">
                         <Globe className="w-7 h-7 text-blue-400" />
@@ -544,7 +544,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Training */}
-            <div className="glass-dark p-8 rounded-3xl border border-white/10">
+            <div className="glass-dark p-8 rounded-3xl">
                 <div className="flex items-center gap-4 pb-6 border-b border-white/10 mb-6">
                     <div className="p-3 bg-purple-500/20 rounded-xl">
                         <Sparkles className="w-7 h-7 text-purple-400" />

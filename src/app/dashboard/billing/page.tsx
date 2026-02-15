@@ -229,7 +229,7 @@ export default function BillingPage() {
                                 initial={{ opacity: 0, scale: 0.95 }}
                                 animate={{ opacity: 1, scale: 1 }}
                                 exit={{ opacity: 0, scale: 0.95 }}
-                                className="relative w-full max-w-md glass-dark rounded-3xl p-8 border border-white/10"
+                                className="relative w-full max-w-md glass-dark rounded-3xl p-8"
                             >
                                 <button
                                     onClick={() => setShowPaymentModal(false)}

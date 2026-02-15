@@ -194,7 +194,7 @@ export default function DashboardPage() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.1 }}
-                        className="glass-card rounded-2xl p-5"
+                        className="glass-card rounded-2xl p-6"
                     >
                         <div className="flex items-center gap-2 mb-3">
                             <Sparkles className="w-4 h-4 text-purple-400" />
@@ -290,14 +290,14 @@ export default function DashboardPage() {
                         className="flex-1 flex flex-col rounded-2xl glass-card overflow-hidden"
                     >
                         {/* Chat Header */}
-                        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06] shrink-0">
+                        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#1e2530] shrink-0">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 rounded-xl bg-primary/10">
                                     <Zap className="w-4 h-4 text-primary" />
                                 </div>
                                 <div>
-                                    <h3 className="text-sm font-semibold text-white/90">Agent Monitor</h3>
-                                    <p className="text-[11px] text-white/30">System Status: Online</p>
+                                    <h3 className="text-sm font-semibold text-white">Agent Monitor</h3>
+                                    <p className="text-[11px] text-[#9CA3AF]">System Status: Online</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
@@ -331,7 +331,7 @@ export default function DashboardPage() {
                         className="flex-1 flex flex-col rounded-2xl glass-card overflow-hidden"
                     >
                         {/* Feed Header */}
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] shrink-0">
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e2530] shrink-0">
                             <div className="flex items-center gap-2">
                                 <Activity className="w-4 h-4 text-white/30" />
                                 <span className="text-xs font-medium text-white/50">Activity</span>

@@ -168,7 +168,7 @@ export default function InventoryPage() {
                 <input
                     type="text"
                     placeholder="Search products..."
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-primary/50 transition-all text-lg lg:text-base glass"
+                    className="w-full bg-white/5 border border-[#1e2530] rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-primary/50 transition-all text-lg lg:text-base"
                 />
             </div>
 
@@ -176,7 +176,7 @@ export default function InventoryPage() {
                 {/* Mobile Card View */}
                 <div className="lg:hidden space-y-4">
                     {isAdding && (
-                        <div className="glass-dark p-6 rounded-3xl border border-primary/30 animate-in fade-in slide-in-from-top-4 space-y-4 shadow-[0_0_30px_rgba(192,132,252,0.1)]">
+                        <div className="glass-dark p-6 rounded-3xl border border-primary/30 animate-in fade-in slide-in-from-top-4 space-y-4">
                             <div className="space-y-2">
                                 <label className="text-xs font-bold text-primary/60 uppercase">Product Name</label>
                                 <input
@@ -221,7 +221,7 @@ export default function InventoryPage() {
                     )}
 
                     {products.map((item) => (
-                        <div key={item.id} className="glass-dark p-5 rounded-3xl border border-white/10 active:border-primary/30 transition-all space-y-4">
+                        <div key={item.id} className="glass-dark p-5 rounded-3xl active:border-primary/30 transition-all space-y-4">
                             <div className="flex justify-between items-start">
                                 <div>
                                     <h3 className="font-bold text-xl">{item.name}</h3>
@@ -258,7 +258,7 @@ export default function InventoryPage() {
                 </div>
 
                 {/* Desktop Table View */}
-                <div className="hidden lg:block glass-dark rounded-3xl overflow-hidden border border-white/10">
+                <div className="hidden lg:block glass-dark rounded-3xl overflow-hidden">
                     <table className="w-full text-left">
                         <thead className="bg-white/5 text-white/60 text-xs uppercase tracking-widest">
                             <tr>
