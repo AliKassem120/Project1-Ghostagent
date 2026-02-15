@@ -119,9 +119,11 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   html {
     scroll-behavior: smooth;
   }
+
   body {
     @apply bg-background text-foreground antialiased;
   }
@@ -131,13 +133,43 @@
   .glass {
     @apply bg-white/10 backdrop-blur-md border border-white/20 shadow-lg;
   }
+
   .glass-dark {
     @apply bg-black/20 backdrop-blur-md border border-white/10 shadow-lg;
   }
+
   .neon-text {
     text-shadow: 0 0 10px var(--primary), 0 0 20px var(--primary);
   }
+
   .glow-text {
     text-shadow: 0 0 10px rgba(34, 197, 94, 0.5), 0 0 20px rgba(34, 197, 94, 0.3);
   }
+}
+
+/* Custom scrollbar for dashboard panels */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* Line clamp */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }

@@ -2,11 +2,10 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useDashboard } from '@/contexts/DashboardContext';
-import { MessageSquare, DollarSign, Package, TrendingUp, TrendingDown, Activity, Instagram, Clock, Zap, MessageCircle, Sparkles } from 'lucide-react';
+import { MessageSquare, DollarSign, Package, Clock, Zap, MessageCircle, Sparkles, Instagram, ChevronDown, ChevronUp, Shield, Activity, Brain, BarChart3, ArrowUpRight, TrendingUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from '@/components/CountUp';
-import FloatingGhost from '@/components/FloatingGhost';
-import GhostChat from '@/app/components/GhostChat'; // Checked path
+import GhostChat from '@/app/components/GhostChat';
 import GhostModal from '@/components/GhostModal';
 import { useAutopilot } from '@/context/AutopilotContext';
 import { useRealtime, useRealtimeCount } from '@/hooks/useRealtime';
@@ -34,6 +33,7 @@ export default function DashboardPage() {
     const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
     const [userId, setUserId] = useState<string | null>(null);
     const [clearModalOpen, setClearModalOpen] = useState(false);
+    const [mobileTab, setMobileTab] = useState<'command' | 'intel' | 'activity'>('command');
 
     // Get user ID on mount
     useEffect(() => {
@@ -54,7 +54,7 @@ export default function DashboardPage() {
             orderDirection: 'desc',
             limit: 50,
             enabled: !!userId,
-            pollingInterval: 3000, // Now handled by the hook
+            pollingInterval: 3000,
         }
     );
 
@@ -62,7 +62,7 @@ export default function DashboardPage() {
     const { count: totalInteractions } = useRealtimeCount(
         'activity_log',
         userId ? { column: 'user_id', value: userId } : undefined,
-        { pollingInterval: 3000 } // Enable polling for count
+        { pollingInterval: 3000 }
     );
 
     // 🔥 REALTIME: Subscribe to inventory for stock count
@@ -72,25 +72,22 @@ export default function DashboardPage() {
         {
             filter: userId ? { column: 'user_id', value: userId } : undefined,
             enabled: !!userId,
-            pollingInterval: 3000, // Now handled by the hook
+            pollingInterval: 3000,
         }
     );
 
     const { version } = useDashboard();
 
-    // Listen for global dashboard refresh triggers (from Chat/Context)
+    // Listen for global dashboard refresh triggers
     useEffect(() => {
-        // Context Trigger
         if (version > 0) {
-            console.log('[Dashboard] Refresh triggered by context version:', version);
             refetchActivities();
             refetchInventory();
         }
     }, [version, refetchActivities, refetchInventory]);
 
-    // 📊 COMPUTED STATS: Derived from realtime data (single source of truth)
+    // 📊 COMPUTED STATS
     const stats = useMemo(() => {
-        // Calculate money from sales
         let moneySaved = 0;
         activities.forEach(log => {
             if (log.event_type === 'IG_SALE' && log.description) {
@@ -98,269 +95,360 @@ export default function DashboardPage() {
                 if (match) moneySaved += parseFloat(match[1]);
             }
         });
-
-        // Time saved: 2 minutes per interaction
         const timeSaved = (totalInteractions * 2) / 60;
-
-        // Total stock from inventory
         const stock = inventoryItems.reduce((sum, item) => sum + (item.stock_level || 0), 0);
-
-        return {
-            timeSaved,
-            moneySaved,
-            repliesSent: totalInteractions,
-            stock,
-        };
+        return { timeSaved, moneySaved, repliesSent: totalInteractions, stock };
     }, [activities, totalInteractions, inventoryItems]);
 
     const loading = activitiesLoading;
 
-    const metrics = [
-        {
-            icon: Clock,
-            label: 'Time Saved',
-            value: stats.timeSaved,
-            suffix: ' hrs',
-            color: 'text-blue-400',
-            bgColor: 'bg-blue-500/20'
-        },
-        {
-            icon: DollarSign,
-            label: 'Money Made',
-            value: stats.moneySaved,
-            prefix: '$',
-            color: 'text-green-400',
-            bgColor: 'bg-green-500/20',
-            glow: stats.moneySaved > 0
-        },
-        {
-            icon: MessageSquare,
-            label: 'Replies Sent',
-            value: stats.repliesSent,
-            color: 'text-purple-400',
-            bgColor: 'bg-purple-500/20'
-        },
-        {
-            icon: Package,
-            label: 'Items in Stock',
-            value: stats.stock,
-            color: 'text-orange-400',
-            bgColor: 'bg-orange-500/20'
-        }
-    ];
+    // Categorize activities for the feed
+    const getEventIcon = (eventType: string) => {
+        if (eventType === 'SALE' || eventType === 'IG_SALE') return <DollarSign className="w-3.5 h-3.5" />;
+        if (eventType === 'RESTOCK' || eventType === 'NEW_ITEM') return <Package className="w-3.5 h-3.5" />;
+        if (eventType === 'INCOMING_MESSAGE') return <MessageCircle className="w-3.5 h-3.5" />;
+        return <MessageSquare className="w-3.5 h-3.5" />;
+    };
+
+    const getEventColor = (eventType: string) => {
+        if (eventType === 'SALE' || eventType === 'IG_SALE') return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+        if (eventType === 'RESTOCK' || eventType === 'NEW_ITEM') return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
+        if (eventType === 'INCOMING_MESSAGE') return 'text-blue-400 bg-blue-500/10 border-blue-500/20';
+        return 'text-purple-400 bg-purple-500/10 border-purple-500/20';
+    };
+
+    const formatTime = (timestamp: string) => {
+        const seconds = Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000);
+        if (seconds < 60) return `${seconds}s`;
+        if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+        if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+        return `${Math.floor(seconds / 86400)}d`;
+    };
+
+    const filteredActivities = activities.filter(a => a.event_type !== 'CHAT_QUERY');
 
     return (
         <div className="h-[calc(100vh-2rem)] flex flex-col overflow-hidden pb-safe">
-            {/* STICKY Header */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-6 shrink-0 sticky top-0 z-50 py-4 glass-dark -mx-4 px-4 lg:static lg:bg-transparent lg:p-0 lg:m-0 backdrop-blur-xl border-b border-white/10 lg:border-none">
-                <div>
-                    <h1 className="text-3xl font-black mb-1 bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60 flex items-center gap-3">
-                        COMMAND CENTER <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded border border-primary/30 tracking-widest">LIVE</span>
+
+            {/* ═══════════════════════════════════════════════════════════ */}
+            {/* HEADER — Compact status bar                               */}
+            {/* ═══════════════════════════════════════════════════════════ */}
+            <div className="flex items-center justify-between gap-4 mb-5 shrink-0">
+                <div className="flex items-center gap-3">
+                    <h1 className="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-white/90 to-white/50">
+                        COMMAND CENTER
                     </h1>
-                    <p className="text-white/40 text-sm">Real-time neural link established.</p>
+                    <span className="text-[10px] font-mono bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/25 tracking-widest flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        LIVE
+                    </span>
                 </div>
-                <div className="flex items-center gap-4">
-                    {/* Agent Status Bar */}
-                    <div className="hidden md:flex items-center gap-6 bg-white/5 border border-white/10 px-6 py-2 rounded-full backdrop-blur-md">
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-white/40 uppercase tracking-widest">Handled</span>
-                            <span className="font-bold text-white">{stats.repliesSent}</span>
-                        </div>
-                        <div className="w-px h-4 bg-white/10" />
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-white/40 uppercase tracking-widest">Saved</span>
-                            <span className="font-bold text-cyan-400">{stats.timeSaved.toFixed(1)} Hrs</span>
-                        </div>
-                        <div className="w-px h-4 bg-white/10" />
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                            <span className="text-xs font-mono text-green-400">ACTIVE IN DMs</span>
-                        </div>
+                <div className="hidden md:flex items-center gap-5 text-xs font-mono text-white/50">
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-white/30">HANDLED</span>
+                        <span className="text-white font-bold">{stats.repliesSent}</span>
+                    </div>
+                    <div className="w-px h-3 bg-white/10" />
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-white/30">SAVED</span>
+                        <span className="text-cyan-400 font-bold">{stats.timeSaved.toFixed(1)}h</span>
+                    </div>
+                    <div className="w-px h-3 bg-white/10" />
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-white/30">REVENUE</span>
+                        <span className="text-emerald-400 font-bold">${stats.moneySaved.toFixed(0)}</span>
                     </div>
                 </div>
             </div>
 
-            {/* Main Grid */}
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-10 gap-6 overflow-hidden min-h-0">
-
-                {/* LEFT HERO SECTION (70%) */}
-                <div className="lg:col-span-7 flex flex-col gap-6 overflow-y-auto pr-2 custom-scrollbar">
-
-                    {/* 1. Intelligence Summary Box (TOP) */}
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.1 }}
-                        className="bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border border-indigo-500/20 p-6 rounded-2xl relative overflow-hidden shrink-0"
+            {/* ═══════════════════════════════════════════════════════════ */}
+            {/* MOBILE TAB SELECTOR                                       */}
+            {/* ═══════════════════════════════════════════════════════════ */}
+            <div className="lg:hidden flex items-center gap-1 mb-4 bg-white/[0.03] rounded-xl p-1 border border-white/[0.06]">
+                {[
+                    { key: 'command' as const, label: 'Command', icon: MessageSquare },
+                    { key: 'intel' as const, label: 'Intelligence', icon: Brain },
+                    { key: 'activity' as const, label: 'Activity', icon: Activity },
+                ].map(tab => (
+                    <button
+                        key={tab.key}
+                        onClick={() => setMobileTab(tab.key)}
+                        className={clsx(
+                            "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-semibold transition-all",
+                            mobileTab === tab.key
+                                ? "bg-white/10 text-white shadow-sm"
+                                : "text-white/40 hover:text-white/60"
+                        )}
                     >
-                        <div className="absolute top-0 right-0 p-3 opacity-20">
-                            <Zap className="w-24 h-24 text-white" />
+                        <tab.icon className="w-3.5 h-3.5" />
+                        {tab.label}
+                    </button>
+                ))}
+            </div>
+
+            {/* ═══════════════════════════════════════════════════════════ */}
+            {/* MAIN 3-COLUMN GRID                                        */}
+            {/* ═══════════════════════════════════════════════════════════ */}
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden min-h-0">
+
+                {/* ─────────────────────────────────────────────────────── */}
+                {/* ZONE 1: INTELLIGENCE SIDEBAR (Left, 3 cols)            */}
+                {/* ─────────────────────────────────────────────────────── */}
+                <div className={clsx(
+                    "lg:col-span-3 flex flex-col gap-3 overflow-y-auto custom-scrollbar",
+                    mobileTab !== 'intel' && "hidden lg:flex"
+                )}>
+                    {/* Daily Briefing */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 }}
+                        className="bg-gradient-to-br from-purple-950/40 via-indigo-950/30 to-transparent border border-purple-500/10 rounded-2xl p-5 relative overflow-hidden"
+                    >
+                        <div className="absolute -top-4 -right-4 opacity-[0.04]">
+                            <Brain className="w-28 h-28 text-white" />
                         </div>
-                        <h3 className="text-lg font-bold text-indigo-300 mb-2 flex items-center gap-2">
-                            <Sparkles className="w-4 h-4" /> Daily Intelligence
-                        </h3>
-                        <p className="text-white/80 text-lg leading-relaxed max-w-2xl relative z-10">
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="p-1.5 rounded-lg bg-purple-500/15">
+                                <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                            </div>
+                            <span className="text-[11px] font-semibold text-purple-300/80 uppercase tracking-wider">Daily Briefing</span>
+                        </div>
+                        <p className="text-sm text-white/70 leading-relaxed">
                             {totalInteractions > 10 ? (
-                                `"I've handled ${totalInteractions} interactions. I saved you approximately ${stats.timeSaved.toFixed(1)} hours of work."`
+                                <>I handled <span className="text-white font-semibold">{totalInteractions}</span> interactions and saved you <span className="text-cyan-400 font-semibold">{stats.timeSaved.toFixed(1)} hours</span> of work.</>
                             ) : (
-                                <span className="text-white/60 italic">"Waiting for enough data to generate your first briefing..."</span>
+                                <span className="text-white/40 italic">Collecting data for your first briefing...</span>
                             )}
                         </p>
                     </motion.div>
 
-                    {/* 2. Stats Row */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0">
-                        {metrics.map((metric, index) => (
+                    {/* KPI Grid */}
+                    <div className="grid grid-cols-2 gap-2.5">
+                        {[
+                            { icon: Clock, label: 'Time Saved', value: stats.timeSaved, suffix: 'h', color: 'text-cyan-400', bg: 'bg-cyan-500/8', border: 'border-cyan-500/10', decimals: 1 },
+                            { icon: DollarSign, label: 'Revenue', value: stats.moneySaved, prefix: '$', color: 'text-emerald-400', bg: 'bg-emerald-500/8', border: 'border-emerald-500/10', glow: stats.moneySaved > 0 },
+                            { icon: MessageSquare, label: 'Replies', value: stats.repliesSent, color: 'text-purple-400', bg: 'bg-purple-500/8', border: 'border-purple-500/10' },
+                            { icon: Package, label: 'In Stock', value: stats.stock, color: 'text-amber-400', bg: 'bg-amber-500/8', border: 'border-amber-500/10' },
+                        ].map((metric, index) => (
                             <motion.div
                                 key={metric.label}
-                                initial={{ opacity: 0, y: 20 }}
+                                initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.2 + (index * 0.1) }}
+                                transition={{ delay: 0.15 + (index * 0.05) }}
                                 className={clsx(
-                                    "glass-dark p-6 rounded-2xl border border-white/10 hover:border-white/20 transition-all group",
-                                    metric.glow && "shadow-[0_0_30px_rgba(34,197,94,0.1)] hover:shadow-[0_0_30px_rgba(34,197,94,0.2)]"
+                                    "rounded-xl p-4 border transition-all group",
+                                    "bg-white/[0.02] hover:bg-white/[0.04]",
+                                    metric.border,
+                                    metric.glow && "shadow-[0_0_20px_rgba(16,185,129,0.06)]"
                                 )}
                             >
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className={`p-3 rounded-xl ${metric.bgColor} ${metric.color}`}>
-                                        <metric.icon className="w-6 h-6" />
-                                    </div>
+                                <div className={clsx("p-1.5 rounded-lg w-fit mb-2.5", metric.bg)}>
+                                    <metric.icon className={clsx("w-3.5 h-3.5", metric.color)} />
                                 </div>
-                                <div>
-                                    <div className="text-3xl font-black text-white/90">
-                                        <CountUp end={metric.value} prefix={metric.prefix} suffix={metric.suffix} decimals={metric.value % 1 !== 0 ? 1 : 0} />
-                                    </div>
-                                    <div className="text-sm text-white/40 font-medium mt-1">{metric.label}</div>
+                                <div className="text-xl font-bold text-white/90 leading-none mb-1">
+                                    <CountUp
+                                        end={metric.value}
+                                        prefix={metric.prefix}
+                                        suffix={metric.suffix}
+                                        decimals={metric.decimals ?? (metric.value % 1 !== 0 ? 1 : 0)}
+                                    />
                                 </div>
+                                <div className="text-[11px] text-white/35 font-medium">{metric.label}</div>
                             </motion.div>
                         ))}
                     </div>
 
-                    {/* 3. Live IG Feed */}
-                    <div className="flex-1 glass-dark rounded-2xl border border-white/10 overflow-hidden flex flex-col min-h-[300px]">
-                        <div className="p-4 border-b border-white/10 bg-white/5 flex items-center justify-between sticky top-0 z-10 backdrop-blur-md">
+                    {/* Agent Status Card */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4 }}
+                        className="rounded-2xl p-4 border border-white/[0.06] bg-white/[0.02]"
+                    >
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="p-1.5 rounded-lg bg-cyan-500/10">
+                                <Shield className="w-3.5 h-3.5 text-cyan-400" />
+                            </div>
+                            <span className="text-[11px] font-semibold text-white/50 uppercase tracking-wider">Agent Status</span>
+                        </div>
+                        <div className="space-y-2.5">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs text-white/40">Mode</span>
+                                <span className={clsx(
+                                    "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border",
+                                    autopilot
+                                        ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                                        : "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                                )}>
+                                    {autopilot ? 'Autopilot' : 'Manual'}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs text-white/40">DM Status</span>
+                                <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                    Active
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs text-white/40">Uptime</span>
+                                <span className="text-[10px] font-mono text-white/60">24/7</span>
+                            </div>
+                        </div>
+                    </motion.div>
+                </div>
+
+                {/* ─────────────────────────────────────────────────────── */}
+                {/* ZONE 2: COMMAND CENTER — Chat (Center, 6 cols)         */}
+                {/* The primary focal point of the entire dashboard        */}
+                {/* ─────────────────────────────────────────────────────── */}
+                <div className={clsx(
+                    "lg:col-span-6 flex flex-col overflow-hidden min-h-0",
+                    mobileTab !== 'command' && "hidden lg:flex"
+                )}>
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.98 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.15, duration: 0.4 }}
+                        className="flex-1 flex flex-col rounded-2xl border border-cyan-500/15 bg-black/40 overflow-hidden relative shadow-[0_0_40px_rgba(6,182,212,0.06)]"
+                    >
+                        {/* Subtle grid overlay */}
+                        <div className="absolute inset-0 bg-[linear-gradient(rgba(6,182,212,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(6,182,212,0.015)_1px,transparent_1px)] bg-[length:32px_32px] pointer-events-none" />
+
+                        {/* Chat Header */}
+                        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06] bg-white/[0.02] backdrop-blur-sm relative z-10 shrink-0">
                             <div className="flex items-center gap-3">
-                                <h3 className="font-bold flex items-center gap-2 text-sm uppercase tracking-wide">
-                                    <Instagram className="w-4 h-4 text-pink-500" />
-                                    Live Feed
-                                </h3>
-                                {(activities.length > 0 || totalInteractions > 0) && (
+                                <div className="relative">
+                                    <div className="absolute inset-0 bg-cyan-400/20 blur-lg rounded-full animate-pulse" />
+                                    <div className="relative p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+                                        <Zap className="w-4 h-4 text-cyan-400" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-bold text-white/90 tracking-wide">Ghost Operator</h3>
+                                    <p className="text-[10px] text-cyan-400/60 font-mono">Neural link active</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="hidden sm:flex items-center gap-1.5 text-[10px] font-mono text-white/30 bg-white/[0.03] px-2.5 py-1 rounded-full border border-white/[0.05]">
+                                    <Instagram className="w-3 h-3" />
+                                    Connected
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_rgba(6,182,212,0.5)]" />
+                                    <span className="text-[10px] font-bold text-cyan-400/80 tracking-widest">ONLINE</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Chat Body (GhostChat component fills this) */}
+                        <div className="flex-1 overflow-hidden relative z-10">
+                            <GhostChat />
+                        </div>
+                    </motion.div>
+                </div>
+
+                {/* ─────────────────────────────────────────────────────── */}
+                {/* ZONE 3: ACTIVITY LOG (Right, 3 cols)                   */}
+                {/* Single scrollable feed — the only scroll region        */}
+                {/* ─────────────────────────────────────────────────────── */}
+                <div className={clsx(
+                    "lg:col-span-3 flex flex-col overflow-hidden min-h-0",
+                    mobileTab !== 'activity' && "hidden lg:flex"
+                )}>
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.25 }}
+                        className="flex-1 flex flex-col rounded-2xl border border-white/[0.06] bg-white/[0.015] overflow-hidden"
+                    >
+                        {/* Feed Header */}
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-white/[0.02] shrink-0">
+                            <div className="flex items-center gap-2">
+                                <div className="p-1.5 rounded-lg bg-purple-500/10">
+                                    <Activity className="w-3.5 h-3.5 text-purple-400" />
+                                </div>
+                                <span className="text-[11px] font-bold text-white/60 uppercase tracking-wider">Activity</span>
+                                {filteredActivities.length > 0 && (
+                                    <span className="text-[10px] bg-white/5 text-white/30 px-1.5 py-0.5 rounded-full font-mono">
+                                        {filteredActivities.length}
+                                    </span>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {filteredActivities.length > 0 && (
                                     <button
                                         onClick={() => setClearModalOpen(true)}
-                                        className="text-[10px] bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded hover:bg-red-500/20 transition-colors uppercase tracking-wider"
+                                        className="text-[9px] text-red-400/60 hover:text-red-400 border border-red-500/10 hover:border-red-500/20 px-2 py-0.5 rounded-md transition-all uppercase tracking-wider font-semibold"
                                     >
                                         Clear
                                     </button>
                                 )}
-                            </div>
-                            <div className="flex items-center gap-2 text-[10px] font-mono text-white/40">
-                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                                LISTENING
+                                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
                             </div>
                         </div>
-                        <div className="p-4 space-y-3 overflow-y-auto">
-                            {activities.length === 0 && !loading ? (
-                                <div className="flex flex-col items-center justify-center py-12 text-center opacity-50">
-                                    <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4">
-                                        <Sparkles className="w-6 h-6 text-white/30" />
+
+                        {/* Feed Content */}
+                        <div className="flex-1 overflow-y-auto custom-scrollbar">
+                            {filteredActivities.length === 0 && !loading ? (
+                                <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+                                    <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-4">
+                                        <Sparkles className="w-5 h-5 text-white/15" />
                                     </div>
-                                    <p className="font-medium text-white/60">The Ghost is working in silence...</p>
-                                    <p className="text-xs text-white/30 mt-1">No critical events to report yet, but I'm watching.</p>
+                                    <p className="text-sm font-medium text-white/25 mb-1">No events yet</p>
+                                    <p className="text-[11px] text-white/15 leading-relaxed">Activity will appear here as your Ghost Agent processes interactions.</p>
                                 </div>
                             ) : (
-                                activities
-                                    .filter(a => a.event_type !== 'CHAT_QUERY')
-                                    .map((activity, i) => (
-                                        <motion.div
-                                            key={activity.id}
-                                            initial={{ opacity: 0, x: -20 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            transition={{ delay: i * 0.1 }}
-                                            className="flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-colors group"
-                                        >
-                                            <div className="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center border border-white/10 group-hover:border-primary/50 transition-colors">
-                                                {activity.event_type === 'SALE' ? <DollarSign className="w-5 h-5 text-green-400" /> :
-                                                    activity.event_type === 'RESTOCK' ? <Package className="w-5 h-5 text-purple-400" /> :
-                                                        <MessageCircle className="w-5 h-5 text-white/70" />}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <span className="font-bold text-white/90 truncate">{activity.event_type}</span>
-                                                    <span className="text-xs font-mono text-white/30">
-                                                        {new Date(activity.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                <div className="p-2 space-y-1">
+                                    {filteredActivities.map((activity, i) => {
+                                        const colorClasses = getEventColor(activity.event_type);
+                                        return (
+                                            <motion.div
+                                                key={activity.id}
+                                                initial={i < 5 ? { opacity: 0, x: 10 } : false}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                transition={{ delay: i < 5 ? i * 0.05 : 0 }}
+                                                className="flex items-start gap-2.5 p-2.5 rounded-xl hover:bg-white/[0.03] transition-colors group"
+                                            >
+                                                <div className={clsx(
+                                                    "p-1.5 rounded-lg border shrink-0 mt-0.5",
+                                                    colorClasses
+                                                )}>
+                                                    {getEventIcon(activity.event_type)}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs text-white/60 leading-relaxed line-clamp-2 group-hover:text-white/75 transition-colors">
+                                                        {activity.description}
+                                                    </p>
+                                                    <span className="text-[10px] text-white/20 font-mono mt-1 block">
+                                                        {formatTime(activity.timestamp)} ago
                                                     </span>
                                                 </div>
-                                                <p className="text-sm text-white/50 truncate">
-                                                    {activity.description}
-                                                </p>
-                                            </div>
-                                        </motion.div>
-                                    ))
+                                            </motion.div>
+                                        );
+                                    })}
+                                </div>
                             )}
                         </div>
-                    </div>
-                </div>
-
-                {/* RIGHT ASSISTANT SECTION (30%) - DESKTOP */}
-                <div className="hidden lg:flex lg:col-span-3 flex-col h-full bg-black/20 rounded-2xl border border-white/10 overflow-hidden relative">
-                    <div className="absolute inset-0 bg-grid-white/[0.02] bg-[length:20px_20px]" />
-                    <div className="p-4 bg-white/5 border-b border-white/10 backdrop-blur-md z-10">
-                        <h3 className="font-bold flex items-center gap-2 text-sm uppercase tracking-wide text-cyan-400">
-                            <Activity className="w-4 h-4" />
-                            Ghost Operator
-                        </h3>
-                    </div>
-                    <div className="flex-1 overflow-hidden relative z-10 p-2">
-                        <GhostChat />
-                    </div>
+                    </motion.div>
                 </div>
 
             </div>
 
-            {/* MOBILE: Floating Action Button for Chat */}
-            <div className="lg:hidden fixed bottom-6 right-6 z-50">
-                <button
-                    onClick={() => setIsMobileChatOpen(true)}
-                    className="w-14 h-14 rounded-full bg-cyan-500 shadow-[0_0_30px_rgba(6,182,212,0.5)] flex items-center justify-center text-black hover:scale-110 active:scale-95 transition-all"
-                >
-                    <MessageSquare className="w-6 h-6" />
-                </button>
-            </div>
-
-            {/* MOBILE: Chat Drawer */}
-            <AnimatePresence>
-                {isMobileChatOpen && (
-                    <div className="lg:hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center pointer-events-none">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-black/80 backdrop-blur-sm pointer-events-auto"
-                            onClick={() => setIsMobileChatOpen(false)}
-                        />
-                        <motion.div
-                            initial={{ y: "100%" }}
-                            animate={{ y: 0 }}
-                            exit={{ y: "100%" }}
-                            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                            className="w-full sm:w-[500px] max-h-[500px] h-[50vh] bg-black border-t sm:border border-white/10 sm:rounded-tl-2xl sm:rounded-tr-2xl relative pointer-events-auto overflow-hidden flex flex-col"
-                        >
-                            <div className="flex items-center justify-between p-4 border-b border-white/10 bg-white/5">
-                                <span className="font-bold text-white">Ghost Operator</span>
-                                <button
-                                    onClick={() => setIsMobileChatOpen(false)}
-                                    className="p-2 text-white/50 hover:text-white"
-                                >
-                                    Close
-                                </button>
-                            </div>
-                            <div className="flex-1 overflow-hidden">
-                                <GhostChat />
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+            {/* ═══════════════════════════════════════════════════════════ */}
+            {/* MOBILE: Floating Chat Button (only on non-command tabs)   */}
+            {/* ═══════════════════════════════════════════════════════════ */}
+            {mobileTab !== 'command' && (
+                <div className="lg:hidden fixed bottom-6 right-6 z-50">
+                    <button
+                        onClick={() => setMobileTab('command')}
+                        className="w-14 h-14 rounded-2xl bg-cyan-500/90 shadow-[0_0_30px_rgba(6,182,212,0.4)] flex items-center justify-center text-black hover:scale-105 active:scale-95 transition-all"
+                    >
+                        <MessageSquare className="w-6 h-6" />
+                    </button>
+                </div>
+            )}
 
             {/* Clear Activity Confirmation Modal */}
             <GhostModal
@@ -371,13 +459,11 @@ export default function DashboardPage() {
                 confirmText="Clear Everything"
                 cancelText="Keep Data"
                 onConfirm={async () => {
-                    // Just delete from database - realtime hook will update UI automatically!
                     if (userId) {
                         await supabase
                             .from('activity_log')
                             .delete()
                             .eq('user_id', userId);
-                        // Refetch to ensure UI updates
                         refetchActivities();
                     }
                 }}
@@ -386,6 +472,3 @@ export default function DashboardPage() {
         </div>
     );
 }
-
-
-
