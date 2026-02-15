@@ -150,9 +150,9 @@ export async function POST(req: Request) {
 
                         // CHECK AUTOPILOT STATUS
                         const { data: settings } = await supabaseAdmin
-                            .from('bot_settings')
+                            .from('users')
                             .select('is_autopilot_enabled')
-                            .eq('user_id', ownerId)
+                            .eq('id', ownerId)
                             .single();
 
                         const isAutopilot = settings?.is_autopilot_enabled ?? true; // Default to true if not found

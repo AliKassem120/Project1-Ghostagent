@@ -26,10 +26,14 @@ export function AutopilotProvider({ children }: { children: React.ReactNode }) {
                 if (!user) return;
 
                 const { data, error } = await supabase
-                    .from('bot_settings')
+                    .from('users')
                     .select('is_autopilot_enabled')
-                    .eq('user_id', user.id)
+                    .eq('id', user.id)
                     .single();
+
+                if (error) {
+                    console.error('Supabase fetch error:', error.message);
+                }
 
                 if (data) {
                     setAutopilotState(data.is_autopilot_enabled ?? true);
@@ -53,11 +57,14 @@ export function AutopilotProvider({ children }: { children: React.ReactNode }) {
             if (!user) throw new Error('No user found');
 
             const { error } = await supabase
-                .from('bot_settings')
+                .from('users')
                 .update({ is_autopilot_enabled: value })
-                .eq('user_id', user.id);
+                .eq('id', user.id);
 
-            if (error) throw error;
+            if (error) {
+                console.error('Supabase Error:', error.message);
+                throw error;
+            }
 
             toast.success(value ? "Autopilot Enabled" : "Autopilot Disabled", {
                 description: value
