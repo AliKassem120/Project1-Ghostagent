@@ -518,28 +518,36 @@ export default function SettingsPage() {
                     </div>
                     <div>
                         <h2 className="text-2xl font-bold">Language</h2>
-                        <p className="text-white/50">Communication language preference</p>
+                        <p className="text-white/50">Ghost Agent automatically mirrors the user&apos;s language</p>
                     </div>
                 </div>
 
                 <div className="space-y-4">
-                    <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Primary Language</label>
-                    <div className="grid grid-cols-2 gap-6">
-                        {['English', 'Lebanese Franco'].map((lang) => (
+                    <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Language Mode</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {[
+                            { value: 'Auto-Detect', label: '🌍 Auto-Detect', desc: 'Mirrors user\'s language & dialect' },
+                            { value: 'English', label: '🇬🇧 English Only', desc: 'Always respond in English' },
+                            { value: 'Lebanese Franco', label: '🇱🇧 Lebanese Franco', desc: 'Always respond in Lebanese Arabizi' },
+                        ].map((lang) => (
                             <button
-                                key={lang}
-                                onClick={() => setSettings({ ...settings, language: lang })}
+                                key={lang.value}
+                                onClick={() => setSettings({ ...settings, language: lang.value })}
                                 className={clsx(
-                                    "p-6 rounded-2xl border-2 transition-all font-bold text-lg press",
-                                    settings.language === lang
-                                        ? "bg-primary/20 border-primary text-primary shadow-[0_0_25px_rgba(192,132,252,0.3)]"
+                                    "p-5 rounded-2xl border-2 transition-all text-left press",
+                                    settings.language === lang.value
+                                        ? "bg-primary/20 border-primary shadow-[0_0_25px_rgba(192,132,252,0.3)]"
                                         : "bg-white/5 border-white/[0.06] hover:bg-white/10 hover:border-white/15"
                                 )}
                             >
-                                {lang === 'English' ? 'Strict English' : lang}
+                                <div className={clsx("font-bold text-base mb-1", settings.language === lang.value ? "text-primary" : "text-white")}>
+                                    {lang.label}
+                                </div>
+                                <div className="text-xs text-white/40">{lang.desc}</div>
                             </button>
                         ))}
                     </div>
+                    <p className="text-xs text-white/40 italic">Auto-Detect is recommended. Ghost Agent will reply in English, Lebanese Arabic, French, or any language the customer uses.</p>
                 </div>
             </div>
 
