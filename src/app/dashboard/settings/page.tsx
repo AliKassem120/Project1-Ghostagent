@@ -30,7 +30,7 @@ export default function SettingsPage() {
         maxDiscount: 20,
         minOrderForDiscount: 50,
         emergencyWhatsApp: '',
-        language: 'English',
+        language: 'Auto-Detect',
         systemPrompt: '',
         whatsappTemplate: '',
     });
@@ -52,6 +52,7 @@ export default function SettingsPage() {
                     .single();
 
                 if (data) {
+                    console.log('📬 Fetched Settings:', data);
                     setSettings({
                         businessName: data.business_name || '',
                         tone: data.tone || 'Professional',
@@ -59,7 +60,7 @@ export default function SettingsPage() {
                         maxDiscount: data.max_discount || 20,
                         minOrderForDiscount: data.min_order_for_discount || 50,
                         emergencyWhatsApp: data.emergency_whatsapp || '',
-                        language: data.language || 'English',
+                        language: data.language || 'Auto-Detect',
                         systemPrompt: data.system_instructions || '',
                         whatsappTemplate: data.whatsapp_template || '',
                     });
@@ -242,6 +243,12 @@ export default function SettingsPage() {
                 setSaving(false);
                 return;
             }
+
+            console.log('💾 Saving Settings:', {
+                user_id: user.id,
+                language: settings.language,
+                // ... other fields implicitly logged by the object check if we wanted
+            });
 
             const { error } = await supabase
                 .from('bot_settings')
@@ -532,7 +539,7 @@ export default function SettingsPage() {
                         ].map((lang) => (
                             <button
                                 key={lang.value}
-                                onClick={() => setSettings({ ...settings, language: lang.value })}
+                                onClick={() => setSettings(prev => ({ ...prev, language: lang.value }))}
                                 className={clsx(
                                     "p-5 rounded-2xl border-2 transition-all text-left press",
                                     settings.language === lang.value
