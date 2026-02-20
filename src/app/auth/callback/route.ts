@@ -7,8 +7,11 @@ export async function GET(request: Request) {
     const code = requestUrl.searchParams.get('code')
 
     // Robust origin detection for production
+    // Prefer NEXTAUTH_URL (custom domain) over VERCEL_URL (auto-generated deployment URL)
     let origin = requestUrl.origin
-    if (process.env.VERCEL_URL) {
+    if (process.env.NEXTAUTH_URL) {
+        origin = process.env.NEXTAUTH_URL
+    } else if (process.env.VERCEL_URL) {
         origin = `https://${process.env.VERCEL_URL}`
     }
 

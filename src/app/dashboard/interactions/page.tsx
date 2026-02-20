@@ -326,7 +326,7 @@ export default function InteractionsPage() {
             const meta = log.metadata || {};
             const chatId = meta.chat_id || 'unknown';
 
-            if (log.event_type === 'INCOMING_DM' && log.description.includes('ghostagent.ai')) return;
+            if (log.event_type === 'INCOMING_DM' && log.description.includes('ghostagent.qzz.io')) return;
 
             let text = log.description || '';
             let senderName = 'Unknown';
