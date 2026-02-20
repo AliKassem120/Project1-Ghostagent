@@ -42,156 +42,230 @@ export async function POST(req: Request) {
             // Loop through entries
             for (const entry of body.entry) {
 
-                // Loop through messaging events
-                for (const event of entry.messaging) {
+                // ═══════════════════════════════════════
+                // 📩 HANDLE DIRECT MESSAGES (entry.messaging)
+                // ═══════════════════════════════════════
+                if (entry.messaging) {
+                    for (const event of entry.messaging) {
 
-                    // 🛑 CRITICAL FIX: Ignore "Echoes" (Bot's own messages)
-                    if (event.message?.is_echo) {
-                        console.log("⚠️ Ignoring Bot's own message (Echo)");
-                        continue;
-                    }
-
-                    // 🛑 Ignore "Delivery" or "Read" receipts
-                    if (event.delivery || event.read) {
-                        console.log("⚠️ Ignoring Delivery/Read receipt");
-                        continue;
-                    }
-
-                    const senderId = event.sender.id;
-                    const messageText = event.message?.text;
-                    const recipientId = event.recipient?.id;
-
-                    if (messageText) {
-                        console.log(`📩 Received from ${senderId}: ${messageText}`);
-
-                        // 2. Identify Owner (STRICT LOGIC with Metadata Fallback)
-                        let ownerId;
-
-                        if (recipientId) {
-                            // 1. Strict DB Match
-                            // Try to find the exact account_id match first (fastest)
-                            const { data: connectedUser } = await supabaseAdmin.from('user_connections')
-                                .select('user_id')
-                                .eq('account_id', recipientId)
-                                .limit(1).maybeSingle();
-
-                            if (connectedUser) {
-                                ownerId = connectedUser.user_id;
-                            } else {
-                                // 2. Metadata Scan (Fallback) - Only for INSTAGRAM provider
-                                // The stored account_id might be the Facebook Page ID (e.g. 122...), 
-                                // but webhook sends Instagram ID (e.g. 178...).
-                                // We check if any connected page in metadata links to this IG ID.
-
-                                const { data: allConnections } = await supabaseAdmin.from('user_connections')
-                                    .select('user_id, metadata')
-                                    .eq('provider', 'INSTAGRAM'); // Check exact provider string stored
-
-                                if (allConnections) {
-                                    for (const conn of allConnections) {
-                                        // Metadata structure: { pages: [{ instagram_business_account: { id: "178..." } }] }
-                                        const pages = (conn.metadata as any)?.pages || [];
-                                        const hasPage = Array.isArray(pages) && pages.some((p: any) => p.instagram_business_account?.id === recipientId);
-
-                                        if (hasPage) {
-                                            console.log(`[Loose Match] Found owner ${conn.user_id} via metadata page link. Recipient: ${recipientId}`);
-                                            ownerId = conn.user_id;
-                                            break;
-                                        }
-                                    }
-                                }
-
-                                if (!ownerId) {
-                                    console.log(`[Strict Check] No owner found for recipient ${recipientId} even after metadata scan. Bot will NOT reply.`);
-                                }
-                            }
-                        }
-
-                        if (!ownerId) {
-                            console.log('🛑 SKIPPING: No connected owner found for this message.');
+                        // 🛑 CRITICAL FIX: Ignore "Echoes" (Bot's own messages)
+                        if (event.message?.is_echo) {
+                            console.log("⚠️ Ignoring Bot's own message (Echo)");
                             continue;
                         }
 
-                        // Fetch Sender Profile Name
-                        const userProfileName = await fetchUserProfile(senderId);
-                        const senderName = userProfileName || `User ${senderId.slice(-4)}`;
-
-                        // 🛑 LOG INCOMING MESSAGE
-                        await supabaseAdmin.from('activity_log').insert({
-                            user_id: ownerId,
-                            event_type: 'INCOMING_MESSAGE',
-                            description: `${senderName}: "${messageText}"`,
-                            timestamp: new Date().toISOString(),
-                            metadata: {
-                                chat_id: senderId,
-                                platform: 'instagram',
-                                username: senderName, // Save explicitly for UI
-                                sender: { attendee_name: senderName } // Robust path
-                            }
-                        });
-
-                        // 3. AI Processing
-                        const aiResponse = await generateGhostReply(
-                            ownerId,
-                            messageText,
-                            supabaseAdmin,
-                            senderId
-                        );
-
-                        if (!aiResponse) {
-                            console.log('Ghost Protocol: No reply (handoff or empty).');
+                        // 🛑 Ignore "Delivery" or "Read" receipts
+                        if (event.delivery || event.read) {
+                            console.log("⚠️ Ignoring Delivery/Read receipt");
                             continue;
                         }
 
-                        // CHECK AUTOPILOT STATUS
-                        // Explicitly fetch the boolean value. If the column is NULL, default to true.
-                        // If the row is missing (error), default to true.
-                        // But if is_autopilot_enabled is explicit FALSE, respect it.
-                        const { data: settings, error: settingsError } = await supabaseAdmin
-                            .from('users')
-                            .select('is_autopilot_enabled')
-                            .eq('id', ownerId)
-                            .maybeSingle();
+                        const senderId = event.sender.id;
+                        const messageText = event.message?.text;
+                        const recipientId = event.recipient?.id;
 
-                        if (settingsError) {
-                            console.error('⚠️ Autopilot Check Failed:', settingsError.message);
-                        }
+                        if (messageText) {
+                            console.log(`📩 Received from ${senderId}: ${messageText}`);
 
-                        // Default to TRUE only if settings is null or column is null.
-                        // If false, it stays false.
-                        const isAutopilot = settings?.is_autopilot_enabled ?? true;
+                            // 2. Identify Owner (STRICT LOGIC with Metadata Fallback)
+                            const ownerId = await findOwner(supabaseAdmin, recipientId);
 
-                        console.log(`🤖 Autopilot Status for ${ownerId}: ${isAutopilot ? 'ON' : 'OFF'}`);
+                            if (!ownerId) {
+                                console.log('🛑 SKIPPING: No connected owner found for this message.');
+                                continue;
+                            }
 
-                        if (!isAutopilot) {
-                            console.log('🛑 AUTOPILOT OFF: Saving draft reply.');
+                            // Fetch Sender Profile Name
+                            const userProfileName = await fetchUserProfile(senderId);
+                            const senderName = userProfileName || `User ${senderId.slice(-4)}`;
+
+                            // 🛑 LOG INCOMING MESSAGE
                             await supabaseAdmin.from('activity_log').insert({
                                 user_id: ownerId,
-                                event_type: 'DRAFT_REPLY',
-                                description: `Draft: "${aiResponse}"`,
+                                event_type: 'INCOMING_MESSAGE',
+                                description: `${senderName}: "${messageText}"`,
                                 timestamp: new Date().toISOString(),
                                 metadata: {
                                     chat_id: senderId,
                                     platform: 'instagram',
+                                    username: senderName,
+                                    sender: { attendee_name: senderName }
+                                }
+                            });
+
+                            // 3. AI Processing
+                            const aiResponse = await generateGhostReply(
+                                ownerId,
+                                messageText,
+                                supabaseAdmin,
+                                senderId
+                            );
+
+                            if (!aiResponse) {
+                                console.log('Ghost Protocol: No reply (handoff or empty).');
+                                continue;
+                            }
+
+                            // CHECK AUTOPILOT STATUS
+                            const isAutopilot = await checkAutopilot(supabaseAdmin, ownerId);
+
+                            if (!isAutopilot) {
+                                console.log('🛑 AUTOPILOT OFF: Saving draft reply.');
+                                await supabaseAdmin.from('activity_log').insert({
+                                    user_id: ownerId,
+                                    event_type: 'DRAFT_REPLY',
+                                    description: `Draft: "${aiResponse}"`,
+                                    timestamp: new Date().toISOString(),
+                                    metadata: {
+                                        chat_id: senderId,
+                                        platform: 'instagram',
+                                        status: 'pending_approval',
+                                        reply_text: aiResponse
+                                    }
+                                });
+                                continue;
+                            }
+
+                            console.log('🤖 AI Reply:', aiResponse);
+
+                            // 4. Send the Reply
+                            await sendReply(senderId, aiResponse);
+
+                            // 5. Log Activity
+                            await supabaseAdmin.from('activity_log').insert({
+                                user_id: ownerId,
+                                event_type: 'AI_REPLY',
+                                description: `Sent: "${aiResponse}"`,
+                                timestamp: new Date().toISOString(),
+                                metadata: { chat_id: senderId, platform: 'instagram' }
+                            });
+                        }
+                    }
+                }
+
+                // ═══════════════════════════════════════
+                // 💬 HANDLE COMMENTS (entry.changes)
+                // ═══════════════════════════════════════
+                if (entry.changes) {
+                    for (const change of entry.changes) {
+                        if (change.field !== 'comments') continue;
+
+                        const commentData = change.value;
+                        const commentId = commentData?.id;
+                        const commentText = commentData?.text;
+                        const commenterName = commentData?.from?.username || commentData?.from?.name || 'Instagram User';
+                        const commenterId = commentData?.from?.id;
+                        const mediaId = commentData?.media?.id;
+                        const parentId = commentData?.parent_id; // If this is a reply to another comment
+
+                        // 🛑 Skip if no comment text or missing data
+                        if (!commentText || !commentId) {
+                            console.log('⚠️ Skipping: Missing comment data');
+                            continue;
+                        }
+
+                        // 🛑 Skip replies to other comments (only reply to top-level comments on our posts)
+                        if (parentId) {
+                            console.log('⚠️ Skipping: Reply to another comment (not top-level)');
+                            continue;
+                        }
+
+                        console.log(`💬 Comment from @${commenterName}: "${commentText}"`);
+
+                        // Find the owner of this Instagram account
+                        const igAccountId = entry.id; // The Instagram account ID that received the comment
+                        const ownerId = await findOwner(supabaseAdmin, igAccountId);
+
+                        if (!ownerId) {
+                            console.log('🛑 SKIPPING COMMENT: No connected owner found.');
+                            continue;
+                        }
+
+                        // 🛑 Check if we already replied to this comment (prevent duplicates)
+                        const { data: existingReply } = await supabaseAdmin
+                            .from('activity_log')
+                            .select('id')
+                            .eq('user_id', ownerId)
+                            .eq('event_type', 'COMMENT_REPLY')
+                            .filter('metadata->>comment_id', 'eq', commentId)
+                            .limit(1)
+                            .maybeSingle();
+
+                        if (existingReply) {
+                            console.log('⚠️ Already replied to this comment. Skipping.');
+                            continue;
+                        }
+
+                        // LOG INCOMING COMMENT
+                        await supabaseAdmin.from('activity_log').insert({
+                            user_id: ownerId,
+                            event_type: 'INCOMING_COMMENT',
+                            description: `Comment from @${commenterName}: "${commentText}"`,
+                            timestamp: new Date().toISOString(),
+                            metadata: {
+                                comment_id: commentId,
+                                commenter_name: commenterName,
+                                commenter_id: commenterId,
+                                media_id: mediaId,
+                                platform: 'instagram',
+                                type: 'comment'
+                            }
+                        });
+
+                        // Generate AI Reply (comment-specific: short & public-facing)
+                        const aiResponse = await generateCommentReply(
+                            ownerId,
+                            commentText,
+                            commenterName,
+                            supabaseAdmin
+                        );
+
+                        if (!aiResponse) {
+                            console.log('Ghost Protocol: No comment reply generated.');
+                            continue;
+                        }
+
+                        // CHECK AUTOPILOT STATUS
+                        const isAutopilot = await checkAutopilot(supabaseAdmin, ownerId);
+
+                        if (!isAutopilot) {
+                            console.log('🛑 AUTOPILOT OFF: Saving draft comment reply.');
+                            await supabaseAdmin.from('activity_log').insert({
+                                user_id: ownerId,
+                                event_type: 'DRAFT_COMMENT_REPLY',
+                                description: `Draft Comment Reply: "${aiResponse}"`,
+                                timestamp: new Date().toISOString(),
+                                metadata: {
+                                    comment_id: commentId,
+                                    commenter_name: commenterName,
+                                    media_id: mediaId,
+                                    platform: 'instagram',
+                                    type: 'comment',
                                     status: 'pending_approval',
                                     reply_text: aiResponse
                                 }
                             });
-                            continue; // Skip sending
+                            continue;
                         }
 
-                        console.log('🤖 AI Reply:', aiResponse);
+                        console.log(`🤖 Comment Reply to @${commenterName}: ${aiResponse}`);
 
-                        // 4. Send the Reply
-                        await sendReply(senderId, aiResponse);
+                        // Send the Comment Reply via Graph API
+                        await sendCommentReply(commentId, aiResponse);
 
-                        // 5. Log Activity
+                        // LOG COMMENT REPLY
                         await supabaseAdmin.from('activity_log').insert({
                             user_id: ownerId,
-                            event_type: 'AI_REPLY',
-                            description: `Sent: "${aiResponse}"`,
+                            event_type: 'COMMENT_REPLY',
+                            description: `Replied to @${commenterName}: "${aiResponse}"`,
                             timestamp: new Date().toISOString(),
-                            metadata: { chat_id: senderId, platform: 'instagram' }
+                            metadata: {
+                                comment_id: commentId,
+                                commenter_name: commenterName,
+                                media_id: mediaId,
+                                platform: 'instagram',
+                                type: 'comment'
+                            }
                         });
                     }
                 }
@@ -254,3 +328,166 @@ async function sendReply(recipientId: string, text: string) {
         console.error("❌ FETCH ERROR:", fetchError);
     }
 }
+
+// ═══════════════════════════════════════
+// 🔍 Find Owner by Instagram/Page Account ID
+// ═══════════════════════════════════════
+async function findOwner(supabaseAdmin: any, accountId: string | undefined): Promise<string | null> {
+    if (!accountId) return null;
+
+    // 1. Strict DB Match
+    const { data: connectedUser } = await supabaseAdmin.from('user_connections')
+        .select('user_id')
+        .eq('account_id', accountId)
+        .limit(1).maybeSingle();
+
+    if (connectedUser) return connectedUser.user_id;
+
+    // 2. Metadata Scan (Fallback) - Only for INSTAGRAM provider
+    const { data: allConnections } = await supabaseAdmin.from('user_connections')
+        .select('user_id, metadata')
+        .eq('provider', 'INSTAGRAM');
+
+    if (allConnections) {
+        for (const conn of allConnections) {
+            const pages = (conn.metadata as any)?.pages || [];
+            const hasPage = Array.isArray(pages) && pages.some((p: any) => p.instagram_business_account?.id === accountId);
+
+            if (hasPage) {
+                console.log(`[Loose Match] Found owner ${conn.user_id} via metadata page link. Account: ${accountId}`);
+                return conn.user_id;
+            }
+        }
+    }
+
+    console.log(`[findOwner] No owner found for account ${accountId}`);
+    return null;
+}
+
+// ═══════════════════════════════════════
+// 🤖 Check Autopilot Status
+// ═══════════════════════════════════════
+async function checkAutopilot(supabaseAdmin: any, ownerId: string): Promise<boolean> {
+    const { data: settings, error: settingsError } = await supabaseAdmin
+        .from('users')
+        .select('is_autopilot_enabled')
+        .eq('id', ownerId)
+        .maybeSingle();
+
+    if (settingsError) {
+        console.error('⚠️ Autopilot Check Failed:', settingsError.message);
+    }
+
+    const isAutopilot = settings?.is_autopilot_enabled ?? true;
+    console.log(`🤖 Autopilot Status for ${ownerId}: ${isAutopilot ? 'ON' : 'OFF'}`);
+    return isAutopilot;
+}
+
+// ═══════════════════════════════════════
+// 💬 Send Comment Reply via Graph API
+// ═══════════════════════════════════════
+async function sendCommentReply(commentId: string, message: string) {
+    const token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
+
+    if (!token) {
+        console.error("❌ COMMENT REPLY FAILED: Missing Access Token");
+        return;
+    }
+
+    const url = `https://graph.facebook.com/v21.0/${commentId}/replies`;
+
+    try {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                message: message,
+                access_token: token,
+            }),
+        });
+
+        const data = await response.json();
+        if (data.error) {
+            console.error("❌ COMMENT REPLY FAILED:", data.error);
+        } else {
+            console.log("✅ COMMENT REPLY SENT:", data);
+        }
+    } catch (fetchError) {
+        console.error("❌ COMMENT REPLY FETCH ERROR:", fetchError);
+    }
+}
+
+// ═══════════════════════════════════════
+// 🧠 Generate AI Reply for Comments (Short & Public-Facing)
+// ═══════════════════════════════════════
+async function generateCommentReply(
+    userId: string,
+    commentText: string,
+    commenterName: string,
+    supabase: any
+): Promise<string | null> {
+    try {
+        // Fetch business settings
+        const { data: settings } = await supabase
+            .from('bot_settings')
+            .select('business_name, tone, system_instructions, language')
+            .eq('user_id', userId)
+            .single();
+
+        const businessName = settings?.business_name || 'our store';
+
+        // Fetch inventory for product-related comments
+        const { data: inventory } = await supabase
+            .from('inventory')
+            .select('item_name, stock_level, price')
+            .eq('user_id', userId);
+
+        let inventoryContext = "No inventory items listed.";
+        if (inventory?.length) {
+            inventoryContext = inventory
+                .map((i: any) => `- ${i.item_name}: ${i.stock_level} in stock ($${i.price})`)
+                .join('\n');
+        }
+
+        const { createGroq } = await import('@ai-sdk/groq');
+        const { generateText } = await import('ai');
+
+        const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
+
+        const systemPrompt = `You are the official comment assistant for ${businessName} on Instagram.
+
+RULES FOR COMMENT REPLIES (PUBLIC — EVERYONE CAN SEE):
+- Keep replies SHORT: 1-2 sentences max (under 150 characters ideally).
+- Be warm, friendly, and professional.
+- Use 1 emoji max.
+- NEVER share private info (prices, stock levels, phone numbers) in comments.
+- For pricing/availability questions, ALWAYS redirect to DMs: "DM us for details! 💬"
+- For compliments: Thank them warmly.
+- For questions about products: Give a brief answer and invite them to DM for more info.
+- For complaints: Acknowledge and invite them to DM to resolve it privately.
+- Address the commenter by name when natural (e.g., "@${commenterName}").
+- Match the commenter's language (English, Arabic, etc.).
+
+${settings?.language === 'English' ? '⚠️ LANGUAGE OVERRIDE: Always reply in English.' : settings?.language === 'Lebanese Franco' ? '⚠️ LANGUAGE OVERRIDE: Always reply in Lebanese Arabizi.' : ''}
+
+TONE: ${settings?.tone || 'Professional & Friendly'}
+
+AVAILABLE PRODUCTS (for reference only — do NOT list prices in comments):
+${inventoryContext}
+
+${settings?.system_instructions ? `BUSINESS INSTRUCTIONS: ${settings.system_instructions}` : ''}`;
+
+        const result = await generateText({
+            model: groq("llama-3.3-70b-versatile"),
+            system: systemPrompt,
+            messages: [{ role: 'user', content: `Instagram comment from @${commenterName}: "${commentText}"` }],
+        });
+
+        return result.text;
+
+    } catch (error) {
+        console.error('Ghost Brain (Comment) Error:', error);
+        return "Thanks for your comment! DM us for more info 💬";
+    }
+}
+
