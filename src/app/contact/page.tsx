@@ -1,53 +1,145 @@
-import Footer from '@/components/Footer';
+'use client';
+
+import { useState } from 'react';
+import { motion } from 'framer-motion';
 import Navbar from '@/components/Navbar';
-import { Mail, MessageSquare } from 'lucide-react';
+import Footer from '@/components/Footer';
+import StarBackground from '@/components/StarBackground';
+import { Mail, Send, Clock, CheckCircle } from 'lucide-react';
 
 export default function Contact() {
+    const [submitted, setSubmitted] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        // Simulate form submission
+        setTimeout(() => {
+            setLoading(false);
+            setSubmitted(true);
+        }, 1500);
+    };
+
     return (
-        <main className="min-h-screen bg-background text-foreground">
-            <Navbar />
-            <div className="max-w-7xl mx-auto px-6 py-32 flex flex-col items-center justify-center min-h-[80vh]">
-
-                <h1 className="text-4xl md:text-5xl font-bold text-white mb-6 text-center">Contact Support</h1>
-                <p className="text-muted-foreground mb-12 text-center max-w-lg">
-                    Have a question or need help setting up your agent? We're here to help.
-                </p>
-
-                <div className="w-full max-w-md bg-card border border-white/5 rounded-3xl p-8 shadow-2xl">
-                    <form className="space-y-6">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-white ml-1">Email Address</label>
-                            <input
-                                type="email"
-                                placeholder="you@example.com"
-                                className="w-full bg-background border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-primary focus:border-primary/50 outline-none transition-all placeholder:text-muted-foreground/50"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-white ml-1">Message</label>
-                            <textarea
-                                rows={4}
-                                placeholder="How can we help?"
-                                className="w-full bg-background border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-primary focus:border-primary/50 outline-none transition-all placeholder:text-muted-foreground/50 resize-none"
-                            />
-                        </div>
-
-                        <button className="w-full py-4 bg-primary text-black font-bold rounded-xl hover:opacity-90 transition-opacity">
-                            Send Message
-                        </button>
-                    </form>
-
-                    <div className="mt-8 pt-8 border-t border-white/5 text-center">
-                        <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
-                            <Mail className="w-4 h-4" />
-                            Or email us directly at
-                            <a href="mailto:support@ghostagent.com" className="text-primary hover:underline">support@ghostagent.com</a>
-                        </p>
-                    </div>
-                </div>
-
+        <main className="min-h-screen text-white overflow-hidden relative selection:bg-primary/30">
+            {/* Background */}
+            <div className="fixed inset-0 bg-background">
+                <div
+                    className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"
+                    style={{ maskImage: 'radial-gradient(ellipse 60% 50% at 50% 0%, #000 70%, transparent 100%)' }}
+                />
             </div>
+            <StarBackground />
+
+            <Navbar />
+
+            <section className="relative z-10 pt-32 pb-20 px-4 md:px-6 min-h-screen flex flex-col items-center justify-center">
+                <div className="max-w-lg w-full mx-auto">
+                    <motion.div
+                        initial={{ opacity: 0, y: 30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.8 }}
+                        className="text-center mb-10"
+                    >
+                        <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
+                            Get in Touch
+                        </h1>
+                        <p className="text-white/40 max-w-md mx-auto">
+                            Have a question or need help setting up your agent? We&apos;re here for you.
+                        </p>
+                    </motion.div>
+
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3, duration: 0.7 }}
+                        className="glass-frosted rounded-3xl p-8 md:p-10"
+                    >
+                        {submitted ? (
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="text-center py-8"
+                            >
+                                <div className="w-16 h-16 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center mx-auto mb-6">
+                                    <CheckCircle className="w-8 h-8 text-green-400" />
+                                </div>
+                                <h3 className="text-2xl font-bold text-white mb-3">Message Sent!</h3>
+                                <p className="text-white/40">
+                                    We&apos;ll get back to you within 24 hours. Check your inbox.
+                                </p>
+                            </motion.div>
+                        ) : (
+                            <form onSubmit={handleSubmit} className="space-y-5">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-white/60 ml-1">Email Address</label>
+                                    <div className="relative">
+                                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25" />
+                                        <input
+                                            type="email"
+                                            required
+                                            placeholder="you@example.com"
+                                            className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3.5 pl-11 text-white focus:ring-1 focus:ring-primary/50 focus:border-primary/30 outline-none transition-all placeholder:text-white/20 hover:border-white/15"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-white/60 ml-1">Subject</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        placeholder="How can we help?"
+                                        className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3.5 text-white focus:ring-1 focus:ring-primary/50 focus:border-primary/30 outline-none transition-all placeholder:text-white/20 hover:border-white/15"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-white/60 ml-1">Message</label>
+                                    <textarea
+                                        rows={5}
+                                        required
+                                        placeholder="Tell us more..."
+                                        className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3.5 text-white focus:ring-1 focus:ring-primary/50 focus:border-primary/30 outline-none transition-all placeholder:text-white/20 resize-none hover:border-white/15"
+                                    />
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="w-full py-4 bg-primary text-white font-bold rounded-xl hover:shadow-[0_0_30px_rgba(139,92,246,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                >
+                                    {loading ? (
+                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                        <>
+                                            Send Message
+                                            <Send className="w-4 h-4" />
+                                        </>
+                                    )}
+                                </button>
+                            </form>
+                        )}
+
+                        {/* Contact Info */}
+                        <div className="mt-8 pt-6 border-t border-white/[0.06] space-y-3">
+                            <a
+                                href="mailto:support@ghostagent.com"
+                                className="flex items-center gap-3 text-sm text-white/35 hover:text-primary transition-colors"
+                            >
+                                <Mail className="w-4 h-4" />
+                                support@ghostagent.com
+                            </a>
+                            <div className="flex items-center gap-3 text-sm text-white/35">
+                                <Clock className="w-4 h-4" />
+                                Typically responds within 24 hours
+                            </div>
+                        </div>
+                    </motion.div>
+                </div>
+            </section>
+
             <Footer />
         </main>
     );

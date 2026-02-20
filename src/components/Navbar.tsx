@@ -13,17 +13,17 @@ export default function Navbar() {
     const pathname = usePathname();
 
     const links = [
-        { name: 'Features', href: '#features', section: 'features' },
-        { name: 'Pricing', href: '#pricing', section: 'pricing' },
-        { name: 'Contact', href: '/contact', section: null },
+        { name: 'Features', href: '/#features', section: 'features' },
+        { name: 'Pricing', href: '/#pricing', section: 'pricing' },
         { name: 'About', href: '/about', section: null },
+        { name: 'Contact', href: '/contact', section: null },
     ];
 
     useEffect(() => {
         if (pathname !== '/') return;
 
         const handleScroll = () => {
-            const sections = ['features', 'pricing', 'contact'];
+            const sections = ['features', 'pricing'];
             const scrollPosition = window.scrollY + 100;
 
             for (const sectionId of sections) {
@@ -45,9 +45,10 @@ export default function Navbar() {
     }, [pathname]);
 
     const handleClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-        if (href.startsWith('#')) {
+        // On the landing page, scroll to the section
+        if (pathname === '/' && href.startsWith('/#')) {
             e.preventDefault();
-            const element = document.getElementById(href.slice(1));
+            const element = document.getElementById(href.slice(2));
             if (element) {
                 element.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
@@ -56,11 +57,11 @@ export default function Navbar() {
     };
 
     return (
-        <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4">
-            <div className="max-w-7xl mx-auto flex items-center justify-between rounded-2xl px-6 py-3 border border-white/[0.06] bg-[#0B0C10]/80 backdrop-blur-xl shadow-lg relative overflow-hidden">
+        <nav className="fixed top-0 left-0 right-0 z-50 px-4 md:px-6 py-4">
+            <div className="max-w-7xl mx-auto flex items-center justify-between rounded-2xl px-5 md:px-6 py-3 border border-white/[0.06] bg-[#0B0C10]/80 backdrop-blur-xl shadow-lg relative overflow-hidden">
 
                 {/* Logo */}
-                <Link href="/" className="text-xl font-semibold tracking-tight flex items-center gap-3 relative z-10">
+                <Link href="/" className="text-xl font-semibold tracking-tight flex items-center gap-2.5 relative z-10">
                     <div className="p-1.5 rounded-xl bg-white/[0.04]">
                         <GhostLogo className="w-7 h-7" />
                     </div>
@@ -72,7 +73,9 @@ export default function Navbar() {
                 {/* Desktop Links */}
                 <div className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2 z-10">
                     {links.map((item) => {
-                        const isActive = item.section && activeSection === item.section;
+                        const isActive =
+                            (item.section && activeSection === item.section) ||
+                            (!item.section && pathname === item.href);
                         return (
                             <Link
                                 key={item.name}
@@ -89,8 +92,11 @@ export default function Navbar() {
 
                 {/* Right Side */}
                 <div className="flex items-center gap-4 z-10">
-                    <Link href="/login" className="hidden md:block px-5 py-2 rounded-xl bg-primary text-white text-sm font-medium hover:opacity-90 transition-opacity">
-                        Login
+                    <Link
+                        href="/login"
+                        className="hidden md:block px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:opacity-90 transition-all shadow-[0_0_20px_rgba(139,92,246,0.2)] hover:shadow-[0_0_30px_rgba(139,92,246,0.35)]"
+                    >
+                        Start Free Trial
                     </Link>
 
                     {/* Mobile Hamburger */}
@@ -129,35 +135,26 @@ export default function Navbar() {
                             </div>
 
                             <div className="flex flex-col gap-5">
-                                {links.map((item) => {
-                                    const isAnchor = item.href.startsWith('#');
-                                    return (
-                                        <Link
-                                            key={item.name}
-                                            href={isAnchor ? '/' + item.href : item.href}
-                                            onClick={(e) => {
-                                                if (isAnchor) {
-                                                    e.preventDefault();
-                                                    const element = document.getElementById(item.href.slice(1));
-                                                    if (element) {
-                                                        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                                    }
-                                                }
-                                                setIsOpen(false);
-                                            }}
-                                            className="text-lg font-medium text-white/50 hover:text-white transition-colors"
-                                        >
-                                            {item.name}
-                                        </Link>
-                                    );
-                                })}
+                                {links.map((item) => (
+                                    <Link
+                                        key={item.name}
+                                        href={item.href}
+                                        onClick={(e) => {
+                                            handleClick(e, item.href);
+                                            setIsOpen(false);
+                                        }}
+                                        className="text-lg font-medium text-white/50 hover:text-white transition-colors"
+                                    >
+                                        {item.name}
+                                    </Link>
+                                ))}
                                 <hr className="border-white/[0.06] my-2" />
                                 <Link
                                     href="/login"
                                     onClick={() => setIsOpen(false)}
-                                    className="px-6 py-3 rounded-xl bg-primary text-white font-medium text-center hover:opacity-90 transition-opacity"
+                                    className="px-6 py-3 rounded-xl bg-primary text-white font-medium text-center hover:opacity-90 transition-opacity shadow-[0_0_20px_rgba(139,92,246,0.2)]"
                                 >
-                                    Login
+                                    Start Free Trial
                                 </Link>
                             </div>
                         </motion.div>
