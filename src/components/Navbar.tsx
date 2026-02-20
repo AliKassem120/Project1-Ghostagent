@@ -94,6 +94,12 @@ export default function Navbar() {
                 <div className="flex items-center gap-4 z-10">
                     <Link
                         href="/login"
+                        className="hidden md:block text-sm font-medium text-white/40 hover:text-white/70 transition-colors"
+                    >
+                        Login
+                    </Link>
+                    <Link
+                        href="/login"
                         className="hidden md:block px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:opacity-90 transition-all shadow-[0_0_20px_rgba(139,92,246,0.2)] hover:shadow-[0_0_30px_rgba(139,92,246,0.35)]"
                     >
                         Start Free Trial
@@ -149,6 +155,13 @@ export default function Navbar() {
                                     </Link>
                                 ))}
                                 <hr className="border-white/[0.06] my-2" />
+                                <Link
+                                    href="/login"
+                                    onClick={() => setIsOpen(false)}
+                                    className="text-lg font-medium text-white/50 hover:text-white transition-colors"
+                                >
+                                    Login
+                                </Link>
                                 <Link
                                     href="/login"
                                     onClick={() => setIsOpen(false)}

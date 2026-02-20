@@ -33,6 +33,8 @@ export default function SettingsPage() {
         language: 'Auto-Detect',
         systemPrompt: '',
         whatsappTemplate: '',
+        storeLocation: '',
+        contactInfo: '',
     });
 
     useEffect(() => {
@@ -63,6 +65,8 @@ export default function SettingsPage() {
                         language: data.language || 'Auto-Detect',
                         systemPrompt: data.system_instructions || '',
                         whatsappTemplate: data.whatsapp_template || '',
+                        storeLocation: data.store_location || '',
+                        contactInfo: data.contact_info || '',
                     });
                 }
             } catch (err) {
@@ -263,6 +267,8 @@ export default function SettingsPage() {
                     language: settings.language,
                     system_instructions: settings.systemPrompt,
                     whatsapp_template: settings.whatsappTemplate,
+                    store_location: settings.storeLocation,
+                    contact_info: settings.contactInfo,
                     updated_at: new Date().toISOString(),
                 }, { onConflict: 'user_id' });
 
@@ -321,6 +327,31 @@ export default function SettingsPage() {
                         className="input-premium w-full"
                         placeholder="e.g. Joe's Pizza"
                     />
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6 mt-6">
+                    <div className="space-y-3">
+                        <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Store Location</label>
+                        <input
+                            type="text"
+                            value={settings.storeLocation}
+                            onChange={(e) => setSettings({ ...settings, storeLocation: e.target.value })}
+                            className="input-premium w-full"
+                            placeholder="e.g. Hamra, Beirut, Lebanon"
+                        />
+                        <p className="text-xs text-white/40 italic">The AI will share this exact address when asked. Leave blank to hide.</p>
+                    </div>
+                    <div className="space-y-3">
+                        <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Contact Info</label>
+                        <input
+                            type="text"
+                            value={settings.contactInfo}
+                            onChange={(e) => setSettings({ ...settings, contactInfo: e.target.value })}
+                            className="input-premium w-full"
+                            placeholder="e.g. +961 71 123 456 / info@store.com"
+                        />
+                        <p className="text-xs text-white/40 italic">Phone, email, or website the AI can share with customers.</p>
+                    </div>
                 </div>
             </div>
 

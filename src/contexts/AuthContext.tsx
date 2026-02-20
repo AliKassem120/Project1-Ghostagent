@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 // If we have a session and we're on a public page, redirect to dashboard
                 // This handles the "Double Login" - if we land on /login with a valid session
-                if (session?.user && (pathname === '/login' || pathname === '/' || pathname === '/register')) {
+                if (session?.user && (pathname === '/login' || pathname === '/register')) {
                     router.replace('/dashboard');
                 }
             } catch (error) {

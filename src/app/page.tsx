@@ -762,6 +762,15 @@ export default function Home() {
         </motion.div>
       </section>
 
+      {/* Quick Links */}
+      <div className="relative z-10 flex items-center justify-center gap-6 py-6 text-xs text-white/25">
+        <Link href="/privacy" className="hover:text-white/50 transition-colors">Privacy Policy</Link>
+        <span>·</span>
+        <Link href="/terms" className="hover:text-white/50 transition-colors">Terms of Service</Link>
+        <span>·</span>
+        <Link href="/contact" className="hover:text-white/50 transition-colors">Contact</Link>
+      </div>
+
       {/* Footer */}
       <Footer />
 
