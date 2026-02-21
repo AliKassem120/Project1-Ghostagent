@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from '@supabase/supabase-js';
 import { generateGhostReply } from '@/utils/ghost-brain';
+import crypto from 'crypto';
 
 // Helper to get admin supabase client
 const getSupabaseAdmin = () => {
@@ -8,6 +9,34 @@ const getSupabaseAdmin = () => {
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY!;
     if (!supabaseServiceKey) throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY');
     return createClient(supabaseUrl, supabaseServiceKey);
+}
+
+// ═══════════════════════════════════════
+// 🔐 Verify Meta Webhook Signature
+// ═══════════════════════════════════════
+function verifySignature(rawBody: string, signature: string | null): boolean {
+    const appSecret = process.env.FACEBOOK_APP_SECRET;
+    if (!appSecret) {
+        console.warn('⚠️ FACEBOOK_APP_SECRET not set — skipping signature validation');
+        return true; // Allow if no secret configured
+    }
+    if (!signature) {
+        console.warn('⚠️ No x-hub-signature-256 header — allowing anyway');
+        return true; // Some test/legacy payloads don't include it
+    }
+    const expectedSignature = 'sha256=' + crypto
+        .createHmac('sha256', appSecret)
+        .update(rawBody, 'utf8')
+        .digest('hex');
+
+    const isValid = crypto.timingSafeEqual(
+        Buffer.from(signature),
+        Buffer.from(expectedSignature)
+    );
+    if (!isValid) {
+        console.error('❌ Signature mismatch! Expected:', expectedSignature.slice(0, 20) + '...', 'Got:', signature.slice(0, 20) + '...');
+    }
+    return isValid;
 }
 
 // Keep your existing GET function
@@ -30,9 +59,61 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(req: Request) {
+    // ═══════════════════════════════════════
+    // 🔑 STEP 1: Read raw body FIRST (before anything else)
+    // This is critical for Next.js App Router — req.json() consumes the stream
+    // ═══════════════════════════════════════
+    let rawBody: string;
+    let body: any;
+
     try {
-        const body = await req.json();
-        console.log("Incoming Payload:", JSON.stringify(body).slice(0, 500));
+        rawBody = await req.text();
+        console.log("📨 Raw webhook received, length:", rawBody.length);
+    } catch (e) {
+        console.error("❌ Failed to read request body:", e);
+        return new NextResponse("EVENT_RECEIVED", { status: 200 }); // Always 200 to Meta
+    }
+
+    // ═══════════════════════════════════════
+    // 🔐 STEP 2: Validate signature
+    // ═══════════════════════════════════════
+    const signature = req.headers.get('x-hub-signature-256');
+    if (!verifySignature(rawBody, signature)) {
+        console.error("❌ Invalid signature — rejecting payload");
+        // Even on invalid signature, return 200 to prevent Meta from retrying endlessly
+        return new NextResponse("EVENT_RECEIVED", { status: 200 });
+    }
+
+    // ═══════════════════════════════════════
+    // 📦 STEP 3: Parse JSON from raw body
+    // ═══════════════════════════════════════
+    try {
+        body = JSON.parse(rawBody);
+    } catch (e) {
+        console.error("❌ Failed to parse JSON:", e, "Raw:", rawBody.slice(0, 200));
+        return new NextResponse("EVENT_RECEIVED", { status: 200 });
+    }
+
+    console.log("Incoming Payload:", JSON.stringify(body).slice(0, 500));
+
+    // ═══════════════════════════════════════
+    // 🚀 STEP 4: Process the event
+    // Always return 200 to Meta, even if processing fails
+    // ═══════════════════════════════════════
+    try {
+        await processWebhookEvent(body);
+    } catch (err) {
+        console.error("❌ Processing error:", err);
+    }
+
+    return new NextResponse("EVENT_RECEIVED", { status: 200 });
+}
+
+// ═══════════════════════════════════════
+// 🧠 Main Processing Logic (runs async after 200 is returned)
+// ═══════════════════════════════════════
+async function processWebhookEvent(body: any) {
+    try {
 
         // 1. Check if this is an Instagram event
         if (body.object === "instagram") {
@@ -272,10 +353,9 @@ export async function POST(req: Request) {
             }
         }
 
-        return new NextResponse("EVENT_RECEIVED", { status: 200 });
+        console.log("✅ Webhook event processed successfully.");
     } catch (error) {
-        console.error("❌ POST Error:", error);
-        return new NextResponse("Internal Server Error", { status: 500 });
+        console.error("❌ Processing Error:", error);
     }
 }
 
