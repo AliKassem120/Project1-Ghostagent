@@ -25,12 +25,12 @@ import {
    CHAT MESSAGES — Multilingual DM Demo
    ════════════════════════════════════════════════════ */
 const chatMessages = [
-  { type: 'user', text: 'Kifak? Badeh a3ref aktar 3an l service', delay: 0.5 },
-  { type: 'bot', text: 'Ahla! 👋 Service ta3na bi automati l DMs, bi jawbak 24/7 bi ay logha. Shu badak t3ref?', delay: 2.5 },
-  { type: 'user', text: 'How much does it cost?', delay: 5 },
-  { type: 'bot', text: 'Great question! We have a free Starter plan. Pro is $49/mo with unlimited replies & inventory sync. Want me to set you up? 🚀', delay: 7 },
-  { type: 'user', text: 'Yes! Sign me up 🔥', delay: 10 },
-  { type: 'bot', text: 'Done! ✅ Check your DMs for the onboarding link. Welcome to Ghost Agent!', delay: 12 },
+  { type: 'user', text: 'Hi! How does Ghost Agent actually work?', delay: 0.5 },
+  { type: 'bot', text: 'Hey! 👋 We connect to your Instagram to automatically answer DMs and comments 24/7. It learns your inventory and replies in any language. Want to see pricing?', delay: 3.0 },
+  { type: 'user', text: 'Yeah, how much is the Pro plan?', delay: 5.5 },
+  { type: 'bot', text: 'Pro is $49/mo and gives you unlimited AI replies, live inventory sync, and sales analytics. Should I send you the setup link? 🚀', delay: 8.5 },
+  { type: 'user', text: "Let's do it!", delay: 11.5 },
+  { type: 'bot', text: 'Awesome! ✅ I just sent you a DM with the onboarding link. Welcome aboard!', delay: 13.5 },
 ];
 
 /* ════════════════════════════════════════════════════
