@@ -206,9 +206,16 @@ function StepCard({
    ════════════════════════════════════════════════════ */
 export default function Home() {
   const [showVideo, setShowVideo] = useState(false);
+  const [liveConversations, setLiveConversations] = useState(847);
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    // Dynamic starting number so it changes on refresh
+    setLiveConversations(Math.floor(Math.random() * 200) + 300);
+    const interval = setInterval(() => {
+      setLiveConversations((prev) => prev + Math.floor(Math.random() * 3) + 1);
+    }, 4500);
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -314,7 +321,7 @@ export default function Home() {
               ))}
             </div>
             <div className="text-sm text-white/40">
-              <span className="text-white font-semibold">2,000+</span> stores automated
+              <span className="text-white font-semibold">50+</span> stores automated
             </div>
           </motion.div>
         </div>
@@ -376,7 +383,7 @@ export default function Home() {
               <div className="mt-4 p-4 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
                 <div className="flex items-center gap-3 text-sm">
                   <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                  <span className="text-white/30">Live: 847 conversations handled today</span>
+                  <span className="text-white/30">Live: {liveConversations.toLocaleString()} conversations handled today</span>
                 </div>
               </div>
             </motion.div>
@@ -523,8 +530,8 @@ export default function Home() {
           {/* Stats Banner */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-16">
             {[
-              { value: '2,000+', label: 'Stores' },
-              { value: '5M+', label: 'Messages Handled' },
+              { value: '50+', label: 'Stores' },
+              { value: '25,000+', label: 'Messages Handled' },
               { value: '99.9%', label: 'Uptime' },
               { value: '< 2s', label: 'Avg. Response' },
             ].map((stat, i) => (
@@ -547,7 +554,7 @@ export default function Home() {
             {[
               {
                 name: 'Sarah M.',
-                handle: '@sarahboutique',
+                handle: '@s***boutique',
                 avatar: 'S',
                 color: 'bg-pink-500',
                 quote: 'Ghost Agent tripled my response rate overnight. My DMs used to be a nightmare — now they close sales while I sleep.',
@@ -555,7 +562,7 @@ export default function Home() {
               },
               {
                 name: 'Ahmad K.',
-                handle: '@ahmad_tech',
+                handle: '@a***_tech',
                 avatar: 'A',
                 color: 'bg-blue-500',
                 quote: 'The multilingual support is insane. It handles Arabic and English seamlessly. My customers in Lebanon love it.',
@@ -563,7 +570,7 @@ export default function Home() {
               },
               {
                 name: 'Maria L.',
-                handle: '@maria.fashion',
+                handle: '@m***.fashion',
                 avatar: 'M',
                 color: 'bg-purple-500',
                 quote: 'Set it up in 5 minutes, inventory syncs perfectly, and my conversion rate jumped 40% in the first week.',
@@ -744,7 +751,7 @@ export default function Home() {
             Ready to Automate Your Sales?
           </h2>
           <p className="text-white/40 mb-8 max-w-md mx-auto">
-            Join 2,000+ store owners already using Ghost Agent. Set up in under 3 minutes.
+            Join 50+ store owners already using Ghost Agent. Set up in under 3 minutes.
           </p>
           <Link
             href="/login"
