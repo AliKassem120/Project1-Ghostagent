@@ -29,6 +29,11 @@ function verifySignature(rawBody: string, signature: string | null): boolean {
         .update(rawBody, 'utf8')
         .digest('hex');
 
+    if (signature.length !== expectedSignature.length) {
+        console.error('❌ Signature mismatch! Expected length:', expectedSignature.length, 'Got:', signature.length);
+        return false;
+    }
+
     const isValid = crypto.timingSafeEqual(
         Buffer.from(signature),
         Buffer.from(expectedSignature)
