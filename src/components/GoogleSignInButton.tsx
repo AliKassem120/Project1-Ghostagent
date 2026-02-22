@@ -36,6 +36,7 @@ export default function GoogleSignInButton({ onSuccess, onError }: GoogleSignInB
 
         if (!clientId) {
             console.error("Missing NEXT_PUBLIC_GOOGLE_CLIENT_ID environment variable.");
+            // We'll let the UI handle showing the error
             return;
         }
 
@@ -98,9 +99,17 @@ export default function GoogleSignInButton({ onSuccess, onError }: GoogleSignInB
 
             <div
                 ref={buttonRef}
-                className="min-h-[40px] flex items-center justify-center"
+                className="w-full flex items-center justify-center"
             >
-                {!isScriptLoaded && <p className="text-sm text-gray-400">Loading Google Sign-In...</p>}
+                {!isScriptLoaded && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+                    <p className="text-sm text-gray-400">Loading Google Sign-In...</p>
+                )}
+                {!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+                    <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-sm text-center">
+                        Missing NEXT_PUBLIC_GOOGLE_CLIENT_ID in .env.local<br />
+                        (Please restart your dev server if you just added it)
+                    </div>
+                )}
             </div>
 
             {isSigniningIn && (
