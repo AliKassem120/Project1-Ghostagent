@@ -32,6 +32,7 @@ export default function SettingsPage() {
         minOrderForDiscount: 50,
         emergencyWhatsApp: '',
         language: 'Auto-Detect',
+        useLocalSlang: false,
         systemPrompt: '',
         whatsappTemplate: '',
         storeLocation: '',
@@ -41,6 +42,27 @@ export default function SettingsPage() {
     // AI Generate state
     const [aiPromptInput, setAiPromptInput] = useState('');
     const [generating, setGenerating] = useState(false);
+
+    // Language Demo state
+    const [demoPhase, setDemoPhase] = useState(0);
+
+    useEffect(() => {
+        if (settings.language !== 'Auto-Detect') return;
+
+        const phases = [
+            { delay: 1500, next: 1 }, // 0: Start, show FR user
+            { delay: 3000, next: 2 }, // 1: Show FR bot
+            { delay: 1500, next: 3 }, // 2: Reset, flip to AR
+            { delay: 1500, next: 4 }, // 3: Show AR user
+            { delay: 3000, next: 0 }, // 4: Show AR bot
+        ];
+
+        const timeout = setTimeout(() => {
+            setDemoPhase(phases[demoPhase].next);
+        }, phases[demoPhase].delay);
+
+        return () => clearTimeout(timeout);
+    }, [demoPhase, settings.language]);
 
     const handleGenerateInstructions = async () => {
         if (!aiPromptInput.trim() || generating) return;
@@ -90,7 +112,6 @@ export default function SettingsPage() {
                     .single();
 
                 if (data) {
-                    console.log('📬 Fetched Settings:', data);
                     setSettings({
                         businessName: data.business_name || '',
                         tone: data.tone || 'Professional',
@@ -99,6 +120,7 @@ export default function SettingsPage() {
                         minOrderForDiscount: data.min_order_for_discount || 50,
                         emergencyWhatsApp: data.emergency_whatsapp || '',
                         language: data.language || 'Auto-Detect',
+                        useLocalSlang: data.use_local_slang ?? false,
                         systemPrompt: data.system_instructions || '',
                         whatsappTemplate: data.whatsapp_template || '',
                         storeLocation: data.store_location || '',
@@ -583,20 +605,106 @@ export default function SettingsPage() {
                     </div>
                 </div>
 
-                <div className="space-y-3">
-                    <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Language Mode</label>
-                    <div className="max-w-xs">
-                        <CustomSelect
-                            value={settings.language}
-                            onChange={(val) => setSettings({ ...settings, language: val })}
-                            options={[
-                                { value: "Auto-Detect", label: "🌍 Auto-Detect" },
-                                { value: "English", label: "🇬🇧 English Only" },
-                                { value: "Lebanese Franco", label: "🇱🇧 Lebanese Franco" },
-                            ]}
-                        />
+                <div className="grid md:grid-cols-2 gap-8 items-start">
+                    <div className="space-y-6">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Language Mode</label>
+                            <CustomSelect
+                                value={settings.language}
+                                onChange={(val) => setSettings({ ...settings, language: val })}
+                                options={[
+                                    { value: "Auto-Detect", label: "🌍 Auto-Detect" },
+                                    { value: "English", label: "🇬🇧 English Only" },
+                                    { value: "Lebanese Franco", label: "🇱🇧 Lebanese Franco" },
+                                ]}
+                            />
+                            <p className="text-[10px] text-white/20 ml-1 mt-2">Auto-Detect is recommended. Ghost Agent mirrors any language the customer uses.</p>
+                        </div>
+
+                        <div className="space-y-1.5 pt-2">
+                            <label className="text-[10px] font-bold text-amber-500/50 uppercase tracking-widest ml-1">Advanced Personality</label>
+                            <div className="flex items-center justify-between p-3.5 bg-amber-500/[0.02] rounded-xl border border-amber-500/[0.04] hover:bg-amber-500/[0.04] transition-all cursor-pointer group"
+                                onClick={() => setSettings({ ...settings, useLocalSlang: !settings.useLocalSlang })}>
+                                <div>
+                                    <span className="block text-sm text-amber-500/80 group-hover:text-amber-400 transition-colors">Use Local Slang</span>
+                                    <span className="block text-[10px] text-amber-500/40 mt-0.5">&quot;Walla&quot;, &quot;Yalla&quot;, or &quot;Kifak&quot;</span>
+                                </div>
+                                <div className={clsx(
+                                    "relative w-11 rounded-full transition-colors duration-300",
+                                    settings.useLocalSlang ? "bg-amber-500" : "bg-white/10"
+                                )} style={{ height: '24px' }}>
+                                    <motion.div
+                                        className="absolute top-[2px] w-[20px] h-[20px] rounded-full bg-white shadow-sm"
+                                        animate={{ x: settings.useLocalSlang ? 22 : 2 }}
+                                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <p className="text-[10px] text-white/20 ml-1">Auto-Detect is recommended. Ghost Agent mirrors any language the customer uses.</p>
+
+                    <div className="hidden md:block">
+                        <label className="text-[10px] font-bold text-primary/60 uppercase tracking-widest ml-1 mb-1.5 block">Live Translation Playground</label>
+                        <div className="p-4 rounded-xl bg-[#0B0E14] border border-white/[0.04] min-h-[140px] flex flex-col justify-end space-y-3 relative overflow-hidden">
+
+                            {settings.language !== 'Auto-Detect' ? (
+                                <div className="absolute inset-0 flex items-center justify-center text-xs text-white/20 text-center px-6">
+                                    Live playground only available when Auto-Detect is enabled.
+                                </div>
+                            ) : (
+                                <AnimatePresence mode="popLayout">
+                                    {(demoPhase === 0 || demoPhase === 1) && (
+                                        <motion.div
+                                            key="user-fr"
+                                            initial={{ opacity: 0, x: 20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
+                                            className="self-end max-w-[80%] bg-white/10 text-white text-[13px] px-3 py-2 rounded-2xl rounded-tr-sm"
+                                        >
+                                            Bonjour!
+                                        </motion.div>
+                                    )}
+
+                                    {demoPhase === 1 && (
+                                        <motion.div
+                                            key="bot-fr"
+                                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                            exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+                                            className="self-start max-w-[80%] bg-primary/20 text-primary-100 text-[13px] px-3 py-2 rounded-2xl rounded-tl-sm border border-primary/20"
+                                        >
+                                            Bonjour! Comment puis-je vous aider?
+                                        </motion.div>
+                                    )}
+
+                                    {(demoPhase === 3 || demoPhase === 4) && (
+                                        <motion.div
+                                            key="user-ar"
+                                            initial={{ opacity: 0, x: 20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
+                                            className="self-end max-w-[80%] bg-white/10 text-white text-[13px] px-3 py-2 rounded-2xl rounded-tr-sm"
+                                        >
+                                            مرحبا
+                                        </motion.div>
+                                    )}
+
+                                    {demoPhase === 4 && (
+                                        <motion.div
+                                            key="bot-ar"
+                                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                            exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+                                            className="self-start max-w-[80%] bg-primary/20 text-primary-100 text-[13px] px-3 py-2 rounded-2xl rounded-tl-sm border border-primary/20"
+                                        >
+                                            {settings.useLocalSlang ? "أهلا بك يا غالي! كيف فيني ساعدك اليوم؟" : "أهلا بك! كيف يمكنني مساعدتك؟"}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            )}
+
+                        </div>
+                    </div>
                 </div>
             </motion.div>
 
