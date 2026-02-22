@@ -11,45 +11,46 @@ export async function POST(req: Request) {
 
         if (!chatId || !text) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
 
-        // Unipile Config
-        const dsn = process.env.UNIPILE_DSN || '';
-        let baseUrl = 'https://api23.unipile.com:15397';
-        let apiKey = process.env.UNIPILE_API_KEY || '';
-        if (dsn.includes('@')) {
-            const [proto, rest] = dsn.split('://');
-            const [auth, domain] = rest.split('@');
-            baseUrl = `${proto}://${domain}`;
-            apiKey = auth;
+        // 1. Fetch User's Instagram Connection for the token
+        const { data: connection, error: connError } = await supabase
+            .from('user_connections')
+            .select('access_token')
+            .eq('user_id', user.id)
+            .eq('provider', 'INSTAGRAM')
+            .single();
+
+        let token = connection?.access_token || process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
+
+        if (!token) {
+            return NextResponse.json({ error: 'Missing Instagram Access Token. Please reconnect your account.' }, { status: 401 });
         }
 
-        // Send via Unipile
-        const sendRes = await fetch(`${baseUrl}/api/v1/chats/${chatId}/messages`, {
-            method: 'POST',
-            headers: {
-                'X-API-KEY': apiKey,
-                'Content-Type': 'application/json'
-            },
+        const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`;
+
+        // Send via Meta Graph API
+        const sendRes = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                text,
-                sender_id: accountId // Optional: helps Unipile know which account sends it
-            })
+                recipient: { id: chatId },
+                message: { text },
+            }),
         });
-
-        if (!sendRes.ok) {
-            const err = await sendRes.text();
-            console.error('Unipile Send Error:', err);
-            return NextResponse.json({ error: err }, { status: 500 });
-        }
 
         const msgData = await sendRes.json();
 
+        if (msgData.error) {
+            console.error('Instagram Send Error:', msgData.error);
+            return NextResponse.json({ error: msgData.error.message }, { status: 500 });
+        }
+
         // CHECK FOR DUPLICATE (Race Condition Fix)
-        if (msgData.id) {
+        if (msgData.message_id) {
             const { data: existing } = await supabase
                 .from('activity_log')
                 .select('id')
                 .eq('user_id', user.id)
-                .or(`metadata->>unipile_message_id.eq.${msgData.id},metadata->>id.eq.${msgData.id}`)
+                .or(`metadata->>message_id.eq.${msgData.message_id},metadata->>id.eq.${msgData.message_id}`)
                 .maybeSingle();
 
             if (existing) {
@@ -69,7 +70,7 @@ export async function POST(req: Request) {
                 is_sender: true,
                 is_manual: true,
                 account_id: accountId,
-                unipile_message_id: msgData.id
+                message_id: msgData.message_id || msgData.id
             },
             timestamp: new Date().toISOString()
         }).select().single();

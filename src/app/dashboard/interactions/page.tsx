@@ -25,6 +25,7 @@ type Conversation = {
     timestamp: string;
     messages: Message[];
     account_id?: string; // Store account context
+    isComment?: boolean;
 };
 
 import { useAutopilot } from '@/context/AutopilotContext';
@@ -329,14 +330,14 @@ export default function InteractionsPage() {
             if (log.event_type === 'INCOMING_DM' && log.description.includes('ghostagent.qzz.io')) return;
 
             let text = log.description || '';
-            let senderName = 'Unknown';
-            let isBot = log.event_type === 'AI_REPLY';
-            let isDraft = log.event_type === 'DRAFT_REPLY'; // Capture draft status
+            let isBot = log.event_type === 'AI_REPLY' || log.event_type === 'COMMENT_REPLY';
+            let isDraft = log.event_type === 'DRAFT_REPLY' || log.event_type === 'DRAFT_COMMENT_REPLY';
             let isManual = log.event_type === 'MANUAL_REPLY' || (meta.is_sender && !isBot && !isDraft);
+            let isComment = log.event_type.includes('COMMENT');
+            let senderName = 'Unknown';
 
             // Extract Sender Name & Text
             if (log.event_type === 'INCOMING_DM') {
-                // Try to get robust name from metadata first
                 if (meta.sender && meta.sender.attendee_name) {
                     senderName = meta.sender.attendee_name;
                 } else if (meta.username && meta.username !== 'You') {
@@ -346,12 +347,19 @@ export default function InteractionsPage() {
                     senderName = parts[parts.length - 1]?.trim() || 'User';
                 }
                 text = text.replace(/^Received: "(.*)" from .*$/, '$1').replace(/"/g, '').trim();
+            } else if (log.event_type === 'INCOMING_MESSAGE') {
+                // Handling for standard meta messenger webhooks if they use this type
+                senderName = meta.username || 'User';
+                text = text.replace(/^.*: "(.*)"$/, '$1').replace(/"/g, '').trim();
+            } else if (log.event_type === 'INCOMING_COMMENT') {
+                senderName = meta.commenter_name ? `@${meta.commenter_name}` : 'Instagram User';
+                text = text.replace(/^Comment from @.*: "(.*)"$/, '$1').replace(/"/g, '').trim();
             } else if (isBot) {
-                senderName = 'Ghost AI';
-                text = text.replace(/^Sent: "(.*)"$/, '$1').replace(/"/g, '').trim();
+                senderName = isComment ? 'Ghost AI (Comment)' : 'Ghost AI';
+                text = text.replace(/^(Sent|Replied to @.*): "(.*)"$/, '$2').replace(/"/g, '').trim();
             } else if (isDraft) {
-                senderName = 'Ghost AI (Draft)';
-                text = text.replace(/^Draft: "(.*)"$/, '$1').replace(/"/g, '').trim();
+                senderName = isComment ? 'Ghost AI (Draft Comment)' : 'Ghost AI (Draft)';
+                text = text.replace(/^Draft( Comment Reply)?: "(.*)"$/, '$2').replace(/"/g, '').trim();
             } else if (isManual) {
                 senderName = 'You';
                 text = text.replace(/^Sent \(Manual\): "(.*)"$/, '$1').replace(/"/g, '').trim();
@@ -367,7 +375,8 @@ export default function InteractionsPage() {
                     lastMessage: text,
                     timestamp: log.timestamp,
                     messages: [],
-                    account_id: meta.account_id // Capture account_id if available
+                    account_id: meta.account_id, // Capture account_id if available
+                    isComment: isComment // Add flag
                 };
             }
 
@@ -462,7 +471,10 @@ export default function InteractionsPage() {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between gap-2">
-                                        <h3 className="font-bold text-sm truncate">{conv.username}</h3>
+                                        <h3 className="font-bold text-sm truncate flex items-center gap-2">
+                                            {conv.username}
+                                            {conv.isComment && <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded-full border border-blue-500/20 uppercase tracking-tighter">Comment</span>}
+                                        </h3>
                                         <span className="text-[10px] text-white/30 whitespace-nowrap">
                                             {new Date(conv.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </span>
@@ -499,7 +511,10 @@ export default function InteractionsPage() {
                                 {activeChat.username[0].toUpperCase()}
                             </div>
                             <div className="flex-1">
-                                <h2 className="font-bold text-sm">{activeChat.username}</h2>
+                                <h2 className="font-bold text-sm flex items-center gap-2">
+                                    {activeChat.username}
+                                    {activeChat.isComment && <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full border border-blue-500/20 uppercase font-bold tracking-tight">Public Comment</span>}
+                                </h2>
                                 {isMuted ? (
                                     <span className="text-[10px] text-yellow-500 flex items-center gap-1 font-bold">
                                         <PauseCircle className="w-3 h-3" />

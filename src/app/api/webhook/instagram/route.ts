@@ -290,6 +290,7 @@ async function processWebhookEvent(body: any) {
                             description: `Comment from @${commenterName}: "${commentText}"`,
                             timestamp: new Date().toISOString(),
                             metadata: {
+                                chat_id: commenterId, // Use commenterId as the thread ID for comments
                                 comment_id: commentId,
                                 commenter_name: commenterName,
                                 commenter_id: commenterId,
@@ -323,6 +324,7 @@ async function processWebhookEvent(body: any) {
                                 description: `Draft Comment Reply: "${aiResponse}"`,
                                 timestamp: new Date().toISOString(),
                                 metadata: {
+                                    chat_id: commenterId,
                                     comment_id: commentId,
                                     commenter_name: commenterName,
                                     media_id: mediaId,
@@ -347,6 +349,7 @@ async function processWebhookEvent(body: any) {
                             description: `Replied to @${commenterName}: "${aiResponse}"`,
                             timestamp: new Date().toISOString(),
                             metadata: {
+                                chat_id: commenterId,
                                 comment_id: commentId,
                                 commenter_name: commenterName,
                                 media_id: mediaId,
