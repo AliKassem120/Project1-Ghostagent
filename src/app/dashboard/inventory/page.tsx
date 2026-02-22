@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Trash2, Save, X, Package, Loader2 } from 'lucide-react';
+import { Plus, Search, Trash2, Save, X, Package, Loader2, DollarSign, Box, TrendingUp, AlertTriangle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
@@ -33,6 +33,7 @@ export default function InventoryPage() {
     const toast = useToast();
     const [userId, setUserId] = useState<string | null>(null);
     const [isAdding, setIsAdding] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
     const [newProduct, setNewProduct] = useState({ name: '', price: 0, stock: 0 });
     const [deleteModal, setDeleteModal] = useState<{ open: boolean; productId: string | null; productName: string }>({ open: false, productId: null, productName: '' });
 
@@ -72,6 +73,22 @@ export default function InventoryPage() {
         status: item.stock_level > 0 ? 'In Stock' : 'Out of Stock'
     }));
 
+    // Filtered products
+    const filteredProducts = useMemo(() => {
+        if (!searchQuery.trim()) return products;
+        return products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    }, [products, searchQuery]);
+
+    // Summary stats
+    const summaryStats = useMemo(() => {
+        const totalItems = products.length;
+        const totalValue = products.reduce((sum, p) => sum + (p.price * p.stock), 0);
+        const totalStock = products.reduce((sum, p) => sum + p.stock, 0);
+        const lowStock = products.filter(p => p.stock > 0 && p.stock <= 5).length;
+        const outOfStock = products.filter(p => p.stock === 0).length;
+        return { totalItems, totalValue, totalStock, lowStock, outOfStock };
+    }, [products]);
+
     const handleAddClick = () => {
         setIsAdding(true);
         setNewProduct({ name: '', price: 0, stock: 0 });
@@ -102,7 +119,6 @@ export default function InventoryPage() {
             if (error) throw error;
 
             if (data) {
-                // Log activity (will trigger toast via RealtimeProvider)
                 await supabase.from('activity_log').insert({
                     user_id: userId,
                     event_type: 'INVENTORY_ADD',
@@ -110,7 +126,6 @@ export default function InventoryPage() {
                     timestamp: new Date().toISOString()
                 });
 
-                // ✅ NO MANUAL STATE UPDATE - Realtime hook handles it!
                 setIsAdding(false);
                 setNewProduct({ name: '', price: 0, stock: 0 });
                 toast.success('Product Added', { description: `"${data.item_name}" is now in your inventory.` });
@@ -129,8 +144,6 @@ export default function InventoryPage() {
                 .eq('id', id);
 
             if (error) throw error;
-
-            // ✅ NO MANUAL STATE UPDATE - Realtime hook handles it!
             toast.success('Product Deleted');
         } catch (error) {
             console.error('Error deleting product:', error);
@@ -151,188 +164,231 @@ export default function InventoryPage() {
     }
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <h1 className="text-3xl font-bold">Inventory</h1>
-                <button
+        <div className="space-y-6 pb-32 md:pb-8">
+
+            {/* ═══ HEADER ═══ */}
+            <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+            >
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-white">Inventory</h1>
+                    <p className="text-sm text-muted-foreground mt-1">Manage your product catalog and stock levels.</p>
+                </div>
+                <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.97 }}
                     onClick={handleAddClick}
                     disabled={isAdding}
-                    className="w-full sm:w-auto px-6 py-3 bg-primary text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 transition-all shadow-[0_0_20px_rgba(192,132,252,0.3)] active:scale-95"
+                    className="w-full sm:w-auto px-6 py-3 bg-primary text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)] active:scale-95"
                 >
                     <Plus className="w-5 h-5" /> Add Product
-                </button>
+                </motion.button>
+            </motion.div>
+
+            {/* ═══ SUMMARY CARDS ═══ */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                    { icon: Package, label: 'Total Products', value: summaryStats.totalItems, color: 'text-violet-400', bg: 'bg-violet-500/10' },
+                    { icon: Box, label: 'Total Stock', value: summaryStats.totalStock, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+                    { icon: DollarSign, label: 'Inventory Value', value: `$${summaryStats.totalValue.toFixed(0)}`, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+                    { icon: AlertTriangle, label: 'Low / Out of Stock', value: `${summaryStats.lowStock + summaryStats.outOfStock}`, color: summaryStats.outOfStock > 0 ? 'text-red-400' : 'text-amber-400', bg: summaryStats.outOfStock > 0 ? 'bg-red-500/10' : 'bg-amber-500/10' },
+                ].map((stat, i) => (
+                    <motion.div
+                        key={stat.label}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.05 + i * 0.05 }}
+                        className="glass-card rounded-2xl p-5"
+                    >
+                        <div className={clsx("p-2 rounded-xl w-fit mb-3", stat.bg)}>
+                            <stat.icon className={clsx("w-4 h-4", stat.color)} />
+                        </div>
+                        <div className="text-xl font-bold text-white tracking-tight">{stat.value}</div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">{stat.label}</div>
+                    </motion.div>
+                ))}
             </div>
 
+            {/* ═══ SEARCH ═══ */}
             <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
                 <input
                     type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search products..."
-                    className="w-full bg-white/5 border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-primary/50 transition-all text-lg lg:text-base"
+                    className="input-premium w-full pl-11"
                 />
             </div>
 
-            <div className="space-y-4">
-                {/* Mobile Card View */}
-                <div className="lg:hidden space-y-4">
-                    {isAdding && (
-                        <div className="glass-dark p-6 rounded-3xl border border-primary/30 animate-in fade-in slide-in-from-top-4 space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-primary/60 uppercase">Product Name</label>
-                                <input
-                                    autoFocus
-                                    className="input-premium w-full"
-                                    placeholder="Enter name..."
-                                    value={newProduct.name}
-                                    onChange={e => setNewProduct({ ...newProduct, name: e.target.value })}
-                                />
+            {/* ═══ ADD PRODUCT FORM ═══ */}
+            <AnimatePresence>
+                {isAdding && (
+                    <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
+                    >
+                        <div className="glass-card rounded-2xl p-6 border-2 border-primary/20 space-y-5">
+                            <div className="flex items-center gap-3 pb-4 border-b border-white/[0.04]">
+                                <div className="p-2 rounded-xl bg-primary/10">
+                                    <Plus className="w-4 h-4 text-primary" />
+                                </div>
+                                <h3 className="font-bold text-white">New Product</h3>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-primary/60 uppercase">Price (USD)</label>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div className="space-y-1.5 sm:col-span-1">
+                                    <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest ml-1">Product Name</label>
                                     <input
-                                        type="number"
+                                        autoFocus
                                         className="input-premium w-full"
-                                        placeholder="0.00"
-                                        value={newProduct.price}
-                                        onChange={e => setNewProduct({ ...newProduct, price: parseFloat(e.target.value) })}
+                                        placeholder="e.g. Vintage T-Shirt"
+                                        value={newProduct.name}
+                                        onChange={e => setNewProduct({ ...newProduct, name: e.target.value })}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') handleSaveProduct(); }}
                                     />
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-primary/60 uppercase">Stock</label>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest ml-1">Price (USD)</label>
+                                    <div className="relative">
+                                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30 text-sm font-semibold">$</span>
+                                        <input
+                                            type="number"
+                                            className="input-premium w-full pl-8"
+                                            placeholder="0.00"
+                                            value={newProduct.price || ''}
+                                            onChange={e => setNewProduct({ ...newProduct, price: parseFloat(e.target.value) || 0 })}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest ml-1">Stock Qty</label>
                                     <input
                                         type="number"
                                         className="input-premium w-full"
                                         placeholder="0"
-                                        value={newProduct.stock}
-                                        onChange={e => setNewProduct({ ...newProduct, stock: parseInt(e.target.value) })}
+                                        value={newProduct.stock || ''}
+                                        onChange={e => setNewProduct({ ...newProduct, stock: parseInt(e.target.value) || 0 })}
                                     />
                                 </div>
                             </div>
+
                             <div className="flex gap-3 pt-2">
-                                <button onClick={handleSaveProduct} className="flex-1 py-3 bg-primary text-black font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
-                                    <Save className="w-5 h-5" /> Save Item
+                                <button
+                                    onClick={handleSaveProduct}
+                                    disabled={!newProduct.name.trim()}
+                                    className="flex-1 sm:flex-none px-8 py-3 bg-primary text-black font-bold rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 disabled:opacity-40"
+                                >
+                                    <Save className="w-4 h-4" /> Save Product
                                 </button>
-                                <button onClick={handleCancelAdd} className="px-4 py-3 bg-white/5 text-white/60 rounded-xl hover:bg-white/10 transition-colors">
-                                    <X className="w-6 h-6" />
+                                <button
+                                    onClick={handleCancelAdd}
+                                    className="px-4 py-3 bg-white/5 text-white/50 rounded-xl hover:bg-white/10 transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
                                 </button>
                             </div>
                         </div>
-                    )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
-                    {products.map((item) => (
-                        <div key={item.id} className="glass-dark p-5 rounded-3xl active:border-primary/30 transition-all space-y-4">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <h3 className="font-bold text-xl">{item.name}</h3>
-                                    <div className="flex items-center gap-2 mt-1">
+            {/* ═══ PRODUCT LIST ═══ */}
+            <div className="space-y-3">
+                {/* Mobile Cards */}
+                <div className="lg:hidden space-y-3">
+                    {filteredProducts.map((item, i) => (
+                        <motion.div
+                            key={item.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: i * 0.03 }}
+                            className="glass-card rounded-2xl p-5 group"
+                        >
+                            <div className="flex justify-between items-start mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                                        <Package className="w-5 h-5 text-primary/70" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-white text-base">{item.name}</h3>
                                         <span className={clsx(
-                                            "px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider",
-                                            item.stock > 0 ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                                            "text-[10px] font-bold uppercase tracking-wider",
+                                            item.stock > 5 ? "text-emerald-400" : item.stock > 0 ? "text-amber-400" : "text-red-400"
                                         )}>
-                                            {item.status}
+                                            {item.stock > 5 ? 'In Stock' : item.stock > 0 ? 'Low Stock' : 'Out of Stock'}
                                         </span>
-                                        <span className="text-sm text-white/40 font-medium">#{item.id.toString().slice(-4)}</span>
                                     </div>
                                 </div>
                                 <button
                                     onClick={() => openDeleteModal(item)}
-                                    className="p-2 text-white/20 hover:text-red-400 active:bg-red-500/10 rounded-xl transition-all"
+                                    className="p-2 text-white/15 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all"
                                 >
-                                    <Trash2 className="w-5 h-5" />
+                                    <Trash2 className="w-4 h-4" />
                                 </button>
                             </div>
-
-                            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/5">
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Price</p>
-                                    <p className="text-xl font-black text-primary">${item.price.toFixed(2)}</p>
+                            <div className="grid grid-cols-2 gap-4 pt-3 border-t border-white/[0.04]">
+                                <div>
+                                    <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest">Price</p>
+                                    <p className="text-lg font-bold text-emerald-400">${item.price.toFixed(2)}</p>
                                 </div>
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Stock Level</p>
-                                    <p className="text-xl font-black text-white">{item.stock}</p>
+                                <div>
+                                    <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest">Stock</p>
+                                    <p className="text-lg font-bold text-white">{item.stock}</p>
                                 </div>
                             </div>
-                        </div>
+                        </motion.div>
                     ))}
                 </div>
 
-                {/* Desktop Table View */}
-                <div className="hidden lg:block glass-dark rounded-3xl overflow-hidden">
+                {/* Desktop Table */}
+                <div className="hidden lg:block glass-card rounded-2xl overflow-hidden">
                     <table className="w-full text-left">
-                        <thead className="bg-white/5 text-white/60 text-xs uppercase tracking-widest">
-                            <tr>
-                                <th className="p-6 font-bold">Product</th>
-                                <th className="p-6 font-bold">Price (USD)</th>
-                                <th className="p-6 font-bold">Stock</th>
-                                <th className="p-6 font-bold">Status</th>
-                                <th className="p-6 font-bold text-right">Actions</th>
+                        <thead>
+                            <tr className="border-b border-white/[0.04]">
+                                <th className="px-6 py-4 text-[10px] font-bold text-white/30 uppercase tracking-widest">Product</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-white/30 uppercase tracking-widest">Price</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-white/30 uppercase tracking-widest">Stock</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-white/30 uppercase tracking-widest">Status</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-white/30 uppercase tracking-widest text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
-                            {isAdding && (
-                                <tr className="bg-primary/5 animate-in fade-in slide-in-from-top-2">
-                                    <td className="p-6">
-                                        <input
-                                            autoFocus
-                                            className="bg-transparent border-b border-white/20 w-full focus:outline-none focus:border-primary px-2 py-1"
-                                            placeholder="Product Name"
-                                            value={newProduct.name}
-                                            onChange={e => setNewProduct({ ...newProduct, name: e.target.value })}
-                                        />
-                                    </td>
-                                    <td className="p-6">
-                                        <input
-                                            type="number"
-                                            className="bg-transparent border-b border-white/20 w-24 focus:outline-none focus:border-primary px-2 py-1"
-                                            placeholder="0.00"
-                                            value={newProduct.price}
-                                            onChange={e => setNewProduct({ ...newProduct, price: parseFloat(e.target.value) })}
-                                        />
-                                    </td>
-                                    <td className="p-6">
-                                        <input
-                                            type="number"
-                                            className="bg-transparent border-b border-white/20 w-20 focus:outline-none focus:border-primary px-2 py-1"
-                                            placeholder="0"
-                                            value={newProduct.stock}
-                                            onChange={e => setNewProduct({ ...newProduct, stock: parseInt(e.target.value) })}
-                                        />
-                                    </td>
-                                    <td className="p-6 text-white/40 text-sm italic">
-                                        Auto-calculated
-                                    </td>
-                                    <td className="p-6 text-right">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <button onClick={handleSaveProduct} className="p-2 hover:bg-green-500/20 text-green-400 rounded-lg transition-colors">
-                                                <Save className="w-4 h-4" />
-                                            </button>
-                                            <button onClick={handleCancelAdd} className="p-2 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors">
-                                                <X className="w-4 h-4" />
-                                            </button>
+                        <tbody className="divide-y divide-white/[0.03]">
+                            {filteredProducts.map((item) => (
+                                <tr key={item.id} className="hover:bg-white/[0.02] transition-colors group">
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                                <Package className="w-4 h-4 text-primary/60" />
+                                            </div>
+                                            <span className="font-semibold text-white text-sm">{item.name}</span>
                                         </div>
                                     </td>
-                                </tr>
-                            )}
-                            {products.map((item) => (
-                                <tr key={item.id} className="hover:bg-white/5 transition-colors group">
-                                    <td className="p-6 font-medium text-lg">{item.name}</td>
-                                    <td className="p-6 text-white/80 font-bold">${item.price.toFixed(2)}</td>
-                                    <td className="p-6 text-white/80">{item.stock}</td>
-                                    <td className="p-6">
+                                    <td className="px-6 py-4">
+                                        <span className="font-semibold text-emerald-400 text-sm">${item.price.toFixed(2)}</span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <span className="text-sm text-white/70 font-medium">{item.stock}</span>
+                                    </td>
+                                    <td className="px-6 py-4">
                                         <span className={clsx(
-                                            "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider",
-                                            item.stock > 0 ? "bg-green-500/10 text-green-400 border border-green-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"
+                                            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                                            item.stock > 5 ? "bg-emerald-500/10 text-emerald-400" : item.stock > 0 ? "bg-amber-500/10 text-amber-400" : "bg-red-500/10 text-red-400"
                                         )}>
-                                            {item.status}
+                                            <span className={clsx("w-1.5 h-1.5 rounded-full", item.stock > 5 ? "bg-emerald-400" : item.stock > 0 ? "bg-amber-400" : "bg-red-400")} />
+                                            {item.stock > 5 ? 'In Stock' : item.stock > 0 ? 'Low Stock' : 'Out of Stock'}
                                         </span>
                                     </td>
-                                    <td className="p-6 text-right">
+                                    <td className="px-6 py-4 text-right">
                                         <button
                                             onClick={() => openDeleteModal(item)}
-                                            className="text-white/20 hover:text-red-400 transition-all p-2 hover:bg-red-500/10 rounded-xl"
+                                            className="text-white/10 hover:text-red-400 transition-all p-2 hover:bg-red-500/10 rounded-lg opacity-0 group-hover:opacity-100"
                                         >
-                                            <Trash2 className="w-5 h-5" />
+                                            <Trash2 className="w-4 h-4" />
                                         </button>
                                     </td>
                                 </tr>
@@ -341,27 +397,23 @@ export default function InventoryPage() {
                     </table>
                 </div>
 
-                {products.length === 0 && !isAdding && !loading && (
-                    <div className="flex flex-col items-center justify-center py-24 text-center opacity-70">
-                        <div className="relative w-24 h-24 mb-6">
-                            <motion.div
-                                animate={{ rotateX: 360, rotateY: 360, rotateZ: 360 }}
-                                transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                                className="w-16 h-16 border border-primary/30 relative mx-auto mt-4"
-                                style={{ transformStyle: 'preserve-3d' }}
-                            >
-                                <div className="absolute inset-0 border border-primary/20 translate-z-8" style={{ transform: 'translateZ(32px)' }} />
-                                <div className="absolute inset-0 border border-primary/20 -translate-z-8" style={{ transform: 'translateZ(-32px)' }} />
-                                <div className="absolute inset-0 border border-primary/20" style={{ transform: 'rotateY(90deg) translateZ(32px)' }} />
-                                <div className="absolute inset-0 border border-primary/20" style={{ transform: 'rotateY(90deg) translateZ(-32px)' }} />
-                                <div className="absolute inset-0 border border-primary/20" style={{ transform: 'rotateX(90deg) translateZ(32px)' }} />
-                                <div className="absolute inset-0 border border-primary/20" style={{ transform: 'rotateX(90deg) translateZ(-32px)' }} />
-                            </motion.div>
+                {/* Empty State */}
+                {filteredProducts.length === 0 && !isAdding && !loading && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="flex flex-col items-center justify-center py-20 text-center"
+                    >
+                        <div className="w-16 h-16 rounded-2xl bg-white/[0.03] flex items-center justify-center mb-5">
+                            <Package className="w-7 h-7 text-white/15" />
                         </div>
-                        <div className="text-white/30 text-sm">
-                            No items yet. Add your first product.
-                        </div>
-                    </div>
+                        <p className="text-white/30 text-sm font-medium mb-1">
+                            {searchQuery ? 'No products match your search' : 'No products yet'}
+                        </p>
+                        <p className="text-white/15 text-xs">
+                            {searchQuery ? 'Try a different search term' : 'Click "Add Product" to get started'}
+                        </p>
+                    </motion.div>
                 )}
             </div>
 
@@ -370,7 +422,7 @@ export default function InventoryPage() {
                 isOpen={deleteModal.open}
                 variant="danger"
                 title="Delete Product?"
-                message={<>Are you sure you want to delete <span className="font-bold text-white">"{deleteModal.productName}"</span>? This action cannot be undone.</>}
+                message={<>Are you sure you want to delete <span className="font-bold text-white">&quot;{deleteModal.productName}&quot;</span>? This action cannot be undone.</>}
                 confirmText="Delete"
                 cancelText="Keep It"
                 onConfirm={() => {

@@ -334,12 +334,13 @@ export default function SettingsPage() {
     return (
         <div className="space-y-8 pb-32 md:pb-12 min-h-[100dvh]">
             {/* Header */}
-            <div>
-                <h1 className="text-4xl font-black mb-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
-                    Agent Settings
-                </h1>
-                <p className="text-white/60">Configure how your Ghost Agent behaves and responds</p>
-            </div>
+            <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+            >
+                <h1 className="text-2xl font-bold tracking-tight text-white">Agent Settings</h1>
+                <p className="text-sm text-muted-foreground mt-1">Configure how your Ghost Agent behaves and responds.</p>
+            </motion.div>
 
             {/* Business Identity */}
             <div className="glass-dark p-8 rounded-3xl">
@@ -463,12 +464,12 @@ export default function SettingsPage() {
                 <div className="space-y-3">
                     <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Owner WhatsApp Number</label>
                     <div className="relative">
-                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25" />
                         <input
                             type="tel"
                             value={settings.emergencyWhatsApp}
                             onChange={(e) => setSettings({ ...settings, emergencyWhatsApp: e.target.value })}
-                            className="input-premium w-full pl-12"
+                            className="input-premium w-full pl-11"
                             placeholder="+1 234 567 8900"
                         />
                     </div>
