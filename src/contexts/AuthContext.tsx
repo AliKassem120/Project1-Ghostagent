@@ -62,10 +62,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setUser(session?.user ?? null);
                 setLoading(false);
 
-                // Immediate redirect on SIGNED_IN event (fixes Google redirect loop)
+                // Only redirect on SIGNED_IN if user is on a public auth page (actual login)
+                // Do NOT redirect if user is already on a dashboard page (token refresh)
                 if (event === 'SIGNED_IN') {
-                    router.refresh();
-                    router.replace('/dashboard');
+                    const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/';
+                    if (isAuthPage) {
+                        router.replace('/dashboard');
+                    }
                 }
             } else if (event === 'SIGNED_OUT') {
                 setUser(null);

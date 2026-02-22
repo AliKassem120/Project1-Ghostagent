@@ -315,9 +315,10 @@ export default function SettingsPage() {
             toast.success('Settings Saved', { description: 'Your Ghost Agent configuration has been updated.' });
             setSuccess(true);
             setTimeout(() => setSuccess(false), 2000);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error saving settings:', error);
-            toast.error('Failed to save settings.');
+            const errorMessage = error?.message || error?.details || 'Unknown error occurred while saving';
+            toast.error('Failed to save settings: ' + errorMessage);
         } finally {
             setSaving(false);
         }
@@ -332,7 +333,7 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="space-y-8 pb-32 md:pb-12 min-h-[100dvh]">
+        <div className="space-y-6 pb-32 md:pb-12">
             {/* Header */}
             <motion.div
                 initial={{ opacity: 0, y: -10 }}
@@ -343,320 +344,304 @@ export default function SettingsPage() {
             </motion.div>
 
             {/* Business Identity */}
-            <div className="glass-dark p-8 rounded-3xl">
-                <div className="flex items-center gap-4 pb-6 border-b border-white/[0.06] mb-6">
-                    <div className="p-3 bg-indigo-500/20 rounded-xl">
-                        <Building2 className="w-7 h-7 text-indigo-400" />
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="glass-card rounded-2xl p-6">
+                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
+                    <div className="p-2.5 rounded-xl bg-indigo-500/10">
+                        <Building2 className="w-5 h-5 text-indigo-400" />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-bold">Business Identity</h2>
-                        <p className="text-white/50">Core business information</p>
+                        <h2 className="text-sm font-semibold text-white">Business Identity</h2>
+                        <p className="text-[11px] text-muted-foreground">Core business information</p>
                     </div>
                 </div>
 
-                <div className="space-y-3">
-                    <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Business Name</label>
-                    <input
-                        type="text"
-                        value={settings.businessName}
-                        onChange={(e) => setSettings({ ...settings, businessName: e.target.value })}
-                        className="input-premium w-full"
-                        placeholder="e.g. Joe's Pizza"
-                    />
-                </div>
+                <div className="space-y-4">
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Business Name</label>
+                        <input
+                            type="text"
+                            value={settings.businessName}
+                            onChange={(e) => setSettings({ ...settings, businessName: e.target.value })}
+                            className="input-premium w-full"
+                            placeholder="e.g. Joe's Pizza"
+                        />
+                    </div>
 
-                <div className="grid md:grid-cols-2 gap-6 mt-6">
-                    <div className="space-y-3">
-                        <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Store Location</label>
-                        <input
-                            type="text"
-                            value={settings.storeLocation}
-                            onChange={(e) => setSettings({ ...settings, storeLocation: e.target.value })}
-                            className="input-premium w-full"
-                            placeholder="e.g. Hamra, Beirut, Lebanon"
-                        />
-                        <p className="text-xs text-white/40 italic">The AI will share this exact address when asked. Leave blank to hide.</p>
-                    </div>
-                    <div className="space-y-3">
-                        <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Contact Info</label>
-                        <input
-                            type="text"
-                            value={settings.contactInfo}
-                            onChange={(e) => setSettings({ ...settings, contactInfo: e.target.value })}
-                            className="input-premium w-full"
-                            placeholder="e.g. +961 71 123 456 / info@store.com"
-                        />
-                        <p className="text-xs text-white/40 italic">Phone, email, or website the AI can share with customers.</p>
+                    <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Store Location</label>
+                            <input
+                                type="text"
+                                value={settings.storeLocation}
+                                onChange={(e) => setSettings({ ...settings, storeLocation: e.target.value })}
+                                className="input-premium w-full"
+                                placeholder="e.g. Hamra, Beirut, Lebanon"
+                            />
+                            <p className="text-[10px] text-white/20 ml-1">The AI will share this exact address when asked.</p>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Contact Info</label>
+                            <input
+                                type="text"
+                                value={settings.contactInfo}
+                                onChange={(e) => setSettings({ ...settings, contactInfo: e.target.value })}
+                                className="input-premium w-full"
+                                placeholder="e.g. +961 71 123 456 / info@store.com"
+                            />
+                            <p className="text-[10px] text-white/20 ml-1">Phone, email, or website the AI can share.</p>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </motion.div>
 
             {/* AI Persona */}
-            <div className="glass-dark p-8 rounded-3xl">
-                <div className="flex items-center gap-4 pb-6 border-b border-white/[0.06] mb-6">
-                    <div className="p-3 bg-primary/20 rounded-xl">
-                        <Bot className="w-7 h-7 text-primary" />
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card rounded-2xl p-6">
+                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
+                    <div className="p-2.5 rounded-xl bg-primary/10">
+                        <Bot className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-bold">AI Persona</h2>
-                        <p className="text-white/50">Define personality and communication style</p>
+                        <h2 className="text-sm font-semibold text-white">AI Persona</h2>
+                        <p className="text-[11px] text-muted-foreground">Personality and communication style</p>
                     </div>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                        <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Response Tone</label>
+                <div className="grid md:grid-cols-2 gap-5">
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Response Tone</label>
                         <select
                             value={settings.tone}
                             onChange={(e) => setSettings({ ...settings, tone: e.target.value })}
                             className="input-premium w-full cursor-pointer"
                         >
-                            <option value="Casual" className="bg-black">Casual & Friendly</option>
-                            <option value="Professional" className="bg-black">Professional</option>
-                            <option value="Luxury" className="bg-black">Luxury & Premium</option>
-                            <option value="Sarcastic" className="bg-black">Sarcastic</option>
+                            <option value="Casual" className="bg-[#111520]">Casual &amp; Friendly</option>
+                            <option value="Professional" className="bg-[#111520]">Professional</option>
+                            <option value="Luxury" className="bg-[#111520]">Luxury &amp; Premium</option>
+                            <option value="Sarcastic" className="bg-[#111520]">Sarcastic</option>
                         </select>
                     </div>
 
-                    <div className="space-y-3">
-                        <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Use Emojis</label>
-                        <div className="flex items-center justify-between p-4 bg-surface-2 rounded-xl border border-white/[0.06] hover:bg-surface-3 transition-all cursor-pointer group"
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Use Emojis</label>
+                        <div className="flex items-center justify-between p-3.5 bg-white/[0.02] rounded-xl border border-white/[0.04] hover:bg-white/[0.04] transition-all cursor-pointer group"
                             onClick={() => setSettings({ ...settings, useEmojis: !settings.useEmojis })}>
-                            <span className="text-base group-hover:text-white transition-colors">Add emojis to responses</span>
+                            <span className="text-sm text-white/50 group-hover:text-white/70 transition-colors">Add emojis to responses</span>
                             <div className={clsx(
-                                "relative w-14 h-8 rounded-full transition-colors duration-300",
+                                "relative w-11 rounded-full transition-colors duration-300",
                                 settings.useEmojis ? "bg-primary" : "bg-white/10"
-                            )}>
-                                <AnimatePresence>
-                                    {settings.useEmojis && (
-                                        <motion.div
-                                            initial={{ scale: 0, opacity: 0.8 }}
-                                            animate={{ scale: 2.5, opacity: 0 }}
-                                            exit={{ scale: 0, opacity: 0 }}
-                                            transition={{ duration: 0.5 }}
-                                            className="absolute inset-0 rounded-full bg-primary blur-md"
-                                        />
-                                    )}
-                                </AnimatePresence>
+                            )} style={{ height: '24px' }}>
                                 <motion.div
-                                    className="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-lg"
-                                    animate={{ x: settings.useEmojis ? 24 : 0 }}
+                                    className="absolute top-[2px] w-[20px] h-[20px] rounded-full bg-white shadow-sm"
+                                    animate={{ x: settings.useEmojis ? 22 : 2 }}
                                     transition={{ type: "spring", stiffness: 500, damping: 30 }}
                                 />
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </motion.div>
 
-            {/* Manager Alert System */}
-            <div className="glass-dark p-8 rounded-3xl">
-                <div className="flex items-center gap-4 pb-6 border-b border-white/[0.06] mb-6">
-                    <div className="p-3 bg-yellow-500/20 rounded-xl">
-                        <Bell className="w-7 h-7 text-yellow-400" />
+            {/* Manager Alerts */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="glass-card rounded-2xl p-6">
+                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
+                    <div className="p-2.5 rounded-xl bg-amber-500/10">
+                        <Bell className="w-5 h-5 text-amber-400" />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-bold">Manager Alerts</h2>
-                        <p className="text-white/50">Human escalation settings (WhatsApp)</p>
+                        <h2 className="text-sm font-semibold text-white">Manager Alerts</h2>
+                        <p className="text-[11px] text-muted-foreground">Human escalation via WhatsApp</p>
                     </div>
                 </div>
 
-                <div className="space-y-3">
-                    <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Owner WhatsApp Number</label>
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Owner WhatsApp Number</label>
                     <div className="relative">
-                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25" />
+                        <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20" />
                         <input
                             type="tel"
                             value={settings.emergencyWhatsApp}
                             onChange={(e) => setSettings({ ...settings, emergencyWhatsApp: e.target.value })}
-                            className="input-premium w-full pl-11"
+                            className="input-premium w-full pl-10"
                             placeholder="+1 234 567 8900"
                         />
                     </div>
-                    <p className="text-xs text-white/40 italic">Ghost Agent will text this number if a customer says "Manager", "Scam", or "Bot".</p>
+                    <p className="text-[10px] text-white/20 ml-1">Ghost Agent texts this number if a customer says &quot;Manager&quot;, &quot;Scam&quot;, or &quot;Bot&quot;.</p>
                 </div>
-            </div>
+            </motion.div>
 
             {/* Sales Rules */}
-            <div className="glass-dark p-8 rounded-3xl">
-                {/* ... existing sales UI ... */}
-                <div className="flex items-center gap-4 pb-6 border-b border-white/[0.06] mb-6">
-                    <div className="p-3 bg-green-500/20 rounded-xl">
-                        <DollarSign className="w-7 h-7 text-green-400" />
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card rounded-2xl p-6">
+                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
+                    <div className="p-2.5 rounded-xl bg-emerald-500/10">
+                        <DollarSign className="w-5 h-5 text-emerald-400" />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-bold">Sales Rules</h2>
-                        <p className="text-white/50">Set pricing and discount boundaries</p>
+                        <h2 className="text-sm font-semibold text-white">Sales Rules</h2>
+                        <p className="text-[11px] text-muted-foreground">Pricing and discount boundaries</p>
                     </div>
                 </div>
 
-                <div className="space-y-8">
-                    <div className="space-y-4">
-                        <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Maximum Discount %</label>
-                        <div className="space-y-4">
-                            <input
-                                type="range"
-                                min="0"
-                                max="50"
-                                value={settings.maxDiscount}
-                                onChange={(e) => setSettings({ ...settings, maxDiscount: parseInt(e.target.value) })}
-                                className="w-full h-3 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary"
-                                style={{
-                                    background: `linear-gradient(to right, rgb(192 132 252) 0%, rgb(192 132 252) ${settings.maxDiscount * 2}%, rgba(255,255,255,0.1) ${settings.maxDiscount * 2}%, rgba(255,255,255,0.1) 100%)`
-                                }}
-                            />
-                            <div className="flex justify-between items-center">
-                                <span className="text-white/40">0%</span>
-                                <span className="text-primary font-bold text-3xl font-mono">{settings.maxDiscount}%</span>
-                                <span className="text-white/40">50%</span>
-                            </div>
+                <div className="space-y-6">
+                    <div className="space-y-3">
+                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Maximum Discount %</label>
+                        <input
+                            type="range"
+                            min="0"
+                            max="50"
+                            value={settings.maxDiscount}
+                            onChange={(e) => setSettings({ ...settings, maxDiscount: parseInt(e.target.value) })}
+                            className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary"
+                            style={{
+                                background: `linear-gradient(to right, rgb(139 92 246) 0%, rgb(139 92 246) ${settings.maxDiscount * 2}%, rgba(255,255,255,0.06) ${settings.maxDiscount * 2}%, rgba(255,255,255,0.06) 100%)`
+                            }}
+                        />
+                        <div className="flex justify-between items-center">
+                            <span className="text-[10px] text-white/20">0%</span>
+                            <span className="text-primary font-bold text-2xl font-mono">{settings.maxDiscount}%</span>
+                            <span className="text-[10px] text-white/20">50%</span>
                         </div>
                     </div>
 
-                    <div className="space-y-3">
-                        <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Minimum Order for Discount</label>
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Minimum Order for Discount</label>
                         <div className="relative">
-                            <span className="absolute left-5 top-1/2 -translate-y-1/2 text-white/40 text-lg font-bold">$</span>
+                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20 text-sm font-semibold">$</span>
                             <input
                                 type="number"
                                 value={settings.minOrderForDiscount}
                                 onChange={(e) => setSettings({ ...settings, minOrderForDiscount: parseInt(e.target.value) })}
-                                className="input-premium w-full pl-12 pr-16 text-lg font-semibold"
+                                className="input-premium w-full pl-8 pr-14 font-semibold"
                                 placeholder="50"
                             />
-                            <span className="absolute right-5 top-1/2 -translate-y-1/2 text-white/40 text-sm">USD</span>
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-white/20 font-bold uppercase">USD</span>
                         </div>
                     </div>
                 </div>
-            </div>
+            </motion.div>
 
-            {/* Integrations (Connected Accounts) */}
-            <div className="glass-dark p-8 rounded-3xl mb-8">
-                <div className="flex items-center gap-4 pb-6 border-b border-white/[0.06] mb-6">
-                    <div className="p-3 bg-pink-500/20 rounded-xl">
-                        <Instagram className="w-7 h-7 text-pink-500" />
+            {/* Integrations */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="glass-card rounded-2xl p-6">
+                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
+                    <div className="p-2.5 rounded-xl bg-pink-500/10">
+                        <Instagram className="w-5 h-5 text-pink-400" />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-bold">Integrations</h2>
-                        <p className="text-white/50">Manage connected social accounts</p>
+                        <h2 className="text-sm font-semibold text-white">Integrations</h2>
+                        <p className="text-[11px] text-muted-foreground">Connected social accounts</p>
                     </div>
                 </div>
 
-                <div className="space-y-4">
-                    {/* List Connected Accounts */}
+                <div className="space-y-3">
                     {instagramStatus.accounts.length > 0 && instagramStatus.accounts.map((acc: any) => (
-                        <div key={acc.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-surface-2 p-4 rounded-2xl border border-white/[0.06] gap-4">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 rounded-xl flex items-center justify-center shrink-0">
-                                    <Instagram className="w-6 h-6 text-white" />
+                        <div key={acc.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white/[0.02] p-4 rounded-xl border border-white/[0.04] gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 rounded-xl flex items-center justify-center shrink-0">
+                                    <Instagram className="w-5 h-5 text-white" />
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2">
-                                        <h3 className="font-bold text-lg truncate max-w-[150px]">{acc.username || 'Insta User'}</h3>
-                                        <span className="self-center px-2 py-0.5 bg-green-500/20 text-green-400 text-[10px] font-bold rounded-full flex items-center gap-1">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Running
+                                        <h3 className="font-semibold text-sm text-white truncate max-w-[150px]">{acc.username || 'Insta User'}</h3>
+                                        <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[9px] font-bold rounded-full flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Running
                                         </span>
                                     </div>
-                                    <p className="text-white/50 text-xs font-mono">{acc.id}</p>
+                                    <p className="text-white/25 text-[10px] font-mono">{acc.id}</p>
                                 </div>
                             </div>
                             <button
                                 onClick={() => setDisconnectModal({ open: true, accountId: acc.id })}
-                                className="px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors w-full sm:w-auto justify-center"
+                                className="px-3 py-1.5 bg-red-500/5 text-red-400/60 border border-red-500/10 hover:bg-red-500/10 hover:text-red-400 rounded-lg text-[10px] font-bold flex items-center gap-1.5 transition-colors w-full sm:w-auto justify-center"
                             >
                                 <Trash2 className="w-3 h-3" /> Disconnect
                             </button>
                         </div>
                     ))}
 
-                    {/* Add Account Button */}
                     <button
                         onClick={handleConnectInstagram}
                         disabled={connecting}
-                        className="w-full py-4 border-2 border-dashed border-white/[0.06] hover:border-white/20 hover:bg-surface-2 rounded-2xl flex items-center justify-center gap-2 text-white/60 hover:text-white transition-all group press"
+                        className="w-full py-4 border border-dashed border-white/[0.06] hover:border-white/15 hover:bg-white/[0.02] rounded-xl flex items-center justify-center gap-2 text-white/30 hover:text-white/60 transition-all group press"
                     >
-                        {connecting ? <Loader2 className="w-5 h-5 animate-spin" /> :
-                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-primary group-hover:text-black transition-colors">
-                                <Plus className="w-5 h-5" />
+                        {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> :
+                            <div className="w-7 h-7 rounded-full bg-white/[0.04] flex items-center justify-center group-hover:bg-primary/20 group-hover:text-primary transition-colors">
+                                <Plus className="w-4 h-4" />
                             </div>}
-                        <span className="font-bold">Add Another Account</span>
+                        <span className="text-sm font-medium">Add Account</span>
                     </button>
                 </div>
-            </div>
+            </motion.div>
 
             {/* Language */}
-            <div className="glass-dark p-8 rounded-3xl">
-                <div className="flex items-center gap-4 pb-6 border-b border-white/[0.06] mb-6">
-                    <div className="p-3 bg-blue-500/20 rounded-xl">
-                        <Globe className="w-7 h-7 text-blue-400" />
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card rounded-2xl p-6">
+                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
+                    <div className="p-2.5 rounded-xl bg-blue-500/10">
+                        <Globe className="w-5 h-5 text-blue-400" />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-bold">Language</h2>
-                        <p className="text-white/50">Ghost Agent automatically mirrors the user&apos;s language</p>
+                        <h2 className="text-sm font-semibold text-white">Language</h2>
+                        <p className="text-[11px] text-muted-foreground">Ghost Agent mirrors the user&apos;s language</p>
                     </div>
                 </div>
 
-                <div className="space-y-4">
-                    <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Language Mode</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-3">
+                    <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Language Mode</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         {[
                             { value: 'Auto-Detect', label: '🌍 Auto-Detect', desc: 'Mirrors user\'s language & dialect' },
                             { value: 'English', label: '🇬🇧 English Only', desc: 'Always respond in English' },
-                            { value: 'Lebanese Franco', label: '🇱🇧 Lebanese Franco', desc: 'Always respond in Lebanese Arabizi' },
+                            { value: 'Lebanese Franco', label: '🇱🇧 Lebanese Franco', desc: 'Always respond in Arabizi' },
                         ].map((lang) => (
                             <button
                                 key={lang.value}
                                 onClick={() => setSettings(prev => ({ ...prev, language: lang.value }))}
                                 className={clsx(
-                                    "p-5 rounded-2xl border-2 transition-all text-left press",
+                                    "p-4 rounded-xl border transition-all text-left press",
                                     settings.language === lang.value
-                                        ? "bg-primary/20 border-primary shadow-[0_0_25px_rgba(192,132,252,0.3)]"
-                                        : "bg-white/5 border-white/[0.06] hover:bg-white/10 hover:border-white/15"
+                                        ? "bg-primary/[0.06] border-primary/20 shadow-[0_0_20px_rgba(139,92,246,0.1)]"
+                                        : "bg-white/[0.02] border-white/[0.04] hover:bg-white/[0.04] hover:border-white/[0.08]"
                                 )}
                             >
-                                <div className={clsx("font-bold text-base mb-1", settings.language === lang.value ? "text-primary" : "text-white")}>
+                                <div className={clsx("font-semibold text-sm mb-0.5", settings.language === lang.value ? "text-primary" : "text-white/70")}>
                                     {lang.label}
                                 </div>
-                                <div className="text-xs text-white/40">{lang.desc}</div>
+                                <div className="text-[10px] text-white/25">{lang.desc}</div>
                             </button>
                         ))}
                     </div>
-                    <p className="text-xs text-white/40 italic">Auto-Detect is recommended. Ghost Agent will reply in English, Lebanese Arabic, French, or any language the customer uses.</p>
+                    <p className="text-[10px] text-white/20 ml-1">Auto-Detect is recommended. Ghost Agent mirrors any language the customer uses.</p>
                 </div>
-            </div>
+            </motion.div>
 
-            {/* Training */}
-            <div className="glass-dark p-8 rounded-3xl">
-                <div className="flex items-center gap-4 pb-6 border-b border-white/[0.06] mb-6">
-                    <div className="p-3 bg-purple-500/20 rounded-xl">
-                        <Sparkles className="w-7 h-7 text-purple-400" />
+            {/* Agent Training */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="glass-card rounded-2xl p-6">
+                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
+                    <div className="p-2.5 rounded-xl bg-violet-500/10">
+                        <Sparkles className="w-5 h-5 text-violet-400" />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-bold">Agent Training</h2>
-                        <p className="text-white/50">Upload product data and knowledge</p>
+                        <h2 className="text-sm font-semibold text-white">Agent Training</h2>
+                        <p className="text-[11px] text-muted-foreground">Knowledge base and product data</p>
                     </div>
                 </div>
 
-                <div className="space-y-6">
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                            <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">KNOWLEDGE BASE (System Instructions)</label>
-                        </div>
+                <div className="space-y-5">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Knowledge Base (System Instructions)</label>
 
                         {/* Generate with AI */}
-                        <div className="bg-primary/5 border border-primary/10 rounded-xl p-4">
-                            <div className="flex items-center gap-2 mb-3">
-                                <Sparkles className="w-4 h-4 text-primary" />
-                                <span className="text-xs font-semibold text-primary uppercase tracking-wider">Generate with AI</span>
+                        <div className="bg-primary/[0.03] border border-primary/[0.08] rounded-xl p-4">
+                            <div className="flex items-center gap-2 mb-2">
+                                <Sparkles className="w-3.5 h-3.5 text-primary" />
+                                <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Generate with AI</span>
                             </div>
-                            <p className="text-xs text-white/40 mb-3">Describe your business in a few words and AI will write detailed instructions for your agent.</p>
+                            <p className="text-[10px] text-white/25 mb-3">Describe your business briefly and AI will write detailed instructions.</p>
                             <div className="flex gap-2">
                                 <input
                                     type="text"
                                     value={aiPromptInput}
                                     onChange={(e) => setAiPromptInput(e.target.value)}
                                     className="input-premium flex-1 text-sm"
-                                    placeholder="e.g. We sell handmade candles, free shipping over $50, 7-day returns..."
+                                    placeholder="e.g. We sell handmade candles, free shipping over $50..."
                                     disabled={generating}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter' && !e.shiftKey) {
@@ -671,7 +656,7 @@ export default function SettingsPage() {
                                     className={clsx(
                                         "px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-semibold transition-all press shrink-0",
                                         generating
-                                            ? "bg-primary/20 text-primary/60"
+                                            ? "bg-primary/10 text-primary/40"
                                             : "bg-primary text-black hover:scale-[1.02]"
                                     )}
                                 >
@@ -686,45 +671,43 @@ export default function SettingsPage() {
                         </div>
 
                         <textarea
-                            className="input-premium w-full h-60 resize-none"
+                            className="input-premium w-full h-52 resize-none text-sm"
                             value={settings.systemPrompt}
                             onChange={(e) => setSettings({ ...settings, systemPrompt: e.target.value })}
                             placeholder="Example: We are an eco-friendly streetwear brand. Our shipping takes 3-5 days. Return policy is 30 days..."
                         />
-                        <p className="text-xs text-white/40 italic">This is the most important field. Tell the bot everything it needs to know about your business.</p>
+                        <p className="text-[10px] text-white/20 ml-1">Most important field — tell the bot everything about your business.</p>
                     </div>
 
-                    <div className="space-y-3">
-                        <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Product Catalog (CSV)</label>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Product Catalog (CSV)</label>
                         {uploadedFile ? (
-                            <div className="border-2 border-green-500/30 bg-green-500/10 rounded-2xl p-6 flex items-center justify-between">
-                                {/* ... existing file UI ... */}
-                                <div className="flex items-center gap-4">
-                                    <div className="p-3 bg-green-500/20 rounded-xl">
-                                        <FileSpreadsheet className="w-6 h-6 text-green-400" />
+                            <div className="border border-emerald-500/15 bg-emerald-500/[0.04] rounded-xl p-5 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 rounded-xl bg-emerald-500/10">
+                                        <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
                                     </div>
                                     <div>
-                                        <div className="font-bold text-green-400">{uploadedFile.name}</div>
-                                        <div className="text-sm text-white/50">{uploadedFile.rowCount} products loaded</div>
+                                        <div className="font-semibold text-sm text-emerald-400">{uploadedFile.name}</div>
+                                        <div className="text-[10px] text-white/30">{uploadedFile.rowCount} products loaded</div>
                                     </div>
                                 </div>
-                                <button onClick={handleRemoveCatalog} className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">
-                                    <X className="w-5 h-5" />
+                                <button onClick={handleRemoveCatalog} className="p-2 rounded-lg bg-red-500/5 text-red-400/50 hover:bg-red-500/10 hover:text-red-400 transition-colors">
+                                    <X className="w-4 h-4" />
                                 </button>
                             </div>
                         ) : (
-                            // ... existing upload UI ...
                             <div
                                 onClick={() => fileInputRef.current?.click()}
                                 className={clsx(
-                                    "border-2 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer group",
-                                    uploading ? "border-primary/50 bg-primary/10" : "border-white/[0.06] hover:border-primary/30 hover:bg-white/5"
+                                    "border border-dashed rounded-xl p-10 text-center transition-all cursor-pointer group",
+                                    uploading ? "border-primary/30 bg-primary/[0.04]" : "border-white/[0.06] hover:border-primary/20 hover:bg-white/[0.02]"
                                 )}
                             >
                                 {uploading ? (
-                                    <Loader2 className="w-12 h-12 mx-auto mb-4 text-primary animate-spin" />
+                                    <Loader2 className="w-8 h-8 mx-auto mb-3 text-primary animate-spin" />
                                 ) : (
-                                    <Upload className="w-12 h-12 mx-auto mb-4 text-white/40 group-hover:text-primary transition-colors" />
+                                    <Upload className="w-8 h-8 mx-auto mb-3 text-white/15 group-hover:text-primary/50 transition-colors" />
                                 )}
                                 <input
                                     ref={fileInputRef}
@@ -734,37 +717,42 @@ export default function SettingsPage() {
                                     onChange={handleCsvUpload}
                                     disabled={uploading}
                                 />
-                                <div className="text-white/60 mb-2 font-medium text-base">
+                                <div className="text-white/40 mb-1 font-medium text-sm">
                                     {uploading ? 'Processing...' : 'Click to upload CSV'}
                                 </div>
-                                <div className="text-xs text-white/40">Required columns: name, price, description, stock</div>
+                                <div className="text-[10px] text-white/20">Required: name, price, description, stock</div>
                             </div>
                         )}
                     </div>
                 </div>
-            </div>
+            </motion.div>
 
             {/* Save Button */}
-            <div className="flex justify-center pt-6 pb-24 md:pb-12 sticky bottom-6 md:static z-40">
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="flex justify-center pt-4 pb-20 md:pb-8 sticky bottom-4 md:static z-40"
+            >
                 <button
                     onClick={handleSave}
                     disabled={saving || success}
                     className={clsx(
-                        "px-16 py-5 rounded-2xl font-black text-xl transition-all shadow-[0_0_40px_rgba(192,132,252,0.5)] flex items-center gap-3 disabled:opacity-80 disabled:cursor-not-allowed transform w-full md:w-auto justify-center mx-4 md:mx-0",
-                        success ? "bg-green-500 text-black scale-105" : "bg-primary text-black hover:scale-105 active:scale-95"
+                        "px-12 py-4 rounded-2xl font-bold text-base transition-all shadow-[0_0_30px_rgba(139,92,246,0.4)] flex items-center gap-2.5 disabled:opacity-70 disabled:cursor-not-allowed w-full md:w-auto justify-center mx-4 md:mx-0",
+                        success ? "bg-emerald-500 text-black scale-[1.02]" : "bg-primary text-black hover:scale-[1.02] active:scale-[0.98]"
                     )}
                 >
                     {saving ? (
-                        <Loader2 className="w-6 h-6 animate-spin" />
+                        <Loader2 className="w-5 h-5 animate-spin" />
                     ) : success ? (
-                        <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1.25, opacity: 1 }} transition={{ type: "spring", stiffness: 400, damping: 15 }} className="flex items-center gap-2">
-                            <Check className="w-8 h-8" /> Saved!
+                        <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 400, damping: 15 }} className="flex items-center gap-2">
+                            <Check className="w-6 h-6" /> Saved!
                         </motion.div>
                     ) : (
-                        <><Save className="w-6 h-6" /> Save All Settings</>
+                        <><Save className="w-5 h-5" /> Save All Settings</>
                     )}
                 </button>
-            </div>
+            </motion.div>
 
             {/* Disconnect Confirmation Modal */}
             <GhostModal
