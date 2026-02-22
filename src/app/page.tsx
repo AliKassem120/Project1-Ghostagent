@@ -605,21 +605,33 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Brand Logos */}
+          {/* Animated Stats */}
           <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             className="mt-16 pt-12 border-t border-white/5"
           >
-            <p className="text-center text-xs text-white/20 uppercase tracking-widest mb-8">
-              Trusted by leading brands
-            </p>
-            <div className="flex items-center justify-center gap-8 md:gap-14 flex-wrap opacity-30">
-              {['SHOPIFY', 'META', 'STRIPE', 'VERCEL', 'SUPABASE'].map((brand) => (
-                <span key={brand} className="text-sm md:text-base font-bold tracking-widest text-white/60">
-                  {brand}
-                </span>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+              {[
+                { value: '10K+', label: 'Messages Handled' },
+                { value: '50+', label: 'Active Businesses' },
+                { value: '<8s', label: 'Avg Response Time' },
+                { value: '99.9%', label: 'Uptime Guaranteed' },
+              ].map((stat, i) => (
+                <motion.div
+                  key={stat.label}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.1 }}
+                  className="text-center"
+                >
+                  <p className="text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
+                    {stat.value}
+                  </p>
+                  <p className="text-xs text-white/30 mt-1">{stat.label}</p>
+                </motion.div>
               ))}
             </div>
           </motion.div>
@@ -768,15 +780,6 @@ export default function Home() {
           </Link>
         </motion.div>
       </section>
-
-      {/* Quick Links */}
-      <div className="relative z-10 flex items-center justify-center gap-6 py-6 text-xs text-white/25">
-        <Link href="/privacy" className="hover:text-white/50 transition-colors">Privacy Policy</Link>
-        <span>·</span>
-        <Link href="/terms" className="hover:text-white/50 transition-colors">Terms of Service</Link>
-        <span>·</span>
-        <Link href="/contact" className="hover:text-white/50 transition-colors">Contact</Link>
-      </div>
 
       {/* Footer */}
       <Footer />

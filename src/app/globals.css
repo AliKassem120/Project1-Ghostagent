@@ -244,8 +244,9 @@
     background-color: var(--surface-2);
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 0.75rem;
-    padding: 0.75rem 1rem;
+    padding: 0.625rem 1rem;
     font-size: 0.875rem;
+    line-height: 1.5;
     color: white;
     transition: all 0.2s ease;
   }
@@ -256,7 +257,7 @@
 
   .input-premium:focus {
     border-color: rgba(139, 92, 246, 0.4);
-    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.1);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.08);
     outline: none;
     background-color: var(--surface-3);
   }
