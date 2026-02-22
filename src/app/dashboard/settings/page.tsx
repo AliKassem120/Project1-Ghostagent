@@ -302,8 +302,7 @@ export default function SettingsPage() {
                     language: settings.language,
                     system_instructions: settings.systemPrompt,
                     whatsapp_template: settings.whatsappTemplate,
-                    store_location: settings.storeLocation,
-                    contact_info: settings.contactInfo,
+                    // Note: store_location and contact_info are skipped to avoid schema cache error
                     updated_at: new Date().toISOString(),
                 }, { onConflict: 'user_id' });
 
@@ -509,8 +508,8 @@ export default function SettingsPage() {
                             <input
                                 type="number"
                                 value={settings.minOrderForDiscount}
-                                onChange={(e) => setSettings({ ...settings, minOrderForDiscount: parseInt(e.target.value) })}
-                                className="input-premium w-full pl-8 pr-14 font-semibold"
+                                onChange={(e) => setSettings({ ...settings, minOrderForDiscount: parseInt(e.target.value) || 0 })}
+                                className="input-premium w-full pl-8 pr-14 font-semibold appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0"
                                 placeholder="50"
                             />
                             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-white/20 font-bold uppercase">USD</span>

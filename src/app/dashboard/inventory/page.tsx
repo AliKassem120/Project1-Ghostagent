@@ -34,7 +34,7 @@ export default function InventoryPage() {
     const [userId, setUserId] = useState<string | null>(null);
     const [isAdding, setIsAdding] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [newProduct, setNewProduct] = useState({ name: '', price: 0, stock: 0 });
+    const [newProduct, setNewProduct] = useState({ name: '', price: '', stock: '' });
     const [deleteModal, setDeleteModal] = useState<{ open: boolean; productId: string | null; productName: string }>({ open: false, productId: null, productName: '' });
 
     // Get user ID on mount
@@ -91,7 +91,7 @@ export default function InventoryPage() {
 
     const handleAddClick = () => {
         setIsAdding(true);
-        setNewProduct({ name: '', price: 0, stock: 0 });
+        setNewProduct({ name: '', price: '', stock: '' });
     };
 
     const handleCancelAdd = () => {
@@ -127,7 +127,7 @@ export default function InventoryPage() {
                 });
 
                 setIsAdding(false);
-                setNewProduct({ name: '', price: 0, stock: 0 });
+                setNewProduct({ name: '', price: '', stock: '' });
                 toast.success('Product Added', { description: `"${data.item_name}" is now in your inventory.` });
             }
         } catch (error) {
@@ -212,14 +212,14 @@ export default function InventoryPage() {
             </div>
 
             {/* ═══ SEARCH ═══ */}
-            <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+            <div className="relative mb-6">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
                 <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search products..."
-                    className="input-premium w-full pl-11"
+                    className="input-premium w-full pl-10"
                 />
             </div>
 
@@ -248,7 +248,7 @@ export default function InventoryPage() {
                                         className="input-premium w-full"
                                         placeholder="e.g. Vintage T-Shirt"
                                         value={newProduct.name}
-                                        onChange={e => setNewProduct({ ...newProduct, name: e.target.value })}
+                                        onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
                                         onKeyDown={(e) => { if (e.key === 'Enter') handleSaveProduct(); }}
                                     />
                                 </div>
@@ -258,10 +258,10 @@ export default function InventoryPage() {
                                         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30 text-sm font-semibold">$</span>
                                         <input
                                             type="number"
-                                            className="input-premium w-full pl-8"
+                                            className="input-premium w-full pl-8 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0"
                                             placeholder="0.00"
-                                            value={newProduct.price || ''}
-                                            onChange={e => setNewProduct({ ...newProduct, price: parseFloat(e.target.value) || 0 })}
+                                            value={newProduct.price}
+                                            onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
                                         />
                                     </div>
                                 </div>
@@ -269,10 +269,10 @@ export default function InventoryPage() {
                                     <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest ml-1">Stock Qty</label>
                                     <input
                                         type="number"
-                                        className="input-premium w-full"
+                                        className="input-premium w-full appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0"
                                         placeholder="0"
-                                        value={newProduct.stock || ''}
-                                        onChange={e => setNewProduct({ ...newProduct, stock: parseInt(e.target.value) || 0 })}
+                                        value={newProduct.stock}
+                                        onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
                                     />
                                 </div>
                             </div>
