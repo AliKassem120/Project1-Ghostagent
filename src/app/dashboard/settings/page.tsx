@@ -37,6 +37,41 @@ export default function SettingsPage() {
         contactInfo: '',
     });
 
+    // AI Generate state
+    const [aiPromptInput, setAiPromptInput] = useState('');
+    const [generating, setGenerating] = useState(false);
+
+    const handleGenerateInstructions = async () => {
+        if (!aiPromptInput.trim() || generating) return;
+        setGenerating(true);
+        try {
+            const res = await fetch('/api/generate-instructions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    description: aiPromptInput,
+                    businessName: settings.businessName,
+                }),
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                toast.error(err.error || 'Generation failed');
+                return;
+            }
+
+            const { text } = await res.json();
+            setSettings(prev => ({ ...prev, systemPrompt: text }));
+            toast.success('Instructions generated! Review and save.');
+            setAiPromptInput('');
+        } catch (e) {
+            console.error(e);
+            toast.error('Failed to generate instructions');
+        } finally {
+            setGenerating(false);
+        }
+    };
+
     useEffect(() => {
         const fetchSettings = async () => {
             try {
@@ -603,7 +638,52 @@ export default function SettingsPage() {
 
                 <div className="space-y-6">
                     <div className="space-y-3">
-                        <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">KNOWLEDGE BASE (System Instructions)</label>
+                        <div className="flex items-center justify-between">
+                            <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">KNOWLEDGE BASE (System Instructions)</label>
+                        </div>
+
+                        {/* Generate with AI */}
+                        <div className="bg-primary/5 border border-primary/10 rounded-xl p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Sparkles className="w-4 h-4 text-primary" />
+                                <span className="text-xs font-semibold text-primary uppercase tracking-wider">Generate with AI</span>
+                            </div>
+                            <p className="text-xs text-white/40 mb-3">Describe your business in a few words and AI will write detailed instructions for your agent.</p>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={aiPromptInput}
+                                    onChange={(e) => setAiPromptInput(e.target.value)}
+                                    className="input-premium flex-1 text-sm"
+                                    placeholder="e.g. We sell handmade candles, free shipping over $50, 7-day returns..."
+                                    disabled={generating}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault();
+                                            handleGenerateInstructions();
+                                        }
+                                    }}
+                                />
+                                <button
+                                    onClick={handleGenerateInstructions}
+                                    disabled={generating || !aiPromptInput.trim()}
+                                    className={clsx(
+                                        "px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-semibold transition-all press shrink-0",
+                                        generating
+                                            ? "bg-primary/20 text-primary/60"
+                                            : "bg-primary text-black hover:scale-[1.02]"
+                                    )}
+                                >
+                                    {generating ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                        <Sparkles className="w-4 h-4" />
+                                    )}
+                                    {generating ? 'Writing...' : 'Generate'}
+                                </button>
+                            </div>
+                        </div>
+
                         <textarea
                             className="input-premium w-full h-60 resize-none"
                             value={settings.systemPrompt}

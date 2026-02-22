@@ -605,36 +605,7 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Animated Stats */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="mt-16 pt-12 border-t border-white/5"
-          >
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-              {[
-                { value: '10K+', label: 'Messages Handled' },
-                { value: '50+', label: 'Active Businesses' },
-                { value: '<8s', label: 'Avg Response Time' },
-                { value: '99.9%', label: 'Uptime Guaranteed' },
-              ].map((stat, i) => (
-                <motion.div
-                  key={stat.label}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
-                  className="text-center"
-                >
-                  <p className="text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
-                    {stat.value}
-                  </p>
-                  <p className="text-xs text-white/30 mt-1">{stat.label}</p>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
+
         </div>
       </section>
 
