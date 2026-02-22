@@ -2,10 +2,9 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useDashboard } from '@/contexts/DashboardContext';
-import { MessageSquare, DollarSign, Package, Clock, Zap, MessageCircle, Sparkles, Instagram, Shield, Activity, BarChart3, Send, Loader2, TrendingUp, ArrowUpRight } from 'lucide-react';
+import { MessageSquare, DollarSign, Package, Clock, Zap, MessageCircle, Sparkles, Instagram, Shield, Activity, BarChart3, Send, Loader2, TrendingUp, ArrowUpRight, Users, Bot, Eye } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from '@/components/CountUp';
-import GhostChat from '@/app/components/GhostChat';
 import GhostModal from '@/components/GhostModal';
 import { useAutopilot } from '@/context/AutopilotContext';
 import { useRealtime, useRealtimeCount } from '@/hooks/useRealtime';
@@ -29,33 +28,83 @@ type InventoryItem = {
     stock_level: number;
 };
 
-/* ── Sparkline SVG ─────────────────────────────────────
-   Renders a tiny inline area chart from data points.
+/* ── Engagement Chart ─────────────────────────────────────
+   Renders a clean area chart with gradient fill.
    ───────────────────────────────────────────────────── */
-function Sparkline({ data, color, className }: { data: number[]; color: string; className?: string }) {
-    if (data.length < 2) return null;
-    const max = Math.max(...data);
-    const min = Math.min(...data);
-    const range = max - min || 1;
-    const w = 80;
-    const h = 28;
+function EngagementChart({ data, labels }: { data: number[]; labels: string[] }) {
+    if (data.length < 2) {
+        return (
+            <div className="flex items-center justify-center h-full text-white/20 text-sm">
+                <Sparkles className="w-4 h-4 mr-2 opacity-50" />
+                Collecting engagement data...
+            </div>
+        );
+    }
+
+    const max = Math.max(...data, 1);
+    const w = 600;
+    const h = 200;
+    const padding = { top: 20, bottom: 30, left: 0, right: 0 };
+    const chartW = w - padding.left - padding.right;
+    const chartH = h - padding.top - padding.bottom;
+
     const points = data.map((v, i) => ({
-        x: (i / (data.length - 1)) * w,
-        y: h - ((v - min) / range) * (h - 4) - 2,
+        x: padding.left + (i / (data.length - 1)) * chartW,
+        y: padding.top + chartH - (v / max) * chartH,
     }));
-    const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
-    const areaPath = `${linePath} L${w},${h} L0,${h} Z`;
+
+    // Smooth curve using cubic bezier
+    const linePath = points.map((p, i) => {
+        if (i === 0) return `M${p.x},${p.y}`;
+        const prev = points[i - 1];
+        const cpx = (prev.x + p.x) / 2;
+        return `C${cpx},${prev.y} ${cpx},${p.y} ${p.x},${p.y}`;
+    }).join(' ');
+
+    const areaPath = `${linePath} L${points[points.length - 1].x},${h - padding.bottom} L${points[0].x},${h - padding.bottom} Z`;
 
     return (
-        <svg viewBox={`0 0 ${w} ${h}`} className={clsx("w-20 h-7", className)} preserveAspectRatio="none">
+        <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-full" preserveAspectRatio="none">
             <defs>
-                <linearGradient id={`sparkGrad-${color}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-                    <stop offset="100%" stopColor={color} stopOpacity="0" />
+                <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.3" />
+                    <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0" />
                 </linearGradient>
             </defs>
-            <path d={areaPath} fill={`url(#sparkGrad-${color})`} />
-            <path d={linePath} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            {/* Grid lines */}
+            {[0.25, 0.5, 0.75].map((pct) => (
+                <line
+                    key={pct}
+                    x1={padding.left}
+                    y1={padding.top + chartH * (1 - pct)}
+                    x2={w - padding.right}
+                    y2={padding.top + chartH * (1 - pct)}
+                    stroke="rgba(255,255,255,0.04)"
+                    strokeWidth="1"
+                />
+            ))}
+            {/* Area fill */}
+            <path d={areaPath} fill="url(#chartGrad)" />
+            {/* Line */}
+            <path d={linePath} fill="none" stroke="#8B5CF6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            {/* Dots */}
+            {points.map((p, i) => (
+                <circle key={i} cx={p.x} cy={p.y} r="3.5" fill="#8B5CF6" stroke="#111520" strokeWidth="2" />
+            ))}
+            {/* Labels */}
+            {labels.map((label, i) => (
+                <text
+                    key={i}
+                    x={padding.left + (i / (labels.length - 1)) * chartW}
+                    y={h - 6}
+                    textAnchor="middle"
+                    fill="rgba(255,255,255,0.25)"
+                    fontSize="11"
+                    fontFamily="var(--font-inter), system-ui"
+                >
+                    {label}
+                </text>
+            ))}
         </svg>
     );
 }
@@ -63,13 +112,16 @@ function Sparkline({ data, color, className }: { data: number[]; color: string; 
 /* ── Event badge for activity feed ──────────────────── */
 function EventBadge({ type }: { type: string }) {
     const config: Record<string, { label: string; class: string }> = {
-        'AI_REPLY': { label: 'Sent', class: 'badge-success' },
-        'MANUAL_REPLY': { label: 'Manual', class: 'badge-success' },
+        'AI_REPLY': { label: 'AI Reply', class: 'badge-success' },
+        'MANUAL_REPLY': { label: 'Manual', class: 'badge-info' },
         'SALE': { label: 'Sale', class: 'badge-success' },
         'IG_SALE': { label: 'Sale', class: 'badge-success' },
         'DRAFT_REPLY': { label: 'Draft', class: 'badge-warning' },
-        'INCOMING_MESSAGE': { label: 'Received', class: 'badge-info' },
-        'INCOMING_DM': { label: 'DM', class: 'badge-info' },
+        'DRAFT_COMMENT_REPLY': { label: 'Draft', class: 'badge-warning' },
+        'INCOMING_MESSAGE': { label: 'Message', class: 'badge-purple' },
+        'INCOMING_DM': { label: 'DM', class: 'badge-purple' },
+        'INCOMING_COMMENT': { label: 'Comment', class: 'badge-info' },
+        'COMMENT_REPLY': { label: 'Replied', class: 'badge-success' },
         'RESTOCK': { label: 'Restock', class: 'badge-warning' },
         'NEW_ITEM': { label: 'New Item', class: 'badge-purple' },
     };
@@ -77,19 +129,12 @@ function EventBadge({ type }: { type: string }) {
     return <span className={c.class}>{c.label}</span>;
 }
 
-
-
-
-// ...
-
 export default function DashboardPage() {
     const { autopilot } = useAutopilot();
     const supabase = createClient();
-    const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
     const { user } = useAuth();
-    const userId = user?.id; // Use userId from global auth context
+    const userId = user?.id;
     const [clearModalOpen, setClearModalOpen] = useState(false);
-    const [mobileTab, setMobileTab] = useState<'command' | 'intel' | 'activity'>('command');
     const [sendingDrafts, setSendingDrafts] = useState<string[]>([]);
     const toast = useToast();
 
@@ -122,8 +167,6 @@ export default function DashboardPage() {
             setSendingDrafts(prev => prev.filter(id => id !== activity.id));
         }
     };
-
-    // User fetching logic removed - handled by AuthContext
 
     const { data: activities, loading: activitiesLoading, refetch: refetchActivities } = useRealtime<ActivityLog>(
         'activity_log',
@@ -165,15 +208,27 @@ export default function DashboardPage() {
 
     const stats = useMemo(() => {
         let moneySaved = 0;
+        let aiReplies = 0;
+        let manualReplies = 0;
+        let comments = 0;
+        let dms = 0;
+
         activities.forEach(log => {
             if (log.event_type === 'IG_SALE' && log.description) {
                 const match = log.description.match(/\$([\d.]+)/);
                 if (match) moneySaved += parseFloat(match[1]);
             }
+            if (log.event_type === 'AI_REPLY' || log.event_type === 'COMMENT_REPLY') aiReplies++;
+            if (log.event_type === 'MANUAL_REPLY') manualReplies++;
+            if (log.event_type === 'INCOMING_COMMENT') comments++;
+            if (log.event_type === 'INCOMING_DM' || log.event_type === 'INCOMING_MESSAGE') dms++;
         });
+
         const timeSaved = (totalInteractions * 2) / 60;
         const stock = inventoryItems.reduce((sum, item) => sum + (item.stock_level || 0), 0);
-        return { timeSaved, moneySaved, repliesSent: totalInteractions, stock };
+        const automationRate = totalInteractions > 0 ? Math.round((aiReplies / Math.max(aiReplies + manualReplies, 1)) * 100) : 0;
+
+        return { timeSaved, moneySaved, repliesSent: totalInteractions, stock, aiReplies, manualReplies, comments, dms, automationRate };
     }, [activities, totalInteractions, inventoryItems]);
 
     const loading = activitiesLoading;
@@ -182,13 +237,15 @@ export default function DashboardPage() {
         if (eventType === 'SALE' || eventType === 'IG_SALE') return <DollarSign className="w-3.5 h-3.5" />;
         if (eventType === 'RESTOCK' || eventType === 'NEW_ITEM') return <Package className="w-3.5 h-3.5" />;
         if (eventType === 'INCOMING_MESSAGE' || eventType === 'INCOMING_DM') return <MessageCircle className="w-3.5 h-3.5" />;
-        return <MessageSquare className="w-3.5 h-3.5" />;
+        if (eventType === 'INCOMING_COMMENT') return <MessageSquare className="w-3.5 h-3.5" />;
+        if (eventType === 'COMMENT_REPLY') return <Send className="w-3.5 h-3.5" />;
+        return <Bot className="w-3.5 h-3.5" />;
     };
 
     const getEventColor = (eventType: string) => {
-        if (eventType === 'SALE' || eventType === 'IG_SALE' || eventType === 'AI_REPLY' || eventType === 'MANUAL_REPLY') return 'text-emerald-400 bg-emerald-500/10';
-        if (eventType === 'RESTOCK' || eventType === 'NEW_ITEM') return 'text-amber-400 bg-amber-500/10';
-        if (eventType === 'INCOMING_MESSAGE' || eventType === 'INCOMING_DM') return 'text-blue-400 bg-blue-500/10';
+        if (eventType === 'SALE' || eventType === 'IG_SALE' || eventType === 'AI_REPLY' || eventType === 'MANUAL_REPLY' || eventType === 'COMMENT_REPLY') return 'text-emerald-400 bg-emerald-500/10';
+        if (eventType === 'RESTOCK' || eventType === 'NEW_ITEM' || eventType === 'DRAFT_REPLY' || eventType === 'DRAFT_COMMENT_REPLY') return 'text-amber-400 bg-amber-500/10';
+        if (eventType === 'INCOMING_MESSAGE' || eventType === 'INCOMING_DM' || eventType === 'INCOMING_COMMENT') return 'text-blue-400 bg-blue-500/10';
         return 'text-violet-400 bg-violet-500/10';
     };
 
@@ -202,363 +259,388 @@ export default function DashboardPage() {
 
     const filteredActivities = activities.filter(a => a.event_type !== 'CHAT_QUERY');
 
-    // Generate sparkline data from activities
-    const sparkData = useMemo(() => {
+    // Generate chart data from activities (last 7 days)
+    const chartData = useMemo(() => {
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const last7 = Array(7).fill(0);
+        const labels: string[] = [];
+
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            labels.push(days[d.getDay()]);
+        }
+
         activities.forEach(a => {
             const daysAgo = Math.floor((Date.now() - new Date(a.timestamp).getTime()) / 86400000);
             if (daysAgo < 7) last7[6 - daysAgo]++;
         });
-        return last7;
+
+        return { data: last7, labels };
     }, [activities]);
 
+    // Get greeting based on time
+    const greeting = useMemo(() => {
+        const hour = new Date().getHours();
+        if (hour < 12) return 'Good morning';
+        if (hour < 18) return 'Good afternoon';
+        return 'Good evening';
+    }, []);
+
+    const userName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there';
+
     return (
-        <div className="h-[calc(100vh-2rem)] flex flex-col overflow-hidden pb-safe">
+        <div className="min-h-[calc(100vh-2rem)] pb-8">
 
             {/* ═══════════════════════════════════════════════════ */}
-            {/* HEADER                                             */}
+            {/* HEADER — Greeting + Status                         */}
             {/* ═══════════════════════════════════════════════════ */}
-            <div className="flex items-center justify-between gap-4 mb-6 shrink-0">
-                <div className="flex items-center gap-3">
-                    <h1 className="text-[22px] font-semibold tracking-tight text-white">
-                        Dashboard
+            <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8"
+            >
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-white">
+                        {greeting}, {userName} 👋
                     </h1>
-                    <span className="badge-success flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        Active
-                    </span>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        Here&apos;s what&apos;s happening with your Instagram today.
+                    </p>
                 </div>
-                <div className="hidden md:flex items-center gap-5 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1.5">
-                        <span>Handled</span>
-                        <span className="font-mono text-white/80 font-medium">{stats.repliesSent}</span>
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-1 border border-white/[0.06]">
+                        <Instagram className="w-4 h-4 text-pink-400" />
+                        <span className="text-xs text-white/50">Connected</span>
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                     </div>
-                    <div className="w-px h-3 bg-white/[0.06]" />
-                    <div className="flex items-center gap-1.5">
-                        <span>Saved</span>
-                        <span className="font-mono text-white/80 font-medium">{stats.timeSaved.toFixed(1)}h</span>
-                    </div>
-                    <div className="w-px h-3 bg-white/[0.06]" />
-                    <div className="flex items-center gap-1.5">
-                        <span>Revenue</span>
-                        <span className="font-mono text-emerald-400 font-medium">${stats.moneySaved.toFixed(0)}</span>
+                    <div className={clsx(
+                        "flex items-center gap-2 px-4 py-2 rounded-xl border",
+                        autopilot
+                            ? "bg-primary/5 border-primary/20 text-primary"
+                            : "bg-amber-500/5 border-amber-500/20 text-amber-400"
+                    )}>
+                        <Zap className="w-4 h-4" />
+                        <span className="text-xs font-medium">
+                            {autopilot ? 'Autopilot ON' : 'Manual Mode'}
+                        </span>
                     </div>
                 </div>
-            </div>
+            </motion.div>
 
             {/* ═══════════════════════════════════════════════════ */}
-            {/* MOBILE TAB SELECTOR                                 */}
+            {/* METRICS ROW — 4 Key Metrics                        */}
             {/* ═══════════════════════════════════════════════════ */}
-            <div className="lg:hidden flex items-center gap-1 mb-4 glass-card rounded-xl p-1">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 {[
-                    { key: 'command' as const, label: 'Monitor', icon: MessageSquare },
-                    { key: 'intel' as const, label: 'Overview', icon: BarChart3 },
-                    { key: 'activity' as const, label: 'Activity', icon: Activity },
-                ].map(tab => (
-                    <button
-                        key={tab.key}
-                        onClick={() => setMobileTab(tab.key)}
-                        className={clsx(
-                            "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-medium transition-all press",
-                            mobileTab === tab.key
-                                ? "bg-white/[0.08] text-white shadow-sm"
-                                : "text-white/30 hover:text-white/50"
-                        )}
+                    {
+                        icon: MessageSquare,
+                        label: 'Total Interactions',
+                        value: stats.repliesSent,
+                        color: 'text-violet-400',
+                        bg: 'bg-violet-500/10',
+                        change: '+12%',
+                        changeColor: 'text-emerald-400',
+                    },
+                    {
+                        icon: Clock,
+                        label: 'Time Saved',
+                        value: stats.timeSaved,
+                        suffix: 'h',
+                        decimals: 1,
+                        color: 'text-blue-400',
+                        bg: 'bg-blue-500/10',
+                        change: 'This week',
+                        changeColor: 'text-white/30',
+                    },
+                    {
+                        icon: DollarSign,
+                        label: 'Revenue Generated',
+                        value: stats.moneySaved,
+                        prefix: '$',
+                        color: 'text-emerald-400',
+                        bg: 'bg-emerald-500/10',
+                        change: 'From sales',
+                        changeColor: 'text-white/30',
+                    },
+                    {
+                        icon: Bot,
+                        label: 'Automation Rate',
+                        value: stats.automationRate,
+                        suffix: '%',
+                        color: 'text-primary',
+                        bg: 'bg-primary/10',
+                        change: 'AI handled',
+                        changeColor: 'text-white/30',
+                    },
+                ].map((metric, index) => (
+                    <motion.div
+                        key={metric.label}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 + index * 0.05 }}
+                        className="glass-card rounded-2xl p-6 cursor-default group"
                     >
-                        <tab.icon className="w-3.5 h-3.5" />
-                        {tab.label}
-                    </button>
+                        <div className="flex items-center justify-between mb-4">
+                            <div className={clsx("p-2.5 rounded-xl", metric.bg)}>
+                                <metric.icon className={clsx("w-5 h-5", metric.color)} />
+                            </div>
+                            <span className={clsx("text-[11px] font-medium flex items-center gap-1", metric.changeColor)}>
+                                {metric.change}
+                                {metric.changeColor === 'text-emerald-400' && <ArrowUpRight className="w-3 h-3" />}
+                            </span>
+                        </div>
+                        <div className="text-2xl font-bold text-white leading-none mb-1.5 tracking-tight">
+                            <CountUp
+                                end={metric.value}
+                                prefix={metric.prefix}
+                                suffix={metric.suffix}
+                                decimals={metric.decimals ?? (metric.value % 1 !== 0 ? 1 : 0)}
+                            />
+                        </div>
+                        <span className="text-xs text-muted-foreground">{metric.label}</span>
+                    </motion.div>
                 ))}
             </div>
 
             {/* ═══════════════════════════════════════════════════ */}
-            {/* MAIN 3-COLUMN GRID                                 */}
+            {/* MAIN CONTENT — Chart + Activity + Status            */}
             {/* ═══════════════════════════════════════════════════ */}
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 overflow-hidden min-h-0">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
 
-                {/* ─── ZONE 1: OVERVIEW SIDEBAR (Left, 3 cols) ─── */}
-                <div className={clsx(
-                    "lg:col-span-3 flex flex-col gap-4 overflow-y-auto custom-scrollbar",
-                    mobileTab !== 'intel' && "hidden lg:flex"
-                )}>
-                    {/* Today's Summary */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.1 }}
-                        className="glass-card rounded-2xl p-5"
-                    >
-                        <div className="flex items-center gap-2 mb-3">
-                            <div className="p-1.5 rounded-lg bg-violet-500/10">
-                                <Sparkles className="w-3.5 h-3.5 text-violet-400" />
+                {/* ─── Engagement Chart (8 cols) ─── */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="lg:col-span-8 glass-card rounded-2xl p-6"
+                >
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-xl bg-primary/10">
+                                <BarChart3 className="w-4 h-4 text-primary" />
                             </div>
-                            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Today&apos;s Summary</span>
+                            <div>
+                                <h3 className="text-sm font-semibold text-white">Engagement Overview</h3>
+                                <p className="text-[11px] text-muted-foreground">Interactions over the last 7 days</p>
+                            </div>
                         </div>
-                        <p className="text-sm text-white/60 leading-relaxed">
-                            {totalInteractions > 10 ? (
-                                <>Handled <span className="text-white font-semibold font-mono">{totalInteractions}</span> interactions, saving you <span className="text-white font-semibold font-mono">{stats.timeSaved.toFixed(1)} hours</span> of work.</>
-                            ) : (
-                                <span className="text-white/25 italic">Collecting data for your first summary...</span>
-                            )}
-                        </p>
-                    </motion.div>
-
-                    {/* KPI Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {[
-                            { icon: Clock, label: 'Time Saved', value: stats.timeSaved, suffix: 'h', color: 'text-blue-400', bg: 'bg-blue-500/10', sparkColor: '#60A5FA', decimals: 1 },
-                            { icon: DollarSign, label: 'Revenue', value: stats.moneySaved, prefix: '$', color: 'text-emerald-400', bg: 'bg-emerald-500/10', sparkColor: '#34D399' },
-                            { icon: MessageSquare, label: 'Replies', value: stats.repliesSent, color: 'text-violet-400', bg: 'bg-violet-500/10', sparkColor: '#A78BFA' },
-                            { icon: Package, label: 'In Stock', value: stats.stock, color: 'text-amber-400', bg: 'bg-amber-500/10', sparkColor: '#FBBF24' },
-                        ].map((metric, index) => (
-                            <motion.div
-                                key={metric.label}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.15 + (index * 0.05) }}
-                                className="metric-card rounded-xl p-4 cursor-default"
-                            >
-                                <div className="flex items-start justify-between mb-3">
-                                    <div className={clsx("p-1.5 rounded-lg", metric.bg)}>
-                                        <metric.icon className={clsx("w-3.5 h-3.5", metric.color)} />
-                                    </div>
-                                    <Sparkline data={sparkData} color={metric.sparkColor} />
-                                </div>
-                                <div className="text-xl font-bold text-white leading-none mb-1 font-mono tracking-tight">
-                                    <CountUp
-                                        end={metric.value}
-                                        prefix={metric.prefix}
-                                        suffix={metric.suffix}
-                                        decimals={metric.decimals ?? (metric.value % 1 !== 0 ? 1 : 0)}
-                                    />
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[11px] text-muted-foreground font-medium">{metric.label}</span>
-                                    <span className="text-[10px] text-emerald-400/60 font-medium flex items-center gap-0.5">
-                                        <ArrowUpRight className="w-2.5 h-2.5" />
-                                        live
-                                    </span>
-                                </div>
-                            </motion.div>
-                        ))}
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 rounded-full bg-primary" />
+                                Interactions
+                            </div>
+                        </div>
+                    </div>
+                    <div className="h-[200px]">
+                        <EngagementChart data={chartData.data} labels={chartData.labels} />
                     </div>
 
-                    {/* Agent Status */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.4 }}
-                        className="glass-card rounded-2xl p-5"
-                    >
-                        <div className="flex items-center gap-2 mb-4">
-                            <div className="p-1.5 rounded-lg bg-white/5">
-                                <Shield className="w-3.5 h-3.5 text-muted-foreground" />
+                    {/* Mini stats row below chart */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-white/[0.04]">
+                        {[
+                            { label: 'DMs Received', value: stats.dms, icon: MessageCircle, color: 'text-blue-400' },
+                            { label: 'Comments', value: stats.comments, icon: MessageSquare, color: 'text-pink-400' },
+                            { label: 'AI Replies', value: stats.aiReplies, icon: Bot, color: 'text-emerald-400' },
+                            { label: 'Manual Replies', value: stats.manualReplies, icon: Users, color: 'text-amber-400' },
+                        ].map((item) => (
+                            <div key={item.label} className="flex items-center gap-3">
+                                <item.icon className={clsx("w-4 h-4", item.color)} />
+                                <div>
+                                    <p className="text-sm font-semibold text-white">{item.value}</p>
+                                    <p className="text-[10px] text-muted-foreground">{item.label}</p>
+                                </div>
                             </div>
-                            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">System Status</span>
+                        ))}
+                    </div>
+                </motion.div>
+
+                {/* ─── Quick Stats Panel (4 cols) ─── */}
+                <div className="lg:col-span-4 flex flex-col gap-5">
+
+                    {/* System Status */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.35 }}
+                        className="glass-card rounded-2xl p-6"
+                    >
+                        <div className="flex items-center gap-3 mb-5">
+                            <div className="p-2 rounded-xl bg-emerald-500/10">
+                                <Shield className="w-4 h-4 text-emerald-400" />
+                            </div>
+                            <h3 className="text-sm font-semibold text-white">System Status</h3>
                         </div>
-                        <div className="space-y-3">
+
+                        <div className="space-y-4">
                             <div className="flex items-center justify-between">
-                                <span className="text-xs text-muted-foreground">Mode</span>
+                                <span className="text-xs text-muted-foreground">Agent Mode</span>
                                 <span className={clsx(
                                     "badge",
                                     autopilot
                                         ? "bg-emerald-500/10 text-emerald-400"
                                         : "bg-amber-500/10 text-amber-400"
                                 )}>
-                                    {autopilot ? 'Autopilot' : 'Manual'}
+                                    {autopilot ? '🤖 Autopilot' : '👤 Manual'}
                                 </span>
                             </div>
                             <div className="w-full h-px bg-white/[0.04]" />
                             <div className="flex items-center justify-between">
                                 <span className="text-xs text-muted-foreground">Status</span>
-                                <span className="badge-success flex items-center gap-1">
+                                <span className="badge-success flex items-center gap-1.5">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                    Online
+                                    Online 24/7
                                 </span>
                             </div>
                             <div className="w-full h-px bg-white/[0.04]" />
                             <div className="flex items-center justify-between">
-                                <span className="text-xs text-muted-foreground">Uptime</span>
-                                <span className="text-[11px] text-white/50 font-mono font-medium">24/7</span>
+                                <span className="text-xs text-muted-foreground">Inventory</span>
+                                <span className="text-xs text-white/60 font-medium">{stats.stock} items in stock</span>
                             </div>
-                            {/* Response rate bar */}
-                            <div className="pt-1">
-                                <div className="flex items-center justify-between mb-1.5">
-                                    <span className="text-[10px] text-muted-foreground">Response Rate</span>
-                                    <span className="text-[10px] text-white/60 font-mono">100%</span>
+
+                            {/* Automation Rate Bar */}
+                            <div className="pt-2">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-[11px] text-muted-foreground">Automation Rate</span>
+                                    <span className="text-[11px] text-primary font-semibold">{stats.automationRate}%</span>
                                 </div>
-                                <div className="w-full h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
+                                <div className="w-full h-2 bg-white/[0.04] rounded-full overflow-hidden">
                                     <motion.div
                                         initial={{ width: '0%' }}
-                                        animate={{ width: '100%' }}
+                                        animate={{ width: `${stats.automationRate}%` }}
                                         transition={{ duration: 1.5, ease: 'easeOut', delay: 0.5 }}
-                                        className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full"
+                                        className="h-full bg-gradient-to-r from-primary to-violet-400 rounded-full"
                                     />
                                 </div>
                             </div>
                         </div>
                     </motion.div>
-                </div>
 
-                {/* ─── ZONE 2: AGENT MONITOR — Chat (Center, 6 cols) ─── */}
-                <div className={clsx(
-                    "lg:col-span-6 flex flex-col overflow-hidden min-h-0",
-                    mobileTab !== 'command' && "hidden lg:flex"
-                )}>
+                    {/* Today's Summary */}
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.99 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.15, duration: 0.3 }}
-                        className="flex-1 flex flex-col rounded-2xl glass-card overflow-hidden"
-                    >
-                        {/* Chat Header */}
-                        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06] shrink-0">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-xl bg-primary/10">
-                                    <Zap className="w-4 h-4 text-primary" />
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-semibold text-white">Agent Monitor</h3>
-                                    <p className="text-[11px] text-muted-foreground">System Status: Online</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-white/25 bg-white/[0.03] px-2.5 py-1 rounded-full border border-white/[0.04]">
-                                    <Instagram className="w-3 h-3" />
-                                    Connected
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                                    <span className="text-[10px] font-semibold text-emerald-400/80">Online</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Chat Body */}
-                        <div className="flex-1 overflow-hidden">
-                            <GhostChat />
-                        </div>
-                    </motion.div>
-                </div>
-
-                {/* ─── ZONE 3: ACTIVITY LOG (Right, 3 cols) ─── */}
-                <div className={clsx(
-                    "lg:col-span-3 flex flex-col overflow-hidden min-h-0",
-                    mobileTab !== 'activity' && "hidden lg:flex"
-                )}>
-                    <motion.div
-                        initial={{ opacity: 0, y: 10 }}
+                        initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.25 }}
-                        className="flex-1 flex flex-col rounded-2xl glass-card overflow-hidden"
+                        transition={{ delay: 0.4 }}
+                        className="glass-card rounded-2xl p-6"
                     >
-                        {/* Feed Header */}
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] shrink-0">
-                            <div className="flex items-center gap-2">
-                                <div className="p-1 rounded-md bg-white/5">
-                                    <Activity className="w-3.5 h-3.5 text-muted-foreground" />
-                                </div>
-                                <span className="text-xs font-semibold text-white/60">Activity</span>
-                                {filteredActivities.length > 0 && (
-                                    <span className="badge bg-white/[0.06] text-white/35 font-mono">
-                                        {filteredActivities.length}
-                                    </span>
-                                )}
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 rounded-xl bg-violet-500/10">
+                                <Sparkles className="w-4 h-4 text-violet-400" />
                             </div>
-                            <div className="flex items-center gap-2">
-                                {filteredActivities.length > 0 && (
-                                    <button
-                                        onClick={() => setClearModalOpen(true)}
-                                        className="text-[10px] text-red-400/50 hover:text-red-400 px-2 py-0.5 rounded-md transition-all font-medium hover:bg-red-500/5 press"
-                                    >
-                                        Clear
-                                    </button>
-                                )}
-                                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-                            </div>
+                            <h3 className="text-sm font-semibold text-white">Today&apos;s Summary</h3>
                         </div>
-
-                        {/* Feed Content */}
-                        <div className="flex-1 overflow-y-auto custom-scrollbar">
-                            {filteredActivities.length === 0 && !loading ? (
-                                <div className="flex flex-col items-center justify-center py-16 text-center px-6">
-                                    <div className="w-12 h-12 rounded-2xl bg-white/[0.03] flex items-center justify-center mb-4">
-                                        <Sparkles className="w-5 h-5 text-white/10" />
-                                    </div>
-                                    <p className="text-sm font-medium text-white/20 mb-1">No events yet</p>
-                                    <p className="text-[11px] text-white/10 leading-relaxed">Activity will appear here as your agent processes interactions.</p>
-                                </div>
+                        <p className="text-sm text-white/60 leading-relaxed">
+                            {totalInteractions > 10 ? (
+                                <>Your agent handled <span className="text-white font-semibold">{totalInteractions}</span> interactions, saving you <span className="text-white font-semibold">{stats.timeSaved.toFixed(1)} hours</span> of manual work. {stats.moneySaved > 0 && <>You&apos;ve generated <span className="text-emerald-400 font-semibold">${stats.moneySaved.toFixed(0)}</span> in revenue.</>}</>
+                            ) : totalInteractions > 0 ? (
+                                <>Your agent has started processing interactions. Keep going — the data will get richer as more conversations come in!</>
                             ) : (
-                                <div className="p-2 space-y-0.5">
-                                    {filteredActivities.map((activity, i) => {
-                                        const colorClasses = getEventColor(activity.event_type);
-                                        return (
-                                            <motion.div
-                                                key={activity.id}
-                                                initial={i < 5 ? { opacity: 0, x: 10 } : false}
-                                                animate={{ opacity: 1, x: 0 }}
-                                                transition={{ delay: i < 5 ? i * 0.05 : 0 }}
-                                                className="flex items-start gap-2.5 p-2.5 rounded-xl hover:bg-white/[0.03] transition-all group cursor-default"
-                                            >
-                                                <div className={clsx(
-                                                    "p-1.5 rounded-lg shrink-0 mt-0.5",
-                                                    colorClasses
-                                                )}>
-                                                    {getEventIcon(activity.event_type)}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-1.5 mb-0.5">
-                                                        <EventBadge type={activity.event_type} />
-                                                        <span className="text-[10px] text-white/20 font-mono">
-                                                            {formatTime(activity.timestamp)}
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-xs text-white/50 leading-relaxed line-clamp-2 group-hover:text-white/70 transition-colors">
-                                                        {activity.description}
-                                                    </p>
-                                                </div>
-
-                                                {/* Send Action for Drafts */}
-                                                {
-                                                    (activity.event_type === 'DRAFT_REPLY' || activity.description.startsWith('Draft:')) && (
-                                                        <button
-                                                            onClick={() => handleApproveDraft(activity)}
-                                                            disabled={sendingDrafts.includes(activity.id)}
-                                                            className="h-9 w-9 flex items-center justify-center rounded-lg text-violet-400 hover:bg-violet-500/15 transition-all shrink-0 press"
-                                                            title="Send Now"
-                                                        >
-                                                            {sendingDrafts.includes(activity.id) ? (
-                                                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                                            ) : (
-                                                                <Send className="w-3.5 h-3.5" />
-                                                            )}
-                                                        </button>
-                                                    )
-                                                }
-                                            </motion.div>
-                                        );
-                                    })}
-                                </div>
+                                <span className="text-white/25 italic">Collecting data for your first summary. Once customers message you on Instagram, stats will appear here.</span>
                             )}
-                        </div>
+                        </p>
                     </motion.div>
                 </div>
-            </div >
+            </div>
 
-            {/* Mobile floating chat button */}
-            {
-                mobileTab !== 'command' && (
-                    <div className="lg:hidden fixed bottom-6 right-6 z-50">
-                        <button
-                            onClick={() => setMobileTab('command')}
-                            className="w-14 h-14 rounded-2xl bg-primary text-white flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
-                            style={{ boxShadow: 'var(--shadow-glow), var(--shadow-lg)' }}
-                        >
-                            <MessageSquare className="w-6 h-6" />
-                        </button>
+            {/* ═══════════════════════════════════════════════════ */}
+            {/* ACTIVITY FEED — Full Width                          */}
+            {/* ═══════════════════════════════════════════════════ */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="glass-card rounded-2xl mt-5 overflow-hidden"
+            >
+                {/* Feed Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-white/5">
+                            <Activity className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                        <h3 className="text-sm font-semibold text-white">Recent Activity</h3>
+                        {filteredActivities.length > 0 && (
+                            <span className="badge bg-white/[0.06] text-white/35 font-mono">
+                                {filteredActivities.length}
+                            </span>
+                        )}
                     </div>
-                )
-            }
+                    <div className="flex items-center gap-3">
+                        {filteredActivities.length > 0 && (
+                            <button
+                                onClick={() => setClearModalOpen(true)}
+                                className="text-[11px] text-red-400/50 hover:text-red-400 px-3 py-1.5 rounded-lg transition-all font-medium hover:bg-red-500/5 press"
+                            >
+                                Clear All
+                            </button>
+                        )}
+                        <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                    </div>
+                </div>
+
+                {/* Feed Content */}
+                <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                    {filteredActivities.length === 0 && !loading ? (
+                        <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+                            <div className="w-14 h-14 rounded-2xl bg-white/[0.03] flex items-center justify-center mb-4">
+                                <Sparkles className="w-6 h-6 text-white/10" />
+                            </div>
+                            <p className="text-sm font-medium text-white/20 mb-1">No activity yet</p>
+                            <p className="text-[12px] text-white/10 leading-relaxed max-w-xs">Activity will appear here as your Ghost Agent processes Instagram messages and comments.</p>
+                        </div>
+                    ) : (
+                        <div className="divide-y divide-white/[0.03]">
+                            {filteredActivities.map((activity, i) => {
+                                const colorClasses = getEventColor(activity.event_type);
+                                return (
+                                    <motion.div
+                                        key={activity.id}
+                                        initial={i < 5 ? { opacity: 0, x: 10 } : false}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: i < 5 ? i * 0.03 : 0 }}
+                                        className="flex items-center gap-4 px-6 py-3.5 hover:bg-white/[0.02] transition-all group cursor-default"
+                                    >
+                                        <div className={clsx(
+                                            "p-2 rounded-xl shrink-0",
+                                            colorClasses
+                                        )}>
+                                            {getEventIcon(activity.event_type)}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm text-white/70 leading-relaxed line-clamp-2 group-hover:text-white/90 transition-colors">
+                                                {activity.description}
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-3 shrink-0">
+                                            <EventBadge type={activity.event_type} />
+                                            <span className="text-[10px] text-white/20 font-mono whitespace-nowrap">
+                                                {formatTime(activity.timestamp)}
+                                            </span>
+                                        </div>
+
+                                        {/* Send Action for Drafts */}
+                                        {
+                                            (activity.event_type === 'DRAFT_REPLY' || activity.description.startsWith('Draft:')) && (
+                                                <button
+                                                    onClick={() => handleApproveDraft(activity)}
+                                                    disabled={sendingDrafts.includes(activity.id)}
+                                                    className="h-9 w-9 flex items-center justify-center rounded-lg text-violet-400 hover:bg-violet-500/15 transition-all shrink-0 press"
+                                                    title="Send Now"
+                                                >
+                                                    {sendingDrafts.includes(activity.id) ? (
+                                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                    ) : (
+                                                        <Send className="w-3.5 h-3.5" />
+                                                    )}
+                                                </button>
+                                            )
+                                        }
+                                    </motion.div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            </motion.div>
 
             {/* Clear Activity Modal */}
             <GhostModal
@@ -579,6 +661,6 @@ export default function DashboardPage() {
                 }}
                 onCancel={() => setClearModalOpen(false)}
             />
-        </div >
+        </div>
     );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LayoutDashboard, MessageSquareText, Package, Settings, LogOut, CreditCard, Zap } from 'lucide-react';
+import { LayoutDashboard, MessageSquareText, Package, Settings, LogOut, CreditCard, Zap, ChevronRight } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 import { useState, useEffect } from 'react';
@@ -22,11 +22,13 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     const { autopilot, setAutopilot, isLoading } = useAutopilot();
     const { user } = useAuth();
     const userEmail = user?.email || null;
+    const userName = user?.user_metadata?.full_name || userEmail?.split('@')[0] || 'User';
+    const userInitial = userName.charAt(0).toUpperCase();
     const isGoogleUser = user?.app_metadata?.provider === 'google';
 
     const navItems = [
         { icon: LayoutDashboard, label: 'Overview', href: '/dashboard' },
-        { icon: MessageSquareText, label: 'Interactions', href: '/dashboard/interactions' },
+        { icon: MessageSquareText, label: 'Live Chat', href: '/dashboard/interactions' },
         { icon: Package, label: 'Inventory', href: '/dashboard/inventory' },
         { icon: Settings, label: 'Settings', href: '/dashboard/settings' },
         { icon: CreditCard, label: 'Billing', href: '/dashboard/billing' },
@@ -57,12 +59,13 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             </AnimatePresence>
 
             <aside className={clsx(
-                "w-[240px] border-r border-white/[0.06] bg-surface-0 p-5 flex flex-col fixed h-full z-50 transition-transform duration-300 lg:translate-x-0",
+                "w-[260px] border-r border-white/[0.06] bg-surface-0 flex flex-col fixed h-full z-50 transition-transform duration-300 lg:translate-x-0",
                 isOpen ? "translate-x-0" : "-translate-x-full"
             )}>
-                <div className="flex items-center justify-between mb-8">
-                    <Link href="/" className="flex items-center gap-2.5 px-1 group">
-                        <div className="bg-white/[0.04] p-2 rounded-xl group-hover:bg-white/[0.07] transition-colors">
+                {/* Logo Section */}
+                <div className="flex items-center justify-between px-5 h-16 border-b border-white/[0.04]">
+                    <Link href="/" className="flex items-center gap-2.5 group">
+                        <div className="bg-primary/10 p-2 rounded-xl group-hover:bg-primary/15 transition-colors">
                             <GhostLogo />
                         </div>
                         <span className="font-semibold text-lg tracking-tight text-white/90">
@@ -75,9 +78,9 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                 </div>
 
                 {/* Autopilot Toggle */}
-                <div className="mb-5 p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-                    <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs font-medium flex items-center gap-2 text-white/50">
+                <div className="mx-4 mt-5 mb-2 p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold flex items-center gap-2 text-white/50">
                             <Zap className="w-3.5 h-3.5 text-primary" />
                             Autopilot
                         </span>
@@ -85,24 +88,28 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                             onClick={() => setAutopilot(!autopilot)}
                             disabled={isLoading}
                             className={clsx(
-                                "relative w-10 rounded-full transition-all duration-300 press",
+                                "relative w-11 rounded-full transition-all duration-300 press",
                                 autopilot ? "bg-primary" : "bg-white/10",
                                 isLoading && "opacity-50 cursor-not-allowed"
                             )}
-                            style={{ height: '22px' }}
+                            style={{ height: '24px' }}
                         >
                             <div className={clsx(
-                                "absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white transition-transform duration-300",
-                                autopilot ? "translate-x-[20px]" : "translate-x-[2px]"
+                                "absolute top-[2px] w-[20px] h-[20px] rounded-full bg-white transition-transform duration-300 shadow-sm",
+                                autopilot ? "translate-x-[22px]" : "translate-x-[2px]"
                             )} />
                         </button>
                     </div>
-                    <p className="text-[10px] text-white/25">
-                        {isLoading ? "Syncing status..." : (autopilot ? "Replies are sent automatically." : "Manual approval mode active.")}
+                    <p className="text-[10px] text-white/25 leading-relaxed">
+                        {isLoading ? "Syncing status..." : (autopilot ? "AI replies are sent automatically." : "Manual approval required for replies.")}
                     </p>
                 </div>
 
-                <nav className="flex-1 space-y-0.5">
+                {/* Navigation */}
+                <nav className="flex-1 px-3 mt-2 space-y-0.5">
+                    <p className="text-[10px] font-semibold text-white/20 uppercase tracking-wider px-3 pt-3 pb-2">
+                        Menu
+                    </p>
                     {navItems.map((item) => {
                         const isActive = pathname === item.href;
                         return (
@@ -111,10 +118,10 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                                 href={item.href}
                                 onClick={() => { if (window.innerWidth < 1024) onClose(); }}
                                 className={clsx(
-                                    "flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all text-sm font-medium relative",
+                                    "flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all text-sm font-medium relative group",
                                     isActive
                                         ? "bg-primary/10 text-primary"
-                                        : "text-white/35 hover:text-white/60 hover:bg-white/[0.04]"
+                                        : "text-white/40 hover:text-white/70 hover:bg-white/[0.04]"
                                 )}
                             >
                                 {isActive && (
@@ -126,35 +133,35 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                                 )}
                                 <item.icon className="w-[18px] h-[18px]" />
                                 {item.label}
+                                {isActive && (
+                                    <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-50" />
+                                )}
                             </Link>
                         );
                     })}
                 </nav>
 
                 {/* User Profile */}
-                {userEmail && (
-                    <div className="mt-auto mb-2 px-3.5 py-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-                        <div className="flex items-center gap-2 min-w-0">
-                            {isGoogleUser && (
-                                <svg className="w-3.5 h-3.5 text-white/30 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z" />
-                                </svg>
+                <div className="mt-auto border-t border-white/[0.04] p-4">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/30 to-violet-600/30 flex items-center justify-center text-white font-semibold text-sm border border-white/[0.06]">
+                            {userInitial}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-white/70 truncate">{userName}</p>
+                            {userEmail && (
+                                <p className="text-[10px] text-white/25 truncate">{userEmail}</p>
                             )}
-                            <span className="text-[11px] text-white/30 truncate">{userEmail}</span>
                         </div>
                     </div>
-                )}
-
-                <button
-                    onClick={handleLogout}
-                    className={clsx(
-                        "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-white/25 hover:text-red-400 hover:bg-red-500/[0.05] transition-colors w-full text-left text-sm press",
-                        !userEmail && "mt-auto"
-                    )}
-                >
-                    <LogOut className="w-[18px] h-[18px]" />
-                    Sign Out
-                </button>
+                    <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-xs text-white/25 hover:text-red-400 hover:bg-red-500/[0.05] transition-colors press"
+                    >
+                        <LogOut className="w-4 h-4" />
+                        Sign Out
+                    </button>
+                </div>
             </aside>
         </>
     );
@@ -176,9 +183,9 @@ function DashboardContent({ children, toggleSidebar }: { children: React.ReactNo
             </header>
 
             {/* Main Content Area */}
-            <div className="flex-1 lg:ml-[240px] relative z-10">
-                <main className="p-4 lg:p-6 pt-[72px] lg:pt-6 overflow-y-auto min-h-screen">
-                    <div className="max-w-[1600px] mx-auto">
+            <div className="flex-1 lg:ml-[260px] relative z-10">
+                <main className="p-4 lg:p-8 pt-[72px] lg:pt-8 overflow-y-auto min-h-screen">
+                    <div className="max-w-[1400px] mx-auto">
                         {children}
                     </div>
                 </main>
@@ -194,8 +201,7 @@ export default function DashboardLayout({
 }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const { user } = useAuth();
-    const userId = user?.id; // AutopilotProvider and children handle undefined userId appropriately? Or DashboardContext does?
-    // RealtimeContext expects userId string | undefined, which is what we have.
+    const userId = user?.id;
 
     return (
         <AutopilotProvider>
