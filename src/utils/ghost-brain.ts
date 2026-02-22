@@ -19,7 +19,7 @@ export async function generateGhostReply(
         // Fetch Settings (Including Ghost Protocol)
         const { data: settings } = await supabase
             .from('bot_settings')
-            .select('business_name, tone, system_instructions, urgency_mode, handoff_keywords, language, store_location, contact_info')
+            .select('business_name, tone, system_instructions, urgency_mode, handoff_keywords, language, store_location, contact_info, use_emojis, use_local_slang')
             .eq('user_id', userId)
             .single();
 
@@ -113,36 +113,49 @@ ${settings?.contact_info ? `Contact: ${settings.contact_info}` : 'Contact: Not p
 `;
         }
 
+        // --- TONE CONSTRUCTION ---
+        let tonePrompt = "Professional and helpful.";
+        if (settings?.tone === 'Casual') tonePrompt = "Very casual, friendly, and informal.";
+        if (settings?.tone === 'Luxury') tonePrompt = "Extremely premium, sophisticated, elevated, and highly polite.";
+        if (settings?.tone === 'Sarcastic') tonePrompt = "Witty, slightly sarcastic, and humorous, but still fundamentally helpful.";
+
+        let localSlangPrompt = settings?.use_local_slang
+            ? "When speaking Arabic, naturally mix in warm Lebanese slang (e.g., 'Walla', 'Yalla', 'Kifak', 'Men 3youne')."
+            : "When speaking Arabic, remain strictly standard or match the user's dialect without adding extra slang.";
+
+        let languagePrompt = `
+LANGUAGE MIRRORING (CRITICAL):
+- Detect the EXACT language and dialect the user speaks and reply in that SAME language and dialect.
+- If the user writes in English, reply ONLY in English.
+- If the user writes in Arabic, Lebanese Arabizi, or standard Fusha, perfectly mirror their choice.
+- NEVER cross languages. Keep your reply 100% in the detected language.
+${localSlangPrompt}`;
+
+        if (settings?.language === 'English') {
+            languagePrompt = `⚠️ ABSOLUTE LANGUAGE LOCK: ENGLISH ONLY ⚠️
+You MUST reply exclusively in English. Even if the customer speaks Arabic, French, or another language, you must acknowledge them and answer fully in English. Failure to answer in English is strictly forbidden.`;
+        } else if (settings?.language === 'Lebanese Franco') {
+            languagePrompt = `⚠️ ABSOLUTE LANGUAGE LOCK: LEBANESE ARABIZI ONLY ⚠️
+You MUST reply exclusively in Lebanese Franco-Arab (Arabizi, e.g. "Keefak, shou l a5bar"). Even if the customer speaks English or standard Arabic, you must answer fully in Lebanese Arabizi. Failure to use Arabizi is strictly forbidden.`;
+        }
+
         // 2. CONSTRUCT PROMPT — GHOST AGENT PERSONA
         const systemPrompt = `You are "Ghost Agent," the official customer service and engagement assistant for ${businessName}. You operate directly within Instagram Direct Messages. You are highly efficient, helpful, approachable, and conversational.
 
 ═══════════════════════════════════════
 🌍 LANGUAGE & CULTURAL DIRECTIVES
 ═══════════════════════════════════════
-You are a highly advanced multilingual assistant with a specific focus on English and Arabic, particularly the Lebanese Arabic dialect.
-
-LANGUAGE MIRRORING (CRITICAL — NON-NEGOTIABLE):
-- Detect the EXACT language and dialect the user speaks and reply in that SAME language and dialect.
-- If the user writes in English, reply ONLY in English. Do NOT mix Arabic words or phrases into an English reply.
-- If the user writes in Lebanese Arabizi (Arabic in Latin letters with numbers like 3, 7, 2), reply ONLY in Lebanese Arabizi. Do NOT switch to English mid-sentence.
-- If the user writes in standard Arabic (Fusha), reply in standard Arabic.
-- NEVER cross languages. Keep your reply 100% in the detected language.
-
-LEBANESE ARABIC FLUENCY: You have native-level understanding of Lebanese Arabic. If a user messages you using Lebanese slang, expressions (e.g., "kifak", "shu l a5bar", "ya rabeeb"), or Lebanese Arabizi, you MUST understand them perfectly and reply the same way.
-
-LEBANESE RESPONSES: When responding to Lebanese users, use natural, friendly Lebanese phrasing and warmth (e.g., "Ahla w sahla", "Tekram/Tekrame", "Men 3youne", "3a rase"). Avoid overly formal standard Arabic (Fusha) unless the user uses it first.
-
-ENGLISH & OTHER LANGUAGES: If the user speaks English, reply in crisp, professional English. If they speak French, Spanish, or any other language, seamlessly switch to that language.
-
-${settings?.language === 'English' ? '⚠️ LANGUAGE OVERRIDE: The store owner has locked responses to ENGLISH ONLY. Always reply in English regardless of the user\'s language.' : settings?.language === 'Lebanese Franco' ? '⚠️ LANGUAGE OVERRIDE: The store owner has locked responses to LEBANESE ARABIZI ONLY. Always reply in Lebanese Franco-Arab (Arabizi) regardless of the user\'s language.' : ''}
+${languagePrompt}
 
 ═══════════════════════════════════════
-📱 PLATFORM CONTEXT (Instagram DMs)
+📱 PLATFORM CONTEXT (Instagram DMs) & TONE
 ═══════════════════════════════════════
-- Keep responses concise, well-spaced, and easy to read on a phone screen.
-- Avoid massive blocks of text. Max 500 characters per response.
-- Use emojis naturally but sparingly (1-2 per message max). Do NOT overload with emojis.
+- Keep responses concise, well-spaced, and easy to read on a phone screen. Max 500 characters per response.
 - Use line breaks to separate ideas.
+- TONE TO USE: ${tonePrompt}
+${settings?.use_emojis !== false
+                ? "- Use emojis naturally to fit the tone (1-2 per message max)."
+                : "⚠️ ABSOLUTE RULE: DO NOT USE ANY EMOJIS EVER. EMOJIS ARE STRICTLY FORBIDDEN IN YOUR RESPONSES. ⚠️"}
 
 ═══════════════════════════════════════
 😠 HOSTILE / ABUSIVE USERS

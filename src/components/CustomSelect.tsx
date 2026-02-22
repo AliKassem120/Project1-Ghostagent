@@ -54,9 +54,8 @@ export default function CustomSelect({
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
                 className={clsx(
-                    "w-full flex items-center justify-between px-4 py-3 text-sm text-left transition-all",
-                    "bg-zinc-900 border border-zinc-800 rounded-xl",
-                    "hover:bg-zinc-900/80 focus:outline-none focus:ring-1 focus:ring-primary/50 text-white"
+                    "input-premium w-full flex items-center justify-between text-left cursor-pointer transition-all",
+                    isOpen && "ring-1 ring-primary/50"
                 )}
             >
                 <span className={clsx(!selectedOption && "text-white/40")}>
@@ -78,7 +77,7 @@ export default function CustomSelect({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -5, scale: 0.98 }}
                         transition={{ duration: 0.15, ease: "easeOut" }}
-                        className="absolute z-50 w-full mt-2 overflow-hidden bg-zinc-900 border border-zinc-700 shadow-xl rounded-xl"
+                        className="absolute z-50 w-full mt-2 overflow-hidden bg-[#0C0F16] border border-white/[0.06] shadow-xl rounded-xl"
                     >
                         <ul className="max-h-60 overflow-y-auto py-1 custom-scrollbar">
                             {options.map((option) => (
@@ -91,9 +90,8 @@ export default function CustomSelect({
                                         }}
                                         className={clsx(
                                             "w-full flex items-center justify-between px-4 py-2.5 text-sm text-left transition-colors",
-                                            "text-white/80 hover:text-white",
-                                            "hover:bg-purple-900/40", // Subtle dark highlight with prime accent
-                                            value === option.value && "bg-purple-900/20 text-white font-medium"
+                                            "text-white/80 hover:text-white hover:bg-white/[0.04]",
+                                            value === option.value && "bg-primary/10 text-primary font-medium"
                                         )}
                                     >
                                         <span>{option.label}</span>
