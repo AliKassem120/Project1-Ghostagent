@@ -438,7 +438,7 @@ export default function InteractionsPage() {
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/25" />
                     <input
                         placeholder="Search chats..."
-                        className="input-premium w-full pl-10 py-2.5 text-sm"
+                        className="input-premium w-full !pl-10 py-2.5 text-sm"
                     />
                 </div>
 

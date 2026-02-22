@@ -255,7 +255,7 @@ export default function InventoryPage() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search products..."
-                    className="input-premium w-full pl-10"
+                    className="input-premium w-full !pl-10"
                 />
             </div>
 
