@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Trash2, Save, X, Package, Loader2, DollarSign, Box, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Trash2, Save, X, Package, Loader2, DollarSign, Box, TrendingUp, AlertTriangle, Edit2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
@@ -35,6 +35,8 @@ export default function InventoryPage() {
     const [isAdding, setIsAdding] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [newProduct, setNewProduct] = useState({ name: '', price: '', stock: '' });
+    const [editingProductId, setEditingProductId] = useState<string | null>(null);
+    const [editValues, setEditValues] = useState({ name: '', price: '', stock: '' });
     const [deleteModal, setDeleteModal] = useState<{ open: boolean; productId: string | null; productName: string }>({ open: false, productId: null, productName: '' });
 
     // Get user ID on mount
@@ -148,6 +150,40 @@ export default function InventoryPage() {
         } catch (error) {
             console.error('Error deleting product:', error);
             toast.error('Failed to delete product.');
+        }
+    };
+
+    const handleEditClick = (product: Product) => {
+        setEditingProductId(product.id);
+        setEditValues({ name: product.name, price: product.price.toString(), stock: product.stock.toString() });
+    };
+
+    const handleCancelEdit = () => {
+        setEditingProductId(null);
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editingProductId || !userId || !editValues.name.trim()) return;
+
+        try {
+            const stock = Number(editValues.stock) || 0;
+            const price = Number(editValues.price) || 0;
+
+            const { error } = await supabase
+                .from('inventory')
+                .update({
+                    item_name: editValues.name,
+                    price: price,
+                    stock_level: stock,
+                })
+                .eq('id', editingProductId);
+
+            if (error) throw error;
+            toast.success('Product Updated');
+            setEditingProductId(null);
+        } catch (error) {
+            console.error('Error updating product:', error);
+            toast.error('Failed to update product.');
         }
     };
 
@@ -301,48 +337,96 @@ export default function InventoryPage() {
             <div className="space-y-3">
                 {/* Mobile Cards */}
                 <div className="lg:hidden space-y-3">
-                    {filteredProducts.map((item, i) => (
-                        <motion.div
-                            key={item.id}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: i * 0.03 }}
-                            className="glass-card rounded-2xl p-5 group"
-                        >
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                                        <Package className="w-5 h-5 text-primary/70" />
+                    {filteredProducts.map((item, i) => {
+                        const isEditing = editingProductId === item.id;
+                        return (
+                            <motion.div
+                                key={item.id}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: i * 0.03 }}
+                                className="glass-card rounded-2xl p-5 group"
+                            >
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="flex items-center gap-3 w-full">
+                                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                                            <Package className="w-5 h-5 text-primary/70" />
+                                        </div>
+                                        <div className="flex-1">
+                                            {isEditing ? (
+                                                <input
+                                                    className="input-premium py-1 px-3 w-full text-base font-bold mb-1"
+                                                    value={editValues.name}
+                                                    onChange={e => setEditValues({ ...editValues, name: e.target.value })}
+                                                />
+                                            ) : (
+                                                <h3 className="font-bold text-white text-base">{item.name}</h3>
+                                            )}
+                                            <span className={clsx(
+                                                "text-[10px] font-bold uppercase tracking-wider",
+                                                item.stock > 5 ? "text-emerald-400" : item.stock > 0 ? "text-amber-400" : "text-red-400"
+                                            )}>
+                                                {item.stock > 5 ? 'In Stock' : item.stock > 0 ? 'Low Stock' : 'Out of Stock'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {isEditing ? (
+                                        <div className="flex items-center gap-1 shrink-0 ml-2">
+                                            <button onClick={handleSaveEdit} className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-all">
+                                                <Save className="w-4 h-4" />
+                                            </button>
+                                            <button onClick={handleCancelEdit} className="p-2 text-white/40 hover:bg-white/10 rounded-xl transition-all">
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-1 shrink-0 ml-2">
+                                            <button onClick={() => handleEditClick(item)} className="p-2 text-white/30 hover:text-primary hover:bg-primary/10 rounded-xl transition-all">
+                                                <Edit2 className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => openDeleteModal(item)}
+                                                className="p-2 text-white/30 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 pt-3 border-t border-white/[0.04]">
+                                    <div>
+                                        <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest mb-1.5">Price</p>
+                                        {isEditing ? (
+                                            <div className="relative w-full">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm font-semibold">$</span>
+                                                <input
+                                                    type="number"
+                                                    className="input-premium py-1.5 pl-8 pr-2 w-full text-base font-bold appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0"
+                                                    value={editValues.price}
+                                                    onChange={e => setEditValues({ ...editValues, price: e.target.value })}
+                                                />
+                                            </div>
+                                        ) : (
+                                            <p className="text-lg font-bold text-emerald-400">${item.price.toFixed(2)}</p>
+                                        )}
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-white text-base">{item.name}</h3>
-                                        <span className={clsx(
-                                            "text-[10px] font-bold uppercase tracking-wider",
-                                            item.stock > 5 ? "text-emerald-400" : item.stock > 0 ? "text-amber-400" : "text-red-400"
-                                        )}>
-                                            {item.stock > 5 ? 'In Stock' : item.stock > 0 ? 'Low Stock' : 'Out of Stock'}
-                                        </span>
+                                        <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest mb-1.5">Stock</p>
+                                        {isEditing ? (
+                                            <input
+                                                type="number"
+                                                className="input-premium py-1.5 px-3 w-full text-base font-bold appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0"
+                                                value={editValues.stock}
+                                                onChange={e => setEditValues({ ...editValues, stock: e.target.value })}
+                                            />
+                                        ) : (
+                                            <p className="text-lg font-bold text-white">{item.stock}</p>
+                                        )}
                                     </div>
                                 </div>
-                                <button
-                                    onClick={() => openDeleteModal(item)}
-                                    className="p-2 text-white/15 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4 pt-3 border-t border-white/[0.04]">
-                                <div>
-                                    <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest">Price</p>
-                                    <p className="text-lg font-bold text-emerald-400">${item.price.toFixed(2)}</p>
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest">Stock</p>
-                                    <p className="text-lg font-bold text-white">{item.stock}</p>
-                                </div>
-                            </div>
-                        </motion.div>
-                    ))}
+                            </motion.div>
+                        );
+                    })}
                 </div>
 
                 {/* Desktop Table */}
@@ -358,41 +442,90 @@ export default function InventoryPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/[0.03]">
-                            {filteredProducts.map((item) => (
-                                <tr key={item.id} className="hover:bg-white/[0.02] transition-colors group">
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                                                <Package className="w-4 h-4 text-primary/60" />
+                            {filteredProducts.map((item) => {
+                                const isEditing = editingProductId === item.id;
+                                return (
+                                    <tr key={item.id} className="hover:bg-white/[0.02] transition-colors group">
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                                    <Package className="w-4 h-4 text-primary/60" />
+                                                </div>
+                                                {isEditing ? (
+                                                    <input
+                                                        className="input-premium py-1 px-3 w-40 text-sm font-semibold"
+                                                        value={editValues.name}
+                                                        onChange={e => setEditValues({ ...editValues, name: e.target.value })}
+                                                        autoFocus
+                                                    />
+                                                ) : (
+                                                    <span className="font-semibold text-white text-sm">{item.name}</span>
+                                                )}
                                             </div>
-                                            <span className="font-semibold text-white text-sm">{item.name}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="font-semibold text-emerald-400 text-sm">${item.price.toFixed(2)}</span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="text-sm text-white/70 font-medium">{item.stock}</span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={clsx(
-                                            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                                            item.stock > 5 ? "bg-emerald-500/10 text-emerald-400" : item.stock > 0 ? "bg-amber-500/10 text-amber-400" : "bg-red-500/10 text-red-400"
-                                        )}>
-                                            <span className={clsx("w-1.5 h-1.5 rounded-full", item.stock > 5 ? "bg-emerald-400" : item.stock > 0 ? "bg-amber-400" : "bg-red-400")} />
-                                            {item.stock > 5 ? 'In Stock' : item.stock > 0 ? 'Low Stock' : 'Out of Stock'}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <button
-                                            onClick={() => openDeleteModal(item)}
-                                            className="text-white/10 hover:text-red-400 transition-all p-2 hover:bg-red-500/10 rounded-lg opacity-0 group-hover:opacity-100"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {isEditing ? (
+                                                <div className="relative w-28">
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-xs font-semibold">$</span>
+                                                    <input
+                                                        type="number"
+                                                        className="input-premium py-1 pl-7 pr-2 w-full text-sm font-semibold appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0"
+                                                        value={editValues.price}
+                                                        onChange={e => setEditValues({ ...editValues, price: e.target.value })}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <span className="font-semibold text-emerald-400 text-sm">${item.price.toFixed(2)}</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {isEditing ? (
+                                                <input
+                                                    type="number"
+                                                    className="input-premium py-1 px-3 w-20 text-sm font-semibold appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0"
+                                                    value={editValues.stock}
+                                                    onChange={e => setEditValues({ ...editValues, stock: e.target.value })}
+                                                />
+                                            ) : (
+                                                <span className="text-sm text-white/70 font-medium">{item.stock}</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={clsx(
+                                                "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                                                item.stock > 5 ? "bg-emerald-500/10 text-emerald-400" : item.stock > 0 ? "bg-amber-500/10 text-amber-400" : "bg-red-500/10 text-red-400"
+                                            )}>
+                                                <span className={clsx("w-1.5 h-1.5 rounded-full", item.stock > 5 ? "bg-emerald-400" : item.stock > 0 ? "bg-amber-400" : "bg-red-400")} />
+                                                {item.stock > 5 ? 'In Stock' : item.stock > 0 ? 'Low Stock' : 'Out of Stock'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            {isEditing ? (
+                                                <div className="flex items-center justify-end gap-1.5">
+                                                    <button onClick={handleSaveEdit} className="text-emerald-400/80 hover:text-emerald-400 p-1.5 hover:bg-emerald-500/10 rounded-lg transition-all" title="Save">
+                                                        <Save className="w-4 h-4" />
+                                                    </button>
+                                                    <button onClick={handleCancelEdit} className="text-white/40 hover:text-white/80 p-1.5 hover:bg-white/10 rounded-lg transition-all" title="Cancel">
+                                                        <X className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => handleEditClick(item)} className="text-white/40 hover:text-primary/80 transition-all p-2 hover:bg-primary/10 rounded-lg" title="Edit">
+                                                        <Edit2 className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => openDeleteModal(item)}
+                                                        className="text-white/40 hover:text-red-400 transition-all p-2 hover:bg-red-500/10 rounded-lg" title="Delete"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
