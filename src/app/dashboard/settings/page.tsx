@@ -7,6 +7,7 @@ import { clsx } from 'clsx';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
 import GhostModal from '@/components/GhostModal';
+import CustomSelect from '@/components/CustomSelect';
 import Papa from 'papaparse';
 
 export default function SettingsPage() {
@@ -408,16 +409,16 @@ export default function SettingsPage() {
                 <div className="grid md:grid-cols-2 gap-5">
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Response Tone</label>
-                        <select
+                        <CustomSelect
                             value={settings.tone}
-                            onChange={(e) => setSettings({ ...settings, tone: e.target.value })}
-                            className="input-premium w-full cursor-pointer"
-                        >
-                            <option value="Casual" className="bg-[#111520]">Casual &amp; Friendly</option>
-                            <option value="Professional" className="bg-[#111520]">Professional</option>
-                            <option value="Luxury" className="bg-[#111520]">Luxury &amp; Premium</option>
-                            <option value="Sarcastic" className="bg-[#111520]">Sarcastic</option>
-                        </select>
+                            onChange={(val) => setSettings({ ...settings, tone: val })}
+                            options={[
+                                { value: "Casual", label: "Casual & Friendly" },
+                                { value: "Professional", label: "Professional" },
+                                { value: "Luxury", label: "Luxury & Premium" },
+                                { value: "Sarcastic", label: "Sarcastic" },
+                            ]}
+                        />
                     </div>
 
                     <div className="space-y-1.5">
@@ -584,28 +585,16 @@ export default function SettingsPage() {
 
                 <div className="space-y-3">
                     <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Language Mode</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        {[
-                            { value: 'Auto-Detect', label: '🌍 Auto-Detect', desc: 'Mirrors user\'s language & dialect' },
-                            { value: 'English', label: '🇬🇧 English Only', desc: 'Always respond in English' },
-                            { value: 'Lebanese Franco', label: '🇱🇧 Lebanese Franco', desc: 'Always respond in Arabizi' },
-                        ].map((lang) => (
-                            <button
-                                key={lang.value}
-                                onClick={() => setSettings(prev => ({ ...prev, language: lang.value }))}
-                                className={clsx(
-                                    "p-4 rounded-xl border transition-all text-left press",
-                                    settings.language === lang.value
-                                        ? "bg-primary/[0.06] border-primary/20 shadow-[0_0_20px_rgba(139,92,246,0.1)]"
-                                        : "bg-white/[0.02] border-white/[0.04] hover:bg-white/[0.04] hover:border-white/[0.08]"
-                                )}
-                            >
-                                <div className={clsx("font-semibold text-sm mb-0.5", settings.language === lang.value ? "text-primary" : "text-white/70")}>
-                                    {lang.label}
-                                </div>
-                                <div className="text-[10px] text-white/25">{lang.desc}</div>
-                            </button>
-                        ))}
+                    <div className="max-w-xs">
+                        <CustomSelect
+                            value={settings.language}
+                            onChange={(val) => setSettings({ ...settings, language: val })}
+                            options={[
+                                { value: "Auto-Detect", label: "🌍 Auto-Detect" },
+                                { value: "English", label: "🇬🇧 English Only" },
+                                { value: "Lebanese Franco", label: "🇱🇧 Lebanese Franco" },
+                            ]}
+                        />
                     </div>
                     <p className="text-[10px] text-white/20 ml-1">Auto-Detect is recommended. Ghost Agent mirrors any language the customer uses.</p>
                 </div>
