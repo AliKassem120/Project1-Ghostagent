@@ -100,25 +100,23 @@ export default function GoogleSignInButton({ onSuccess, onError }: GoogleSignInB
             />
 
             <div
-                ref={buttonRef}
-                className="w-full flex items-center justify-center"
+                className="w-[400px] max-w-full rounded-[4px] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(0,0,0,0.12)]"
             >
-                {!isScriptLoaded && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
-                    <p className="text-sm text-gray-400">Loading Google Sign-In...</p>
-                )}
-                {!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
-                    <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-sm text-center">
-                        Missing NEXT_PUBLIC_GOOGLE_CLIENT_ID in .env.local<br />
-                        (Please restart your dev server if you just added it)
-                    </div>
+                <div
+                    ref={buttonRef}
+                    className="w-full flex items-center justify-center"
+                >
+                    {!isScriptLoaded && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+                        <p className="text-sm text-gray-400">Loading Google Sign-In...</p>
+                    )}
+                </div>
+
+                {isSigniningIn && (
+                    <p className="mt-2 text-sm text-gray-500 animate-pulse">
+                        Signing in...
+                    </p>
                 )}
             </div>
-
-            {isSigniningIn && (
-                <p className="mt-2 text-sm text-gray-500 animate-pulse">
-                    Signing in...
-                </p>
-            )}
         </div>
     );
 }
