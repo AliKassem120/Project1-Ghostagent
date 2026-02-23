@@ -527,18 +527,18 @@ export default function SettingsPage() {
                         </div>
                     </div>
 
-                    <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Minimum Order for Discount</label>
-                        <div className="relative">
-                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20 text-sm font-semibold">$</span>
+                    <div className="space-y-1.5 flex flex-col items-start w-full">
+                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1 mb-1 relative block">Minimum Order for Discount</label>
+                        <div className="relative w-full group">
+                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20 text-sm font-semibold z-10">$</span>
                             <input
                                 type="number"
                                 value={settings.minOrderForDiscount}
                                 onChange={(e) => setSettings({ ...settings, minOrderForDiscount: parseInt(e.target.value) || 0 })}
-                                className="input-premium w-full pl-8 pr-14 font-semibold appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0"
+                                className="input-premium w-full pl-8 pr-14 font-semibold appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0 focus:z-0 relative"
                                 placeholder="50"
                             />
-                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-white/20 font-bold uppercase">USD</span>
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-white/20 font-bold uppercase z-10">USD</span>
                         </div>
                     </div>
                 </div>
