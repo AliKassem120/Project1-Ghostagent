@@ -95,13 +95,22 @@ export default function BillingPage() {
         }
     ];
 
-    const handlePlanChange = (planName: string) => {
+    const handlePlanChange = async (planName: string, planPrice: number) => {
         setIsUpdating(true);
-        setTimeout(() => {
-            setCurrentPlan(planName);
-            setIsUpdating(false);
-            toast.success(`Successfully ${planName === 'Starter' ? 'downgraded to' : 'upgraded to'} ${planName}!`);
-        }, 1500);
+        if (planName === 'Pro Agent' || planName === 'Empire') {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                // Redirect straight to checkout using our mock infrastructure
+                window.location.href = `/checkout?user_id=${user.id}&amount=${planPrice}&plan=${encodeURIComponent(planName)}`;
+            }
+        } else {
+            // Simulated downgrade for Starter
+            setTimeout(() => {
+                setCurrentPlan(planName);
+                setIsUpdating(false);
+                toast.success(`Successfully downgraded to ${planName}!`);
+            }, 1500);
+        }
     };
 
     const handleUpdatePayment = () => {
@@ -299,7 +308,7 @@ export default function BillingPage() {
                                 </button>
                             ) : (
                                 <button
-                                    onClick={() => handlePlanChange(plan.name)}
+                                    onClick={() => handlePlanChange(plan.name, plan.price)}
                                     disabled={isUpdating}
                                     className={clsx(
                                         "w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50",
@@ -310,7 +319,8 @@ export default function BillingPage() {
                                 >
                                     {isUpdating ? 'Processing...' : (
                                         <>
-                                            {plan.price > (currentPlanData?.price || 0) ? 'Upgrade' : 'Downgrade'}
+                                            {plan.price > (currentPlanData?.price || 0) && currentPlan !== 'Free Trial' ? 'Upgrade' :
+                                                plan.name === 'Starter' && currentPlan === 'Free Trial' ? 'Select Starter' : 'Downgrade'}
                                             <ArrowRight className="w-4 h-4" />
                                         </>
                                     )}
