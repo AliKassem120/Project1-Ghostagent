@@ -39,7 +39,7 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
         if (error) {
             console.error('Error logging out:', error.message);
         }
-        router.push('/login');
+        router.push('/');
         router.refresh();
     };
 

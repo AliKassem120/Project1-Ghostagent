@@ -78,8 +78,10 @@ export default function GoogleSignInButton({ onSuccess, onError }: GoogleSignInB
             theme: "outline",
             size: "large",
             type: "standard",
-            text: "signin_with",
+            text: "continue_with",
             shape: "rectangular",
+            logo_alignment: "center",
+            width: 400,
         });
 
         // Optional: display prompt for One Tap
