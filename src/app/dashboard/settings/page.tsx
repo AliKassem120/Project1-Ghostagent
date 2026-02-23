@@ -486,7 +486,7 @@ export default function SettingsPage() {
                             type="tel"
                             value={settings.emergencyWhatsApp}
                             onChange={(e) => setSettings({ ...settings, emergencyWhatsApp: e.target.value })}
-                            className="input-premium w-full pl-10"
+                            className="input-premium w-full !pl-10"
                             placeholder="+1 234 567 8900"
                         />
                     </div>
@@ -535,7 +535,7 @@ export default function SettingsPage() {
                                 type="number"
                                 value={settings.minOrderForDiscount}
                                 onChange={(e) => setSettings({ ...settings, minOrderForDiscount: parseInt(e.target.value) || 0 })}
-                                className="input-premium w-full pl-8 pr-14 font-semibold appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0 focus:z-0 relative"
+                                className="input-premium w-full !pl-9 !pr-14 font-semibold appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0 focus:z-0 relative"
                                 placeholder="50"
                             />
                             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-white/20 font-bold uppercase z-10">USD</span>
