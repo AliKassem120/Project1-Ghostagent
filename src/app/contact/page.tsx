@@ -125,11 +125,11 @@ export default function Contact() {
                         {/* Contact Info */}
                         <div className="mt-8 pt-6 border-t border-white/[0.06] space-y-3">
                             <a
-                                href="mailto:support@ghostagent.com"
+                                href="mailto:support@ghostagent.qzz.io"
                                 className="flex items-center gap-3 text-sm text-white/35 hover:text-primary transition-colors"
                             >
                                 <Mail className="w-4 h-4" />
-                                support@ghostagent.com
+                                support@ghostagent.qzz.io
                             </a>
                             <div className="flex items-center gap-3 text-sm text-white/35">
                                 <Clock className="w-4 h-4" />

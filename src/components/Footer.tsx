@@ -23,7 +23,7 @@ export default function Footer() {
 
                     {/* Copyright */}
                     <p className="text-xs text-white/20">
-                        &copy; {new Date().getFullYear()} GhostAgent
+                        &copy; {new Date().getFullYear()} GhostAgent. All rights reserved.
                     </p>
                 </div>
             </div>

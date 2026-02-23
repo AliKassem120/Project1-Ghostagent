@@ -654,7 +654,7 @@ export default function Home() {
                 href="/login"
                 className="block w-full py-3.5 rounded-xl border border-white/10 text-center font-semibold text-white/70 hover:bg-white/5 hover:text-white transition-all"
               >
-                Get Started Free
+                Start Free Trial
               </Link>
             </motion.div>
 
@@ -686,7 +686,7 @@ export default function Home() {
                 href="/login"
                 className="block w-full py-3.5 rounded-xl bg-primary text-white text-center font-bold hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] transition-all"
               >
-                Start Free Trial
+                Get Pro
               </Link>
             </motion.div>
 

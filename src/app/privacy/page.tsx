@@ -33,7 +33,7 @@ const sections = [
     },
     {
         title: '6. Contact Us',
-        content: 'If you have questions about this Privacy Policy, please contact us at support@ghostagent.com.',
+        content: 'If you have questions about this Privacy Policy, please contact us at support@ghostagent.qzz.io.',
     },
 ];
 
@@ -117,7 +117,7 @@ export default function PrivacyPolicy() {
                         </p>
                         <ol className="space-y-3">
                             {[
-                                <>Send an email to <strong className="text-primary">support@ghostagent.com</strong> with the subject line &quot;Data Deletion Request&quot;.</>,
+                                <>Send an email to <strong className="text-primary">support@ghostagent.qzz.io</strong> with the subject line &quot;Data Deletion Request&quot;.</>,
                                 'Include your registered email address and your connected Instagram handle.',
                                 'We will process your request within 30 days and permanently delete your account, authentication tokens, and all associated chat logs from our database.',
                             ].map((step, j) => (
