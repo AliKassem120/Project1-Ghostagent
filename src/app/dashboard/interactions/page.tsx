@@ -92,14 +92,19 @@ export default function InteractionsPage() {
 
             const newStatus = !currentStatus;
 
-            await supabase.from('conversation_states').upsert({
+            const { error: upsertError } = await supabase.from('conversation_states').upsert({
                 user_id: user.id,
                 external_chat_id: chatId,
                 platform: 'INSTAGRAM',
                 is_muted: newStatus,
                 muted_until: newStatus ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null,
                 last_interaction_at: new Date().toISOString()
-            }, { onConflict: 'user_id, external_chat_id' });
+            }, { onConflict: 'user_id,external_chat_id' });
+
+            if (upsertError) {
+                console.error("Supabase upsert error:", upsertError);
+                throw upsertError;
+            }
 
             const newMuted = new Set(mutedChats);
             if (newStatus) newMuted.add(chatId);

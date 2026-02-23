@@ -194,7 +194,7 @@ async function processWebhookEvent(body: any) {
                             }
 
                             // CHECK AUTOPILOT STATUS
-                            const isAutopilot = await checkAutopilot(supabaseAdmin, ownerId);
+                            const isAutopilot = await checkAutopilot(supabaseAdmin, ownerId, senderId);
 
                             if (!isAutopilot) {
                                 console.log('🛑 AUTOPILOT OFF: Saving draft reply.');
@@ -314,7 +314,7 @@ async function processWebhookEvent(body: any) {
                         }
 
                         // CHECK AUTOPILOT STATUS
-                        const isAutopilot = await checkAutopilot(supabaseAdmin, ownerId);
+                        const isAutopilot = await checkAutopilot(supabaseAdmin, ownerId, commenterId);
 
                         if (!isAutopilot) {
                             console.log('🛑 AUTOPILOT OFF: Saving draft comment reply.');
@@ -454,9 +454,10 @@ async function findOwner(supabaseAdmin: any, accountId: string | undefined): Pro
 }
 
 // ═══════════════════════════════════════
-// 🤖 Check Autopilot Status
+// 🤖 Check Autopilot Status (Global & Chat-Specific)
 // ═══════════════════════════════════════
-async function checkAutopilot(supabaseAdmin: any, ownerId: string): Promise<boolean> {
+async function checkAutopilot(supabaseAdmin: any, ownerId: string, externalChatId?: string): Promise<boolean> {
+    // 1. Check Global Autopilot
     const { data: settings, error: settingsError } = await supabaseAdmin
         .from('users')
         .select('is_autopilot_enabled')
@@ -464,12 +465,34 @@ async function checkAutopilot(supabaseAdmin: any, ownerId: string): Promise<bool
         .maybeSingle();
 
     if (settingsError) {
-        console.error('⚠️ Autopilot Check Failed:', settingsError.message);
+        console.error('⚠️ Global Autopilot Check Failed:', settingsError.message);
     }
 
-    const isAutopilot = settings?.is_autopilot_enabled ?? true;
-    console.log(`🤖 Autopilot Status for ${ownerId}: ${isAutopilot ? 'ON' : 'OFF'}`);
-    return isAutopilot;
+    const globalAutopilot = settings?.is_autopilot_enabled ?? true;
+
+    // If it's globally turned off, instantly return false
+    if (!globalAutopilot) {
+        console.log(`🤖 Global Autopilot for ${ownerId}: OFF`);
+        return false;
+    }
+
+    // 2. Check Chat-Specific Mute (Manual "Mute AI" Toggle)
+    if (externalChatId) {
+        const { data: chatState } = await supabaseAdmin
+            .from('conversation_states')
+            .select('is_muted')
+            .eq('user_id', ownerId)
+            .eq('external_chat_id', externalChatId)
+            .maybeSingle();
+
+        if (chatState?.is_muted) {
+            console.log(`🛑 AI is Muted manually for chat ${externalChatId}`);
+            return false;
+        }
+    }
+
+    console.log(`🤖 Autopilot System for ${ownerId}: ON`);
+    return true;
 }
 
 // ═══════════════════════════════════════
