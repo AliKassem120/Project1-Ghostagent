@@ -646,65 +646,81 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="hidden md:block">
-                        <label className="text-[10px] font-bold text-primary/60 uppercase tracking-widest ml-1 mb-1.5 block">Live Translation Playground</label>
-                        <div className="p-4 rounded-xl bg-[#0B0E14] border border-white/[0.04] min-h-[140px] flex flex-col justify-end space-y-3 relative overflow-hidden">
-
-                            {settings.language !== 'Auto-Detect' ? (
-                                <div className="absolute inset-0 flex items-center justify-center text-xs text-white/20 text-center px-6">
-                                    Live playground only available when Auto-Detect is enabled.
+                        <label className="text-[10px] font-bold text-primary/60 uppercase tracking-widest ml-1 mb-1.5 flex items-center gap-1.5"><Sparkles className="w-3 h-3" /> Live Translation Playground</label>
+                        <div className="rounded-xl border border-white/[0.06] bg-gradient-to-b from-surface-1 to-surface-0 min-h-[200px] flex flex-col relative overflow-hidden shadow-inner">
+                            {/* App Header Mockup */}
+                            <div className="h-10 border-b border-white/[0.06] bg-white/[0.02] flex items-center justify-between px-3 shrink-0">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center">
+                                        <GhostLogo className="w-3 h-3 text-primary" />
+                                    </div>
+                                    <span className="text-xs font-medium text-white/80">GhostAgent</span>
                                 </div>
-                            ) : (
-                                <AnimatePresence mode="popLayout">
-                                    {(demoPhase === 0 || demoPhase === 1) && (
-                                        <motion.div
-                                            key="user-fr"
-                                            initial={{ opacity: 0, x: 20 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
-                                            className="self-end max-w-[80%] bg-white/10 text-white text-[13px] px-3 py-2 rounded-2xl rounded-tr-sm"
-                                        >
-                                            Bonjour!
-                                        </motion.div>
-                                    )}
+                                <div className="flex gap-1">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-white/10"></div>
+                                    <div className="w-1.5 h-1.5 rounded-full bg-white/10"></div>
+                                    <div className="w-1.5 h-1.5 rounded-full bg-white/10"></div>
+                                </div>
+                            </div>
 
-                                    {demoPhase === 1 && (
-                                        <motion.div
-                                            key="bot-fr"
-                                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                                            exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
-                                            className="self-start max-w-[80%] bg-primary/20 text-primary-100 text-[13px] px-3 py-2 rounded-2xl rounded-tl-sm border border-primary/20"
-                                        >
-                                            Bonjour! Comment puis-je vous aider?
-                                        </motion.div>
-                                    )}
+                            {/* Chat Area */}
+                            <div className="flex-1 p-4 flex flex-col justify-end space-y-4">
+                                {settings.language !== 'Auto-Detect' ? (
+                                    <div className="absolute inset-0 flex items-center justify-center text-xs text-white/20 text-center px-6">
+                                        Enable Auto-Detect to test live translation
+                                    </div>
+                                ) : (
+                                    <AnimatePresence mode="popLayout">
+                                        {(demoPhase === 0 || demoPhase === 1) && (
+                                            <motion.div
+                                                key="user-fr"
+                                                initial={{ opacity: 0, x: 20 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
+                                                className="self-end max-w-[80%] bg-surface-2 text-white/90 text-[13px] px-3.5 py-2.5 rounded-2xl rounded-tr-sm shadow-sm border border-white/[0.04]"
+                                            >
+                                                Bonjour! Avez-vous ça en stock?
+                                            </motion.div>
+                                        )}
 
-                                    {(demoPhase === 3 || demoPhase === 4) && (
-                                        <motion.div
-                                            key="user-ar"
-                                            initial={{ opacity: 0, x: 20 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
-                                            className="self-end max-w-[80%] bg-white/10 text-white text-[13px] px-3 py-2 rounded-2xl rounded-tr-sm"
-                                        >
-                                            مرحبا
-                                        </motion.div>
-                                    )}
+                                        {demoPhase === 1 && (
+                                            <motion.div
+                                                key="bot-fr"
+                                                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+                                                className="self-start max-w-[80%] bg-gradient-to-br from-primary/20 to-primary/10 text-primary-100 text-[13px] px-3.5 py-2.5 rounded-2xl rounded-tl-sm border border-primary/20 shadow-[0_0_15px_rgba(139,92,246,0.1)]"
+                                            >
+                                                Bonjour! Oui, c'est disponible.
+                                            </motion.div>
+                                        )}
 
-                                    {demoPhase === 4 && (
-                                        <motion.div
-                                            key="bot-ar"
-                                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                                            exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
-                                            className="self-start max-w-[80%] bg-primary/20 text-primary-100 text-[13px] px-3 py-2 rounded-2xl rounded-tl-sm border border-primary/20"
-                                        >
-                                            {settings.useLocalSlang ? "أهلا بك يا غالي! كيف فيني ساعدك اليوم؟" : "أهلا بك! كيف يمكنني مساعدتك؟"}
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            )}
+                                        {(demoPhase === 3 || demoPhase === 4) && (
+                                            <motion.div
+                                                key="user-ar"
+                                                initial={{ opacity: 0, x: 20 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
+                                                className="self-end max-w-[80%] bg-surface-2 text-white/90 text-[13px] px-3.5 py-2.5 rounded-2xl rounded-tr-sm shadow-sm border border-white/[0.04]"
+                                            >
+                                                مرحبا، في من هيدا؟
+                                            </motion.div>
+                                        )}
 
+                                        {demoPhase === 4 && (
+                                            <motion.div
+                                                key="bot-ar"
+                                                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+                                                className="self-start max-w-[80%] bg-gradient-to-br from-primary/20 to-primary/10 text-primary-100 text-[13px] px-3.5 py-2.5 rounded-2xl rounded-tl-sm border border-primary/20 shadow-[0_0_15px_rgba(139,92,246,0.1)]"
+                                            >
+                                                {settings.useLocalSlang ? "أهلا يا غالي! إي موجود، من عيوني." : "أهلا بك! نعم، هذا متوفر لدينا."}
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -733,12 +749,12 @@ export default function SettingsPage() {
                                 <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Generate with AI</span>
                             </div>
                             <p className="text-[10px] text-white/25 mb-3">Describe your business briefly and AI will write detailed instructions.</p>
-                            <div className="flex gap-2">
+                            <div className="flex flex-col sm:flex-row gap-2 mt-4">
                                 <input
                                     type="text"
                                     value={aiPromptInput}
                                     onChange={(e) => setAiPromptInput(e.target.value)}
-                                    className="input-premium flex-1 text-sm"
+                                    className="input-premium flex-1 w-full text-sm"
                                     placeholder="e.g. We sell handmade candles, free shipping over $50..."
                                     disabled={generating}
                                     onKeyDown={(e) => {
@@ -752,7 +768,7 @@ export default function SettingsPage() {
                                     onClick={handleGenerateInstructions}
                                     disabled={generating || !aiPromptInput.trim()}
                                     className={clsx(
-                                        "px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-semibold transition-all press shrink-0",
+                                        "w-full sm:w-auto px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 text-sm font-semibold transition-all press shrink-0",
                                         generating
                                             ? "bg-primary/10 text-primary/40"
                                             : "bg-primary text-black hover:scale-[1.02]"
@@ -763,7 +779,7 @@ export default function SettingsPage() {
                                     ) : (
                                         <Sparkles className="w-4 h-4" />
                                     )}
-                                    {generating ? 'Writing...' : 'Generate'}
+                                    {generating ? 'Writing...' : 'Generate AI System'}
                                 </button>
                             </div>
                         </div>
