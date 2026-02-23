@@ -45,6 +45,14 @@ export async function GET(request: Request) {
         }
     }
 
-    console.log('Auth Handshake Failed, Redirecting to Error Page')
+    const errorParam = requestUrl.searchParams.get('error');
+    const errorDescription = requestUrl.searchParams.get('error_description');
+
+    if (errorParam || errorDescription) {
+        console.error('Auth Handshake received OAuth error:', errorParam, errorDescription);
+        return NextResponse.redirect(`${requestUrl.origin}/auth/auth-code-error?message=${encodeURIComponent(errorDescription || errorParam || 'Unknown OAuth Error')}`);
+    }
+
+    console.log('Auth Handshake Failed, Redirecting to Error Page (No Code or Error found. Full URL:', requestUrl.toString(), ')');
     return NextResponse.redirect(`${requestUrl.origin}/auth/auth-code-error?message=No_Code_Provided`)
 }
