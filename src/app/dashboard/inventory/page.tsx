@@ -535,16 +535,23 @@ export default function InventoryPage() {
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        className="flex flex-col items-center justify-center py-20 text-center"
+                        className="flex flex-col items-center justify-center py-32 text-center relative"
                     >
-                        <div className="w-16 h-16 rounded-2xl bg-white/[0.03] flex items-center justify-center mb-5">
-                            <Package className="w-7 h-7 text-white/15" />
-                        </div>
-                        <p className="text-white/30 text-sm font-medium mb-1">
+                        {/* Background subtle glow */}
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-primary/20 rounded-full blur-[80px] pointer-events-none" />
+
+                        <motion.div
+                            animate={{ y: [0, -12, 0] }}
+                            transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+                            className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-primary/10 to-purple-500/10 border border-primary/20 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(139,92,246,0.15)] backdrop-blur-md"
+                        >
+                            <Package className="w-10 h-10 text-primary/60" />
+                        </motion.div>
+                        <h3 className="text-white text-lg font-bold tracking-tight mb-2 relative z-10">
                             {searchQuery ? 'No products match your search' : 'No products yet'}
-                        </p>
-                        <p className="text-white/15 text-xs">
-                            {searchQuery ? 'Try a different search term' : 'Click "Add Product" to get started'}
+                        </h3>
+                        <p className="text-white/40 text-sm relative z-10">
+                            {searchQuery ? 'Try a different search term' : 'Click "Add Product" to start building your catalog'}
                         </p>
                     </motion.div>
                 )}

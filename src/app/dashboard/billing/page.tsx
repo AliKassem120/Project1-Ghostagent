@@ -212,12 +212,14 @@ export default function BillingPage() {
                         >
                             Update Payment
                         </button>
-                        <button
-                            onClick={() => setShowCancelModal(true)}
-                            className="px-5 py-2.5 bg-red-500/5 border border-red-500/10 rounded-xl hover:bg-red-500/10 transition-all text-sm font-medium text-red-400/60 hover:text-red-400"
-                        >
-                            Cancel Subscription
-                        </button>
+                        {currentPlan !== 'Starter' && (
+                            <button
+                                onClick={() => setShowCancelModal(true)}
+                                className="px-5 py-2.5 bg-red-500/5 border border-red-500/10 rounded-xl hover:bg-red-500/10 transition-all text-sm font-medium text-red-400/60 hover:text-red-400"
+                            >
+                                Cancel Subscription
+                            </button>
+                        )}
                     </div>
                 </div>
             </motion.div>

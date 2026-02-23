@@ -665,13 +665,21 @@ export default function InteractionsPage() {
                         </div>
                     </>
                 ) : (
-                    <div className="hidden md:flex flex-1 flex-col items-center justify-center opacity-30 select-none">
-                        {/* Empty State */}
-                        <div className="relative">
-                            <Ghost className="w-24 h-24 mb-6 relative z-10 text-white/10" />
-                        </div>
-                        <h2 className="text-xl font-semibold mb-2 text-white/20">Agent Monitor</h2>
-                        <p className="text-sm text-white/15">Select a conversation to view</p>
+                    <div className="hidden md:flex flex-1 flex-col items-center justify-center opacity-70 select-none relative overflow-hidden">
+                        {/* Ambient Background Glow */}
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-primary/10 rounded-full blur-[100px] pointer-events-none" />
+
+                        <motion.div
+                            animate={{ y: [0, -15, 0] }}
+                            transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+                            className="relative mb-8"
+                        >
+                            <Ghost className="w-24 h-24 relative z-10 text-primary/40 drop-shadow-[0_0_15px_rgba(139,92,246,0.3)]" />
+                            {/* Inner glow on ghost */}
+                            <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
+                        </motion.div>
+                        <h2 className="text-2xl font-bold mb-3 tracking-tight text-white/90">Agent Monitor</h2>
+                        <p className="text-sm font-medium text-white/40">Select a conversation to view</p>
                     </div>
                 )}
             </div>

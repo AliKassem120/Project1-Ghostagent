@@ -578,9 +578,9 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Feed Content */}
-                <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                <div className="h-[400px] overflow-y-auto custom-scrollbar">
                     {filteredActivities.length === 0 && !loading ? (
-                        <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+                        <div className="flex flex-col items-center justify-center h-full text-center px-6">
                             <div className="w-14 h-14 rounded-2xl bg-white/[0.03] flex items-center justify-center mb-4">
                                 <Sparkles className="w-6 h-6 text-white/10" />
                             </div>
