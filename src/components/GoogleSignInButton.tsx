@@ -1,15 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import Script from "next/script";
+import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
-
-// Extending the Window interface to include google
-declare global {
-    interface Window {
-        google?: any;
-    }
-}
+import { Loader2 } from "lucide-react";
+import clsx from "clsx";
 
 interface GoogleSignInButtonProps {
     onSuccess?: () => void;
@@ -17,106 +11,57 @@ interface GoogleSignInButtonProps {
 }
 
 export default function GoogleSignInButton({ onSuccess, onError }: GoogleSignInButtonProps) {
-    const [isScriptLoaded, setIsScriptLoaded] = useState(false);
-    const buttonRef = useRef<HTMLDivElement>(null);
     const supabase = createClient();
-    const [isSigniningIn, setIsSigniningIn] = useState(false);
+    const [isSigningIn, setIsSigningIn] = useState(false);
 
-    useEffect(() => {
-        // Check if the script is already loaded
-        if (typeof window !== "undefined" && window.google) {
-            setIsScriptLoaded(true);
+    const handleGoogleLogin = async () => {
+        try {
+            setIsSigningIn(true);
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: "google",
+                options: {
+                    redirectTo: `${window.location.origin}/auth/callback`,
+                },
+            });
+
+            if (error) throw error;
+        } catch (error: any) {
+            console.error("Error signing in with Google:", error);
+            if (onError) onError(error);
+            setIsSigningIn(false);
         }
-    }, []);
-
-    useEffect(() => {
-        if (!isScriptLoaded || !buttonRef.current || !window.google) return;
-
-        const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-
-        if (!clientId) {
-            console.error("Missing NEXT_PUBLIC_GOOGLE_CLIENT_ID environment variable.");
-            // We'll let the UI handle showing the error
-            return;
-        }
-
-        // Callback that handles the response from Google
-        const handleCredentialResponse = async (response: any) => {
-            try {
-                setIsSigniningIn(true);
-                // Exchange the ID token with Supabase
-                const { data, error } = await supabase.auth.signInWithIdToken({
-                    provider: "google",
-                    token: response.credential,
-                });
-
-                if (error) throw error;
-
-                // Optionally, handle successful sign-in
-                if (onSuccess) onSuccess();
-            } catch (error: any) {
-                console.error("Error signing in with Google ID token:", error);
-                if (onError) onError(error);
-            } finally {
-                setIsSigniningIn(false);
-            }
-        };
-
-        // Initialize Google Identity Services
-        window.google.accounts.id.initialize({
-            client_id: clientId,
-            callback: handleCredentialResponse,
-            // You can add context if needed (e.g., "signin", "signup", "use")
-            context: "signin",
-            // Optional: Cancel on tap outside for one-tap
-            cancel_on_tap_outside: false,
-        });
-
-        // Render the Google Sign-In button
-        // You can customize the theme, size, shape, logo_alignment, etc.
-        window.google.accounts.id.renderButton(buttonRef.current, {
-            theme: "outline",
-            size: "large",
-            type: "standard",
-            text: "continue_with",
-            shape: "rectangular",
-            logo_alignment: "center",
-            width: 400,
-        });
-
-        // Optional: display prompt for One Tap
-        // window.google.accounts.id.prompt();
-
-    }, [isScriptLoaded, supabase, onSuccess, onError]);
+    };
 
     return (
-        <div className="flex flex-col items-center justify-center w-full">
-            {/* Load Google Identity Services Script */}
-            <Script
-                src="https://accounts.google.com/gsi/client"
-                strategy="afterInteractive"
-                onLoad={() => setIsScriptLoaded(true)}
-                onError={() => console.error("Failed to load Google Identity Services API")}
-            />
+        <button
+            onClick={handleGoogleLogin}
+            disabled={isSigningIn}
+            className={clsx(
+                "relative flex items-center justify-center gap-3 w-full sm:w-[400px] h-[52px]",
+                "bg-white hover:bg-white text-gray-900 font-semibold text-[15px]",
+                "border border-white/10 rounded-2xl shadow-sm",
+                "transition-all duration-300 ease-in-out",
+                "hover:-translate-y-1 hover:shadow-[0_12px_24px_rgba(255,255,255,0.1),_0_2px_4px_rgba(255,255,255,0.05)]",
+                "active:translate-y-0 active:shadow-none hover:scale-[1.02]",
+                "disabled:opacity-70 disabled:cursor-not-allowed group overflow-hidden press"
+            )}
+        >
+            {/* Subtle glow effect behind the text */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-100/50 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
 
-            <div
-                className="w-[400px] max-w-full rounded-[4px] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(0,0,0,0.12)]"
-            >
-                <div
-                    ref={buttonRef}
-                    className="w-full flex items-center justify-center"
-                >
-                    {!isScriptLoaded && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
-                        <p className="text-sm text-gray-400">Loading Google Sign-In...</p>
-                    )}
+            {isSigningIn ? (
+                <Loader2 className="w-5 h-5 animate-spin text-gray-400 relative z-10" />
+            ) : (
+                <div className="flex items-center gap-3 relative z-10 transition-transform duration-300 group-hover:scale-105">
+                    <svg className="w-[18px] h-[18px] shrink-0 drop-shadow-sm" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                    </svg>
+                    Continue with Google
                 </div>
-
-                {isSigniningIn && (
-                    <p className="mt-2 text-sm text-gray-500 animate-pulse">
-                        Signing in...
-                    </p>
-                )}
-            </div>
-        </div>
+            )}
+        </button>
     );
 }
