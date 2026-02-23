@@ -325,7 +325,9 @@ export default function SettingsPage() {
                     language: settings.language,
                     system_instructions: settings.systemPrompt,
                     whatsapp_template: settings.whatsappTemplate,
-                    // Note: store_location, contact_info, and use_local_slang are skipped to avoid schema cache error
+                    store_location: settings.storeLocation,
+                    contact_info: settings.contactInfo,
+                    use_local_slang: settings.useLocalSlang,
                     updated_at: new Date().toISOString(),
                 }, { onConflict: 'user_id' });
 
