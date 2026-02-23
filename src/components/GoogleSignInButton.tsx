@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/utils/supabase/client";
 import { Loader2 } from "lucide-react";
 import clsx from "clsx";
 
@@ -11,26 +10,42 @@ interface GoogleSignInButtonProps {
 }
 
 export default function GoogleSignInButton({ onSuccess, onError }: GoogleSignInButtonProps) {
-    const supabase = createClient();
     const [isSigningIn, setIsSigningIn] = useState(false);
 
-    const handleGoogleLogin = async () => {
+    const handleGoogleLogin = () => {
+        setIsSigningIn(true);
         try {
-            setIsSigningIn(true);
-            const { error } = await supabase.auth.signInWithOAuth({
-                provider: "google",
-                options: {
-                    redirectTo: `${window.location.origin}/auth/callback`,
-                    queryParams: {
-                        access_type: 'offline',
-                        prompt: 'consent',
-                    }
-                },
+            const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+            if (!clientId) {
+                throw new Error("Missing NEXT_PUBLIC_GOOGLE_CLIENT_ID environment variable.");
+            }
+
+            // Generate a secure random nonce to prevent replay attacks
+            const array = new Uint32Array(8);
+            window.crypto.getRandomValues(array);
+            const nonce = Array.from(array, dec => dec.toString(16).padStart(8, "0")).join("");
+
+            // Store it to verify on the callback
+            localStorage.setItem("google_oauth_nonce", nonce);
+
+            // Our new pure domain-relative callback path!
+            const redirectUri = `${window.location.origin}/auth/google-callback`;
+
+            const params = new URLSearchParams({
+                client_id: clientId,
+                redirect_uri: redirectUri,
+                response_type: "id_token",
+                scope: "openid email profile",
+                nonce: nonce,
+                prompt: "select_account",
             });
 
-            if (error) throw error;
+            const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+
+            // Redirect straight to Google (bypassing Supabase OAuth servers completely)
+            window.location.href = googleAuthUrl;
         } catch (error: any) {
-            console.error("Error signing in with Google:", error);
+            console.error("Error setting up Google Auth URL:", error);
             if (onError) onError(error);
             setIsSigningIn(false);
         }
