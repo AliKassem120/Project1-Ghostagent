@@ -7,6 +7,7 @@ import { clsx } from 'clsx';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
 import GhostModal from '@/components/GhostModal';
+import GhostLogo from '@/components/GhostLogo';
 import CustomSelect from '@/components/CustomSelect';
 import Papa from 'papaparse';
 
