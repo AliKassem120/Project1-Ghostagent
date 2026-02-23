@@ -5,9 +5,10 @@ import React, { useState } from 'react';
 interface CheckoutButtonProps {
     userId: string;
     amount: number;
+    planName?: string;
 }
 
-export default function CheckoutButton({ userId, amount }: CheckoutButtonProps) {
+export default function CheckoutButton({ userId, amount, planName = 'Pro Agent' }: CheckoutButtonProps) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -24,6 +25,7 @@ export default function CheckoutButton({ userId, amount }: CheckoutButtonProps) 
                 body: JSON.stringify({
                     user_id: userId,
                     amount,
+                    plan_name: planName
                 }),
             });
 

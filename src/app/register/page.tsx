@@ -16,12 +16,13 @@ export default function RegisterPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [fullName, setFullName] = useState('');
+    const [selectedPlan, setSelectedPlan] = useState<'free_trial' | 'pro'>('free_trial');
 
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
 
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
             email,
             password,
             options: {
@@ -34,6 +35,13 @@ export default function RegisterPage() {
         if (error) {
             toast.error(error.message);
             setLoading(false);
+            return;
+        }
+
+        if (selectedPlan === 'pro' && data?.user?.id) {
+            toast.success('Registration successful! Redirecting to checkout...');
+            // Pass minimal data to checkout page securely via query param for this mock flow
+            router.push(`/checkout?user_id=${data.user.id}&amount=49`);
             return;
         }
 
@@ -107,6 +115,34 @@ export default function RegisterPage() {
                                     className="w-full bg-black/20 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 focus:bg-black/40 transition-all"
                                     placeholder="••••••••"
                                 />
+                            </div>
+                        </div>
+
+                        <div className="space-y-3 pt-2">
+                            <label className="text-sm font-medium text-white/80 ml-1">Select Plan</label>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedPlan('free_trial')}
+                                    className={`p-4 rounded-xl border text-left transition-all ${selectedPlan === 'free_trial'
+                                            ? 'bg-primary/20 border-primary shadow-[0_0_15px_rgba(139,92,246,0.3)]'
+                                            : 'bg-black/20 border-white/10 hover:bg-white/5'
+                                        }`}
+                                >
+                                    <div className="font-bold text-white mb-1">Free Trial</div>
+                                    <div className="text-xs text-white/60">14 Days</div>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedPlan('pro')}
+                                    className={`p-4 rounded-xl border text-left transition-all ${selectedPlan === 'pro'
+                                            ? 'bg-primary/20 border-primary shadow-[0_0_15px_rgba(139,92,246,0.3)]'
+                                            : 'bg-black/20 border-white/10 hover:bg-white/5'
+                                        }`}
+                                >
+                                    <div className="font-bold text-white mb-1">Pro Agent</div>
+                                    <div className="text-xs text-white/60">$49/mo</div>
+                                </button>
                             </div>
                         </div>
 

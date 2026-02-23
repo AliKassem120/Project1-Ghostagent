@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase-server';
+import { createClient } from '@supabase/supabase-js';
+
+// Use the Service Role Key here to bypass row level security for checkout requests that happen right after signup (before email verification).
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export async function POST(req: Request) {
     try {
-        const { amount, user_id } = await req.json();
+        const { amount, user_id, plan_name } = await req.json();
 
         if (!amount || !user_id) {
             return NextResponse.json(
@@ -12,23 +18,14 @@ export async function POST(req: Request) {
             );
         }
 
-        const supabase = await createClient();
-
-        // Verify user is authenticated
-        const { data: { user } } = await supabase.auth.getUser();
-
-        // Quick safeguard, usually we rely on RLS but it's good to double check
-        if (!user || user.id !== user_id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        // Insert pending transaction
-        const { data, error } = await supabase
+        // Insert pending transaction with admin client to bypass RLS (user might not be logged in yet due to email verification)
+        const { data, error } = await supabaseAdmin
             .from('transactions')
             .insert({
                 user_id,
                 amount,
                 status: 'pending',
+                plan_name: plan_name || 'Pro Agent'
             })
             .select()
             .single();

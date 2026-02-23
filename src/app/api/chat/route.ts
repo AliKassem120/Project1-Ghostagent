@@ -45,6 +45,23 @@ export async function POST(req: Request) {
             }
         }
 
+        if (!ownerId) {
+            return new Response("Unauthorized", { status: 401 });
+        }
+
+        // 3.5 CHECK BILLING / TRIAL LIMITS
+        const { checkUserLimit } = await import('@/lib/billing');
+        const limitCheck = await checkUserLimit(ownerId);
+        if (!limitCheck.allowed) {
+            return new Response(
+                JSON.stringify({
+                    error: "Subscription limit reached",
+                    message: limitCheck.reason
+                }),
+                { status: 403, headers: { "Content-Type": "application/json" } }
+            );
+        }
+
         // 2. FETCH CURRENT INVENTORY FOR CONTEXT (Keep existing logic...)
         // ... (We just need to ensure the variable names match what's below or above) ...
         // Actually, to avoid breaking the surrounding code organization, I will rewrite the section 1-3.

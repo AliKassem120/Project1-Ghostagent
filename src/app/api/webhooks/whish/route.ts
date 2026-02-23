@@ -22,17 +22,37 @@ export async function POST(req: Request) {
         }
 
         // Update transaction
-        const { error } = await supabaseAdmin
+        const { data: transaction, error } = await supabaseAdmin
             .from('transactions')
             .update({
                 status,
                 whish_reference_id: whish_reference_id || null
             })
-            .eq('id', transaction_id);
+            .eq('id', transaction_id)
+            .select('*')
+            .single();
 
-        if (error) {
+        if (error || !transaction) {
             console.error('Error updating transaction:', error);
             return NextResponse.json({ error: 'Failed to update transaction' }, { status: 500 });
+        }
+
+        // If success, update the user's plan tier!
+        if (status === 'success' && transaction.user_id) {
+            const plan_name = transaction.plan_name || 'Pro Agent';
+            const { error: userError } = await supabaseAdmin
+                .from('users')
+                .update({
+                    plan_tier: plan_name,
+                    // Give them 30 days of pro access
+                    current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+                })
+                .eq('id', transaction.user_id);
+
+            if (userError) {
+                console.error('Error updating user plan:', userError);
+                // We don't fail the webhook response because the payment succeeded, but we log the error.
+            }
         }
 
         return NextResponse.json({ success: true });
