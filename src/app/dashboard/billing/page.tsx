@@ -64,16 +64,6 @@ export default function BillingPage() {
 
     const plans = [
         {
-            name: 'Free Trial',
-            price: 0,
-            description: 'Experience the full power of Ghost Agent',
-            icon: Sparkles,
-            color: 'text-purple-400',
-            bg: 'bg-purple-500/10',
-            features: ['50 Auto-Replies', 'All Pro Features', 'Valid for 14 days'],
-            highlight: false,
-        },
-        {
             name: 'Starter',
             price: 0,
             description: 'For getting started',
