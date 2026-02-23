@@ -200,7 +200,7 @@ export default function InventoryPage() {
     }
 
     return (
-        <div className="space-y-6 pb-32 md:pb-8">
+        <div className="space-y-6 pb-6 md:pb-8">
 
             {/* ═══ HEADER ═══ */}
             <motion.div

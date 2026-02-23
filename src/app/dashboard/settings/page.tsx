@@ -358,7 +358,7 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="space-y-6 pb-32 md:pb-12">
+        <div className="space-y-6 pb-6 md:pb-8">
             {/* Header */}
             <motion.div
                 initial={{ opacity: 0, y: -10 }}
@@ -847,7 +847,7 @@ export default function SettingsPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
-                className="flex justify-center pt-4 pb-20 md:pb-8 sticky bottom-4 md:static z-40"
+                className="flex justify-center pt-4 pb-6 md:pb-8 sticky bottom-4 md:static z-40"
             >
                 <button
                     onClick={handleSave}

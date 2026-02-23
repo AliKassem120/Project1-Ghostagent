@@ -456,7 +456,7 @@ export default function InteractionsPage() {
                     />
                 </div>
 
-                <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar pb-24 md:pb-0">
+                <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar pb-6 md:pb-0">
                     {conversations.map((conv) => (
                         <button
                             key={conv.chat_id}
@@ -552,7 +552,7 @@ export default function InteractionsPage() {
                         </div>
 
                         {/* Messages */}
-                        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 custom-scrollbar pb-24 md:pb-6">
+                        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 custom-scrollbar pb-6 md:pb-6">
                             <AnimatePresence>
                                 {activeChat.messages.map((msg, i) => (
                                     <motion.div
