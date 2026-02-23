@@ -21,6 +21,10 @@ export default function GoogleSignInButton({ onSuccess, onError }: GoogleSignInB
                 provider: "google",
                 options: {
                     redirectTo: `${window.location.origin}/auth/confirm`,
+                    queryParams: {
+                        access_type: 'offline',
+                        prompt: 'consent',
+                    }
                 },
             });
 
