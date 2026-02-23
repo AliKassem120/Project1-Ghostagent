@@ -8,20 +8,49 @@ import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
 
 export default function BillingPage() {
-    const [currentPlan, setCurrentPlan] = useState<string>('Pro Agent');
+    const [currentPlan, setCurrentPlan] = useState<string>('Starter');
+    const [planDetails, setPlanDetails] = useState<{
+        tier: string;
+        trial_ends_at: string | null;
+        period_end: string | null;
+    }>({ tier: 'free_trial', trial_ends_at: null, period_end: null });
+
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [showCancelModal, setShowCancelModal] = useState(false);
-    const [paymentMethod, setPaymentMethod] = useState('•••• 4242');
+    const [paymentMethod, setPaymentMethod] = useState('Not connected');
     const [isUpdating, setIsUpdating] = useState(false);
     const [usage, setUsage] = useState({ replies: 0, conversations: 0, revenue: 0 });
     const supabase = createClient();
     const toast = useToast();
 
     useEffect(() => {
-        const fetchUsage = async () => {
+        const fetchData = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
+            // 1. Fetch User Plan data
+            const { data: userData } = await supabase
+                .from('users')
+                .select('plan_tier, trial_ends_at, current_period_end')
+                .eq('id', user.id)
+                .single();
+
+            if (userData) {
+                const tier = userData.plan_tier || 'free_trial';
+                setPlanDetails({
+                    tier,
+                    trial_ends_at: userData.trial_ends_at,
+                    period_end: userData.current_period_end
+                });
+
+                // Map database tier to UI plan name
+                if (tier === 'Pro Agent' || tier === 'pro') setCurrentPlan('Pro Agent');
+                else if (tier === 'Empire') setCurrentPlan('Empire');
+                else if (tier === 'free_trial') setCurrentPlan('Free Trial');
+                else setCurrentPlan('Starter');
+            }
+
+            // 2. Fetch Usage
             const { count } = await supabase
                 .from('activity_log')
                 .select('*', { count: 'exact', head: true })
@@ -30,10 +59,20 @@ export default function BillingPage() {
 
             setUsage(prev => ({ ...prev, replies: count || 0 }));
         };
-        fetchUsage();
+        fetchData();
     }, []);
 
     const plans = [
+        {
+            name: 'Free Trial',
+            price: 0,
+            description: 'Experience the full power of Ghost Agent',
+            icon: Sparkles,
+            color: 'text-purple-400',
+            bg: 'bg-purple-500/10',
+            features: ['50 Auto-Replies', 'All Pro Features', 'Valid for 14 days'],
+            highlight: false,
+        },
         {
             name: 'Starter',
             price: 0,
@@ -145,15 +184,25 @@ export default function BillingPage() {
                         <div className="flex items-center gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
                             <Calendar className="w-4 h-4 text-white/30 shrink-0" />
                             <div>
-                                <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest">Next Billing</p>
-                                <p className="text-sm font-semibold text-white/70">Feb 23, 2026</p>
+                                <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest">
+                                    {currentPlan === 'Free Trial' ? 'Trial Ends' : 'Next Billing'}
+                                </p>
+                                <p className="text-sm font-semibold text-white/70">
+                                    {planDetails.period_end || planDetails.trial_ends_at
+                                        ? new Date(planDetails.period_end || planDetails.trial_ends_at!).toLocaleDateString('en-US', {
+                                            month: 'short',
+                                            day: 'numeric',
+                                            year: 'numeric'
+                                        })
+                                        : 'Account verify pending'}
+                                </p>
                             </div>
                         </div>
                         <div className="flex items-center gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
                             <CreditCard className="w-4 h-4 text-white/30 shrink-0" />
                             <div>
                                 <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest">Payment Method</p>
-                                <p className="text-sm font-semibold text-white/70">Visa {paymentMethod}</p>
+                                <p className="text-sm font-semibold text-white/70">{paymentMethod}</p>
                             </div>
                         </div>
                     </div>
@@ -184,7 +233,7 @@ export default function BillingPage() {
                 <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider mb-4 ml-1">This Month&apos;s Usage</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     {[
-                        { icon: MessageSquare, label: 'Auto-Replies Sent', value: usage.replies, limit: currentPlan === 'Starter' ? '/ 50 limit' : 'Unlimited', color: 'text-violet-400', bg: 'bg-violet-500/10' },
+                        { icon: MessageSquare, label: 'Auto-Replies Sent', value: usage.replies, limit: (currentPlan === 'Starter' || currentPlan === 'Free Trial') ? '/ 50 limit' : 'Unlimited', color: 'text-violet-400', bg: 'bg-violet-500/10' },
                         { icon: TrendingUp, label: 'Conversations', value: usage.conversations, limit: 'Active threads', color: 'text-blue-400', bg: 'bg-blue-500/10' },
                         { icon: DollarSign, label: 'Revenue Generated', value: `$${usage.revenue}`, limit: 'From AI sales', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
                     ].map((stat, i) => (
