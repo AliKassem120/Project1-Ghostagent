@@ -54,7 +54,7 @@ export default function BillingPage() {
                 .from('activity_log')
                 .select('*', { count: 'exact', head: true })
                 .eq('user_id', user.id)
-                .eq('event_type', 'CHAT_QUERY');
+                .in('event_type', ['AI_REPLY', 'COMMENT_REPLY']);
 
             setUsage(prev => ({ ...prev, replies: count || 0 }));
         };

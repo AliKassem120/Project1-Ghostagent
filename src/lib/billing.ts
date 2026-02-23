@@ -45,8 +45,8 @@ export async function checkUserLimit(userId: string): Promise<{ allowed: boolean
                 .from('activity_log')
                 .select('*', { count: 'exact', head: true })
                 .eq('user_id', userId)
-                .eq('event_type', 'CHAT_QUERY')
-                .gte('created_at', firstDayOfMonth);
+                .in('event_type', ['AI_REPLY', 'COMMENT_REPLY'])
+                .gte('timestamp', firstDayOfMonth);
 
             if (countError) {
                 console.error('Error fetching usage count:', countError);
