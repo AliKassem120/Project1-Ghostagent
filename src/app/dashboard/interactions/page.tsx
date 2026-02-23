@@ -499,7 +499,7 @@ export default function InteractionsPage() {
 
             {/* Chat Area (Responsive) */}
             <div className={clsx(
-                "fixed inset-0 md:static flex-1 glass-dark md:rounded-3xl border-0 md:border-0 flex flex-col overflow-hidden relative z-30 transition-transform duration-300 bg-surface-1 md:bg-transparent",
+                "absolute inset-0 md:static flex-1 glass-dark rounded-2xl md:rounded-3xl border border-white/[0.04] md:border flex flex-col overflow-hidden z-30 transition-transform duration-300 bg-surface-1 md:bg-transparent",
                 selectedChatId ? "translate-x-0" : "translate-x-full md:translate-x-0"
             )}>
                 {activeChat ? (
