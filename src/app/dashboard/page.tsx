@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useDashboard } from '@/contexts/DashboardContext';
-import { MessageSquare, DollarSign, Package, Clock, Zap, MessageCircle, Sparkles, Instagram, Shield, Activity, BarChart3, Send, Loader2, TrendingUp, ArrowUpRight, Users, Bot, Eye } from 'lucide-react';
+import { MessageSquare, DollarSign, Package, Clock, Zap, MessageCircle, Sparkles, Instagram, Shield, Activity, BarChart3, Send, Loader2, TrendingUp, ArrowUpRight, Users, Bot, Eye, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from '@/components/CountUp';
 import GhostModal from '@/components/GhostModal';
@@ -234,6 +234,7 @@ export default function DashboardPage() {
     const loading = activitiesLoading;
 
     const getEventIcon = (eventType: string) => {
+        if (eventType === 'SYSTEM_WARNING') return <AlertTriangle className="w-3.5 h-3.5" />;
         if (eventType === 'SALE' || eventType === 'IG_SALE') return <DollarSign className="w-3.5 h-3.5" />;
         if (eventType === 'RESTOCK' || eventType === 'NEW_ITEM') return <Package className="w-3.5 h-3.5" />;
         if (eventType === 'INCOMING_MESSAGE' || eventType === 'INCOMING_DM') return <MessageCircle className="w-3.5 h-3.5" />;
@@ -243,6 +244,7 @@ export default function DashboardPage() {
     };
 
     const getEventColor = (eventType: string) => {
+        if (eventType === 'SYSTEM_WARNING') return 'text-red-400 bg-red-500/10';
         if (eventType === 'SALE' || eventType === 'IG_SALE' || eventType === 'AI_REPLY' || eventType === 'MANUAL_REPLY' || eventType === 'COMMENT_REPLY') return 'text-emerald-400 bg-emerald-500/10';
         if (eventType === 'RESTOCK' || eventType === 'NEW_ITEM' || eventType === 'DRAFT_REPLY' || eventType === 'DRAFT_COMMENT_REPLY') return 'text-amber-400 bg-amber-500/10';
         if (eventType === 'INCOMING_MESSAGE' || eventType === 'INCOMING_DM' || eventType === 'INCOMING_COMMENT') return 'text-blue-400 bg-blue-500/10';

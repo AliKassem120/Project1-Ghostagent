@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from '@supabase/supabase-js';
 import { generateGhostReply } from '@/utils/ghost-brain';
 import crypto from 'crypto';
+import { checkUserLimit } from '@/lib/billing';
 
 // Helper to get admin supabase client
 const getSupabaseAdmin = () => {
@@ -180,7 +181,22 @@ async function processWebhookEvent(body: any) {
                                 }
                             });
 
-                            // 3. AI Processing
+                            // 3. Check Billing Limit Before Firing AI
+                            const limitCheck = await checkUserLimit(ownerId);
+                            if (!limitCheck.allowed) {
+                                console.log(`🛑 LIMIT REACHED for ${ownerId}: ${limitCheck.reason}`);
+                                // Log a system warning so the user sees it in their dashboard feed
+                                await supabaseAdmin.from('activity_log').insert({
+                                    user_id: ownerId,
+                                    event_type: 'SYSTEM_WARNING',
+                                    description: `⚠️ Agent Paused: ${limitCheck.reason}`,
+                                    timestamp: new Date().toISOString(),
+                                    metadata: { chat_id: senderId, platform: 'instagram', type: 'billing_limit' }
+                                });
+                                continue;
+                            }
+
+                            // 4. AI Processing
                             const aiResponse = await generateGhostReply(
                                 ownerId,
                                 messageText,
@@ -299,6 +315,20 @@ async function processWebhookEvent(body: any) {
                                 type: 'comment'
                             }
                         });
+
+                        // Check Billing Limit Before Firing AI
+                        const limitCheck = await checkUserLimit(ownerId);
+                        if (!limitCheck.allowed) {
+                            console.log(`🛑 LIMIT REACHED for ${ownerId}: ${limitCheck.reason}`);
+                            await supabaseAdmin.from('activity_log').insert({
+                                user_id: ownerId,
+                                event_type: 'SYSTEM_WARNING',
+                                description: `⚠️ Comment Agent Paused: ${limitCheck.reason}`,
+                                timestamp: new Date().toISOString(),
+                                metadata: { chat_id: commenterId, platform: 'instagram', type: 'billing_limit' }
+                            });
+                            continue;
+                        }
 
                         // Generate AI Reply (comment-specific: short & public-facing)
                         const aiResponse = await generateCommentReply(
