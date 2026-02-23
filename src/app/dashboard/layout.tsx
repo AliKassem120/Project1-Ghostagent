@@ -22,7 +22,7 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     const { autopilot, setAutopilot, isLoading } = useAutopilot();
     const { user } = useAuth();
     const userEmail = user?.email || null;
-    const userName = user?.user_metadata?.full_name || userEmail?.split('@')[0] || 'User';
+    const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || userEmail?.split('@')[0] || 'User';
     const userInitial = userName.charAt(0).toUpperCase();
     const isGoogleUser = user?.app_metadata?.provider === 'google';
 
