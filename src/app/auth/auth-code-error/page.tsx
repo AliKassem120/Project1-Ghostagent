@@ -3,8 +3,19 @@
 import Link from 'next/link';
 import { AlertTriangle, ArrowLeft } from 'lucide-react';
 import StarBackground from '@/components/StarBackground';
+import { useEffect, useState } from 'react';
 
 export default function AuthCodeErrorPage() {
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+    useEffect(() => {
+        // Safe robust way to get query params without breaking Next.js layout SSR
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('message')) {
+            setErrorMessage(params.get('message'));
+        }
+    }, []);
+
     return (
         <div className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden">
             <StarBackground />
@@ -18,11 +29,18 @@ export default function AuthCodeErrorPage() {
                     </div>
 
                     <h1 className="text-2xl font-bold mb-4">Authentication Error</h1>
-                    <p className="text-white/60 mb-8">
+                    <p className="text-white/60 mb-4">
                         There was a problem exchanging your authentication code for a session. This can happen if the link expired or was already used.
                     </p>
 
-                    <div className="space-y-4">
+                    {errorMessage && (
+                        <div className="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-mono break-words text-left">
+                            <p className="font-bold mb-1 uppercase text-red-500 tracking-wider">Exact Error:</p>
+                            {errorMessage}
+                        </div>
+                    )}
+
+                    <div className="space-y-4 pt-2">
                         <Link
                             href="/login"
                             className="inline-flex items-center gap-2 bg-primary text-black font-bold py-3 px-8 rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all w-full justify-center"

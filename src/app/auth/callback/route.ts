@@ -37,12 +37,14 @@ export async function GET(request: Request) {
                 return NextResponse.redirect(`${finalOrigin}${next}`)
             } else {
                 console.error('Auth Handshake Exchange Error:', error.message)
+                return NextResponse.redirect(`${requestUrl.origin}/auth/auth-code-error?message=${encodeURIComponent(error.message)}`)
             }
         } catch (err: any) {
             console.error('Auth Handshake Unexpected Error:', err.message || err)
+            return NextResponse.redirect(`${requestUrl.origin}/auth/auth-code-error?message=${encodeURIComponent(err.message || 'Unknown server error')}`)
         }
     }
 
     console.log('Auth Handshake Failed, Redirecting to Error Page')
-    return NextResponse.redirect(`${requestUrl.origin}/auth/auth-code-error`)
+    return NextResponse.redirect(`${requestUrl.origin}/auth/auth-code-error?message=No_Code_Provided`)
 }
