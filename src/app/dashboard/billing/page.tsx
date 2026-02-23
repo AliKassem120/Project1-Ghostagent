@@ -46,7 +46,6 @@ export default function BillingPage() {
                 // Map database tier to UI plan name
                 if (tier === 'Pro Agent' || tier === 'pro') setCurrentPlan('Pro Agent');
                 else if (tier === 'Empire') setCurrentPlan('Empire');
-                else if (tier === 'free_trial') setCurrentPlan('Free Trial');
                 else setCurrentPlan('Starter');
             }
 
@@ -184,7 +183,7 @@ export default function BillingPage() {
                             <Calendar className="w-4 h-4 text-white/30 shrink-0" />
                             <div>
                                 <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest">
-                                    {currentPlan === 'Free Trial' ? 'Trial Ends' : 'Next Billing'}
+                                    {planDetails.tier === 'free_trial' ? 'Trial Ends' : 'Next Billing'}
                                 </p>
                                 <p className="text-sm font-semibold text-white/70">
                                     {planDetails.period_end || planDetails.trial_ends_at
@@ -232,7 +231,7 @@ export default function BillingPage() {
                 <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider mb-4 ml-1">This Month&apos;s Usage</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     {[
-                        { icon: MessageSquare, label: 'Auto-Replies Sent', value: usage.replies, limit: (currentPlan === 'Starter' || currentPlan === 'Free Trial') ? '/ 50 limit' : 'Unlimited', color: 'text-violet-400', bg: 'bg-violet-500/10' },
+                        { icon: MessageSquare, label: 'Auto-Replies Sent', value: usage.replies, limit: currentPlan === 'Starter' ? '/ 50 limit' : 'Unlimited', color: 'text-violet-400', bg: 'bg-violet-500/10' },
                         { icon: TrendingUp, label: 'Conversations', value: usage.conversations, limit: 'Active threads', color: 'text-blue-400', bg: 'bg-blue-500/10' },
                         { icon: DollarSign, label: 'Revenue Generated', value: `$${usage.revenue}`, limit: 'From AI sales', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
                     ].map((stat, i) => (
@@ -319,8 +318,7 @@ export default function BillingPage() {
                                 >
                                     {isUpdating ? 'Processing...' : (
                                         <>
-                                            {plan.price > (currentPlanData?.price || 0) && currentPlan !== 'Free Trial' ? 'Upgrade' :
-                                                plan.name === 'Starter' && currentPlan === 'Free Trial' ? 'Select Starter' : 'Downgrade'}
+                                            {plan.price > (currentPlanData?.price || 0) ? 'Upgrade' : 'Downgrade'}
                                             <ArrowRight className="w-4 h-4" />
                                         </>
                                     )}
