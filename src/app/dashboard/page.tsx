@@ -136,7 +136,23 @@ export default function DashboardPage() {
     const userId = user?.id;
     const [clearModalOpen, setClearModalOpen] = useState(false);
     const [sendingDrafts, setSendingDrafts] = useState<string[]>([]);
+    const [instagramStatus, setInstagramStatus] = useState<{ connected: boolean }>({ connected: false });
     const toast = useToast();
+
+    useEffect(() => {
+        const checkInstagramStatus = async () => {
+            try {
+                const res = await fetch('/api/instagram/status');
+                const data = await res.json();
+                if (data && typeof data.connected === 'boolean') {
+                    setInstagramStatus(data);
+                }
+            } catch (e) {
+                console.error('Failed to check Instagram status:', e);
+            }
+        };
+        checkInstagramStatus();
+    }, []);
 
     const handleApproveDraft = async (activity: ActivityLog) => {
         if (!activity.metadata?.reply_text || !activity.metadata?.chat_id) {
@@ -313,8 +329,8 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-1 border border-white/[0.06]">
                         <Instagram className="w-4 h-4 text-pink-400" />
-                        <span className="text-xs text-white/50">Connected</span>
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="text-xs text-white/50">{instagramStatus.connected ? 'Connected' : 'Disconnected'}</span>
+                        <span className={clsx("w-2 h-2 rounded-full", instagramStatus.connected ? "bg-emerald-400 animate-pulse" : "bg-red-500")} />
                     </div>
                     <div className={clsx(
                         "flex items-center gap-2 px-4 py-2 rounded-xl border",
@@ -341,8 +357,8 @@ export default function DashboardPage() {
                         value: stats.repliesSent,
                         color: 'text-violet-400',
                         bg: 'bg-violet-500/10',
-                        change: '+12%',
-                        changeColor: 'text-emerald-400',
+                        change: 'All time',
+                        changeColor: 'text-white/30',
                     },
                     {
                         icon: Clock,
