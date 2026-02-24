@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LayoutDashboard, MessageSquareText, Package, Settings, LogOut, CreditCard, Zap, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, MessageSquareText, Package, Settings, LogOut, CreditCard, Zap, ChevronRight, BookOpen } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 import { useState, useEffect } from 'react';
@@ -30,6 +30,7 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
         { icon: LayoutDashboard, label: 'Overview', href: '/dashboard' },
         { icon: MessageSquareText, label: 'Live Chat', href: '/dashboard/interactions' },
         { icon: Package, label: 'Inventory', href: '/dashboard/inventory' },
+        { icon: BookOpen, label: 'Connection Guide', href: '/how-to-connect' },
         { icon: Settings, label: 'Settings', href: '/dashboard/settings' },
         { icon: CreditCard, label: 'Billing', href: '/dashboard/billing' },
     ];
