@@ -10,6 +10,7 @@ import GhostModal from '@/components/GhostModal';
 import GhostLogo from '@/components/GhostLogo';
 import CustomSelect from '@/components/CustomSelect';
 import Papa from 'papaparse';
+import BusinessTypeSelector, { BusinessCategory } from '@/components/BusinessTypeSelector';
 
 export default function SettingsPage() {
     const supabase = createClient();
@@ -38,6 +39,7 @@ export default function SettingsPage() {
         whatsappTemplate: '',
         storeLocation: '',
         contactInfo: '',
+        businessType: 'ecommerce' as BusinessCategory,
     });
 
     // AI Generate state
@@ -126,6 +128,7 @@ export default function SettingsPage() {
                         whatsappTemplate: data.whatsapp_template || '',
                         storeLocation: data.store_location || '',
                         contactInfo: data.contact_info || '',
+                        businessType: (data.business_type || 'ecommerce') as BusinessCategory,
                     });
                 }
             } catch (err) {
@@ -329,6 +332,7 @@ export default function SettingsPage() {
                     store_location: settings.storeLocation,
                     contact_info: settings.contactInfo,
                     use_local_slang: settings.useLocalSlang,
+                    business_type: settings.businessType,
                     updated_at: new Date().toISOString(),
                 }, { onConflict: 'user_id' });
 
@@ -416,6 +420,14 @@ export default function SettingsPage() {
                             <p className="text-[10px] text-white/20 ml-1">Phone, email, or website the AI can share.</p>
                         </div>
                     </div>
+                </div>
+
+                <div className="mt-8 border-t border-white/[0.04] pt-6">
+                    <BusinessTypeSelector
+                        value={settings.businessType}
+                        onChange={(val) => setSettings({ ...settings, businessType: val })}
+                        isLoading={saving}
+                    />
                 </div>
             </motion.div>
 
