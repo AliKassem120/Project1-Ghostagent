@@ -134,13 +134,13 @@ export default function HowToConnectPage() {
                                         </div>
 
                                         {/* Mockup Image Box */}
-                                        <div className="w-full xl:w-[400px] aspect-[16/9] sm:aspect-video rounded-xl bg-[#1A1C23] border border-white/[0.08] flex items-center justify-center p-2 text-white/20 group-hover:border-primary/20 transition-colors overflow-hidden relative shadow-inner">
+                                        <div className="w-full xl:w-[400px] aspect-[16/9] sm:aspect-video rounded-xl bg-[#1A1C23] border border-white/[0.08] flex flex-col items-center justify-center text-white/20 group-hover:border-primary/20 transition-colors overflow-hidden relative shadow-inner">
                                             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:16px_16px] opacity-50 z-0" />
                                             {/* eslint-disable-next-line @next/next/no-img-element */}
                                             <img
                                                 src={step.image}
                                                 alt={step.title}
-                                                className="w-full h-full object-contain rounded-lg relative z-10 opacity-90 group-hover:opacity-100 transition-opacity duration-500"
+                                                className={`w-full h-full relative z-10 opacity-90 group-hover:opacity-100 transition-opacity duration-500 ${index === 0 ? 'object-contain p-2' : 'object-cover'}`}
                                             />
                                         </div>
 
