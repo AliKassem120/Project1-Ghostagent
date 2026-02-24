@@ -9,31 +9,34 @@ import Navbar from '@/components/Navbar';
 
 export default function HowToConnectPage() {
     const [openFaq, setOpenFaq] = useState<number | null>(null);
-
     const steps = [
         {
             title: "Switch to Professional Account",
             description: "To use the Instagram API, your account must be a Professional (Business or Creator) account. You can change this in your Instagram settings under 'Account type and tools'.",
             icon: Instagram,
-            color: "from-pink-500 to-orange-400"
+            color: "from-pink-500 to-orange-400",
+            image: "/step_1_ig.png"
         },
         {
             title: "Create a Facebook Page",
             description: "Even if you only use Instagram, Meta requires a Facebook Business Page to route automated messages through their security infrastructure. Create one if you haven't already.",
             icon: Facebook,
-            color: "from-blue-600 to-blue-400"
+            color: "from-blue-600 to-blue-400",
+            image: "/step_2_fb.png"
         },
         {
             title: "Link Them Together",
             description: "Go to your new Facebook Page settings, find 'Linked Accounts', and connect your Professional Instagram account. Make sure to allow all permissions.",
             icon: LinkIcon,
-            color: "from-purple-600 to-indigo-500"
+            color: "from-purple-600 to-indigo-500",
+            image: "/step_3_link.png"
         },
         {
             title: "Connect to Ghost Agent",
             description: "Return to Ghost Agent and click 'Connect Instagram'. Log in with the Facebook account that manages your connected page and approve all requested access.",
             icon: Bot,
-            color: "from-violet-600 to-purple-500"
+            color: "from-violet-600 to-purple-500",
+            image: "/step_4_connect.png"
         }
     ];
 
@@ -130,11 +133,15 @@ export default function HowToConnectPage() {
                                             </p>
                                         </div>
 
-                                        {/* Placeholder Image Box */}
-                                        <div className="w-full xl:w-[400px] aspect-[16/9] sm:aspect-video rounded-xl bg-[#1A1C23] border border-white/[0.08] flex flex-col items-center justify-center text-white/20 group-hover:border-primary/20 group-hover:text-primary/40 transition-colors overflow-hidden relative">
-                                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:16px_16px] opacity-50" />
-                                            <ImageIcon className="w-12 h-12 mb-3 relative z-10" strokeWidth={1.5} />
-                                            <span className="text-sm font-medium tracking-wide relative z-10">Screenshot Placeholder</span>
+                                        {/* Mockup Image Box */}
+                                        <div className="w-full xl:w-[400px] aspect-[16/9] sm:aspect-video rounded-xl bg-[#1A1C23] border border-white/[0.08] flex flex-col items-center justify-center text-white/20 group-hover:border-primary/20 transition-colors overflow-hidden relative shadow-inner">
+                                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:16px_16px] opacity-50 z-0" />
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img
+                                                src={step.image}
+                                                alt={step.title}
+                                                className="w-full h-full object-cover relative z-10 opacity-90 group-hover:opacity-100 transition-opacity duration-500"
+                                            />
                                         </div>
 
                                     </div>
@@ -156,8 +163,8 @@ export default function HowToConnectPage() {
                             <div
                                 key={index}
                                 className={`rounded-2xl border transition-all duration-300 overflow-hidden ${openFaq === index
-                                        ? 'bg-white/[0.04] border-primary/30 shadow-[0_0_30px_rgba(139,92,246,0.1)]'
-                                        : 'bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.03] hover:border-white/[0.1]'
+                                    ? 'bg-white/[0.04] border-primary/30 shadow-[0_0_30px_rgba(139,92,246,0.1)]'
+                                    : 'bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.03] hover:border-white/[0.1]'
                                     }`}
                             >
                                 <button
