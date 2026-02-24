@@ -140,7 +140,7 @@ export default function HowToConnectPage() {
                                             <img
                                                 src={step.image}
                                                 alt={step.title}
-                                                className={`w-full h-full relative z-10 opacity-90 group-hover:opacity-100 transition-opacity duration-500 ${index === 0 ? 'object-contain p-2' : 'object-cover'}`}
+                                                className="w-full h-full object-cover relative z-10 opacity-90 group-hover:opacity-100 transition-opacity duration-500"
                                             />
                                         </div>
 
