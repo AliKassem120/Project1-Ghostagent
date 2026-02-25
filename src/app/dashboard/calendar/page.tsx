@@ -16,6 +16,7 @@ export default function Page() {
 
     const [isLoading, setIsLoading] = useState(true);
     const [isConnected, setIsConnected] = useState(false);
+    const [isDisconnecting, setIsDisconnecting] = useState(false);
 
     useEffect(() => {
         // Show toasts for success or error from the OAuth callback using the hook
@@ -57,6 +58,32 @@ export default function Page() {
         window.location.href = '/api/calendar/auth';
     };
 
+    const handleDisconnect = async () => {
+        if (!user?.id) return;
+        setIsDisconnecting(true);
+        try {
+            const { error } = await supabase
+                .from('users')
+                .update({ google_refresh_token: null })
+                .eq('id', user.id);
+
+            if (error) throw error;
+
+            setIsConnected(false);
+            toast.success("Calendar disconnected successfully.");
+
+            // Remove success from URL if present to avoid confusing re-toasts on refresh
+            if (searchParams.get('success')) {
+                window.history.replaceState({}, '', '/dashboard/calendar');
+            }
+        } catch (err: any) {
+            console.error("Failed to disconnect calendar:", err);
+            toast.error("Failed to disconnect calendar. Please try again.");
+        } finally {
+            setIsDisconnecting(false);
+        }
+    };
+
     return (
         <div className="min-h-[80vh] flex flex-col relative w-full pb-8">
             <div className="mb-6">
@@ -91,6 +118,16 @@ export default function Page() {
                                 <CheckCircle2 className="w-5 h-5" />
                                 <span className="text-sm font-semibold">Calendar Connected</span>
                             </div>
+
+                            <button
+                                onClick={handleDisconnect}
+                                disabled={isDisconnecting}
+                                className="text-sm text-red-400/80 hover:text-red-400 font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5 press pt-1"
+                            >
+                                {isDisconnecting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                Disconnect Calendar
+                            </button>
+
                             <div className="px-4 py-2 rounded-xl bg-white/[0.02] border border-white/[0.05] text-xs font-mono text-purple-400 mt-4">
                                 Calendar Features In Development
                             </div>
