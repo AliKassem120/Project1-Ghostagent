@@ -59,7 +59,7 @@ export default function ServicesPage() {
         if (!form.price || isNaN(Number(form.price)) || Number(form.price) < 0)
             return setFormError("Please enter a valid price.");
         if (!form.duration_minutes || isNaN(Number(form.duration_minutes)) || Number(form.duration_minutes) < 1)
-            return setFormError("Please enter a valid duration.");
+            return setFormError("Please enter a valid duration (min. 1 minute).");
         if (!user?.id) return;
 
         setSaving(true);
@@ -94,35 +94,33 @@ export default function ServicesPage() {
     };
 
     return (
-        <div className="space-y-6 pb-8">
-
+        <div className="space-y-8 pb-10">
             {/* Header */}
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
                 <h1 className="text-2xl font-bold tracking-tight text-white">Services</h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                    Define the services your AI agent can offer and book for your customers.
+                <p className="text-sm text-slate-400 mt-1">
+                    Define the services your AI agent can offer and book for customers.
                 </p>
             </motion.div>
 
-            {/* Create Form Card */}
+            {/* Create Form */}
             <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 }}
-                className="glass-card rounded-2xl p-6"
+                className="glass-card rounded-2xl p-6 border border-white/[0.04]"
             >
                 <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
-                    <div className="p-2.5 rounded-xl bg-primary/10">
-                        <Plus className="w-5 h-5 text-primary" />
+                    <div className="p-2.5 rounded-xl bg-purple-500/10">
+                        <Plus className="w-5 h-5 text-purple-400" />
                     </div>
                     <div>
                         <h2 className="text-sm font-semibold text-white">Add New Service</h2>
-                        <p className="text-[11px] text-muted-foreground">This will be made available to the AI agent for booking.</p>
+                        <p className="text-[11px] text-slate-400">This service will be made available to the AI for booking.</p>
                     </div>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-5">
-                    {/* Row 1: Name + Description */}
                     <div className="grid md:grid-cols-2 gap-5">
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">
@@ -150,11 +148,10 @@ export default function ServicesPage() {
                         </div>
                     </div>
 
-                    {/* Row 2: Price + Duration */}
                     <div className="grid grid-cols-2 gap-5">
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">
-                                Price *
+                                Price (USD) *
                             </label>
                             <div className="relative">
                                 <DollarSign className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20 pointer-events-none" />
@@ -187,7 +184,6 @@ export default function ServicesPage() {
                         </div>
                     </div>
 
-                    {/* Error message */}
                     <AnimatePresence>
                         {formError && (
                             <motion.div
@@ -206,7 +202,7 @@ export default function ServicesPage() {
                         <button
                             type="submit"
                             disabled={saving}
-                            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary text-black text-sm font-bold transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
+                            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(147,51,234,0.25)]"
                         >
                             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                             {saving ? "Saving..." : "Add Service"}
@@ -217,73 +213,66 @@ export default function ServicesPage() {
 
             {/* Services List */}
             <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="glass-card rounded-2xl overflow-hidden"
             >
-                {/* Section Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-white/5">
-                            <Briefcase className="w-4 h-4 text-muted-foreground" />
-                        </div>
-                        <h3 className="text-sm font-semibold text-white">Your Services</h3>
-                        {services.length > 0 && (
-                            <span className="badge bg-white/[0.06] text-white/35 font-mono">
-                                {services.length}
-                            </span>
-                        )}
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2.5 rounded-xl bg-purple-500/10">
+                        <Briefcase className="w-5 h-5 text-purple-400" />
                     </div>
-                    <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                    <div>
+                        <h2 className="text-sm font-semibold text-white">Your Services</h2>
+                        <p className="text-[11px] text-slate-400">{services.length} service{services.length !== 1 ? "s" : ""} defined</p>
+                    </div>
                 </div>
 
-                {/* Content */}
                 {loading ? (
-                    <div className="flex items-center justify-center py-16">
-                        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                    <div className="glass-card rounded-2xl border border-white/[0.04] flex items-center justify-center py-16">
+                        <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
                     </div>
                 ) : services.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-center px-6">
-                        <div className="w-14 h-14 rounded-2xl bg-white/[0.03] flex items-center justify-center mb-4">
-                            <Scissors className="w-6 h-6 text-white/10" />
+                    <div className="glass-card rounded-2xl border border-white/[0.04] flex flex-col items-center justify-center py-16 text-center relative overflow-hidden bg-slate-900/50">
+                        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent pointer-events-none" />
+                        <div className="w-14 h-14 rounded-2xl bg-purple-500/10 flex items-center justify-center mb-4">
+                            <Scissors className="w-7 h-7 text-purple-400" />
                         </div>
-                        <p className="text-sm font-medium text-white/20 mb-1">No services yet</p>
-                        <p className="text-[12px] text-white/10 leading-relaxed max-w-xs">
+                        <h3 className="text-base font-bold text-white mb-1">No services yet</h3>
+                        <p className="text-sm text-slate-400 max-w-xs">
                             Add your first service above — the AI will use these to answer customer queries and book appointments.
                         </p>
                     </div>
                 ) : (
-                    <div className="divide-y divide-white/[0.03]">
+                    <div className="grid gap-3">
                         <AnimatePresence>
                             {services.map((service, i) => (
                                 <motion.div
                                     key={service.id}
-                                    initial={{ opacity: 0, x: 10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -20 }}
-                                    transition={{ delay: i < 5 ? i * 0.04 : 0 }}
-                                    className="flex items-center gap-4 px-6 py-4 hover:bg-white/[0.02] transition-all group cursor-default"
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, x: -20, height: 0, marginBottom: 0 }}
+                                    transition={{ delay: i * 0.04 }}
+                                    className="glass-card rounded-xl border border-white/[0.04] p-4 flex items-center gap-4 group hover:border-purple-500/20 transition-colors"
                                 >
-                                    <div className="p-2 rounded-xl bg-primary/10 shrink-0">
-                                        <Scissors className="w-4 h-4 text-primary" />
+                                    <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center shrink-0">
+                                        <Scissors className="w-5 h-5 text-purple-400" />
                                     </div>
 
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-semibold text-white/90 truncate">{service.name}</p>
+                                        <p className="text-sm font-semibold text-white truncate">{service.name}</p>
                                         {service.description && (
-                                            <p className="text-xs text-muted-foreground truncate mt-0.5">{service.description}</p>
+                                            <p className="text-xs text-slate-400 truncate mt-0.5">{service.description}</p>
                                         )}
                                     </div>
 
                                     <div className="hidden sm:flex items-center gap-4 shrink-0">
-                                        <div className="flex items-center gap-1.5">
-                                            <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-                                            <span className="text-sm font-semibold text-white">{Number(service.price).toFixed(2)}</span>
+                                        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                                            <DollarSign className="w-3.5 h-3.5 text-purple-400" />
+                                            <span className="font-semibold text-white">${Number(service.price).toFixed(2)}</span>
                                         </div>
                                         <div className="w-px h-4 bg-white/[0.06]" />
-                                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                            <Clock className="w-3.5 h-3.5 text-blue-400" />
+                                        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                                            <Clock className="w-3.5 h-3.5 text-purple-400" />
                                             <span>{service.duration_minutes} min</span>
                                         </div>
                                     </div>
@@ -291,7 +280,7 @@ export default function ServicesPage() {
                                     <button
                                         onClick={() => handleDelete(service.id)}
                                         disabled={deletingId === service.id}
-                                        className="shrink-0 h-9 w-9 flex items-center justify-center rounded-lg text-red-400/40 hover:text-red-400 hover:bg-red-500/[0.08] transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50 press"
+                                        className="shrink-0 p-2 rounded-lg text-white/20 hover:text-red-400 hover:bg-red-500/[0.08] transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50"
                                         title="Delete service"
                                     >
                                         {deletingId === service.id ? (
