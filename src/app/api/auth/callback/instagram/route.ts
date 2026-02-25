@@ -28,11 +28,19 @@ export async function GET(request: NextRequest) {
 
     try {
         // 1. Exchange Code for Access Token
-        // CRITICAL: The redirect_uri here MUST match exactly what was used on the client side login button.
-        // We use the request origin to ensure consistency.
-        const tokenUrl = `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${process.env.NEXT_PUBLIC_FACEBOOK_APP_ID}&redirect_uri=${appUrl}/api/auth/callback/instagram&client_secret=${process.env.FACEBOOK_APP_SECRET}&code=${code}`;
+        // Must use form-urlencoded for the Instagram API
+        const tokenDataObj = new URLSearchParams();
+        tokenDataObj.append('client_id', process.env.NEXT_PUBLIC_INSTAGRAM_APP_ID!);
+        tokenDataObj.append('client_secret', process.env.INSTAGRAM_APP_SECRET!);
+        tokenDataObj.append('grant_type', 'authorization_code');
+        tokenDataObj.append('redirect_uri', `${appUrl}/api/auth/callback/instagram`);
+        tokenDataObj.append('code', code);
 
-        const tokenRes = await fetch(tokenUrl);
+        const tokenRes = await fetch('https://api.instagram.com/oauth/access_token', {
+            method: 'POST',
+            body: tokenDataObj,
+        });
+
         const tokenData = await tokenRes.json();
 
         if (tokenData.error) {
@@ -40,63 +48,38 @@ export async function GET(request: NextRequest) {
             return NextResponse.redirect(`${appUrl}/dashboard/settings?error=token_exchange_failed&details=${encodeURIComponent(tokenData.error.message)}`);
         }
 
-        const accessToken = tokenData.access_token;
+        // For Instagram Business Login, this is a short-lived Instagram User Access Token
+        const shortLivedToken = tokenData.access_token;
+        const instagramUserId = tokenData.user_id;
 
-        // 2. Fetch User Pages to find Linked Instagram Account
-        // We use v21.0 as requested for most up-to-date fields
-        const pagesUrl = `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${accessToken}`;
-        const pagesRes = await fetch(pagesUrl);
-        const pagesData = await pagesRes.json();
+        // Optionally exchange for Long-Lived Token (recommended for backend ops)
+        const longLivedRes = await fetch(`https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${process.env.INSTAGRAM_APP_SECRET}&access_token=${shortLivedToken}`);
+        const longLivedData = await longLivedRes.json();
 
-        let targetAccountId = '';
-        let targetUsername = '';
-        let targetToken = accessToken; // Will switch to Page Token if possible
+        const accessToken = longLivedData.access_token || shortLivedToken;
 
-        console.log(`[Instagram Callback] Found ${pagesData.data?.length || 0} pages.`);
+        // 2. Fetch User Profile from Instagram Graph API
+        const profileUrl = `https://graph.instagram.com/v21.0/me?fields=id,username,name&access_token=${accessToken}`;
+        const profileRes = await fetch(profileUrl);
+        const profileData = await profileRes.json();
 
-        if (pagesData.data && Array.isArray(pagesData.data)) {
-            for (const page of pagesData.data) {
-                // Check if IG ID is already present from initial fetch
-                let instagramId = page.instagram_business_account?.id;
-
-                // Verification: If missing, try explicit fetch as per rigorous standard (v21.0)
-                // This handles edge cases where the field might be omitted in the list view
-                if (!instagramId && page.id && page.access_token) {
-                    try {
-                        const igRes = await fetch(`https://graph.facebook.com/v21.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`);
-                        const igData = await igRes.json();
-                        instagramId = igData.instagram_business_account?.id;
-                        console.log(`[Instagram Callback] Explicit fetch for Page ${page.id}: Found IG ${instagramId}`);
-                    } catch (err) {
-                        console.error(`Failed to check IG for page ${page.id}:`, err);
-                    }
-                }
-
-                if (instagramId) {
-                    console.log(`✅ Found Instagram Account ${instagramId} linked to Page ${page.name}`);
-                    targetAccountId = instagramId;
-                    targetUsername = page.name;
-                    targetToken = page.access_token; // Use Page Token for future operations (sending messages)
-                    break; // Stop at the first valid one
-                }
-            }
+        if (profileData.error) {
+            console.error('IG Profile Fetch Error:', profileData.error);
+            return NextResponse.redirect(`${origin}/dashboard/settings?error=profile_fetch_failed&details=${encodeURIComponent(profileData.error.message)}`);
         }
 
-        if (!targetAccountId) {
-            console.error('❌ No Instagram Business Account found linked to any page.');
-            // Robust Error Handling: Redirect back with explicit error
-            return NextResponse.redirect(`${origin}/dashboard/settings?error=no_instagram_business_account_linked`);
-        }
+        const targetAccountId = profileData.id;
+        const targetUsername = profileData.username || profileData.name || 'Instagram User';
 
         // 3. Store Connection in DB
         // We store the INSTAGRAM ACCOUNT ID as the account_id, so webhooks match.
         const connectionData = {
-            access_token: targetToken, // Page Token
-            provider: 'instagram_graph_api',
+            access_token: accessToken, // Instagram User Access Token
+            provider: 'instagram_api_login',
             connected_at: new Date().toISOString(),
-            token_type: 'page_access_token',
-            pages: pagesData.data || [],
-            instagram_account_id: targetAccountId
+            token_type: 'instagram_user_access_token',
+            instagram_account_id: targetAccountId,
+            user_id: instagramUserId
         };
 
         const { error: dbError } = await supabase.from('user_connections').upsert({
