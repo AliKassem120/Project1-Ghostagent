@@ -446,12 +446,14 @@ async function sendReply(ownerId: string, recipientId: string, text: string, sup
 
     if (connection?.metadata?.access_token) {
         token = connection.metadata.access_token;
-        // Instagram API Login requires graph.instagram.com, Facebook Login requires graph.facebook.com
-        if (connection.provider === 'instagram_api_login') {
+        // Check metadata.provider (not the DB column which is always 'INSTAGRAM')
+        const isInstagramLogin = connection.metadata?.provider === 'instagram_api_login';
+        if (isInstagramLogin) {
             url = `https://graph.instagram.com/v21.0/me/messages?access_token=${token}`;
         } else {
             url = `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`;
         }
+        console.log(`[sendReply] Using ${isInstagramLogin ? 'Instagram' : 'Facebook'} API for user ${ownerId}`);
     }
 
     if (!token) {
@@ -574,11 +576,14 @@ async function sendCommentReply(ownerId: string, commentId: string, message: str
 
     if (connection?.metadata?.access_token) {
         token = connection.metadata.access_token;
-        if (connection.provider === 'instagram_api_login') {
+        // Check metadata.provider (not the DB column which is always 'INSTAGRAM')
+        const isInstagramLogin = connection.metadata?.provider === 'instagram_api_login';
+        if (isInstagramLogin) {
             url = `https://graph.instagram.com/v21.0/${commentId}/replies?access_token=${token}`;
         } else {
             url = `https://graph.facebook.com/v21.0/${commentId}/replies?access_token=${token}`;
         }
+        console.log(`[sendCommentReply] Using ${isInstagramLogin ? 'Instagram' : 'Facebook'} API for user ${ownerId}`);
     }
 
     if (!token) {
