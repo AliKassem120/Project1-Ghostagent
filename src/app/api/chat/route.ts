@@ -66,46 +66,91 @@ export async function POST(req: Request) {
         // ... (We just need to ensure the variable names match what's below or above) ...
         // Actually, to avoid breaking the surrounding code organization, I will rewrite the section 1-3.
 
-        // RE-FETCHING INVENTORY LOGIC TO BE SAFE WITH VARIABLE SCOPE
+        // FETCH USER PROFILE FOR BUSINESS TYPE
+        let businessType = 'generic';
+        if (ownerId) {
+            const { data: userProfile } = await supabase
+                .from('users')
+                .select('business_type')
+                .eq('id', ownerId)
+                .single();
+            if (userProfile?.business_type) {
+                businessType = userProfile.business_type;
+            }
+        }
+
+        // GENERATE DYNAMIC PROMPT & CONTEXT
+        let systemPrompt = '';
         let inventoryContext = "No inventory items listed currently.";
         let catalogContext = "";
+        let servicesContext = "No services listed currently.";
 
-        if (ownerId) {
-            const { data: inventory } = await supabase
-                .from('inventory')
-                .select('item_name, stock_level, price')
-                .eq('user_id', ownerId);
+        if (businessType === 'appointments') {
+            // Fetch Services configuration for Appointment flow
+            if (ownerId) {
+                const { data: services } = await supabase
+                    .from('services')
+                    .select('name, description, price, duration_minutes')
+                    .eq('user_id', ownerId);
 
-            if (inventory?.length) {
-                inventoryContext = inventory
-                    .map((i: { item_name: string; stock_level: number; price: number }) =>
-                        `- ${i.item_name}: ${i.stock_level} in stock ($${i.price})`)
-                    .join('\n');
+                if (services?.length) {
+                    servicesContext = services
+                        .map((s: any) => `- ${s.name}: $${s.price} (${s.duration_minutes} min) ${s.description ? `- ${s.description}` : ''}`)
+                        .join('\n');
+                }
             }
 
-            // FETCH CSV PRODUCT CATALOG FROM business_knowledge
-            const { data: knowledgeData } = await supabase
-                .from('business_knowledge')
-                .select('content, file_name')
-                .eq('user_id', ownerId)
-                .single();
+            systemPrompt = `You are an AI receptionist for an appointment-based business. You do NOT sell physical products. Your primary goal is to book appointments and answer questions.
+            
+You are speaking to your boss, ${ownerName}.
+            
+AVAILABLE SERVICES:
+---
+${servicesContext}
+---
 
-            if (knowledgeData?.content) {
-                try {
-                    const catalogItems = JSON.parse(knowledgeData.content);
-                    catalogContext = `
+INSTRUCTIONS:
+- You must use the checkCalendarAvailability tool to check the schedule.
+- Before offering a time to book, you MUST use the checkCalendarAvailability tool to get the real, updated schedule. Never guess or invent available times. Once you receive the free times from the tool, present them cleanly and politely.
+- Be professional but efficient. You are an AI receptionist, reporting to the owner.`;
+
+        } else if (businessType === 'retail' || businessType === 'ecommerce') {
+            // Original Inventory / Retail flow
+            if (ownerId) {
+                const { data: inventory } = await supabase
+                    .from('inventory')
+                    .select('item_name, stock_level, price')
+                    .eq('user_id', ownerId);
+
+                if (inventory?.length) {
+                    inventoryContext = inventory
+                        .map((i: { item_name: string; stock_level: number; price: number }) =>
+                            `- ${i.item_name}: ${i.stock_level} in stock ($${i.price})`)
+                        .join('\n');
+                }
+
+                // FETCH CSV PRODUCT CATALOG FROM business_knowledge
+                const { data: knowledgeData } = await supabase
+                    .from('business_knowledge')
+                    .select('content, file_name')
+                    .eq('user_id', ownerId)
+                    .single();
+
+                if (knowledgeData?.content) {
+                    try {
+                        const catalogItems = JSON.parse(knowledgeData.content);
+                        catalogContext = `
 PRODUCT CATALOG (from ${knowledgeData.file_name}):
 ---
 ${JSON.stringify(catalogItems, null, 2)}
 ---`;
-                } catch (e) {
-                    console.warn('Failed to parse catalog JSON:', e);
+                    } catch (e) {
+                        console.warn('Failed to parse catalog JSON:', e);
+                    }
                 }
             }
-        }
 
-        // 3. STORE MANAGER SYSTEM PROMPT
-        const systemPrompt = `You are the GhostAgent Store Manager. You have full authority to manage inventory and communicate with customers via Instagram DM.
+            systemPrompt = `You are the GhostAgent Store Manager for a retail/e-commerce business. You have full authority to manage inventory and communicate with customers via Instagram DM.
 
 CURRENT LIVE INVENTORY:
 ---
@@ -124,11 +169,15 @@ INSTRUCTIONS:
 - When selling or removing items, use the 'remove' action.
 - Always confirm the action you took with the updated stock level or a confirmation that the DM was sent.
 - Be professional but efficient. You are a manager, reporting to the owner.
-- Before offering a time to book, you MUST use the checkCalendarAvailability tool to get the real, updated schedule. Never guess or invent available times. Once you receive the free times from the tool, present them cleanly and politely to the user.
 
 CATALOG-INVENTORY SYNC RULES:
 - Always prioritize LIVE INVENTORY stock levels over CSV catalog levels if there is a conflict.
 - The live inventory is the source of truth for actual stock availability.`;
+
+        } else {
+            // Generic fallback
+            systemPrompt = `You are GhostAgent, an AI assistant representing the business. You are speaking to the business owner, ${ownerName}. Answer their questions helpfully and politely.`;
+        }
 
         // 4. LOG CHAT ACTIVITY
         // ... handled per tool execution ...
