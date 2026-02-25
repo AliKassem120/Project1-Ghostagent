@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LayoutDashboard, MessageSquareText, Package, Settings, LogOut, CreditCard, Zap, ChevronRight, BookOpen, Calendar, Clock, UtensilsCrossed, Map, Home, Users, PartyPopper, Ticket, Download, HeadphonesIcon, Loader2 } from 'lucide-react';
+import { LayoutDashboard, MessageSquareText, Package, Settings, LogOut, CreditCard, Zap, ChevronRight, BookOpen, Calendar, Clock, UtensilsCrossed, Map, Home, Users, PartyPopper, Ticket, Download, HeadphonesIcon, Loader2, Briefcase } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 import { useState, useEffect } from 'react';
@@ -49,7 +49,7 @@ function DashboardSidebar({ isOpen, onClose, businessType }: { isOpen: boolean; 
         case 'appointments':
             dynamicItems = [
                 { icon: Calendar, label: 'Calendar', href: '/dashboard/calendar' },
-                { icon: Settings, label: 'Services', href: '/dashboard/services' },
+                { icon: Briefcase, label: 'Services', href: '/dashboard/services' },
                 { icon: Clock, label: 'Working Hours', href: '/dashboard/hours' },
             ];
             break;
