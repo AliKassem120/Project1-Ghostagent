@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, Clock, DollarSign, Briefcase, Loader2, AlertCircle, Scissors } from "lucide-react";
+import { Plus, Trash2, Clock, DollarSign, Briefcase, Loader2, AlertCircle, Scissors, ChevronUp, ChevronDown } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 
 interface Service {
@@ -162,8 +162,18 @@ export default function ServicesPage() {
                                     value={form.price}
                                     onChange={(e) => setForm({ ...form, price: e.target.value })}
                                     placeholder="0.00"
-                                    className="input-premium w-full pl-9"
+                                    className="input-premium w-full pl-10 pr-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 />
+                                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col">
+                                    <ChevronUp
+                                        className="w-4 h-4 text-slate-500 hover:text-purple-400 cursor-pointer"
+                                        onClick={() => setForm({ ...form, price: (Math.max(0, Number(form.price || 0) + 1)).toFixed(2) })}
+                                    />
+                                    <ChevronDown
+                                        className="w-4 h-4 text-slate-500 hover:text-purple-400 cursor-pointer"
+                                        onClick={() => setForm({ ...form, price: (Math.max(0, Number(form.price || 0) - 1)).toFixed(2) })}
+                                    />
+                                </div>
                             </div>
                         </div>
                         <div className="space-y-1.5">
@@ -174,12 +184,22 @@ export default function ServicesPage() {
                                 <Clock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20 pointer-events-none" />
                                 <input
                                     type="number"
-                                    min="1"
+                                    min="0"
                                     value={form.duration_minutes}
                                     onChange={(e) => setForm({ ...form, duration_minutes: e.target.value })}
                                     placeholder="30"
-                                    className="input-premium w-full pl-9"
+                                    className="input-premium w-full pl-10 pr-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 />
+                                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col">
+                                    <ChevronUp
+                                        className="w-4 h-4 text-slate-500 hover:text-purple-400 cursor-pointer"
+                                        onClick={() => setForm({ ...form, duration_minutes: String(Math.max(0, Number(form.duration_minutes || 0) + 15)) })}
+                                    />
+                                    <ChevronDown
+                                        className="w-4 h-4 text-slate-500 hover:text-purple-400 cursor-pointer"
+                                        onClick={() => setForm({ ...form, duration_minutes: String(Math.max(0, Number(form.duration_minutes || 0) - 15)) })}
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
