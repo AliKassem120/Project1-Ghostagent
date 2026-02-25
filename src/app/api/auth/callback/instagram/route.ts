@@ -59,7 +59,8 @@ export async function GET(request: NextRequest) {
         const accessToken = longLivedData.access_token || shortLivedToken;
 
         // 2. Fetch User Profile from Instagram Graph API
-        const profileUrl = `https://graph.instagram.com/v21.0/me?fields=id,username,name&access_token=${accessToken}`;
+        // CRITICAL: Request `user_id` because `id` is app-scoped, but webhooks use `user_id` (the Global IP ID starting with 178...)
+        const profileUrl = `https://graph.instagram.com/v21.0/me?fields=id,user_id,username,name&access_token=${accessToken}`;
         const profileRes = await fetch(profileUrl);
         const profileData = await profileRes.json();
 
@@ -68,7 +69,8 @@ export async function GET(request: NextRequest) {
             return NextResponse.redirect(`${origin}/dashboard/settings?error=profile_fetch_failed&details=${encodeURIComponent(profileData.error.message)}`);
         }
 
-        const targetAccountId = profileData.id;
+        // We MUST use user_id if available, otherwise fallback to id.
+        const targetAccountId = profileData.user_id || profileData.id;
         const targetUsername = profileData.username || profileData.name || 'Instagram User';
 
         // 3. Store Connection in DB

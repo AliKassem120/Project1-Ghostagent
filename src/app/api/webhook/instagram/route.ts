@@ -258,7 +258,7 @@ async function processWebhookEvent(body: any) {
                     // ═══════════════════════════════════════
                     // 📤 SEND THE REPLY
                     // ═══════════════════════════════════════
-                    await sendReply(senderId, aiResponse);
+                    await sendReply(ownerId, senderId, aiResponse, supabaseAdmin);
 
                     // ═══════════════════════════════════════
                     // 📝 LOG AI REPLY
@@ -388,7 +388,7 @@ async function processWebhookEvent(body: any) {
 
                     console.log(`🤖 Comment Reply to @${commenterName}: ${aiResponse}`);
 
-                    await sendCommentReply(commentId, aiResponse);
+                    await sendCommentReply(ownerId, commentId, aiResponse, supabaseAdmin);
 
                     await supabaseAdmin.from('activity_log').insert({
                         user_id: ownerId,
@@ -433,12 +433,29 @@ async function fetchUserProfile(senderId: string) {
     }
 }
 
-async function sendReply(recipientId: string, text: string) {
-    const token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
-    const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`;
+async function sendReply(ownerId: string, recipientId: string, text: string, supabaseAdmin: any) {
+    let token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
+    let url = `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`;
+
+    // Get the user's specific token from DB
+    const { data: connection } = await supabaseAdmin.from('user_connections')
+        .select('metadata, provider')
+        .eq('user_id', ownerId)
+        .in('provider', ['INSTAGRAM', 'instagram_api_login'])
+        .limit(1).maybeSingle();
+
+    if (connection?.metadata?.access_token) {
+        token = connection.metadata.access_token;
+        // Instagram API Login requires graph.instagram.com, Facebook Login requires graph.facebook.com
+        if (connection.provider === 'instagram_api_login') {
+            url = `https://graph.instagram.com/v21.0/me/messages?access_token=${token}`;
+        } else {
+            url = `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`;
+        }
+    }
 
     if (!token) {
-        console.error("❌ REPLY FAILED: Missing Access Token");
+        console.error("❌ REPLY FAILED: Missing Access Token for user", ownerId);
         return;
     }
 
@@ -476,18 +493,28 @@ async function findOwner(supabaseAdmin: any, accountId: string | undefined): Pro
 
     if (connectedUser) return connectedUser.user_id;
 
-    // 2. Metadata Scan (Fallback)
+    // 2. Metadata Scan (Fallback) - handles token mismatch formats
     const { data: allConnections } = await supabaseAdmin.from('user_connections')
-        .select('user_id, metadata')
-        .eq('provider', 'INSTAGRAM');
+        .select('user_id, metadata, account_id')
+        .in('provider', ['INSTAGRAM', 'instagram_api_login']);
 
     if (allConnections) {
         for (const conn of allConnections) {
-            const pages = (conn.metadata as any)?.pages || [];
+            const meta = conn.metadata as any || {};
+
+            // Old Pages methodology
+            const pages = meta.pages || [];
             const hasPage = Array.isArray(pages) && pages.some((p: any) => p.instagram_business_account?.id === accountId);
 
             if (hasPage) {
                 console.log(`[Loose Match] Found owner ${conn.user_id} via metadata page link. Account: ${accountId}`);
+                return conn.user_id;
+            }
+
+            // New Instagram API methodology: The token exchange returned app-scoped IDs while webhook returns global IDs
+            // So we explicitly match the metadata fields that might contain the correct global ID
+            if (meta.user_id?.toString() === accountId || meta.instagram_account_id?.toString() === accountId) {
+                console.log(`[Loose Match] Found owner ${conn.user_id} via metadata internal match. Account: ${accountId}`);
                 return conn.user_id;
             }
         }
@@ -535,15 +562,29 @@ async function checkAutopilot(supabaseAdmin: any, ownerId: string, externalChatI
     return true;
 }
 
-async function sendCommentReply(commentId: string, message: string) {
-    const token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
+async function sendCommentReply(ownerId: string, commentId: string, message: string, supabaseAdmin: any) {
+    let token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
+    let url = `https://graph.facebook.com/v21.0/${commentId}/replies?access_token=${token}`;
 
-    if (!token) {
-        console.error("❌ COMMENT REPLY FAILED: Missing Access Token");
-        return;
+    const { data: connection } = await supabaseAdmin.from('user_connections')
+        .select('metadata, provider')
+        .eq('user_id', ownerId)
+        .in('provider', ['INSTAGRAM', 'instagram_api_login'])
+        .limit(1).maybeSingle();
+
+    if (connection?.metadata?.access_token) {
+        token = connection.metadata.access_token;
+        if (connection.provider === 'instagram_api_login') {
+            url = `https://graph.instagram.com/v21.0/${commentId}/replies?access_token=${token}`;
+        } else {
+            url = `https://graph.facebook.com/v21.0/${commentId}/replies?access_token=${token}`;
+        }
     }
 
-    const url = `https://graph.facebook.com/v21.0/${commentId}/replies`;
+    if (!token) {
+        console.error("❌ COMMENT REPLY FAILED: Missing Access Token for user", ownerId);
+        return;
+    }
 
     try {
         const response = await fetch(url, {
@@ -551,8 +592,7 @@ async function sendCommentReply(commentId: string, message: string) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 message: message,
-                access_token: token,
-            }),
+            }), // Removed the URL param access_token and body access_token duplication
         });
 
         const data = await response.json();
