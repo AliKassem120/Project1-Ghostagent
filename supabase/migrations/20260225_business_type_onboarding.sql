@@ -4,8 +4,15 @@
 -- ═══════════════════════════════════════════════════════════════
 
 -- 1. Safely rename the enum value 'nightlife_events' to 'events_ticketing'
--- PostgreSQL allows renaming ENUM values directly in version 10+
-ALTER TYPE public.business_category RENAME VALUE 'nightlife_events' TO 'events_ticketing';
+-- 1. Safely rename the enum value if it exists, otherwise do nothing
+DO $$
+BEGIN
+  ALTER TYPE public.business_category RENAME VALUE 'nightlife_events' TO 'events_ticketing';
+EXCEPTION
+  WHEN invalid_parameter_value THEN
+    -- Label doesn't exist (maybe already renamed or never created), ignore
+    NULL;
+END $$;
 
 -- 2. Add business_type to the users table
 ALTER TABLE public.users
