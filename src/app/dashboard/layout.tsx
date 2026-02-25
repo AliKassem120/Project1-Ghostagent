@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LayoutDashboard, MessageSquareText, Package, Settings, LogOut, CreditCard, Zap, ChevronRight, BookOpen } from 'lucide-react';
+import { LayoutDashboard, MessageSquareText, Package, Settings, LogOut, CreditCard, Zap, ChevronRight, BookOpen, Calendar, Clock, UtensilsCrossed, Map, Home, Users, PartyPopper, Ticket, Download, HeadphonesIcon } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 import { useState, useEffect } from 'react';
@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { DashboardProvider } from '@/contexts/DashboardContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { BusinessCategory } from '@/components/BusinessTypeSelector';
 
 function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
     const pathname = usePathname();
@@ -26,14 +27,87 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     const userInitial = userName.charAt(0).toUpperCase();
     const isGoogleUser = user?.app_metadata?.provider === 'google';
 
-    const navItems = [
+    const [businessType, setBusinessType] = useState<BusinessCategory | null>(null);
+    const [isLoadingData, setIsLoadingData] = useState(true);
+
+    useEffect(() => {
+        if (!user?.id) {
+            setIsLoadingData(false);
+            return;
+        }
+
+        const fetchUserType = async () => {
+            const { data, error } = await supabase
+                .from('users')
+                .select('business_type')
+                .eq('id', user.id)
+                .single();
+
+            if (data?.business_type) {
+                setBusinessType(data.business_type as BusinessCategory);
+            } else if (!error) {
+                // If enrolled but no type, redirect to onboarding
+                router.push('/onboarding');
+            }
+            setIsLoadingData(false);
+        };
+
+        fetchUserType();
+    }, [user?.id, router]);
+
+    // Base menu items that all users see
+    const baseItems = [
         { icon: LayoutDashboard, label: 'Overview', href: '/dashboard' },
-        { icon: MessageSquareText, label: 'Live Chat', href: '/dashboard/interactions' },
-        { icon: Package, label: 'Inventory', href: '/dashboard/inventory' },
-        { icon: BookOpen, label: 'Connection Guide', href: '/how-to-connect' },
-        { icon: Settings, label: 'Settings', href: '/dashboard/settings' },
+        { icon: Settings, label: 'AI Settings', href: '/dashboard/settings' },
+        { icon: MessageSquareText, label: 'Chat Logs', href: '/dashboard/interactions' },
         { icon: CreditCard, label: 'Billing', href: '/dashboard/billing' },
     ];
+
+    // Dynamic items based on business type
+    let dynamicItems: { icon: any, label: string, href: string }[] = [];
+
+    switch (businessType) {
+        case 'ecommerce':
+            dynamicItems = [
+                { icon: Package, label: 'Inventory', href: '/dashboard/inventory' },
+                { icon: BookOpen, label: 'Orders', href: '/dashboard/orders' },
+                { icon: Zap, label: 'Shipping', href: '/dashboard/shipping' },
+            ];
+            break;
+        case 'appointments':
+            dynamicItems = [
+                { icon: Calendar, label: 'Calendar', href: '/dashboard/calendar' },
+                { icon: Settings, label: 'Services', href: '/dashboard/services' },
+                { icon: Clock, label: 'Working Hours', href: '/dashboard/hours' },
+            ];
+            break;
+        case 'food_and_beverage':
+            dynamicItems = [
+                { icon: UtensilsCrossed, label: 'Menu Items', href: '/dashboard/menu' },
+                { icon: Map, label: 'Delivery Zones', href: '/dashboard/delivery' },
+            ];
+            break;
+        case 'real_estate':
+            dynamicItems = [
+                { icon: Home, label: 'Listings', href: '/dashboard/listings' },
+                { icon: Users, label: 'Lead CRM', href: '/dashboard/crm' },
+            ];
+            break;
+        case 'events_ticketing':
+            dynamicItems = [
+                { icon: PartyPopper, label: 'Manage Events', href: '/dashboard/events' },
+                { icon: Ticket, label: 'Guestlists', href: '/dashboard/guestlists' },
+            ];
+            break;
+        case 'digital_services':
+            dynamicItems = [
+                { icon: Download, label: 'Digital Downloads', href: '/dashboard/downloads' },
+                { icon: HeadphonesIcon, label: 'Support Tickets', href: '/dashboard/support' },
+            ];
+            break;
+    }
+
+    const navItems = [...baseItems, ...dynamicItems];
 
     const handleLogout = async () => {
         const { error } = await supabase.auth.signOut();

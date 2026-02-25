@@ -613,8 +613,8 @@ async function generateCommentReply(
             case 'food_and_beverage':
                 businessTypeDirective = 'This is a food/beverage business. Focus on menu items, reservations, and delivery.';
                 break;
-            case 'nightlife_events':
-                businessTypeDirective = 'This is a nightlife/events business. Focus on tickets, guest lists, and VIP tables.';
+            case 'events_ticketing':
+                businessTypeDirective = 'This is an events/ticketing business. Focus on tickets, guest lists, and venues.';
                 break;
             case 'digital_services':
                 businessTypeDirective = 'This is a digital services business. Focus on digital products, consulting, and support.';

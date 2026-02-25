@@ -15,7 +15,7 @@ export type BusinessCategory =
     | 'appointments'
     | 'real_estate'
     | 'food_and_beverage'
-    | 'nightlife_events'
+    | 'events_ticketing'
     | 'digital_services';
 
 interface BusinessTypeSelectorProps {
@@ -50,9 +50,9 @@ const CATEGORIES = [
         icon: UtensilsCrossed,
     },
     {
-        id: 'nightlife_events',
-        label: 'Nightlife & Events',
-        description: 'Tickets, VIP tables, guest lists',
+        id: 'events_ticketing',
+        label: 'Events & Ticketing',
+        description: 'Tickets, guest lists, venues',
         icon: PartyPopper,
     },
     {
@@ -118,10 +118,10 @@ export default function BusinessTypeSelector({
                             )}
 
                             <div className={`p-2 rounded-lg mb-3 transition-colors duration-300 ${isSelected
-                                    ? 'bg-purple-500/20 text-purple-400'
-                                    : isHovered
-                                        ? 'bg-slate-800 text-slate-300'
-                                        : 'bg-slate-800/50 text-slate-400'
+                                ? 'bg-purple-500/20 text-purple-400'
+                                : isHovered
+                                    ? 'bg-slate-800 text-slate-300'
+                                    : 'bg-slate-800/50 text-slate-400'
                                 }`}>
                                 <Icon size={20} strokeWidth={isSelected ? 2.5 : 2} />
                             </div>

@@ -6,7 +6,7 @@
 
 export interface BusinessProfile {
     business_name: string;
-    business_type: 'ecommerce' | 'appointments' | 'real_estate' | 'food_and_beverage' | 'nightlife_events' | 'digital_services';
+    business_type: 'ecommerce' | 'appointments' | 'real_estate' | 'food_and_beverage' | 'events_ticketing' | 'digital_services';
     tone: string;
     system_instructions: string | null;
     language: string;
@@ -41,7 +41,7 @@ export function generateSystemPrompt(business: BusinessProfile): string {
             return 'Your goal is to ask for budget and location preferences, and send property links or PDFs. Focus on matching clients with their ideal properties.';
         case 'food_and_beverage':
             return 'Your goal is to share the menu, take food and beverage orders, and ask for delivery addresses.';
-        case 'nightlife_events':
+        case 'events_ticketing':
             return 'Your goal is to manage VIP table availability, get clients on the guest list, and provide ticket prices for upcoming events.';
         case 'digital_services':
             return 'Your goal is to assist with digital downloads, provide technical support, and share consulting meeting links.';
