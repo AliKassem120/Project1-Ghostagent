@@ -49,8 +49,7 @@ export default function OnboardingPage() {
         try {
             const { error } = await supabase
                 .from("users")
-                .update({ business_type: selectedCategory })
-                .eq("id", user.id);
+                .upsert({ id: user.id, business_type: selectedCategory }, { onConflict: "id" });
 
             if (error) throw error;
             router.push("/dashboard");

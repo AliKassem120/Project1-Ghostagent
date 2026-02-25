@@ -45,6 +45,12 @@ export default function RegisterPage() {
             return;
         }
 
+        if (data?.session) {
+            toast.success('Registration successful! Redirecting to your dashboard...');
+            router.push('/dashboard');
+            return;
+        }
+
         toast.success('Registration successful! Please check your email for verification.');
         router.push('/login');
     };
@@ -125,8 +131,8 @@ export default function RegisterPage() {
                                     type="button"
                                     onClick={() => setSelectedPlan('free_trial')}
                                     className={`p-4 rounded-xl border text-left transition-all ${selectedPlan === 'free_trial'
-                                            ? 'bg-primary/20 border-primary shadow-[0_0_15px_rgba(139,92,246,0.3)]'
-                                            : 'bg-black/20 border-white/10 hover:bg-white/5'
+                                        ? 'bg-primary/20 border-primary shadow-[0_0_15px_rgba(139,92,246,0.3)]'
+                                        : 'bg-black/20 border-white/10 hover:bg-white/5'
                                         }`}
                                 >
                                     <div className="font-bold text-white mb-1">Free Trial</div>
@@ -136,8 +142,8 @@ export default function RegisterPage() {
                                     type="button"
                                     onClick={() => setSelectedPlan('pro')}
                                     className={`p-4 rounded-xl border text-left transition-all ${selectedPlan === 'pro'
-                                            ? 'bg-primary/20 border-primary shadow-[0_0_15px_rgba(139,92,246,0.3)]'
-                                            : 'bg-black/20 border-white/10 hover:bg-white/5'
+                                        ? 'bg-primary/20 border-primary shadow-[0_0_15px_rgba(139,92,246,0.3)]'
+                                        : 'bg-black/20 border-white/10 hover:bg-white/5'
                                         }`}
                                 >
                                     <div className="font-bold text-white mb-1">Pro Agent</div>
