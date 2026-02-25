@@ -243,7 +243,7 @@ export default function ServicesPage() {
                         </p>
                     </div>
                 ) : (
-                    <div className="grid gap-3">
+                    <div className="grid gap-3 max-h-[480px] overflow-y-auto custom-scrollbar pr-1">
                         <AnimatePresence>
                             {services.map((service, i) => (
                                 <motion.div
