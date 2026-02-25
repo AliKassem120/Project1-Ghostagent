@@ -53,8 +53,9 @@ export default function OnboardingPage() {
 
             if (error) throw error;
             router.push("/dashboard");
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to save business type:", error);
+            alert("Error saving business type: " + (error.message || JSON.stringify(error)));
             setIsSaving(false);
         }
     };

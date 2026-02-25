@@ -421,14 +421,6 @@ export default function SettingsPage() {
                         </div>
                     </div>
                 </div>
-
-                <div className="mt-8 border-t border-white/[0.04] pt-6">
-                    <BusinessTypeSelector
-                        value={settings.businessType}
-                        onChange={(val) => setSettings({ ...settings, businessType: val })}
-                        isLoading={saving}
-                    />
-                </div>
             </motion.div>
 
             {/* AI Persona */}
