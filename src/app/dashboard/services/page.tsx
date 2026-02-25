@@ -162,7 +162,7 @@ export default function ServicesPage() {
                                     value={form.price}
                                     onChange={(e) => setForm({ ...form, price: e.target.value })}
                                     placeholder="0.00"
-                                    className="input-premium w-full pl-10 pr-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    className="input-premium w-full !pl-10 !pr-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 />
                                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col">
                                     <ChevronUp
@@ -188,7 +188,7 @@ export default function ServicesPage() {
                                     value={form.duration_minutes}
                                     onChange={(e) => setForm({ ...form, duration_minutes: e.target.value })}
                                     placeholder="30"
-                                    className="input-premium w-full pl-10 pr-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    className="input-premium w-full !pl-10 !pr-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 />
                                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col">
                                     <ChevronUp
