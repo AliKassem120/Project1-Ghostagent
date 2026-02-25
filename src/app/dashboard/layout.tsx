@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LayoutDashboard, MessageSquareText, Package, Settings, LogOut, CreditCard, Zap, ChevronRight, BookOpen, Calendar, Clock, UtensilsCrossed, Map, Home, Users, PartyPopper, Ticket, Download, HeadphonesIcon } from 'lucide-react';
+import { LayoutDashboard, MessageSquareText, Package, Settings, LogOut, CreditCard, Zap, ChevronRight, BookOpen, Calendar, Clock, UtensilsCrossed, Map, Home, Users, PartyPopper, Ticket, Download, HeadphonesIcon, Loader2 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 import { useState, useEffect } from 'react';
@@ -17,7 +17,7 @@ import { DashboardProvider } from '@/contexts/DashboardContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { BusinessCategory } from '@/components/BusinessTypeSelector';
 
-function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+function DashboardSidebar({ isOpen, onClose, businessType }: { isOpen: boolean; onClose: () => void; businessType: BusinessCategory | null }) {
     const pathname = usePathname();
     const router = useRouter();
     const { autopilot, setAutopilot, isLoading } = useAutopilot();
@@ -26,37 +26,6 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || userEmail?.split('@')[0] || 'User';
     const userInitial = userName.charAt(0).toUpperCase();
     const isGoogleUser = user?.app_metadata?.provider === 'google';
-
-    const [businessType, setBusinessType] = useState<BusinessCategory | null>(null);
-    const [isLoadingData, setIsLoadingData] = useState(true);
-
-    useEffect(() => {
-        if (!user?.id) {
-            setIsLoadingData(false);
-            return;
-        }
-
-        const fetchUserType = async () => {
-            const { data, error } = await supabase
-                .from('users')
-                .select('business_type')
-                .eq('id', user.id)
-                .single();
-
-            if (data?.business_type) {
-                setBusinessType(data.business_type as BusinessCategory);
-            } else {
-                if (error && error.code !== 'PGRST116') {
-                    console.error('Error fetching user type:', error);
-                }
-                // If enrolled but no type, row missing, or other error, redirect to onboarding
-                router.push('/onboarding');
-            }
-            setIsLoadingData(false);
-        };
-
-        fetchUserType();
-    }, [user?.id, router]);
 
     // Base menu items that all users see
     const baseItems = [
@@ -280,6 +249,47 @@ export default function DashboardLayout({
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const { user } = useAuth();
     const userId = user?.id;
+    const router = useRouter();
+
+    const [businessType, setBusinessType] = useState<BusinessCategory | null>(null);
+    const [isLoadingData, setIsLoadingData] = useState(true);
+
+    useEffect(() => {
+        if (!user?.id) {
+            setIsLoadingData(false);
+            return;
+        }
+
+        const fetchUserType = async () => {
+            const { data, error } = await supabase
+                .from('users')
+                .select('business_type')
+                .eq('id', user.id)
+                .single();
+
+            if (data?.business_type) {
+                setBusinessType(data.business_type as BusinessCategory);
+                setIsLoadingData(false);
+            } else {
+                if (error && error.code !== 'PGRST116') {
+                    console.error('Error fetching user type:', error);
+                }
+                // If enrolled but no type, row missing, or other error, redirect to onboarding
+                router.replace('/onboarding');
+            }
+        };
+
+        fetchUserType();
+    }, [user?.id, router]);
+
+    if (isLoadingData) {
+        return (
+            <div className="min-h-screen bg-background flex flex-col items-center justify-center relative overflow-hidden">
+                <StarBackground />
+                <Loader2 className="w-8 h-8 text-primary animate-spin relative z-10" />
+            </div>
+        );
+    }
 
     return (
         <AutopilotProvider>
@@ -287,7 +297,7 @@ export default function DashboardLayout({
                 <DashboardProvider>
                     <div className="min-h-screen bg-background text-foreground flex relative overflow-hidden">
                         <StarBackground />
-                        <DashboardSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+                        <DashboardSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} businessType={businessType} />
                         <DashboardContent
                             toggleSidebar={() => setIsSidebarOpen(true)}
                         >
