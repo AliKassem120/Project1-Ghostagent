@@ -45,9 +45,6 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
 
             if (data?.business_type) {
                 setBusinessType(data.business_type as BusinessCategory);
-            } else if (!error || error.code === 'PGRST116') {
-                // If enrolled but no type, or row missing, redirect to onboarding
-                router.push('/onboarding');
             }
             setIsLoadingData(false);
         };
