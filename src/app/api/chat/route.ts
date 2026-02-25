@@ -124,6 +124,7 @@ INSTRUCTIONS:
 - When selling or removing items, use the 'remove' action.
 - Always confirm the action you took with the updated stock level or a confirmation that the DM was sent.
 - Be professional but efficient. You are a manager, reporting to the owner.
+- Before offering a time to book, you MUST use the checkCalendarAvailability tool to get the real, updated schedule. Never guess or invent available times. Once you receive the free times from the tool, present them cleanly and politely to the user.
 
 CATALOG-INVENTORY SYNC RULES:
 - Always prioritize LIVE INVENTORY stock levels over CSV catalog levels if there is a conflict.
@@ -335,6 +336,60 @@ CATALOG-INVENTORY SYNC RULES:
             }
         });
 
+        // Create the checkCalendarAvailability tool
+        const checkCalendarAvailabilityTool = tool({
+            description: 'Use this tool whenever a customer asks for available appointment times, asks to book a service, or asks about your schedule.',
+            inputSchema: z.object({
+                date: z.string().describe('The date to check for available time slots (formatted as YYYY-MM-DD)'),
+            }),
+            execute: async ({ date }) => {
+                if (!ownerId) return "Error: No user context found.";
+
+                try {
+                    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+                    const host = req.headers.get('host') || 'localhost:3000';
+                    const baseUrl = `${protocol}://${host}`;
+
+                    const response = await fetch(`${baseUrl}/api/calendar/availability`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            userId: ownerId,
+                            date: date,
+                            // Defaulting to Beirut as requested
+                            timezone: 'Asia/Beirut'
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        return `Error checking calendar: ${data.error || 'Unknown error'}`;
+                    }
+
+                    if (data.availableSlots && data.availableSlots.length > 0) {
+                        return JSON.stringify({
+                            status: "success",
+                            message: `Found free time slots for ${date}`,
+                            availableSlots: data.availableSlots
+                        });
+                    } else {
+                        return JSON.stringify({
+                            status: "success",
+                            message: `No available time slots found on ${date}`,
+                            availableSlots: []
+                        });
+                    }
+
+                } catch (error: any) {
+                    console.error('checkCalendarAvailabilityTool Error:', error);
+                    return `Failed to check calendar availability: ${error.message}`;
+                }
+            }
+        });
+
         // 5. STREAM WITH TOOLS (Groq)
         // Note: AI SDK automatically converts tools to OpenAI format compatible with Groq
         const result = streamText({
@@ -345,6 +400,7 @@ CATALOG-INVENTORY SYNC RULES:
             tools: {
                 manageInventory: manageInventoryTool,
                 sendInstagramDM: sendInstagramDMTool,
+                checkCalendarAvailability: checkCalendarAvailabilityTool,
             },
         });
 
