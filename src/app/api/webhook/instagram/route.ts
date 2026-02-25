@@ -17,9 +17,10 @@ const getSupabaseAdmin = () => {
 // 🔐 Verify Meta Webhook Signature
 // ═══════════════════════════════════════
 function verifySignature(rawBody: string, signature: string | null): boolean {
-    const appSecret = process.env.FACEBOOK_APP_SECRET;
+    // New Instagram Login uses INSTAGRAM_APP_SECRET to sign webhooks
+    const appSecret = process.env.INSTAGRAM_APP_SECRET || process.env.FACEBOOK_APP_SECRET;
     if (!appSecret) {
-        console.warn('⚠️ FACEBOOK_APP_SECRET not set — skipping signature validation');
+        console.warn('⚠️ INSTAGRAM_APP_SECRET not set — skipping signature validation');
         return true;
     }
     if (!signature) {
