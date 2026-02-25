@@ -245,7 +245,7 @@ export default function SettingsPage() {
         const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID;
         // Use window.location.origin for dynamic domain handling (localhost vs production)
         const redirectUri = `${window.location.origin}/api/auth/callback/instagram`;
-        // UPDATED SCOPES: Based on Meta Dashboard requirements for Instagram Business Login
+        // UPDATED SCOPES: Fixed scope names (no 'business' in comments) and reverted to Facebook OAuth for Business Login flow
         const scope = 'instagram_business_basic,instagram_business_manage_messages,instagram_manage_comments';
 
         if (!appId) {
@@ -254,7 +254,7 @@ export default function SettingsPage() {
             return;
         }
 
-        const authUrl = `https://www.instagram.com/oauth/authorize?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=code`;
+        const authUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=code`;
 
         console.log("Redirecting to Meta:", authUrl);
         window.location.href = authUrl;
