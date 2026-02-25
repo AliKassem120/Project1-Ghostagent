@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
         // 1. Exchange Code for Access Token
         // CRITICAL: The redirect_uri here MUST match exactly what was used on the client side login button.
         // We use the request origin to ensure consistency.
-        const tokenUrl = `https://graph.facebook.com/v18.0/oauth/access_token?client_id=${process.env.NEXT_PUBLIC_FACEBOOK_APP_ID}&redirect_uri=${appUrl}/api/auth/callback/instagram&client_secret=${process.env.FACEBOOK_APP_SECRET}&code=${code}`;
+        const tokenUrl = `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${process.env.NEXT_PUBLIC_FACEBOOK_APP_ID}&redirect_uri=${appUrl}/api/auth/callback/instagram&client_secret=${process.env.FACEBOOK_APP_SECRET}&code=${code}`;
 
         const tokenRes = await fetch(tokenUrl);
         const tokenData = await tokenRes.json();

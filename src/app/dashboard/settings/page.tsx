@@ -245,8 +245,8 @@ export default function SettingsPage() {
         const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID;
         // Use window.location.origin for dynamic domain handling (localhost vs production)
         const redirectUri = `${window.location.origin}/api/auth/callback/instagram`;
-        // UPDATED SCOPES: Removes business_basic, adds required engagement/management permissions
-        const scope = 'instagram_basic,pages_show_list,pages_read_engagement,instagram_manage_comments,instagram_manage_messages';
+        // UPDATED SCOPES: Uses the new Instagram Business Login API, removing Facebook Page selection complexity
+        const scope = 'instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments';
 
         if (!appId) {
             toast.error("Missing NEXT_PUBLIC_FACEBOOK_APP_ID in env");
@@ -254,7 +254,7 @@ export default function SettingsPage() {
             return;
         }
 
-        const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=code`;
+        const authUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=code`;
 
         console.log("Redirecting to Meta:", authUrl);
         window.location.href = authUrl;
