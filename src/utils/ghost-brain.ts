@@ -28,7 +28,7 @@ export async function generateGhostReply(
             .single();
 
         const business: BusinessProfile = {
-            business_name: settings?.business_name || 'Ghost Agent Store',
+            business_name: settings?.business_name || 'our store',
             business_type: settings?.business_type || 'ecommerce',
             tone: settings?.tone || 'Professional',
             system_instructions: settings?.system_instructions || null,

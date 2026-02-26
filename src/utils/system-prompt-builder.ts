@@ -100,7 +100,7 @@ export function generateSystemPrompt(business: BusinessProfile): string {
  */
 export function buildSystemPrompt(ctx: PromptContext): string {
     const { business, inventoryContext, catalogContext, historyContext, contextSummary, hasGreetedRecently } = ctx;
-    const businessName = business.business_name || 'Ghost Agent Store';
+    const businessName = business.business_name || 'our store';
 
     // ── MODULE 3: BUSINESS TYPE DIRECTIVE ──
     const businessTypeDirective = generateSystemPrompt(business);

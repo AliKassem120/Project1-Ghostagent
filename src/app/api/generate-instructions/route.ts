@@ -13,22 +13,29 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'AI service not configured' }, { status: 500 });
         }
 
-        const prompt = `You are a helpful assistant that writes detailed, professional system instructions for an AI customer service chatbot.
+        // The generated text goes into `system_instructions`, which is injected into the
+        // BUSINESS INSTRUCTIONS section of our master system prompt (buildSystemPrompt).
+        // It must be concise, additive context — NOT a full standalone system prompt.
+        const prompt = `You are an expert AI assistant that writes concise, business-specific instructions for a customer service chatbot.
 
-The business is called "${businessName || 'a business'}".
+The business is called "${businessName || 'this business'}".
 
-The user gave you this short description of what their bot should do:
+The owner described their business as:
 "${description}"
 
-Based on that, write detailed system instructions that cover:
-- What the business sells and does
-- How to greet customers
-- How to handle pricing questions
-- Shipping and return policies (make reasonable assumptions)
-- Tone and personality guidelines
-- What to do when the bot doesn't know the answer
+Your task: Write ONLY the specific, additive instructions that make this chatbot unique to this business.
+Focus on:
+- What makes this business special (unique products, services, or offers)
+- Any specific policies the bot should know (returns, delivery areas, operating hours if mentioned)
+- Specific upsell opportunities or frequently asked questions for this niche
+- Any edge cases unique to this type of business
 
-Write the instructions in second person (e.g., "You are a customer service agent for..."). Keep it under 500 words. Be specific and actionable. Do NOT use markdown formatting — write plain text only.`;
+STRICT RULES:
+- Do NOT write generic chatbot instructions (greetings, politeness, tone) — those are already handled by the system.
+- Do NOT repeat instructions about language, emojis, or handoff — those are already in the system.
+- Do NOT write "You are a customer service agent for..." — start directly with business-specific context.
+- Keep it under 200 words. Be specific and actionable. Plain text only, no markdown.
+- Write in second person (e.g., "When asked about delivery...").`;
 
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
@@ -39,8 +46,8 @@ Write the instructions in second person (e.g., "You are a customer service agent
             body: JSON.stringify({
                 model: 'llama-3.3-70b-versatile',
                 messages: [{ role: 'user', content: prompt }],
-                temperature: 0.7,
-                max_tokens: 800,
+                temperature: 0.6,
+                max_tokens: 400,
             }),
         });
 
