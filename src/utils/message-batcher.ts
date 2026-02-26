@@ -4,7 +4,7 @@
 // rapid messages and each triggers a separate AI response.
 // ═══════════════════════════════════════════════════════════════
 
-const DEBOUNCE_DELAY_MS = 5000; // 5 second window
+const DEBOUNCE_DELAY_MS = 8000; // 8 second window to catch rapid-fire messages
 
 /**
  * Saves an incoming message as 'pending' in the messages table.

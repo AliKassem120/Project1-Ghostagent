@@ -635,7 +635,10 @@ async function generateCommentReply(
         let inventoryContext = "No inventory items listed.";
         if (inventory?.length) {
             inventoryContext = inventory
-                .map((i: any) => `- ${i.item_name}: ${i.stock_level} in stock ($${i.price})`)
+                .map((i: any) => {
+                    const availability = i.stock_level > 0 ? 'In Stock' : 'Out of Stock';
+                    return `- ${i.item_name}: ${availability} ($${i.price})`;
+                })
                 .join('\n');
         }
 
