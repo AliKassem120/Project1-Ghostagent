@@ -23,7 +23,7 @@ export async function generateGhostReply(
         // ═══════════════════════════════════════
         const { data: settings } = await supabase
             .from('bot_settings')
-            .select('business_name, business_type, tone, system_instructions, urgency_mode, handoff_keywords, language, store_location, contact_info, use_emojis, use_local_slang')
+            .select('business_name, business_type, tone, system_instructions, urgency_mode, handoff_keywords, language, store_location, contact_info, use_emojis, use_local_slang, shipping_rules')
             .eq('user_id', userId)
             .single();
 
@@ -39,6 +39,7 @@ export async function generateGhostReply(
             use_local_slang: settings?.use_local_slang ?? false,
             urgency_mode: settings?.urgency_mode ?? false,
             handoff_keywords: settings?.handoff_keywords || [],
+            shipping_rules: settings?.shipping_rules || null,
         };
 
         // ═══════════════════════════════════════

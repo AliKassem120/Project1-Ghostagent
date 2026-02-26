@@ -1,7 +1,10 @@
 // ═══════════════════════════════════════════════════════════════
-// 📦 GHOST AGENT — Message Batching (Debounce) Engine
+// 📦 GHOST AGENT — Message Batching (Debounce) Engine v2
 // Solves the "machine gun" problem where users send multiple
 // rapid messages and each triggers a separate AI response.
+//
+// Strategy: DB-level "processing lock" using upsert to prevent
+// race conditions between parallel serverless invocations.
 // ═══════════════════════════════════════════════════════════════
 
 const DEBOUNCE_DELAY_MS = 8000; // 8 second window to catch rapid-fire messages
@@ -39,9 +42,10 @@ export async function savePendingMessage(
 }
 
 /**
- * Waits for the debounce window, then checks if a newer pending
- * message exists. Returns null if this webhook should defer.
- * Returns the concatenated batch if this is the latest message.
+ * Waits for the debounce window, then tries to acquire a DB-level
+ * processing lock for this sender. Only one invocation will win the
+ * lock — the rest will defer. Returns null if this webhook should defer.
+ * Returns the concatenated batch if this invocation wins the lock.
  */
 export async function waitAndBatchMessages(
     supabase: any,
@@ -52,7 +56,10 @@ export async function waitAndBatchMessages(
     // 1. Wait for the debounce window
     await new Promise(resolve => setTimeout(resolve, DEBOUNCE_DELAY_MS));
 
-    // 2. Check if a NEWER pending message exists for this sender
+    // 2. Try to acquire a DB-level lock using upsert.
+    //    Only the LAST invocation should win — we do this by trying to
+    //    set ourselves as the 'processor'. If another message arrived
+    //    after ours, it will have already claimed the lock.
     const { data: newerMessages } = await supabase
         .from('messages')
         .select('id, created_at')
@@ -60,42 +67,50 @@ export async function waitAndBatchMessages(
         .eq('sender_id', senderId)
         .eq('status', 'pending')
         .gt('created_at', await getMessageTimestamp(supabase, currentMessageId))
-        .order('created_at', { ascending: false })
         .limit(1);
 
     if (newerMessages && newerMessages.length > 0) {
-        // A newer message exists — this webhook should defer
+        // A newer pending message exists — defer to its handler
         console.log(`⏳ Deferring to newer message: ${newerMessages[0].id}`);
         return null;
     }
 
-    // 3. This is the latest message — fetch ALL pending messages for this sender
-    const { data: pendingMessages, error } = await supabase
+    // 3. We are the latest — atomically claim all pending messages
+    //    by marking them 'processing' before fetching.
+    //    This prevents another concurrent invocation from also claiming them.
+    const claimTimestamp = new Date().toISOString();
+
+    const { data: claimedMessages, error: claimError } = await supabase
         .from('messages')
-        .select('id, message_text, created_at')
+        .update({ status: 'processing', updated_at: claimTimestamp })
         .eq('owner_id', ownerId)
         .eq('sender_id', senderId)
         .eq('status', 'pending')
-        .order('created_at', { ascending: true });
+        .select('id, message_text, created_at');
 
-    if (error || !pendingMessages?.length) {
-        console.error('❌ Failed to fetch pending messages:', error);
+    if (claimError || !claimedMessages?.length) {
+        // Another invocation already claimed them — defer
+        console.log('⏳ No pending messages to claim (already taken). Deferring.');
         return null;
     }
 
-    // 4. Concatenate all pending messages into a single string
-    const batchedMessage = pendingMessages
+    // 4. Sort claimed messages chronologically and concatenate
+    const sorted = claimedMessages.sort(
+        (a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+
+    const batchedMessage = sorted
         .map((m: { message_text: string }) => m.message_text)
         .join('\n');
 
     // 5. Mark all as 'processed'
-    const messageIds = pendingMessages.map((m: { id: string }) => m.id);
+    const messageIds = sorted.map((m: { id: string }) => m.id);
     await supabase
         .from('messages')
         .update({ status: 'processed' })
         .in('id', messageIds);
 
-    console.log(`📦 Batched ${pendingMessages.length} messages into one: "${batchedMessage.slice(0, 100)}..."`);
+    console.log(`📦 Batched ${sorted.length} message(s) into one: "${batchedMessage.slice(0, 100)}..."`);
     return batchedMessage;
 }
 

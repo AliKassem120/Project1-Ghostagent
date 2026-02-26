@@ -52,7 +52,8 @@ export default function ActivityFeed({ autopilot, isOpen, onClose }: { autopilot
 
     useEffect(() => {
         if (rawActivities) {
-            setActivities(rawActivities.map(mapActivity));
+            // Reverse so chronological order reads top-to-bottom (oldest first, newest at bottom)
+            setActivities([...rawActivities].reverse().map(mapActivity));
         }
     }, [rawActivities, mapActivity]);
 

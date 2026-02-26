@@ -39,6 +39,7 @@ export default function SettingsPage() {
         whatsappTemplate: '',
         storeLocation: '',
         contactInfo: '',
+        shippingRules: '',
         businessType: 'ecommerce' as BusinessCategory,
     });
 
@@ -128,6 +129,7 @@ export default function SettingsPage() {
                         whatsappTemplate: data.whatsapp_template || '',
                         storeLocation: data.store_location || '',
                         contactInfo: data.contact_info || '',
+                        shippingRules: data.shipping_rules || '',
                         businessType: (data.business_type || 'ecommerce') as BusinessCategory,
                     });
                 }
@@ -333,6 +335,7 @@ export default function SettingsPage() {
                     whatsapp_template: settings.whatsappTemplate,
                     store_location: settings.storeLocation,
                     contact_info: settings.contactInfo,
+                    shipping_rules: settings.shippingRules || null,
                     use_local_slang: settings.useLocalSlang,
                     business_type: settings.businessType,
                     updated_at: new Date().toISOString(),
@@ -421,6 +424,17 @@ export default function SettingsPage() {
                             />
                             <p className="text-[10px] text-white/20 ml-1">Phone, email, or website the AI can share.</p>
                         </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Shipping &amp; Delivery Rules</label>
+                        <textarea
+                            value={settings.shippingRules}
+                            onChange={(e) => setSettings({ ...settings, shippingRules: e.target.value })}
+                            className="input-premium w-full h-24 resize-none text-sm"
+                            placeholder="e.g. Free shipping over $50. Delivery 2-3 days within Lebanon. No international shipping."
+                        />
+                        <p className="text-[10px] text-white/20 ml-1">The AI will quote these rules exactly when customers ask about shipping.</p>
                     </div>
                 </div>
             </motion.div>

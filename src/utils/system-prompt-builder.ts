@@ -24,6 +24,7 @@ export interface BusinessProfile {
     use_local_slang: boolean;
     urgency_mode: boolean;
     handoff_keywords: string[];
+    shipping_rules: string | null;
 }
 
 export interface PromptContext {
@@ -151,13 +152,14 @@ EXAMPLES:
 
     // ── STORE INFO (Anti-hallucination anchor) ──
     let storeInfoSection = '';
-    if (business.store_location || business.contact_info) {
+    if (business.store_location || business.contact_info || business.shipping_rules) {
         storeInfoSection = `
 ═══════════════════════════════════════
 📍 STORE INFORMATION
 ═══════════════════════════════════════
 ${business.store_location ? `Location: ${business.store_location}` : 'Location: Not provided by store owner.'}
 ${business.contact_info ? `Contact: ${business.contact_info}` : 'Contact: Not provided by store owner.'}
+${business.shipping_rules ? `\n📦 SHIPPING & DELIVERY RULES:\n${business.shipping_rules}` : ''}
 
 ⚠️ CRITICAL: ONLY share the EXACT info above. If location or contact is "Not provided," say "I don't have that info, please contact the store directly." NEVER invent addresses, phone numbers, or opening hours.`;
     }
