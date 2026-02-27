@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from '@supabase/supabase-js';
 import { generateGhostReply } from '@/utils/ghost-brain';
 import { savePendingMessage, waitAndBatchMessages } from '@/utils/message-batcher';
+import { containsAlertKeyword, triggerManagerAlert, ALERT_KEYWORDS } from '@/utils/whatsapp-alerts';
 import crypto from 'crypto';
 import { checkUserLimit } from '@/lib/billing';
 
@@ -200,6 +201,29 @@ async function processWebhookEvent(body: any) {
                     }
 
                     console.log(`📦 Processing batched message: "${batchedMessage.slice(0, 100)}"`);
+
+                    // ═══════════════════════════════════════
+                    // 🚨 MANAGER ALERT CHECK (Non-blocking)
+                    // ═══════════════════════════════════════
+                    void (async () => {
+                        try {
+                            const { data: ws } = await supabaseAdmin
+                                .from('bot_settings')
+                                .select('emergency_whatsapp, handoff_keywords')
+                                .eq('user_id', ownerId)
+                                .single();
+                            if (!ws?.emergency_whatsapp) return;
+                            if (!containsAlertKeyword(batchedMessage, ws.handoff_keywords || [])) return;
+                            // Find the specific matched keyword for the alert message
+                            const allKw = [...ALERT_KEYWORDS, ...(ws.handoff_keywords || [])];
+                            const matched = allKw.find(
+                                (kw: string) => batchedMessage.toLowerCase().includes(kw.toLowerCase())
+                            ) ?? 'a trigger keyword';
+                            await triggerManagerAlert(ws.emergency_whatsapp, senderName, matched, 'Instagram');
+                        } catch (err: unknown) {
+                            console.error('⚠️ Manager alert error:', err);
+                        }
+                    })();
 
                     // ═══════════════════════════════════════
                     // 💰 BILLING CHECK

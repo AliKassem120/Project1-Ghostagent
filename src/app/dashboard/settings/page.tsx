@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Save, Bot, DollarSign, Bell, Globe, Sparkles, Upload, Building2, Loader2, Check, FileSpreadsheet, X, Instagram, Phone, Trash2, Plus } from 'lucide-react';
+import { Save, Bot, DollarSign, Bell, Globe, Sparkles, Upload, Building2, Loader2, Check, FileSpreadsheet, X, Instagram, Phone, Trash2, Plus, Lock, Wifi } from 'lucide-react';
 import { clsx } from 'clsx';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
@@ -16,7 +16,9 @@ import { useWorkspace } from '@/contexts/WorkspaceContext';
 export default function SettingsPage() {
     const supabase = createClient();
     const toast = useToast();
-    const { activeWorkspaceId } = useWorkspace();
+    const { activeWorkspaceId, planTier } = useWorkspace();
+    const isPro = planTier === 'pro' || planTier === 'empire';
+    const isEmpire = planTier === 'empire';
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -43,6 +45,10 @@ export default function SettingsPage() {
         contactInfo: '',
         shippingRules: '',
         businessType: 'ecommerce' as BusinessCategory,
+        // WhatsApp Business (Empire)
+        waBusinessAccountId: '',
+        waPhoneNumberId: '',
+        waAccessToken: '',
     });
 
     // AI Generate state
@@ -128,6 +134,9 @@ export default function SettingsPage() {
                         contactInfo: data.contact_info || '',
                         shippingRules: data.shipping_rules || '',
                         businessType: (data.business_type || 'ecommerce') as BusinessCategory,
+                        waBusinessAccountId: data.whatsapp_business_account_id || '',
+                        waPhoneNumberId: data.whatsapp_phone_number_id || '',
+                        waAccessToken: data.whatsapp_access_token || '',
                     });
                 }
             } catch (err) {
@@ -329,6 +338,12 @@ export default function SettingsPage() {
                     use_local_slang: settings.useLocalSlang,
                     business_type: settings.businessType,
                     updated_at: new Date().toISOString(),
+                    // Empire-only: WhatsApp Business credentials
+                    ...(isEmpire ? {
+                        whatsapp_business_account_id: settings.waBusinessAccountId || null,
+                        whatsapp_phone_number_id: settings.waPhoneNumberId || null,
+                        whatsapp_access_token: settings.waAccessToken || null,
+                    } : {}),
                 })
                 .eq('id', activeWorkspaceId);
 
@@ -478,7 +493,7 @@ export default function SettingsPage() {
             </motion.div>
 
             {/* Manager Alerts */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="glass-card rounded-2xl p-6">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="glass-card rounded-2xl p-6 relative overflow-hidden">
                 <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
                     <div className="p-2.5 rounded-xl bg-amber-500/10">
                         <Bell className="w-5 h-5 text-amber-400" />
@@ -487,6 +502,11 @@ export default function SettingsPage() {
                         <h2 className="text-sm font-semibold text-white">Manager Alerts</h2>
                         <p className="text-[11px] text-muted-foreground">Human escalation via WhatsApp</p>
                     </div>
+                    {!isPro && (
+                        <span className="ml-auto flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-full px-2.5 py-1">
+                            <Lock className="w-3 h-3" /> Pro+
+                        </span>
+                    )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -499,13 +519,87 @@ export default function SettingsPage() {
                             onChange={(e) => setSettings({ ...settings, emergencyWhatsApp: e.target.value })}
                             className="input-premium w-full !pl-10"
                             placeholder="+1 234 567 8900"
+                            disabled={!isPro}
                         />
                     </div>
                     <p className="text-[10px] text-white/20 ml-1">Ghost Agent texts this number if a customer says &quot;Manager&quot;, &quot;Scam&quot;, or &quot;Bot&quot;.</p>
                 </div>
+
+                {/* Paywall overlay for Starter */}
+                {!isPro && (
+                    <div className="absolute inset-0 bg-[#0B0E14]/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center gap-3 z-10">
+                        <div className="p-3 rounded-full bg-white/[0.04] border border-white/[0.06]">
+                            <Lock className="w-5 h-5 text-white/30" />
+                        </div>
+                        <div className="text-center px-6">
+                            <p className="text-sm font-bold text-white/60">Pro Feature</p>
+                            <p className="text-[11px] text-white/30 mt-1">Upgrade to Pro to receive WhatsApp alerts when customers need help.</p>
+                        </div>
+                        <a href="/dashboard/billing" className="text-[11px] font-bold text-primary hover:underline">Upgrade to Pro →</a>
+                    </div>
+                )}
+            </motion.div>
+
+            {/* WhatsApp Business (Omnichannel — Empire only) */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.17 }} className="glass-card rounded-2xl p-6 relative overflow-hidden">
+                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
+                    <div className="p-2.5 rounded-xl bg-emerald-500/10">
+                        <Wifi className="w-5 h-5 text-emerald-400" />
+                    </div>
+                    <div>
+                        <h2 className="text-sm font-semibold text-white">WhatsApp Business</h2>
+                        <p className="text-[11px] text-muted-foreground">Omnichannel AI — reply to WhatsApp customers</p>
+                    </div>
+                    <span className={clsx(
+                        'ml-auto flex items-center gap-1 text-[10px] font-bold rounded-full px-2.5 py-1 border',
+                        isEmpire
+                            ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                            : 'text-white/30 bg-white/[0.03] border-white/[0.06]'
+                    )}>
+                        {!isEmpire && <Lock className="w-3 h-3" />}
+                        Empire
+                    </span>
+                </div>
+
+                <div className="space-y-4">
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">WA Business Account ID</label>
+                        <input type="text" value={settings.waBusinessAccountId}
+                            onChange={e => setSettings({ ...settings, waBusinessAccountId: e.target.value })}
+                            className="input-premium w-full" placeholder="123456789012345" disabled={!isEmpire} />
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Phone Number ID</label>
+                        <input type="text" value={settings.waPhoneNumberId}
+                            onChange={e => setSettings({ ...settings, waPhoneNumberId: e.target.value })}
+                            className="input-premium w-full" placeholder="Phone Number ID from Meta dashboard" disabled={!isEmpire} />
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Access Token</label>
+                        <input type="password" value={settings.waAccessToken}
+                            onChange={e => setSettings({ ...settings, waAccessToken: e.target.value })}
+                            className="input-premium w-full" placeholder="Permanent system user token" disabled={!isEmpire} />
+                        <p className="text-[10px] text-white/20 ml-1">Stored encrypted. Only used to send WhatsApp replies from your number.</p>
+                    </div>
+                </div>
+
+                {/* Paywall overlay for non-Empire */}
+                {!isEmpire && (
+                    <div className="absolute inset-0 bg-[#0B0E14]/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center gap-3 z-10">
+                        <div className="p-3 rounded-full bg-white/[0.04] border border-white/[0.06]">
+                            <Lock className="w-5 h-5 text-white/30" />
+                        </div>
+                        <div className="text-center px-6">
+                            <p className="text-sm font-bold text-white/60">Empire Feature</p>
+                            <p className="text-[11px] text-white/30 mt-1">Connect a WhatsApp Business number and let Ghost Agent reply to customers on WhatsApp too.</p>
+                        </div>
+                        <a href="/dashboard/billing" className="text-[11px] font-bold text-primary hover:underline">Upgrade to Empire →</a>
+                    </div>
+                )}
             </motion.div>
 
             {/* Sales Rules */}
+
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
                     <div className="p-2.5 rounded-xl bg-emerald-500/10">
