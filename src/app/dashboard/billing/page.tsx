@@ -96,19 +96,45 @@ export default function BillingPage() {
 
     const handlePlanChange = async (planName: string, planPrice: number) => {
         setIsUpdating(true);
-        if (planName === 'Pro Agent' || planName === 'Empire') {
+        try {
             const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                // Redirect straight to checkout using our mock infrastructure
+            if (!user) return;
+
+            // Map UI names to DB tier strings
+            let dbTier = 'starter';
+            if (planName === 'Pro Agent') dbTier = 'pro';
+            if (planName === 'Empire') dbTier = 'empire';
+
+            // ─── TESTING MODE: Direct DB Update ───
+            const { error } = await supabase
+                .from('users')
+                .update({ plan_tier: dbTier })
+                .eq('id', user.id);
+
+            if (error) throw error;
+
+            // Update UI state
+            setCurrentPlan(planName);
+            toast.success(`Testing Mode: Plan updated to ${planName}`);
+
+            /* 
+            // ─── PRODUCTION CHECKOUT LOGIC (Paused for now) ───
+            if (planName === 'Pro Agent' || planName === 'Empire') {
                 window.location.href = `/checkout?user_id=${user.id}&amount=${planPrice}&plan=${encodeURIComponent(planName)}`;
+            } else {
+                // Simulated downgrade for Starter
+                setTimeout(() => {
+                    setCurrentPlan(planName);
+                    setIsUpdating(false);
+                    toast.success(`Successfully downgraded to ${planName}!`);
+                }, 1500);
             }
-        } else {
-            // Simulated downgrade for Starter
-            setTimeout(() => {
-                setCurrentPlan(planName);
-                setIsUpdating(false);
-                toast.success(`Successfully downgraded to ${planName}!`);
-            }, 1500);
+            */
+        } catch (error: any) {
+            console.error('Plan change error:', error);
+            toast.error('Failed to upgrade: ' + (error.message || 'Unknown error'));
+        } finally {
+            setIsUpdating(false);
         }
     };
 
