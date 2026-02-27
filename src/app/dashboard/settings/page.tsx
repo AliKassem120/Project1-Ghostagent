@@ -16,7 +16,7 @@ import { useWorkspace } from '@/contexts/WorkspaceContext';
 export default function SettingsPage() {
     const supabase = createClient();
     const toast = useToast();
-    const { activeWorkspaceId, planTier } = useWorkspace();
+    const { activeWorkspaceId, planTier, isLoading: wsLoading } = useWorkspace();
     const isPro = planTier === 'pro' || planTier === 'empire';
     const isEmpire = planTier === 'empire';
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -108,15 +108,25 @@ export default function SettingsPage() {
     };
 
     useEffect(() => {
-        if (!activeWorkspaceId) return;
+        // If workspace context is still loading, wait
+        if (wsLoading) return;
+
         const fetchSettings = async () => {
             setLoading(true);
             try {
-                const { data, error } = await supabase
-                    .from('bot_settings')
-                    .select('*')
-                    .eq('id', activeWorkspaceId)
-                    .single();
+                let query = supabase.from('bot_settings').select('*');
+
+                if (activeWorkspaceId) {
+                    // Workspace-scoped fetch (new mode — after SQL migration)
+                    query = query.eq('id', activeWorkspaceId);
+                } else {
+                    // Fallback: fetch by user_id (existing users before migration)
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (!user) { setLoading(false); return; }
+                    query = query.eq('user_id', user.id);
+                }
+
+                const { data } = await query.single();
 
                 if (data) {
                     setSettings({
@@ -147,7 +157,7 @@ export default function SettingsPage() {
         };
 
         fetchSettings();
-    }, [activeWorkspaceId]);
+    }, [activeWorkspaceId, wsLoading]);
 
     const checkInstagramStatus = async () => {
         try {

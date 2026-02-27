@@ -58,7 +58,7 @@ export default function AddWorkspaceModal({ isOpen, onClose }: AddWorkspaceModal
                 name: name.trim(),
                 business_type: businessType,
             })
-            .select('id, user_id, name, business_type, instagram_account_id, instagram_username, created_at')
+            .select('id, user_id, name, business_type, created_at')
             .single();
 
         if (insertError || !data) {
@@ -72,8 +72,8 @@ export default function AddWorkspaceModal({ isOpen, onClose }: AddWorkspaceModal
             user_id: data.user_id,
             name: data.name || name.trim(),
             business_type: data.business_type as BusinessCategory,
-            instagram_account_id: data.instagram_account_id ?? null,
-            instagram_username: data.instagram_username ?? null,
+            instagram_account_id: null,
+            instagram_username: null,
             created_at: data.created_at,
         });
 

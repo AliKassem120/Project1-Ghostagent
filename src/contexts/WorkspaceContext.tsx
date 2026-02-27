@@ -80,25 +80,35 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         setIsLoading(true);
 
         // Fetch plan tier + workspaces in parallel
-        const [userRes, wsRes] = await Promise.all([
+        const [userRes, wsRes, igRes] = await Promise.all([
             supabase.from('users').select('plan_tier').eq('id', user.id).single(),
             supabase
                 .from('bot_settings')
-                .select('id, user_id, name, business_type, instagram_account_id, instagram_username, created_at')
+                .select('id, user_id, name, business_type, created_at')
                 .eq('user_id', user.id)
                 .order('created_at', { ascending: true }),
+            supabase
+                .from('user_connections')
+                .select('account_id, account_username')
+                .eq('user_id', user.id)
+                .eq('provider', 'INSTAGRAM'),
         ]);
 
         const plan = normalisePlan(userRes.data?.plan_tier);
         setPlanTier(plan);
 
-        const rows: Workspace[] = (wsRes.data || []).map((r: any) => ({
+        // Build a map of account_id -> username from connections
+        const igConnections: Array<{ account_id: string; account_username: string }> = igRes.data || [];
+        const firstIg = igConnections[0] ?? null;
+
+        const rows: Workspace[] = (wsRes.data || []).map((r: any, index: number) => ({
             id: r.id,
             user_id: r.user_id,
             name: r.name || 'My Store',
             business_type: (r.business_type || 'ecommerce') as BusinessCategory,
-            instagram_account_id: r.instagram_account_id ?? null,
-            instagram_username: r.instagram_username ?? null,
+            // Attach the Instagram connection to the first workspace (current 1:1 model)
+            instagram_account_id: index === 0 && firstIg ? firstIg.account_id : null,
+            instagram_username: index === 0 && firstIg ? firstIg.account_username : null,
             created_at: r.created_at,
         }));
 
