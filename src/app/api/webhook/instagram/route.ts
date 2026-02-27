@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from '@supabase/supabase-js';
 import { generateGhostReply } from '@/utils/ghost-brain';
-import { savePendingMessage, waitAndBatchMessages } from '@/utils/message-batcher';
+import { upsertDmBuffer, claimDmBuffer, clearDmBuffer, releaseDmBuffer, DEBOUNCE_SECONDS } from '@/utils/dm-debounce';
 import { containsAlertKeyword, triggerManagerAlert, ALERT_KEYWORDS } from '@/utils/whatsapp-alerts';
 import crypto from 'crypto';
 import { checkUserLimit } from '@/lib/billing';
@@ -166,158 +166,67 @@ async function processWebhookEvent(body: any) {
                     }
                     const { userId: ownerId, workspaceId } = ownerResult;
 
-                    // ═══════════════════════════════════════
-                    // 📦 SAVE PENDING (Do this FIRST, before any slow calls)
-                    // Claiming the pending slot immediately prevents Meta retries
-                    // from winning the race and causing "already taken" deferrals
-                    // ═══════════════════════════════════════
-                    const messageId = await savePendingMessage(
-                        supabaseAdmin,
-                        ownerId,
-                        senderId,
-                        messageText
-                    );
-
-                    // ── FETCH SENDER PROFILE (slow, but can happen after slot claim) ──
+                    // ── FETCH SENDER PROFILE ──
                     const userProfileName = await fetchUserProfile(senderId);
                     const senderName = userProfileName || `User ${senderId.slice(-4)}`;
 
                     // ═══════════════════════════════════════
-                    // 🚨 MANAGER ALERT CHECK (fire-and-forget, before batch wait)
+                    // 🚨 MANAGER ALERT CHECK (fire-and-forget, immediate)
                     // ═══════════════════════════════════════
                     void (async () => {
                         try {
                             let q = supabaseAdmin.from('bot_settings').select('emergency_whatsapp, handoff_keywords');
-                            if (workspaceId) {
-                                q = q.eq('id', workspaceId);
-                            } else {
-                                q = q.eq('user_id', ownerId);
-                            }
+                            q = workspaceId ? q.eq('id', workspaceId) : q.eq('user_id', ownerId);
                             const { data: ws } = await q.single();
                             if (!ws?.emergency_whatsapp) return;
                             if (!containsAlertKeyword(messageText, ws.handoff_keywords || [])) return;
 
-                            const allKeywords = [
-                                ...ALERT_KEYWORDS,
-                                ...(Array.isArray(ws.handoff_keywords) ? ws.handoff_keywords : [])
-                            ];
-                            const matchedKeyword = allKeywords.find(k =>
-                                messageText.toLowerCase().includes(k.toLowerCase())
-                            ) || 'alert';
-
+                            const allKeywords = [...ALERT_KEYWORDS, ...(Array.isArray(ws.handoff_keywords) ? ws.handoff_keywords : [])];
+                            const matchedKeyword = allKeywords.find(k => messageText.toLowerCase().includes(k.toLowerCase())) || 'alert';
                             console.log(`🚨 [Alert] Keyword "${matchedKeyword}" detected. Firing WhatsApp alert.`);
-                            await triggerManagerAlert({
-                                ownerWhatsAppNumber: ws.emergency_whatsapp,
-                                triggerKeyword: matchedKeyword,
-                                customerMessage: messageText,
-                                senderName,
-                            });
-                        } catch (e) {
-                            console.error('🚨 [Alert] Error firing manager alert:', e);
-                        }
+                            await triggerManagerAlert({ ownerWhatsAppNumber: ws.emergency_whatsapp, triggerKeyword: matchedKeyword, customerMessage: messageText, senderName });
+                        } catch (e) { console.error('🚨 [Alert] Error:', e); }
                     })();
 
                     // ── LOG INCOMING MESSAGE ──
-                    await supabaseAdmin.from('activity_log').insert({
+                    void supabaseAdmin.from('activity_log').insert({
                         user_id: ownerId,
                         workspace_id: workspaceId || null,
                         event_type: 'INCOMING_MESSAGE',
                         description: `${senderName}: "${messageText}"`,
                         timestamp: new Date().toISOString(),
-                        metadata: {
-                            chat_id: senderId,
-                            platform: 'instagram',
-                            username: senderName,
-                            sender: { attendee_name: senderName }
-                        }
+                        metadata: { chat_id: senderId, platform: 'instagram', username: senderName, sender: { attendee_name: senderName } }
                     });
 
-                    // ── BATCH WAIT: check if newer message arrived during the window ──
-                    const batchedMessage = await waitAndBatchMessages(
-                        supabaseAdmin,
+                    // ═══════════════════════════════════════════════════════════
+                    // 📦 UPSERT DM BUFFER — no sleeping, no racing
+                    // Each DM upserts one row per sender and resets reply_at.
+                    // The setTimeout below fires after the debounce window.
+                    // If a newer DM arrives, it pushes reply_at forward and the
+                    // newer timer will handle it — this one exits at claimDmBuffer.
+                    // ═══════════════════════════════════════════════════════════
+                    const replyAt = await upsertDmBuffer({
+                        supabase: supabaseAdmin,
                         ownerId,
                         senderId,
-                        messageId
-                    );
-
-                    if (batchedMessage === null) {
-                        console.log(`⏳ Deferring: Newer message exists for sender ${senderId}`);
-                        continue;
-                    }
-
-                    console.log(`📦 Processing batched message: "${batchedMessage.slice(0, 100)}"`);
-
-                    // ═══════════════════════════════════════
-                    // 💰 BILLING CHECK
-                    // ═══════════════════════════════════════
-                    const limitCheck = await checkUserLimit(ownerId);
-                    if (!limitCheck.allowed) {
-                        console.log(`🛑 LIMIT REACHED for ${ownerId}: ${limitCheck.reason}`);
-                        await supabaseAdmin.from('activity_log').insert({
-                            user_id: ownerId,
-                            event_type: 'SYSTEM_WARNING',
-                            description: `⚠️ Agent Paused: ${limitCheck.reason}`,
-                            timestamp: new Date().toISOString(),
-                            metadata: { chat_id: senderId, platform: 'instagram', type: 'billing_limit' }
-                        });
-                        continue;
-                    }
-
-                    // ═══════════════════════════════════════
-                    // 🧠 AI PROCESSING (with batched message)
-                    // ═══════════════════════════════════════
-                    const aiResponse = await generateGhostReply(
-                        ownerId,
-                        batchedMessage, // ← Single concatenated message
-                        supabaseAdmin,
-                        senderId,
-                        workspaceId ?? undefined  // ← Workspace-scoped AI brain
-                    );
-
-                    if (!aiResponse) {
-                        console.log('Ghost Protocol: No reply (handoff or empty).');
-                        continue;
-                    }
-
-                    // ═══════════════════════════════════════
-                    // 🤖 AUTOPILOT CHECK
-                    // ═══════════════════════════════════════
-                    const isAutopilot = await checkAutopilot(supabaseAdmin, ownerId, senderId);
-
-                    if (!isAutopilot) {
-                        console.log('🛑 AUTOPILOT OFF: Saving draft reply.');
-                        await supabaseAdmin.from('activity_log').insert({
-                            user_id: ownerId,
-                            event_type: 'DRAFT_REPLY',
-                            description: `Draft: "${aiResponse}"`,
-                            timestamp: new Date().toISOString(),
-                            metadata: {
-                                chat_id: senderId,
-                                platform: 'instagram',
-                                status: 'pending_approval',
-                                reply_text: aiResponse
-                            }
-                        });
-                        continue;
-                    }
-
-                    console.log('🤖 AI Reply:', aiResponse);
-
-                    // ═══════════════════════════════════════
-                    // 📤 SEND THE REPLY
-                    // ═══════════════════════════════════════
-                    await sendReply(ownerId, senderId, aiResponse, supabaseAdmin);
-
-                    // ═══════════════════════════════════════
-                    // 📝 LOG AI REPLY
-                    // ═══════════════════════════════════════
-                    await supabaseAdmin.from('activity_log').insert({
-                        user_id: ownerId,
-                        event_type: 'AI_REPLY',
-                        description: `Sent: "${aiResponse}"`,
-                        timestamp: new Date().toISOString(),
-                        metadata: { chat_id: senderId, platform: 'instagram' }
+                        workspaceId,
+                        messageText,
+                        channel: 'instagram',
                     });
+
+                    // Schedule the processor. Capture all needed context in closure.
+                    const debounceMs = DEBOUNCE_SECONDS * 1000 + 500; // +500ms safety margin
+                    setTimeout(async () => {
+                        await processDmBuffer({
+                            supabaseAdmin,
+                            ownerId,
+                            senderId,
+                            workspaceId,
+                            scheduledReplyAt: replyAt,
+                        });
+                    }, debounceMs);
+
+                    console.log(`⏱️ [Buffer] Scheduled reply for ${senderId} in ${debounceMs}ms (reply_at: ${replyAt})`);
                 }
             }
 
@@ -460,6 +369,113 @@ async function processWebhookEvent(body: any) {
         console.log("✅ Webhook event processed successfully.");
     } catch (error) {
         console.error("❌ Processing Error:", error);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 🔄 processDmBuffer — runs after the debounce window expires
+//    Called by setTimeout in processWebhookEvent (inside after()).
+//    Atomically claims the buffer → generates AI reply → sends.
+// ═══════════════════════════════════════════════════════════════
+interface ProcessDmBufferArgs {
+    supabaseAdmin: any;
+    ownerId: string;
+    senderId: string;
+    workspaceId: string | null;
+    scheduledReplyAt: string;
+}
+
+async function processDmBuffer({
+    supabaseAdmin,
+    ownerId,
+    senderId,
+    workspaceId,
+    scheduledReplyAt,
+}: ProcessDmBufferArgs) {
+    console.log(`🔄 [Buffer] processDmBuffer fired for sender ${senderId}`);
+
+    // 1. Atomically claim the buffer row
+    const claimed = await claimDmBuffer(supabaseAdmin, ownerId, senderId, scheduledReplyAt, 'instagram');
+    if (!claimed) {
+        // A newer message pushed reply_at forward — its timer will handle it
+        return;
+    }
+
+    const { text: batchedMessage, workspaceId: bufferWorkspace } = claimed;
+    const effectiveWorkspaceId = bufferWorkspace ?? workspaceId;
+
+    console.log(`📦 [Buffer] Processing batched message: "${batchedMessage.slice(0, 100)}"`);
+
+    try {
+        // 2. Billing check
+        const limitCheck = await checkUserLimit(ownerId);
+        if (!limitCheck.allowed) {
+            console.log(`🛑 LIMIT REACHED for ${ownerId}: ${limitCheck.reason}`);
+            await supabaseAdmin.from('activity_log').insert({
+                user_id: ownerId,
+                workspace_id: effectiveWorkspaceId || null,
+                event_type: 'SYSTEM_WARNING',
+                description: `⚠️ Agent Paused: ${limitCheck.reason}`,
+                timestamp: new Date().toISOString(),
+                metadata: { chat_id: senderId, platform: 'instagram', type: 'billing_limit' }
+            });
+            await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
+            return;
+        }
+
+        // 3. Generate AI reply
+        const aiResponse = await generateGhostReply(
+            ownerId,
+            batchedMessage,
+            supabaseAdmin,
+            senderId,
+            effectiveWorkspaceId ?? undefined
+        );
+
+        if (!aiResponse) {
+            console.log('Ghost Protocol: No reply (handoff or empty).');
+            await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
+            return;
+        }
+
+        // 4. Autopilot check
+        const isAutopilot = await checkAutopilot(supabaseAdmin, ownerId, senderId);
+        if (!isAutopilot) {
+            console.log('🛑 AUTOPILOT OFF: Saving draft reply.');
+            await supabaseAdmin.from('activity_log').insert({
+                user_id: ownerId,
+                workspace_id: effectiveWorkspaceId || null,
+                event_type: 'DRAFT_REPLY',
+                description: `Draft: "${aiResponse}"`,
+                timestamp: new Date().toISOString(),
+                metadata: { chat_id: senderId, platform: 'instagram', status: 'pending_approval', reply_text: aiResponse }
+            });
+            await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
+            return;
+        }
+
+        // 5. Send the reply
+        console.log('🤖 AI Reply:', aiResponse);
+        await sendReply(ownerId, senderId, aiResponse, supabaseAdmin);
+
+        // 6. Log the reply
+        await supabaseAdmin.from('activity_log').insert({
+            user_id: ownerId,
+            workspace_id: effectiveWorkspaceId || null,
+            event_type: 'AI_REPLY',
+            description: `Sent: "${aiResponse}"`,
+            timestamp: new Date().toISOString(),
+            metadata: { chat_id: senderId, platform: 'instagram' }
+        });
+
+        // 7. Clear the buffer
+        await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
+        console.log(`✅ [Buffer] Reply sent and buffer cleared for sender ${senderId}`);
+
+    } catch (err) {
+        console.error(`❌ [Buffer] processDmBuffer failed for sender ${senderId}:`, err);
+        // Release lock so TTL can allow retry
+        await releaseDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
     }
 }
 
