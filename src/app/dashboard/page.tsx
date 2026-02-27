@@ -191,14 +191,12 @@ export default function DashboardPage() {
         }
     };
 
-    const { data: activities, loading: activitiesLoading, refetch: refetchActivities } = useRealtime<ActivityLog>(
+    const { data: allActivities, loading: activitiesLoading, refetch: refetchActivities } = useRealtime<ActivityLog>(
         'activity_log',
         '*',
         {
-            // Filter by workspace_id if available, otherwise fall back to user_id
-            filter: activeWorkspaceId
-                ? { column: 'workspace_id', value: activeWorkspaceId }
-                : (userId ? { column: 'user_id', value: userId } : undefined),
+            // Always filter by user_id (guaranteed to have data)
+            filter: userId ? { column: 'user_id', value: userId } : undefined,
             orderBy: 'timestamp',
             orderDirection: 'desc',
             limit: 50,
@@ -207,25 +205,39 @@ export default function DashboardPage() {
         }
     );
 
-    const { count: totalInteractions } = useRealtimeCount(
+    // Client-side workspace filter: show rows that belong to this workspace
+    // OR rows that have no workspace_id yet (old data, shown under all workspaces)
+    const activities = useMemo(() => {
+        if (!activeWorkspaceId) return allActivities;
+        return allActivities.filter(a =>
+            !(a as any).workspace_id || (a as any).workspace_id === activeWorkspaceId
+        );
+    }, [allActivities, activeWorkspaceId]);
+
+    useRealtimeCount(
         'activity_log',
-        activeWorkspaceId
-            ? { column: 'workspace_id', value: activeWorkspaceId }
-            : (userId ? { column: 'user_id', value: userId } : undefined),
+        userId ? { column: 'user_id', value: userId } : undefined,
         { pollingInterval: 3000 }
     );
+    // Adjust count to match the client-side filtered set
+    const totalInteractions = activities.length;
 
-    const { data: inventoryItems, refetch: refetchInventory } = useRealtime<InventoryItem>(
+    const { data: allInventoryItems, refetch: refetchInventory } = useRealtime<InventoryItem>(
         'inventory',
         'id, stock_level',
         {
-            filter: activeWorkspaceId
-                ? { column: 'workspace_id', value: activeWorkspaceId }
-                : (userId ? { column: 'user_id', value: userId } : undefined),
+            filter: userId ? { column: 'user_id', value: userId } : undefined,
             enabled: !!userId,
             pollingInterval: 3000,
         }
     );
+    // Client-side filter for inventory too
+    const inventoryItems = useMemo(() => {
+        if (!activeWorkspaceId) return allInventoryItems;
+        return allInventoryItems.filter(i =>
+            !(i as any).workspace_id || (i as any).workspace_id === activeWorkspaceId
+        );
+    }, [allInventoryItems, activeWorkspaceId]);
 
     const { version } = useDashboard();
 
