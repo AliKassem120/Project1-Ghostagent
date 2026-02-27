@@ -63,7 +63,7 @@ export async function upsertDmBuffer({
             ? `${existing.buffered_text}\n${messageText}`
             : messageText;
 
-        await supabase
+        const { error: updateErr } = await supabase
             .from('dm_buffer')
             .update({
                 buffered_text: combinedText,
@@ -73,6 +73,11 @@ export async function upsertDmBuffer({
                 updated_at: now,
             })
             .eq('id', existing.id);
+
+        if (updateErr) {
+            console.error('❌ [Buffer] Failed to update dm_buffer row:', updateErr);
+            throw updateErr;
+        }
 
         console.log(`📨 [Buffer] Appended to existing buffer for sender ${senderId}. reply_at: ${replyAt}`);
     } else {
