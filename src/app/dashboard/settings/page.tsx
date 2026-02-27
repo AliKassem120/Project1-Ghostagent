@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Save, Bot, DollarSign, Bell, Globe, Sparkles, Upload, Building2, Loader2, Check, FileSpreadsheet, X, Instagram, Phone, Trash2, Plus, Lock, Wifi } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -159,15 +159,21 @@ export default function SettingsPage() {
         fetchSettings();
     }, [activeWorkspaceId, wsLoading]);
 
-    const checkInstagramStatus = async () => {
+    const checkInstagramStatus = useCallback(async () => {
+        if (!activeWorkspaceId) return;
         try {
-            const res = await fetch('/api/instagram/status');
+            const res = await fetch(`/api/instagram/status?workspace_id=${activeWorkspaceId}`);
             const data = await res.json();
             setInstagramStatus(data);
         } catch (e) {
             console.error('Failed to check Instagram status:', e);
         }
-    };
+    }, [activeWorkspaceId]);
+
+    // Automatically check status when activeWorkspaceId changes
+    useEffect(() => {
+        checkInstagramStatus();
+    }, [checkInstagramStatus]);
 
     // CSV Upload Handler
     const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -273,8 +279,9 @@ export default function SettingsPage() {
             return;
         }
 
-        // New Instagram-only Login endpoint
-        const authUrl = `https://www.instagram.com/oauth/authorize?enable_fb_login=0&force_authentication=1&client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}`;
+        // New Instagram-only Login endpoint — pass activeWorkspaceId via state param
+        const stateParam = activeWorkspaceId || '';
+        const authUrl = `https://www.instagram.com/oauth/authorize?enable_fb_login=0&force_authentication=1&client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&state=${stateParam}`;
 
         console.log("Redirecting to Meta:", authUrl);
         window.location.href = authUrl;

@@ -13,19 +13,26 @@ export async function generateGhostReply(
     userId: string,
     userMessage: string,
     supabase: any,
-    chatId?: string
+    chatId?: string,
+    workspaceId?: string
 ) {
-    console.log('👻 Ghost Brain v2: Generating reply for', userId);
+    console.log('👻 Ghost Brain v2: Generating reply for', userId, workspaceId ? `(workspace: ${workspaceId})` : '');
 
     try {
         // ═══════════════════════════════════════
-        // 1. FETCH BUSINESS SETTINGS
+        // 1. FETCH BUSINESS SETTINGS (workspace-aware)
         // ═══════════════════════════════════════
-        const { data: settings } = await supabase
+        let settingsQuery = supabase
             .from('bot_settings')
-            .select('business_name, business_type, tone, system_instructions, urgency_mode, handoff_keywords, language, store_location, contact_info, use_emojis, use_local_slang, shipping_rules')
-            .eq('user_id', userId)
-            .single();
+            .select('business_name, business_type, tone, system_instructions, urgency_mode, handoff_keywords, language, store_location, contact_info, use_emojis, use_local_slang, shipping_rules');
+
+        if (workspaceId) {
+            settingsQuery = settingsQuery.eq('id', workspaceId);
+        } else {
+            settingsQuery = settingsQuery.eq('user_id', userId);
+        }
+
+        const { data: settings } = await settingsQuery.single();
 
         const business: BusinessProfile = {
             business_name: settings?.business_name || 'our store',

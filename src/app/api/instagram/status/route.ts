@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     console.log("[Status] Checking Instagram Status...");
     try {
         const supabase = await createClient();
@@ -12,13 +12,21 @@ export async function GET() {
             return NextResponse.json({ connected: false, accounts: [] });
         }
 
+        // Optional workspace_id filter — shows only connections for that workspace
+        const workspaceId = request.nextUrl.searchParams.get('workspace_id');
+
         // 1. Check database
-        // Look for provider='INSTAGRAM' (Meta Graph API)
-        const { data: dbConnections, error } = await supabase
+        let query = supabase
             .from('user_connections')
             .select('*')
             .eq('user_id', user.id)
             .eq('provider', 'INSTAGRAM');
+
+        if (workspaceId) {
+            query = query.eq('workspace_id', workspaceId);
+        }
+
+        const { data: dbConnections, error } = await query;
 
         if (error) {
             console.error("[Status] DB Error:", error);

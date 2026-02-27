@@ -20,7 +20,7 @@ import AccountPanel from '@/components/AccountPanel';
 import AddWorkspaceModal from '@/components/AddWorkspaceModal';
 import { WorkspaceProvider, useWorkspace } from '@/contexts/WorkspaceContext';
 
-function DashboardSidebar({ isOpen, onClose, businessType }: { isOpen: boolean; onClose: () => void; businessType: BusinessCategory | null }) {
+function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
     const pathname = usePathname();
     const router = useRouter();
     const { autopilot, setAutopilot, isLoading } = useAutopilot();
@@ -42,7 +42,8 @@ function DashboardSidebar({ isOpen, onClose, businessType }: { isOpen: boolean; 
         { icon: CreditCard, label: 'Billing', href: '/dashboard/billing' },
     ];
 
-    // Dynamic items based on business type
+    // Dynamic items based on ACTIVE WORKSPACE business type (not the users table)
+    const businessType = activeWorkspace?.business_type ?? null;
     let dynamicItems: { icon: any, label: string, href: string }[] = [];
 
     switch (businessType) {
@@ -342,7 +343,6 @@ export default function DashboardLayout({
     const userId = user?.id;
     const router = useRouter();
 
-    const [businessType, setBusinessType] = useState<BusinessCategory | null>(null);
     const [isLoadingData, setIsLoadingData] = useState(true);
 
     useEffect(() => {
@@ -351,26 +351,24 @@ export default function DashboardLayout({
             return;
         }
 
-        const fetchUserType = async () => {
+        const checkUserExists = async () => {
             const { data, error } = await supabase
                 .from('users')
-                .select('business_type')
+                .select('id')
                 .eq('id', user.id)
                 .single();
 
-            if (data?.business_type) {
-                setBusinessType(data.business_type as BusinessCategory);
+            if (data) {
                 setIsLoadingData(false);
             } else {
                 if (error && error.code !== 'PGRST116') {
-                    console.error('Error fetching user type:', error);
+                    console.error('Error checking user:', error);
                 }
-                // If enrolled but no type, row missing, or other error, redirect to onboarding
                 router.replace('/onboarding');
             }
         };
 
-        fetchUserType();
+        checkUserExists();
     }, [user?.id, router]);
 
     if (isLoadingData) {
@@ -389,7 +387,7 @@ export default function DashboardLayout({
                     <WorkspaceProvider>
                         <div className="min-h-screen bg-background text-foreground flex relative overflow-hidden">
                             <StarBackground />
-                            <DashboardSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} businessType={businessType} />
+                            <DashboardSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
                             <DashboardContent
                                 toggleSidebar={() => setIsSidebarOpen(true)}
                             >

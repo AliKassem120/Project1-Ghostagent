@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server';
 export async function GET(request: NextRequest) {
     const { searchParams, origin } = request.nextUrl; // Use dynamic origin
     const code = searchParams.get("code");
+    const stateParam = searchParams.get("state"); // workspace_id passed via OAuth state
     const errorParam = searchParams.get("error");
     const errorReason = searchParams.get("error_reason");
     const errorDescription = searchParams.get("error_description");
@@ -87,8 +88,9 @@ export async function GET(request: NextRequest) {
         const { error: dbError } = await supabase.from('user_connections').upsert({
             user_id: user.id,
             provider: 'INSTAGRAM',
-            account_id: targetAccountId, // Allows webhook to match recipient.id (178...)
+            account_id: targetAccountId,
             account_username: targetUsername,
+            workspace_id: stateParam || null, // Link to the active workspace
             metadata: connectionData
         }, { onConflict: 'account_id' });
 
