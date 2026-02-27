@@ -1,10 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from '@supabase/supabase-js';
 import { generateGhostReply } from '@/utils/ghost-brain';
 import { savePendingMessage, waitAndBatchMessages } from '@/utils/message-batcher';
 import { containsAlertKeyword, triggerManagerAlert, ALERT_KEYWORDS } from '@/utils/whatsapp-alerts';
 import crypto from 'crypto';
 import { checkUserLimit } from '@/lib/billing';
+
+// Extend Vercel function timeout to 60 seconds for AI processing
+export const maxDuration = 60;
 
 // Helper to get admin supabase client
 const getSupabaseAdmin = () => {
@@ -102,13 +105,18 @@ export async function POST(req: Request) {
 
     console.log("Incoming Payload:", JSON.stringify(body).slice(0, 500));
 
-    // Step 4: Process the event (fire-and-forget for long processing)
-    // Return 200 immediately to Meta, then process in background
-    try {
-        await processWebhookEvent(body);
-    } catch (err) {
-        console.error("❌ Processing error:", err);
-    }
+    // ⏰ Return 200 to Meta IMMEDIATELY so it never retries.
+    // Use after() to process the event AFTER the response is sent.
+    // Without this, Meta waits, times out, retries, and the retry
+    // steals the pending-message lock → original defers → no reply.
+    after(async () => {
+        try {
+            await processWebhookEvent(body);
+            console.log("✅ Webhook event processed successfully.");
+        } catch (err) {
+            console.error("❌ Processing error:", err);
+        }
+    });
 
     return new NextResponse("EVENT_RECEIVED", { status: 200 });
 }
@@ -212,6 +220,7 @@ async function processWebhookEvent(body: any) {
                     // ── LOG INCOMING MESSAGE ──
                     await supabaseAdmin.from('activity_log').insert({
                         user_id: ownerId,
+                        workspace_id: workspaceId || null,
                         event_type: 'INCOMING_MESSAGE',
                         description: `${senderName}: "${messageText}"`,
                         timestamp: new Date().toISOString(),

@@ -205,13 +205,19 @@ export default function DashboardPage() {
         }
     );
 
-    // Client-side workspace filter: show rows that belong to this workspace
-    // OR rows that have no workspace_id yet (old data, shown under all workspaces)
+    // Client-side workspace filter:
+    // - Rows with matching workspace_id: always show ✅
+    // - Rows with null workspace_id (old, untagged data): show under all workspaces
+    //   so existing data isn't hidden. New data will always have workspace_id set.
     const activities = useMemo(() => {
         if (!activeWorkspaceId) return allActivities;
-        return allActivities.filter(a =>
-            !(a as any).workspace_id || (a as any).workspace_id === activeWorkspaceId
-        );
+        return allActivities.filter(a => {
+            const rowWorkspace = (a as any).workspace_id;
+            // Tagged row: only show for matching workspace
+            if (rowWorkspace) return rowWorkspace === activeWorkspaceId;
+            // Untagged (old) row: show under all workspaces as a fallback
+            return true;
+        });
     }, [allActivities, activeWorkspaceId]);
 
     useRealtimeCount(
