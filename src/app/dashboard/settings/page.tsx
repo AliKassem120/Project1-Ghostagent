@@ -11,10 +11,12 @@ import GhostLogo from '@/components/GhostLogo';
 import CustomSelect from '@/components/CustomSelect';
 import Papa from 'papaparse';
 import BusinessTypeSelector, { BusinessCategory } from '@/components/BusinessTypeSelector';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 export default function SettingsPage() {
     const supabase = createClient();
     const toast = useToast();
+    const { activeWorkspaceId } = useWorkspace();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -100,19 +102,14 @@ export default function SettingsPage() {
     };
 
     useEffect(() => {
+        if (!activeWorkspaceId) return;
         const fetchSettings = async () => {
+            setLoading(true);
             try {
-                const { data: { user } } = await supabase.auth.getUser();
-
-                if (!user) {
-                    setLoading(false);
-                    return;
-                }
-
                 const { data, error } = await supabase
                     .from('bot_settings')
                     .select('*')
-                    .eq('user_id', user.id)
+                    .eq('id', activeWorkspaceId)
                     .single();
 
                 if (data) {
@@ -141,7 +138,7 @@ export default function SettingsPage() {
         };
 
         fetchSettings();
-    }, []);
+    }, [activeWorkspaceId]);
 
     const checkInstagramStatus = async () => {
         try {
@@ -308,22 +305,15 @@ export default function SettingsPage() {
         try {
             const { data: { user } } = await supabase.auth.getUser();
 
-            if (!user) {
-                toast.error('You must be logged in to save settings.');
+            if (!activeWorkspaceId) {
+                toast.error('No active workspace selected.');
                 setSaving(false);
                 return;
             }
 
-            console.log('💾 Saving Settings:', {
-                user_id: user.id,
-                language: settings.language,
-                // ... other fields implicitly logged by the object check if we wanted
-            });
-
             const { error } = await supabase
                 .from('bot_settings')
-                .upsert({
-                    user_id: user.id,
+                .update({
                     business_name: settings.businessName,
                     tone: settings.tone,
                     use_emojis: settings.useEmojis,
@@ -339,7 +329,8 @@ export default function SettingsPage() {
                     use_local_slang: settings.useLocalSlang,
                     business_type: settings.businessType,
                     updated_at: new Date().toISOString(),
-                }, { onConflict: 'user_id' });
+                })
+                .eq('id', activeWorkspaceId);
 
             if (error) {
                 throw error;

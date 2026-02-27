@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LayoutDashboard, MessageSquareText, Package, Settings, LogOut, CreditCard, Zap, ChevronRight, BookOpen, Calendar, Clock, UtensilsCrossed, Map, Home, Users, PartyPopper, Ticket, Download, HeadphonesIcon, Loader2, Briefcase } from 'lucide-react';
+import { LayoutDashboard, MessageSquareText, Package, Settings, LogOut, CreditCard, Zap, ChevronRight, BookOpen, Calendar, Clock, UtensilsCrossed, Map, Home, Users, PartyPopper, Ticket, Download, HeadphonesIcon, Loader2, Briefcase, Building2, Check, Plus } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 import { useState, useEffect } from 'react';
@@ -17,17 +17,22 @@ import { DashboardProvider } from '@/contexts/DashboardContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { BusinessCategory } from '@/components/BusinessTypeSelector';
 import AccountPanel from '@/components/AccountPanel';
+import AddWorkspaceModal from '@/components/AddWorkspaceModal';
+import { WorkspaceProvider, useWorkspace } from '@/contexts/WorkspaceContext';
 
 function DashboardSidebar({ isOpen, onClose, businessType }: { isOpen: boolean; onClose: () => void; businessType: BusinessCategory | null }) {
     const pathname = usePathname();
     const router = useRouter();
     const { autopilot, setAutopilot, isLoading } = useAutopilot();
     const { user } = useAuth();
+    const { workspaces, activeWorkspace, activeWorkspaceId, setActiveWorkspace, canAddWorkspace, upgradeMessage, planTier } = useWorkspace();
     const userEmail = user?.email || null;
     const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || userEmail?.split('@')[0] || 'User';
     const userInitial = userName.charAt(0).toUpperCase();
     const isGoogleUser = user?.app_metadata?.provider === 'google';
     const [isAccountOpen, setIsAccountOpen] = useState(false);
+    const [isWorkspaceSwitcherOpen, setIsWorkspaceSwitcherOpen] = useState(false);
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
     // Base menu items that all users see
     const baseItems = [
@@ -126,7 +131,74 @@ function DashboardSidebar({ isOpen, onClose, businessType }: { isOpen: boolean; 
                     </button>
                 </div>
 
-                {/* Autopilot Toggle */}
+                {/* Workspace Switcher */}
+                <div className="mx-4 mt-5 mb-2">
+                    <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest px-1 mb-2">Active Agent</p>
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsWorkspaceSwitcherOpen(v => !v)}
+                            className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.05] transition-colors text-left group"
+                        >
+                            <div className="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
+                                <Building2 className="w-3.5 h-3.5 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-white/80 truncate">{activeWorkspace?.name || 'My Store'}</p>
+                                <p className="text-[9px] text-white/25 truncate">{activeWorkspace?.instagram_username ? `@${activeWorkspace.instagram_username}` : 'No Instagram connected'}</p>
+                            </div>
+                            <ChevronRight className={clsx('w-3.5 h-3.5 text-white/20 transition-transform shrink-0', isWorkspaceSwitcherOpen && 'rotate-90')} />
+                        </button>
+
+                        <AnimatePresence>
+                            {isWorkspaceSwitcherOpen && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                                    transition={{ duration: 0.15 }}
+                                    className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-[#0d0d14] border border-white/[0.07] rounded-xl shadow-2xl overflow-hidden"
+                                >
+                                    {workspaces.map(ws => (
+                                        <button
+                                            key={ws.id}
+                                            onClick={() => { setActiveWorkspace(ws.id); setIsWorkspaceSwitcherOpen(false); if (window.innerWidth < 1024) onClose(); }}
+                                            className={clsx(
+                                                'w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors',
+                                                ws.id === activeWorkspaceId
+                                                    ? 'bg-primary/10 text-primary'
+                                                    : 'text-white/50 hover:bg-white/[0.04] hover:text-white/80'
+                                            )}
+                                        >
+                                            <div className={clsx('w-2 h-2 rounded-full shrink-0', ws.id === activeWorkspaceId ? 'bg-primary' : 'bg-white/10')} />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-[11px] font-semibold truncate">{ws.name}</p>
+                                                <p className="text-[9px] text-white/25 truncate">{ws.instagram_username ? `@${ws.instagram_username}` : ws.business_type}</p>
+                                            </div>
+                                            {ws.id === activeWorkspaceId && <Check className="w-3 h-3 shrink-0" />}
+                                        </button>
+                                    ))}
+
+                                    <div className="border-t border-white/[0.05] p-2">
+                                        {canAddWorkspace ? (
+                                            <button
+                                                onClick={() => { setIsWorkspaceSwitcherOpen(false); setIsAddModalOpen(true); }}
+                                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-semibold text-primary hover:bg-primary/10 transition-colors"
+                                            >
+                                                <Plus className="w-3.5 h-3.5" />
+                                                Add Account
+                                            </button>
+                                        ) : (
+                                            <div className="px-3 py-2">
+                                                <p className="text-[9px] text-white/25">{upgradeMessage}</p>
+                                                <Link href="/dashboard/billing" onClick={() => setIsWorkspaceSwitcherOpen(false)} className="text-[10px] text-primary font-semibold hover:underline">Upgrade plan →</Link>
+                                            </div>
+                                        )}
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+                </div>
                 <div className="mx-4 mt-5 mb-2 p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
                     <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-semibold flex items-center gap-2 text-white/50">
@@ -226,6 +298,9 @@ function DashboardSidebar({ isOpen, onClose, businessType }: { isOpen: boolean; 
                 userInitial={userInitial}
                 isGoogleUser={isGoogleUser}
             />
+
+            {/* Add Workspace Modal */}
+            <AddWorkspaceModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
         </>
     );
 }
@@ -311,15 +386,17 @@ export default function DashboardLayout({
         <AutopilotProvider>
             <RealtimeProvider userId={userId}>
                 <DashboardProvider>
-                    <div className="min-h-screen bg-background text-foreground flex relative overflow-hidden">
-                        <StarBackground />
-                        <DashboardSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} businessType={businessType} />
-                        <DashboardContent
-                            toggleSidebar={() => setIsSidebarOpen(true)}
-                        >
-                            {children}
-                        </DashboardContent>
-                    </div>
+                    <WorkspaceProvider>
+                        <div className="min-h-screen bg-background text-foreground flex relative overflow-hidden">
+                            <StarBackground />
+                            <DashboardSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} businessType={businessType} />
+                            <DashboardContent
+                                toggleSidebar={() => setIsSidebarOpen(true)}
+                            >
+                                {children}
+                            </DashboardContent>
+                        </div>
+                    </WorkspaceProvider>
                 </DashboardProvider>
             </RealtimeProvider>
         </AutopilotProvider>
