@@ -158,13 +158,24 @@ async function processWebhookEvent(body: any) {
                     }
                     const { userId: ownerId, workspaceId } = ownerResult;
 
-                    // ── FETCH SENDER PROFILE ──
+                    // ═══════════════════════════════════════
+                    // 📦 SAVE PENDING (Do this FIRST, before any slow calls)
+                    // Claiming the pending slot immediately prevents Meta retries
+                    // from winning the race and causing "already taken" deferrals
+                    // ═══════════════════════════════════════
+                    const messageId = await savePendingMessage(
+                        supabaseAdmin,
+                        ownerId,
+                        senderId,
+                        messageText
+                    );
+
+                    // ── FETCH SENDER PROFILE (slow, but can happen after slot claim) ──
                     const userProfileName = await fetchUserProfile(senderId);
                     const senderName = userProfileName || `User ${senderId.slice(-4)}`;
 
                     // ═══════════════════════════════════════
-                    // 🚨 MANAGER ALERT CHECK (Immediate — before deferral)
-                    // Fires on the raw message text so deferral never blocks it
+                    // 🚨 MANAGER ALERT CHECK (fire-and-forget, before batch wait)
                     // ═══════════════════════════════════════
                     void (async () => {
                         try {
@@ -178,7 +189,6 @@ async function processWebhookEvent(body: any) {
                             if (!ws?.emergency_whatsapp) return;
                             if (!containsAlertKeyword(messageText, ws.handoff_keywords || [])) return;
 
-                            // Find the matched keyword for the alert message
                             const allKeywords = [
                                 ...ALERT_KEYWORDS,
                                 ...(Array.isArray(ws.handoff_keywords) ? ws.handoff_keywords : [])
@@ -187,7 +197,7 @@ async function processWebhookEvent(body: any) {
                                 messageText.toLowerCase().includes(k.toLowerCase())
                             ) || 'alert';
 
-                            console.log(`🚨 [Alert] Keyword "${matchedKeyword}" detected in raw message. Firing WhatsApp alert.`);
+                            console.log(`🚨 [Alert] Keyword "${matchedKeyword}" detected. Firing WhatsApp alert.`);
                             await triggerManagerAlert({
                                 ownerWhatsAppNumber: ws.emergency_whatsapp,
                                 triggerKeyword: matchedKeyword,
@@ -213,18 +223,7 @@ async function processWebhookEvent(body: any) {
                         }
                     });
 
-                    // ═══════════════════════════════════════
-                    // 📦 MESSAGE BATCHING (Machine Gun Fix)
-                    // ═══════════════════════════════════════
-                    // Step 1: Save as 'pending'
-                    const messageId = await savePendingMessage(
-                        supabaseAdmin,
-                        ownerId,
-                        senderId,
-                        messageText
-                    );
-
-                    // Step 2: Wait 5s, then check if newer message exists
+                    // ── BATCH WAIT: check if newer message arrived during the window ──
                     const batchedMessage = await waitAndBatchMessages(
                         supabaseAdmin,
                         ownerId,
@@ -232,39 +231,12 @@ async function processWebhookEvent(body: any) {
                         messageId
                     );
 
-                    // Step 3: If null, a newer webhook will handle it — exit
                     if (batchedMessage === null) {
                         console.log(`⏳ Deferring: Newer message exists for sender ${senderId}`);
                         continue;
                     }
 
                     console.log(`📦 Processing batched message: "${batchedMessage.slice(0, 100)}"`);
-
-                    // ═══════════════════════════════════════
-                    // 🚨 MANAGER ALERT CHECK (Non-blocking)
-                    // ═══════════════════════════════════════
-                    void (async () => {
-                        try {
-                            // Build the query to find the right workspace settings
-                            let q = supabaseAdmin.from('bot_settings').select('emergency_whatsapp, handoff_keywords');
-                            if (workspaceId) {
-                                q = q.eq('id', workspaceId);
-                            } else {
-                                q = q.eq('user_id', ownerId);
-                            }
-                            const { data: ws } = await q.single();
-                            if (!ws?.emergency_whatsapp) return;
-                            if (!containsAlertKeyword(batchedMessage, ws.handoff_keywords || [])) return;
-                            // Find the specific matched keyword for the alert message
-                            const allKw = [...ALERT_KEYWORDS, ...(ws.handoff_keywords || [])];
-                            const matched = allKw.find(
-                                (kw: string) => batchedMessage.toLowerCase().includes(kw.toLowerCase())
-                            ) ?? 'a trigger keyword';
-                            await triggerManagerAlert({ ownerWhatsAppNumber: ws.emergency_whatsapp, senderName, triggerKeyword: matched, customerMessage: batchedMessage, platform: 'Instagram' });
-                        } catch (err: unknown) {
-                            console.error('⚠️ Manager alert error:', err);
-                        }
-                    })();
 
                     // ═══════════════════════════════════════
                     // 💰 BILLING CHECK
