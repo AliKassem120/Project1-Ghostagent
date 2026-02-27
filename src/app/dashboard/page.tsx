@@ -205,12 +205,14 @@ export default function DashboardPage() {
         }
     );
 
-    // Strict workspace filter — only show rows for the active workspace.
-    // All rows now have workspace_id set (SQL backfill migration assigns old rows
-    // to the user's first workspace). New rows are tagged by the webhook.
+    // Show rows matching this workspace, OR rows with no workspace_id yet
+    // (old data before migration). Once migration is run this fallback goes away.
     const activities = useMemo(() => {
         if (!activeWorkspaceId) return allActivities;
-        return allActivities.filter(a => (a as any).workspace_id === activeWorkspaceId);
+        return allActivities.filter(a => {
+            const ws = (a as any).workspace_id;
+            return !ws || ws === activeWorkspaceId;
+        });
     }, [allActivities, activeWorkspaceId]);
 
     useRealtimeCount(

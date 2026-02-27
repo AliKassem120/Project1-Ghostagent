@@ -189,14 +189,18 @@ async function processWebhookEvent(body: any) {
                     })();
 
                     // ── LOG INCOMING MESSAGE ──
-                    void supabaseAdmin.from('activity_log').insert({
-                        user_id: ownerId,
-                        workspace_id: workspaceId || null,
-                        event_type: 'INCOMING_MESSAGE',
-                        description: `${senderName}: "${messageText}"`,
-                        timestamp: new Date().toISOString(),
-                        metadata: { chat_id: senderId, platform: 'instagram', username: senderName, sender: { attendee_name: senderName } }
-                    });
+                    try {
+                        await supabaseAdmin.from('activity_log').insert({
+                            user_id: ownerId,
+                            workspace_id: workspaceId || null,
+                            event_type: 'INCOMING_MESSAGE',
+                            description: `${senderName}: "${messageText}"`,
+                            timestamp: new Date().toISOString(),
+                            metadata: { chat_id: senderId, platform: 'instagram', username: senderName, sender: { attendee_name: senderName } }
+                        });
+                    } catch (logErr) {
+                        console.error('❌ [Log] Failed to insert activity_log (INCOMING_MESSAGE):', logErr);
+                    }
 
                     // ═══════════════════════════════════════════════════════════
                     // 📦 UPSERT DM BUFFER — no sleeping, no racing
@@ -216,17 +220,21 @@ async function processWebhookEvent(body: any) {
 
                     // Schedule the processor. Capture all needed context in closure.
                     const debounceMs = DEBOUNCE_SECONDS * 1000 + 500; // +500ms safety margin
-                    setTimeout(async () => {
-                        await processDmBuffer({
-                            supabaseAdmin,
-                            ownerId,
-                            senderId,
-                            workspaceId,
-                            scheduledReplyAt: replyAt,
-                        });
-                    }, debounceMs);
+                    console.log(`⏱️ [Buffer] Waiting ${debounceMs}ms before processing reply for ${senderId} (reply_at: ${replyAt})`);
 
-                    console.log(`⏱️ [Buffer] Scheduled reply for ${senderId} in ${debounceMs}ms (reply_at: ${replyAt})`);
+                    // ⚠️ MUST use await sleep — not setTimeout.
+                    // setTimeout fires in a macrotask that Vercel kills once after() resolves.
+                    // An awaited Promise keeps this after() invocation alive for the full window.
+                    // This is safe because 200 was already returned to Meta above — no retries.
+                    await new Promise(resolve => setTimeout(resolve, debounceMs));
+
+                    await processDmBuffer({
+                        supabaseAdmin,
+                        ownerId,
+                        senderId,
+                        workspaceId,
+                        scheduledReplyAt: replyAt,
+                    });
                 }
             }
 
