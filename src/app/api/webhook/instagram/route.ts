@@ -162,6 +162,43 @@ async function processWebhookEvent(body: any) {
                     const userProfileName = await fetchUserProfile(senderId);
                     const senderName = userProfileName || `User ${senderId.slice(-4)}`;
 
+                    // ═══════════════════════════════════════
+                    // 🚨 MANAGER ALERT CHECK (Immediate — before deferral)
+                    // Fires on the raw message text so deferral never blocks it
+                    // ═══════════════════════════════════════
+                    void (async () => {
+                        try {
+                            let q = supabaseAdmin.from('bot_settings').select('emergency_whatsapp, handoff_keywords');
+                            if (workspaceId) {
+                                q = q.eq('id', workspaceId);
+                            } else {
+                                q = q.eq('user_id', ownerId);
+                            }
+                            const { data: ws } = await q.single();
+                            if (!ws?.emergency_whatsapp) return;
+                            if (!containsAlertKeyword(messageText, ws.handoff_keywords || [])) return;
+
+                            // Find the matched keyword for the alert message
+                            const allKeywords = [
+                                ...ALERT_KEYWORDS,
+                                ...(Array.isArray(ws.handoff_keywords) ? ws.handoff_keywords : [])
+                            ];
+                            const matchedKeyword = allKeywords.find(k =>
+                                messageText.toLowerCase().includes(k.toLowerCase())
+                            ) || 'alert';
+
+                            console.log(`🚨 [Alert] Keyword "${matchedKeyword}" detected in raw message. Firing WhatsApp alert.`);
+                            await triggerManagerAlert({
+                                ownerWhatsAppNumber: ws.emergency_whatsapp,
+                                triggerKeyword: matchedKeyword,
+                                customerMessage: messageText,
+                                senderName,
+                            });
+                        } catch (e) {
+                            console.error('🚨 [Alert] Error firing manager alert:', e);
+                        }
+                    })();
+
                     // ── LOG INCOMING MESSAGE ──
                     await supabaseAdmin.from('activity_log').insert({
                         user_id: ownerId,
@@ -223,7 +260,7 @@ async function processWebhookEvent(body: any) {
                             const matched = allKw.find(
                                 (kw: string) => batchedMessage.toLowerCase().includes(kw.toLowerCase())
                             ) ?? 'a trigger keyword';
-                            await triggerManagerAlert(ws.emergency_whatsapp, senderName, matched, 'Instagram');
+                            await triggerManagerAlert({ ownerWhatsAppNumber: ws.emergency_whatsapp, senderName, triggerKeyword: matched, customerMessage: batchedMessage, platform: 'Instagram' });
                         } catch (err: unknown) {
                             console.error('⚠️ Manager alert error:', err);
                         }

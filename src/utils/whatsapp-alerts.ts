@@ -30,12 +30,16 @@ export function containsAlertKeyword(message: string, extraKeywords: string[] = 
  * @param triggeredKeyword - The keyword that triggered the alert
  * @param platform       - Source platform (default: 'instagram')
  */
-export async function triggerManagerAlert(
-    ownerWhatsApp: string,
-    senderUsername: string,
-    triggeredKeyword: string,
-    platform: string = 'instagram'
-): Promise<void> {
+export interface ManagerAlertOptions {
+    ownerWhatsAppNumber: string;
+    senderName: string;
+    triggerKeyword: string;
+    customerMessage: string;
+    platform?: string;
+}
+
+export async function triggerManagerAlert(opts: ManagerAlertOptions): Promise<void> {
+    const { ownerWhatsAppNumber, senderName, triggerKeyword, customerMessage, platform = 'instagram' } = opts;
     const systemToken = process.env.WHATSAPP_SYSTEM_ACCESS_TOKEN;
     const fromPhoneId = process.env.WHATSAPP_FROM_PHONE_NUMBER_ID;
 
@@ -45,11 +49,12 @@ export async function triggerManagerAlert(
     }
 
     // Normalise: strip spaces, ensure + prefix
-    const to = ownerWhatsApp.replace(/\s+/g, '').replace(/^00/, '+');
+    const to = ownerWhatsAppNumber.replace(/\s+/g, '').replace(/^00/, '+');
 
-    const alertMessage = `🚨 *Ghost Agent Alert*\n\nA customer on ${platform} (*${senderUsername}*) triggered the keyword: _"${triggeredKeyword}"_\n\nThey may be requesting human assistance. Please check your DMs promptly.`;
+    const alertMessage = `🚨 *Ghost Agent Alert*\n\nA customer on ${platform} (*${senderName}*) triggered the keyword: _“${triggerKeyword}”_\n\n*Their message:*\n“${customerMessage}”\n\nPlease check your DMs promptly.`;
 
     try {
+        console.log(`🚨 [Alert] Sending WhatsApp alert to ${to} (from phone ID: ${fromPhoneId})`);
         const response = await fetch(`${WA_API_BASE}/${fromPhoneId}/messages`, {
             method: 'POST',
             headers: {
@@ -65,13 +70,14 @@ export async function triggerManagerAlert(
             }),
         });
 
+        // Always log the full response body for debugging
+        const responseBody = await response.text();
         if (!response.ok) {
-            const err = await response.text();
-            console.error(`❌ Manager Alert failed (${response.status}):`, err);
+            console.error(`❌ [Alert] Meta API error (${response.status}):`, responseBody);
         } else {
-            console.log(`✅ Manager Alert sent to ${to} for customer: ${senderUsername}`);
+            console.log(`✅ [Alert] Manager Alert sent to ${to}. Meta response:`, responseBody);
         }
     } catch (err) {
-        console.error('❌ Manager Alert network error:', err);
+        console.error('❌ [Alert] Manager Alert network error:', err);
     }
 }

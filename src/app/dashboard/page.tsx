@@ -12,6 +12,7 @@ import clsx from 'clsx';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 // Database types
 type ActivityLog = {
@@ -134,15 +135,18 @@ export default function DashboardPage() {
     const supabase = createClient();
     const { user } = useAuth();
     const userId = user?.id;
+    const { activeWorkspaceId, activeWorkspace } = useWorkspace();
     const [clearModalOpen, setClearModalOpen] = useState(false);
     const [sendingDrafts, setSendingDrafts] = useState<string[]>([]);
     const [instagramStatus, setInstagramStatus] = useState<{ connected: boolean }>({ connected: false });
     const toast = useToast();
 
+    // Re-check Instagram status whenever the active workspace changes
     useEffect(() => {
+        if (!activeWorkspaceId) return;
         const checkInstagramStatus = async () => {
             try {
-                const res = await fetch('/api/instagram/status');
+                const res = await fetch(`/api/instagram/status?workspace_id=${activeWorkspaceId}`);
                 const data = await res.json();
                 if (data && typeof data.connected === 'boolean') {
                     setInstagramStatus(data);
@@ -152,7 +156,10 @@ export default function DashboardPage() {
             }
         };
         checkInstagramStatus();
-    }, []);
+    }, [activeWorkspaceId]);
+
+    // Also show connected if the activeWorkspace has instagram info from WorkspaceContext
+    const isConnected = instagramStatus.connected || !!activeWorkspace?.instagram_username;
 
     const handleApproveDraft = async (activity: ActivityLog) => {
         if (!activity.metadata?.reply_text || !activity.metadata?.chat_id) {
@@ -188,7 +195,10 @@ export default function DashboardPage() {
         'activity_log',
         '*',
         {
-            filter: userId ? { column: 'user_id', value: userId } : undefined,
+            // Filter by workspace_id if available, otherwise fall back to user_id
+            filter: activeWorkspaceId
+                ? { column: 'workspace_id', value: activeWorkspaceId }
+                : (userId ? { column: 'user_id', value: userId } : undefined),
             orderBy: 'timestamp',
             orderDirection: 'desc',
             limit: 50,
@@ -199,7 +209,9 @@ export default function DashboardPage() {
 
     const { count: totalInteractions } = useRealtimeCount(
         'activity_log',
-        userId ? { column: 'user_id', value: userId } : undefined,
+        activeWorkspaceId
+            ? { column: 'workspace_id', value: activeWorkspaceId }
+            : (userId ? { column: 'user_id', value: userId } : undefined),
         { pollingInterval: 3000 }
     );
 
@@ -207,7 +219,9 @@ export default function DashboardPage() {
         'inventory',
         'id, stock_level',
         {
-            filter: userId ? { column: 'user_id', value: userId } : undefined,
+            filter: activeWorkspaceId
+                ? { column: 'workspace_id', value: activeWorkspaceId }
+                : (userId ? { column: 'user_id', value: userId } : undefined),
             enabled: !!userId,
             pollingInterval: 3000,
         }
@@ -329,8 +343,8 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-1 border border-white/[0.06]">
                         <Instagram className="w-4 h-4 text-pink-400" />
-                        <span className="text-xs text-white/50">{instagramStatus.connected ? 'Connected' : 'Disconnected'}</span>
-                        <span className={clsx("w-2 h-2 rounded-full", instagramStatus.connected ? "bg-emerald-400 animate-pulse" : "bg-red-500")} />
+                        <span className="text-xs text-white/50">{isConnected ? 'Connected' : 'Disconnected'}</span>
+                        <span className={clsx("w-2 h-2 rounded-full", isConnected ? "bg-emerald-400 animate-pulse" : "bg-red-500")} />
                     </div>
                     <div className={clsx(
                         "flex items-center gap-2 px-4 py-2 rounded-xl border",
