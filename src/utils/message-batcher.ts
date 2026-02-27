@@ -7,7 +7,8 @@
 // race conditions between parallel serverless invocations.
 // ═══════════════════════════════════════════════════════════════
 
-const DEBOUNCE_DELAY_MS = 8000; // 8 second window to catch rapid-fire messages
+const DEBOUNCE_DELAY_MS = 2000; // 2 seconds — enough to batch rapid-fire messages
+
 
 /**
  * Saves an incoming message as 'pending' in the messages table.
