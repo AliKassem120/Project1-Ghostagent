@@ -224,6 +224,7 @@ function DashboardSidebar({ isOpen, onClose, businessType }: { isOpen: boolean; 
                 userEmail={userEmail}
                 userName={userName}
                 userInitial={userInitial}
+                isGoogleUser={isGoogleUser}
             />
         </>
     );
