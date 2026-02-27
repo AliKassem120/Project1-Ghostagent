@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabase';
 import { DashboardProvider } from '@/contexts/DashboardContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { BusinessCategory } from '@/components/BusinessTypeSelector';
+import AccountPanel from '@/components/AccountPanel';
 
 function DashboardSidebar({ isOpen, onClose, businessType }: { isOpen: boolean; onClose: () => void; businessType: BusinessCategory | null }) {
     const pathname = usePathname();
@@ -26,6 +27,7 @@ function DashboardSidebar({ isOpen, onClose, businessType }: { isOpen: boolean; 
     const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || userEmail?.split('@')[0] || 'User';
     const userInitial = userName.charAt(0).toUpperCase();
     const isGoogleUser = user?.app_metadata?.provider === 'google';
+    const [isAccountOpen, setIsAccountOpen] = useState(false);
 
     // Base menu items that all users see
     const baseItems = [
@@ -188,10 +190,13 @@ function DashboardSidebar({ isOpen, onClose, businessType }: { isOpen: boolean; 
                     })}
                 </nav>
 
-                {/* User Profile */}
+                {/* User Profile — click to open Account Security */}
                 <div className="mt-auto border-t border-white/[0.04] p-4">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/30 to-violet-600/30 flex items-center justify-center text-white font-semibold text-sm border border-white/[0.06]">
+                    <button
+                        onClick={() => setIsAccountOpen(true)}
+                        className="flex items-center gap-3 mb-3 w-full rounded-xl p-2 -mx-2 hover:bg-white/[0.04] transition-colors group text-left"
+                    >
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/30 to-violet-600/30 flex items-center justify-center text-white font-semibold text-sm border border-white/[0.06] shrink-0">
                             {userInitial}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -200,7 +205,8 @@ function DashboardSidebar({ isOpen, onClose, businessType }: { isOpen: boolean; 
                                 <p className="text-[10px] text-white/25 truncate">{userEmail}</p>
                             )}
                         </div>
-                    </div>
+                        <ChevronRight className="w-3.5 h-3.5 text-white/15 group-hover:text-white/40 transition-colors shrink-0" />
+                    </button>
                     <button
                         onClick={handleLogout}
                         className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-xs text-white/25 hover:text-red-400 hover:bg-red-500/[0.05] transition-colors press"
@@ -210,6 +216,15 @@ function DashboardSidebar({ isOpen, onClose, businessType }: { isOpen: boolean; 
                     </button>
                 </div>
             </aside>
+
+            {/* Account Security Panel */}
+            <AccountPanel
+                isOpen={isAccountOpen}
+                onClose={() => setIsAccountOpen(false)}
+                userEmail={userEmail}
+                userName={userName}
+                userInitial={userInitial}
+            />
         </>
     );
 }
