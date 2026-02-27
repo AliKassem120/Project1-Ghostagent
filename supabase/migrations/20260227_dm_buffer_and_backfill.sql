@@ -21,8 +21,13 @@ CREATE TABLE IF NOT EXISTS dm_buffer (
     UNIQUE (owner_id, sender_id, channel)
 );
 
+-- Fix for existing tables that might miss these columns
+ALTER TABLE dm_buffer ADD COLUMN IF NOT EXISTS lock_expires_at timestamptz;
+ALTER TABLE dm_buffer ADD COLUMN IF NOT EXISTS workspace_id uuid;
+
 -- Index for the claim query
-CREATE INDEX IF NOT EXISTS dm_buffer_claim_idx
+DROP INDEX IF EXISTS dm_buffer_claim_idx;
+CREATE INDEX dm_buffer_claim_idx
     ON dm_buffer (owner_id, sender_id, channel, status, reply_at);
 
 -- 2. Ensure activity_log has workspace_id column
