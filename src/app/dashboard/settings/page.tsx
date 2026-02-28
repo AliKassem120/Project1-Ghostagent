@@ -16,7 +16,7 @@ import { useWorkspace } from '@/contexts/WorkspaceContext';
 export default function SettingsPage() {
     const supabase = createClient();
     const toast = useToast();
-    const { activeWorkspaceId, planTier, isLoading: wsLoading } = useWorkspace();
+    const { activeWorkspaceId, planTier, isLoading: wsLoading, removeWorkspace, workspaces } = useWorkspace();
     const isPro = planTier === 'pro' || planTier === 'empire';
     const isEmpire = planTier === 'empire';
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -28,6 +28,8 @@ export default function SettingsPage() {
     const [instagramStatus, setInstagramStatus] = useState<{ connected: boolean; accounts: any[] }>({ connected: false, accounts: [] });
     const [uploadedFile, setUploadedFile] = useState<{ name: string; rowCount: number } | null>(null);
     const [disconnectModal, setDisconnectModal] = useState<{ open: boolean; accountId: string | null }>({ open: false, accountId: null });
+    const [deleteWsModal, setDeleteWsModal] = useState(false);
+    const [deletingWs, setDeletingWs] = useState(false);
 
     // Initial state
     const [settings, setSettings] = useState({
@@ -324,7 +326,22 @@ export default function SettingsPage() {
         const interval = setInterval(checkInstagramStatus, 5000);
         return () => clearInterval(interval);
     }, []);
-
+    const handleDeleteWorkspace = async () => {
+        if (!activeWorkspaceId) return;
+        setDeletingWs(true);
+        try {
+            const { error } = await supabase.from('workspaces').delete().eq('id', activeWorkspaceId);
+            if (error) throw error;
+            toast.success('Workspace deleted');
+            removeWorkspace(activeWorkspaceId); // Sync with context
+            setDeleteWsModal(false);
+        } catch (e) {
+            console.error('Failed to delete workspace:', e);
+            toast.error('Failed to delete workspace. Please try again.');
+        } finally {
+            setDeletingWs(false);
+        }
+    };
 
     const handleSave = async () => {
         setSaving(true);
@@ -964,6 +981,33 @@ export default function SettingsPage() {
                 </div>
             </motion.div>
 
+            {/* Danger Zone */}
+            {workspaces.length > 1 && (
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.35 }}
+                    className="max-w-4xl mx-auto px-4 md:px-8 mb-8"
+                >
+                    <div className="bg-red-500/5 border border-red-500/10 rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                        <div>
+                            <h3 className="text-xl font-bold text-red-500 flex items-center gap-2 mb-2">
+                                <Trash2 className="w-5 h-5" /> Danger Zone
+                            </h3>
+                            <p className="text-white/40 text-sm">
+                                Permanently delete this workspace and all its data. This action cannot be undone.
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => setDeleteWsModal(true)}
+                            className="px-6 py-3 rounded-xl bg-red-500/10 text-red-500 font-semibold hover:bg-red-500 hover:text-white transition-colors shrink-0"
+                        >
+                            Delete Workspace
+                        </button>
+                    </div>
+                </motion.div>
+            )}
+
             {/* Save Button */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -1003,8 +1047,21 @@ export default function SettingsPage() {
                     if (disconnectModal.accountId) {
                         handleDisconnect(disconnectModal.accountId);
                     }
+                    setDisconnectModal({ open: false, accountId: null });
                 }}
                 onCancel={() => setDisconnectModal({ open: false, accountId: null })}
+            />
+
+            {/* Delete Workspace Confirmation Modal */}
+            <GhostModal
+                isOpen={deleteWsModal}
+                variant="danger"
+                title="Delete Workspace?"
+                message={`Are you absolutely sure you want to delete this workspace? All settings, activity logs, and integrations will be permanently removed.`}
+                confirmText={deletingWs ? 'Deleting...' : 'Permanently Delete'}
+                cancelText="Cancel"
+                onConfirm={handleDeleteWorkspace}
+                onCancel={() => setDeleteWsModal(false)}
             />
         </div>
     );

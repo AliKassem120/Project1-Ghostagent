@@ -135,7 +135,7 @@ export default function DashboardPage() {
     const supabase = createClient();
     const { user } = useAuth();
     const userId = user?.id;
-    const { activeWorkspaceId, activeWorkspace } = useWorkspace();
+    const { activeWorkspaceId, activeWorkspace, workspaces } = useWorkspace();
     const [clearModalOpen, setClearModalOpen] = useState(false);
     const [sendingDrafts, setSendingDrafts] = useState<string[]>([]);
     const [instagramStatus, setInstagramStatus] = useState<{ connected: boolean }>({ connected: false });
@@ -206,11 +206,21 @@ export default function DashboardPage() {
     );
 
     // Strict workspace filter: only show rows assigned to the ACTIVE workspace.
-    // If a row has no workspace_id (e.g. before backfill), it will NOT show up here.
+    // Fallback: If a row has NO workspace_id (due to un-run migration or Supabase API cache dropping the new column),
+    // we assume it belongs to their VERY FIRST chronological workspace so data isn't lost.
     const activities = useMemo(() => {
         if (!activeWorkspaceId) return allActivities;
-        return allActivities.filter(a => (a as any).workspace_id === activeWorkspaceId);
-    }, [allActivities, activeWorkspaceId]);
+        const firstWorkspaceId = workspaces?.[0]?.id; // From useWorkspace context
+
+        return allActivities.filter(a => {
+            const wId = (a as any).workspace_id;
+            if (!wId) {
+                // If the column is missing in the API response, only show this row if we are currently looking at the first workspace.
+                return activeWorkspaceId === firstWorkspaceId;
+            }
+            return wId === activeWorkspaceId;
+        });
+    }, [allActivities, activeWorkspaceId, workspaces]);
 
     useRealtimeCount(
         'activity_log',
@@ -232,10 +242,16 @@ export default function DashboardPage() {
     // Client-side filter for inventory too
     const inventoryItems = useMemo(() => {
         if (!activeWorkspaceId) return allInventoryItems;
-        return allInventoryItems.filter(i =>
-            !(i as any).workspace_id || (i as any).workspace_id === activeWorkspaceId
-        );
-    }, [allInventoryItems, activeWorkspaceId]);
+        const firstWorkspaceId = workspaces?.[0]?.id; // From useWorkspace context
+
+        return allInventoryItems.filter(i => {
+            const wId = (i as any).workspace_id;
+            if (!wId) {
+                return activeWorkspaceId === firstWorkspaceId;
+            }
+            return wId === activeWorkspaceId;
+        });
+    }, [allInventoryItems, activeWorkspaceId, workspaces]);
 
     const { version } = useDashboard();
 

@@ -30,6 +30,7 @@ interface WorkspaceContextType {
     isLoading: boolean;
     setActiveWorkspace: (id: string) => void;
     addWorkspace: (workspace: Workspace) => void;
+    removeWorkspace: (id: string) => void;
     refreshWorkspaces: () => Promise<void>;
 }
 
@@ -137,6 +138,22 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         setActiveWorkspace(ws.id);
     }, [setActiveWorkspace]);
 
+    const removeWorkspace = useCallback((id: string) => {
+        setWorkspaces(prev => {
+            const next = prev.filter(w => w.id !== id);
+            if (activeWorkspaceId === id) {
+                const nextId = next[0]?.id ?? null;
+                setActiveWorkspaceId(nextId);
+                if (nextId && typeof window !== 'undefined') {
+                    localStorage.setItem(LS_KEY, nextId);
+                } else if (typeof window !== 'undefined') {
+                    localStorage.removeItem(LS_KEY);
+                }
+            }
+            return next;
+        });
+    }, [activeWorkspaceId]);
+
     const activeWorkspace = workspaces.find(w => w.id === activeWorkspaceId) ?? null;
     const workspaceLimit = WORKSPACE_LIMITS[planTier];
     const canAddWorkspace = workspaces.length < workspaceLimit;
@@ -154,6 +171,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             isLoading,
             setActiveWorkspace,
             addWorkspace,
+            removeWorkspace,
             refreshWorkspaces: fetchWorkspaces,
         }}>
             {children}
