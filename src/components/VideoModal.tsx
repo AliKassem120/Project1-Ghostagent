@@ -31,11 +31,11 @@ export default function VideoModal({ isOpen, onClose }: VideoModalProps) {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="relative w-full max-w-5xl glass-dark rounded-3xl p-6 border border-white/10"
+                            className="relative w-full max-w-5xl bg-surface-1 rounded-3xl p-6 border border-border"
                         >
                             <button
                                 onClick={onClose}
-                                className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors z-10"
+                                className="absolute top-4 right-4 p-2 rounded-full bg-surface-2 hover:bg-surface-2 transition-colors z-10"
                             >
                                 <X className="w-6 h-6" />
                             </button>
@@ -44,7 +44,7 @@ export default function VideoModal({ isOpen, onClose }: VideoModalProps) {
                                 {isLoading && (
                                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/80">
                                         <Loader2 className="w-12 h-12 text-primary animate-spin" />
-                                        <p className="text-white/60">Loading demo (7.7 MB)...</p>
+                                        <p className="text-muted-foreground">Loading demo (7.7 MB)...</p>
                                     </div>
                                 )}
                                 <img
@@ -61,7 +61,7 @@ export default function VideoModal({ isOpen, onClose }: VideoModalProps) {
 
                             <div className="mt-6 text-center">
                                 <h3 className="text-2xl font-bold mb-2">GhostAgent Product Demo</h3>
-                                <p className="text-white/60">See how GhostAgent automates your Instagram sales in under 2 minutes.</p>
+                                <p className="text-muted-foreground">See how GhostAgent automates your Instagram sales in under 2 minutes.</p>
                             </div>
                         </motion.div>
                     </div>

@@ -58,7 +58,7 @@ export default function GoogleSignInButton({ onSuccess, onError }: GoogleSignInB
             className={clsx(
                 "relative flex items-center justify-center gap-3 w-full sm:w-[400px] h-[52px]",
                 "bg-white hover:bg-white text-gray-900 font-semibold text-[15px]",
-                "border border-white/10 rounded-2xl shadow-sm",
+                "border border-border rounded-2xl shadow-sm",
                 "transition-all duration-300 ease-in-out",
                 "hover:-translate-y-1 hover:shadow-[0_12px_24px_rgba(255,255,255,0.1),_0_2px_4px_rgba(255,255,255,0.05)]",
                 "active:translate-y-0 active:shadow-none hover:scale-[1.02]",

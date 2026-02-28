@@ -28,7 +28,7 @@ export default function GhostIcon({ className }: { className?: string }) {
     const rotateY = useTransform(mouseX, [-100, 100], [-30, 30]);
 
     return (
-        <div className={clsx("relative w-64 h-64 perspective-1000", className || "text-white")}>
+        <div className={clsx("relative w-64 h-64 perspective-1000", className || "text-foreground")}>
             <motion.div
                 style={{
                     rotateX,

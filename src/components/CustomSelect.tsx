@@ -58,12 +58,12 @@ export default function CustomSelect({
                     isOpen && "ring-1 ring-primary/50"
                 )}
             >
-                <span className={clsx(!selectedOption && "text-white/40")}>
+                <span className={clsx(!selectedOption && "text-muted-foreground")}>
                     {selectedOption ? selectedOption.label : placeholder}
                 </span>
                 <ChevronDown
                     className={clsx(
-                        "w-4 h-4 text-white/50 transition-transform duration-200",
+                        "w-4 h-4 text-muted-foreground transition-transform duration-200",
                         isOpen && "rotate-180"
                     )}
                 />
@@ -90,7 +90,7 @@ export default function CustomSelect({
                                         }}
                                         className={clsx(
                                             "w-full flex items-center justify-between px-4 py-2.5 text-sm text-left transition-colors",
-                                            "text-white/80 hover:text-white hover:bg-white/[0.04]",
+                                            "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]",
                                             value === option.value && "bg-primary/10 text-primary font-medium"
                                         )}
                                     >

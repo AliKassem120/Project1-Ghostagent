@@ -413,25 +413,25 @@ export default function SettingsPage() {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
             >
-                <h1 className="text-2xl font-bold tracking-tight text-white">Agent Settings</h1>
+                <h1 className="text-2xl font-bold tracking-tight text-foreground">Agent Settings</h1>
                 <p className="text-sm text-muted-foreground mt-1">Configure how your Ghost Agent behaves and responds.</p>
             </motion.div>
 
             {/* Business Identity */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="glass-card rounded-2xl p-6">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
                     <div className="p-2.5 rounded-xl bg-indigo-500/10">
                         <Building2 className="w-5 h-5 text-indigo-400" />
                     </div>
                     <div>
-                        <h2 className="text-sm font-semibold text-white">Business Identity</h2>
+                        <h2 className="text-sm font-semibold text-foreground">Business Identity</h2>
                         <p className="text-[11px] text-muted-foreground">Core business information</p>
                     </div>
                 </div>
 
                 <div className="space-y-4">
                     <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Business Name</label>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Business Name</label>
                         <input
                             type="text"
                             value={settings.businessName}
@@ -443,7 +443,7 @@ export default function SettingsPage() {
 
                     <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Store Location</label>
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Store Location</label>
                             <input
                                 type="text"
                                 value={settings.storeLocation}
@@ -451,10 +451,10 @@ export default function SettingsPage() {
                                 className="input-premium w-full"
                                 placeholder="e.g. Hamra, Beirut, Lebanon"
                             />
-                            <p className="text-[10px] text-white/20 ml-1">The AI will share this exact address when asked.</p>
+                            <p className="text-[10px] text-muted-foreground ml-1">The AI will share this exact address when asked.</p>
                         </div>
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Contact Info</label>
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Contact Info</label>
                             <input
                                 type="text"
                                 value={settings.contactInfo}
@@ -462,38 +462,38 @@ export default function SettingsPage() {
                                 className="input-premium w-full"
                                 placeholder="e.g. +961 71 123 456 / info@store.com"
                             />
-                            <p className="text-[10px] text-white/20 ml-1">Phone, email, or website the AI can share.</p>
+                            <p className="text-[10px] text-muted-foreground ml-1">Phone, email, or website the AI can share.</p>
                         </div>
                     </div>
 
                     <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Shipping &amp; Delivery Rules</label>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Shipping &amp; Delivery Rules</label>
                         <textarea
                             value={settings.shippingRules}
                             onChange={(e) => setSettings({ ...settings, shippingRules: e.target.value })}
                             className="input-premium w-full h-24 resize-none text-sm"
                             placeholder="e.g. Free shipping over $50. Delivery 2-3 days within Lebanon. No international shipping."
                         />
-                        <p className="text-[10px] text-white/20 ml-1">The AI will quote these rules exactly when customers ask about shipping.</p>
+                        <p className="text-[10px] text-muted-foreground ml-1">The AI will quote these rules exactly when customers ask about shipping.</p>
                     </div>
                 </div>
             </motion.div>
 
             {/* AI Persona */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card rounded-2xl p-6">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
                     <div className="p-2.5 rounded-xl bg-primary/10">
                         <Bot className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                        <h2 className="text-sm font-semibold text-white">AI Persona</h2>
+                        <h2 className="text-sm font-semibold text-foreground">AI Persona</h2>
                         <p className="text-[11px] text-muted-foreground">Personality and communication style</p>
                     </div>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-5">
                     <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Response Tone</label>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Response Tone</label>
                         <CustomSelect
                             value={settings.tone}
                             onChange={(val) => setSettings({ ...settings, tone: val })}
@@ -507,13 +507,13 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Use Emojis</label>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Use Emojis</label>
                         <div className="flex items-center justify-between p-3.5 bg-white/[0.02] rounded-xl border border-white/[0.04] hover:bg-white/[0.04] transition-all cursor-pointer group"
                             onClick={() => setSettings({ ...settings, useEmojis: !settings.useEmojis })}>
-                            <span className="text-sm text-white/50 group-hover:text-white/70 transition-colors">Add emojis to responses</span>
+                            <span className="text-sm text-muted-foreground group-hover:text-muted-foreground transition-colors">Add emojis to responses</span>
                             <div className={clsx(
                                 "relative w-11 rounded-full transition-colors duration-300",
-                                settings.useEmojis ? "bg-primary" : "bg-white/10"
+                                settings.useEmojis ? "bg-primary" : "bg-surface-2"
                             )} style={{ height: '24px' }}>
                                 <motion.div
                                     className="absolute top-[2px] w-[20px] h-[20px] rounded-full bg-white shadow-sm"
@@ -527,13 +527,13 @@ export default function SettingsPage() {
             </motion.div>
 
             {/* Manager Alerts */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="glass-card rounded-2xl p-6 relative overflow-hidden">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6 relative overflow-hidden">
                 <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
                     <div className="p-2.5 rounded-xl bg-amber-500/10">
                         <Bell className="w-5 h-5 text-amber-400" />
                     </div>
                     <div>
-                        <h2 className="text-sm font-semibold text-white">Manager Alerts</h2>
+                        <h2 className="text-sm font-semibold text-foreground">Manager Alerts</h2>
                         <p className="text-[11px] text-muted-foreground">Human escalation via WhatsApp</p>
                     </div>
                     {!isPro && (
@@ -544,9 +544,9 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Owner WhatsApp Number</label>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Owner WhatsApp Number</label>
                     <div className="relative">
-                        <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20" />
+                        <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                         <input
                             type="tel"
                             value={settings.emergencyWhatsApp}
@@ -556,18 +556,18 @@ export default function SettingsPage() {
                             disabled={!isPro}
                         />
                     </div>
-                    <p className="text-[10px] text-white/20 ml-1">Ghost Agent texts this number if a customer says &quot;Manager&quot;, &quot;Scam&quot;, or &quot;Bot&quot;.</p>
+                    <p className="text-[10px] text-muted-foreground ml-1">Ghost Agent texts this number if a customer says &quot;Manager&quot;, &quot;Scam&quot;, or &quot;Bot&quot;.</p>
                 </div>
 
                 {/* Paywall overlay for Starter */}
                 {!isPro && (
                     <div className="absolute inset-0 bg-[#0B0E14]/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center gap-3 z-10">
                         <div className="p-3 rounded-full bg-white/[0.04] border border-white/[0.06]">
-                            <Lock className="w-5 h-5 text-white/30" />
+                            <Lock className="w-5 h-5 text-muted-foreground" />
                         </div>
                         <div className="text-center px-6">
-                            <p className="text-sm font-bold text-white/60">Pro Feature</p>
-                            <p className="text-[11px] text-white/30 mt-1">Upgrade to Pro to receive WhatsApp alerts when customers need help.</p>
+                            <p className="text-sm font-bold text-muted-foreground">Pro Feature</p>
+                            <p className="text-[11px] text-muted-foreground mt-1">Upgrade to Pro to receive WhatsApp alerts when customers need help.</p>
                         </div>
                         <a href="/dashboard/billing" className="text-[11px] font-bold text-primary hover:underline">Upgrade to Pro →</a>
                     </div>
@@ -575,20 +575,20 @@ export default function SettingsPage() {
             </motion.div>
 
             {/* WhatsApp Business (Omnichannel — Empire only) */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.17 }} className="glass-card rounded-2xl p-6 relative overflow-hidden">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.17 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6 relative overflow-hidden">
                 <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
                     <div className="p-2.5 rounded-xl bg-emerald-500/10">
                         <Wifi className="w-5 h-5 text-emerald-400" />
                     </div>
                     <div>
-                        <h2 className="text-sm font-semibold text-white">WhatsApp Business</h2>
+                        <h2 className="text-sm font-semibold text-foreground">WhatsApp Business</h2>
                         <p className="text-[11px] text-muted-foreground">Omnichannel AI — reply to WhatsApp customers</p>
                     </div>
                     <span className={clsx(
                         'ml-auto flex items-center gap-1 text-[10px] font-bold rounded-full px-2.5 py-1 border',
                         isEmpire
                             ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
-                            : 'text-white/30 bg-white/[0.03] border-white/[0.06]'
+                            : 'text-muted-foreground bg-white/[0.03] border-white/[0.06]'
                     )}>
                         {!isEmpire && <Lock className="w-3 h-3" />}
                         Empire
@@ -597,23 +597,23 @@ export default function SettingsPage() {
 
                 <div className="space-y-4">
                     <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">WA Business Account ID</label>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">WA Business Account ID</label>
                         <input type="text" value={settings.waBusinessAccountId}
                             onChange={e => setSettings({ ...settings, waBusinessAccountId: e.target.value })}
                             className="input-premium w-full" placeholder="123456789012345" disabled={!isEmpire} />
                     </div>
                     <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Phone Number ID</label>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Phone Number ID</label>
                         <input type="text" value={settings.waPhoneNumberId}
                             onChange={e => setSettings({ ...settings, waPhoneNumberId: e.target.value })}
                             className="input-premium w-full" placeholder="Phone Number ID from Meta dashboard" disabled={!isEmpire} />
                     </div>
                     <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Access Token</label>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Access Token</label>
                         <input type="password" value={settings.waAccessToken}
                             onChange={e => setSettings({ ...settings, waAccessToken: e.target.value })}
                             className="input-premium w-full" placeholder="Permanent system user token" disabled={!isEmpire} />
-                        <p className="text-[10px] text-white/20 ml-1">Stored encrypted. Only used to send WhatsApp replies from your number.</p>
+                        <p className="text-[10px] text-muted-foreground ml-1">Stored encrypted. Only used to send WhatsApp replies from your number.</p>
                     </div>
                 </div>
 
@@ -621,11 +621,11 @@ export default function SettingsPage() {
                 {!isEmpire && (
                     <div className="absolute inset-0 bg-[#0B0E14]/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center gap-3 z-10">
                         <div className="p-3 rounded-full bg-white/[0.04] border border-white/[0.06]">
-                            <Lock className="w-5 h-5 text-white/30" />
+                            <Lock className="w-5 h-5 text-muted-foreground" />
                         </div>
                         <div className="text-center px-6">
-                            <p className="text-sm font-bold text-white/60">Empire Feature</p>
-                            <p className="text-[11px] text-white/30 mt-1">Connect a WhatsApp Business number and let Ghost Agent reply to customers on WhatsApp too.</p>
+                            <p className="text-sm font-bold text-muted-foreground">Empire Feature</p>
+                            <p className="text-[11px] text-muted-foreground mt-1">Connect a WhatsApp Business number and let Ghost Agent reply to customers on WhatsApp too.</p>
                         </div>
                         <a href="/dashboard/billing" className="text-[11px] font-bold text-primary hover:underline">Upgrade to Empire →</a>
                     </div>
@@ -634,42 +634,42 @@ export default function SettingsPage() {
 
             {/* Sales Rules */}
 
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card rounded-2xl p-6">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
                     <div className="p-2.5 rounded-xl bg-emerald-500/10">
                         <DollarSign className="w-5 h-5 text-emerald-400" />
                     </div>
                     <div>
-                        <h2 className="text-sm font-semibold text-white">Sales Rules</h2>
+                        <h2 className="text-sm font-semibold text-foreground">Sales Rules</h2>
                         <p className="text-[11px] text-muted-foreground">Pricing and discount boundaries</p>
                     </div>
                 </div>
 
                 <div className="space-y-6">
                     <div className="space-y-3">
-                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Maximum Discount %</label>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Maximum Discount %</label>
                         <input
                             type="range"
                             min="0"
                             max="50"
                             value={settings.maxDiscount}
                             onChange={(e) => setSettings({ ...settings, maxDiscount: parseInt(e.target.value) })}
-                            className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary"
+                            className="w-full h-2 bg-surface-2 rounded-full appearance-none cursor-pointer accent-primary"
                             style={{
                                 background: `linear-gradient(to right, rgb(139 92 246) 0%, rgb(139 92 246) ${settings.maxDiscount * 2}%, rgba(255,255,255,0.06) ${settings.maxDiscount * 2}%, rgba(255,255,255,0.06) 100%)`
                             }}
                         />
                         <div className="flex justify-between items-center">
-                            <span className="text-[10px] text-white/20">0%</span>
+                            <span className="text-[10px] text-muted-foreground">0%</span>
                             <span className="text-primary font-bold text-2xl font-mono">{settings.maxDiscount}%</span>
-                            <span className="text-[10px] text-white/20">50%</span>
+                            <span className="text-[10px] text-muted-foreground">50%</span>
                         </div>
                     </div>
 
                     <div className="space-y-1.5 flex flex-col items-start w-full">
-                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1 mb-1 relative block">Minimum Order for Discount</label>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1 mb-1 relative block">Minimum Order for Discount</label>
                         <div className="relative w-full group">
-                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20 text-sm font-semibold z-10">$</span>
+                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-semibold z-10">$</span>
                             <input
                                 type="number"
                                 value={settings.minOrderForDiscount}
@@ -677,20 +677,20 @@ export default function SettingsPage() {
                                 className="input-premium w-full !pl-9 !pr-14 font-semibold appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0 focus:z-0 relative"
                                 placeholder="50"
                             />
-                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-white/20 font-bold uppercase z-10">USD</span>
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground font-bold uppercase z-10">USD</span>
                         </div>
                     </div>
                 </div>
             </motion.div>
 
             {/* Integrations */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="glass-card rounded-2xl p-6">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
                     <div className="p-2.5 rounded-xl bg-pink-500/10">
                         <Instagram className="w-5 h-5 text-pink-400" />
                     </div>
                     <div>
-                        <h2 className="text-sm font-semibold text-white">Integrations</h2>
+                        <h2 className="text-sm font-semibold text-foreground">Integrations</h2>
                         <p className="text-[11px] text-muted-foreground">Connected social accounts</p>
                     </div>
                 </div>
@@ -700,16 +700,16 @@ export default function SettingsPage() {
                         <div key={acc.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white/[0.02] p-4 rounded-xl border border-white/[0.04] gap-4">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 rounded-xl flex items-center justify-center shrink-0">
-                                    <Instagram className="w-5 h-5 text-white" />
+                                    <Instagram className="w-5 h-5 text-foreground" />
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2">
-                                        <h3 className="font-semibold text-sm text-white truncate max-w-[150px]">{acc.username || 'Insta User'}</h3>
+                                        <h3 className="font-semibold text-sm text-foreground truncate max-w-[150px]">{acc.username || 'Insta User'}</h3>
                                         <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[9px] font-bold rounded-full flex items-center gap-1">
                                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Running
                                         </span>
                                     </div>
-                                    <p className="text-white/25 text-[10px] font-mono">{acc.id}</p>
+                                    <p className="text-muted-foreground text-[10px] font-mono">{acc.id}</p>
                                 </div>
                             </div>
                             <button
@@ -724,7 +724,7 @@ export default function SettingsPage() {
                     <button
                         onClick={handleConnectInstagram}
                         disabled={connecting}
-                        className="w-full py-4 border border-dashed border-white/[0.06] hover:border-white/15 hover:bg-white/[0.02] rounded-xl flex items-center justify-center gap-2 text-white/30 hover:text-white/60 transition-all group press"
+                        className="w-full py-4 border border-dashed border-white/[0.06] hover:border-border hover:bg-white/[0.02] rounded-xl flex items-center justify-center gap-2 text-muted-foreground hover:text-muted-foreground transition-all group press"
                     >
                         {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> :
                             <div className="w-7 h-7 rounded-full bg-white/[0.04] flex items-center justify-center group-hover:bg-primary/20 group-hover:text-primary transition-colors">
@@ -736,13 +736,13 @@ export default function SettingsPage() {
             </motion.div>
 
             {/* Language */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card rounded-2xl p-6">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
                     <div className="p-2.5 rounded-xl bg-blue-500/10">
                         <Globe className="w-5 h-5 text-blue-400" />
                     </div>
                     <div>
-                        <h2 className="text-sm font-semibold text-white">Language</h2>
+                        <h2 className="text-sm font-semibold text-foreground">Language</h2>
                         <p className="text-[11px] text-muted-foreground">Ghost Agent mirrors the user&apos;s language</p>
                     </div>
                 </div>
@@ -750,7 +750,7 @@ export default function SettingsPage() {
                 <div className="grid md:grid-cols-2 gap-8 items-start">
                     <div className="space-y-6">
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Language Mode</label>
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Language Mode</label>
                             <CustomSelect
                                 value={settings.language}
                                 onChange={(val) => setSettings({ ...settings, language: val })}
@@ -760,7 +760,7 @@ export default function SettingsPage() {
                                     { value: "Lebanese Franco", label: "🇱🇧 Lebanese Franco" },
                                 ]}
                             />
-                            <p className="text-[10px] text-white/20 ml-1 mt-2">Auto-Detect is recommended. Ghost Agent mirrors any language the customer uses.</p>
+                            <p className="text-[10px] text-muted-foreground ml-1 mt-2">Auto-Detect is recommended. Ghost Agent mirrors any language the customer uses.</p>
                         </div>
 
                         <div className="space-y-1.5 pt-2">
@@ -773,7 +773,7 @@ export default function SettingsPage() {
                                 </div>
                                 <div className={clsx(
                                     "relative w-11 rounded-full transition-colors duration-300",
-                                    settings.useLocalSlang ? "bg-amber-500" : "bg-white/10"
+                                    settings.useLocalSlang ? "bg-amber-500" : "bg-surface-2"
                                 )} style={{ height: '24px' }}>
                                     <motion.div
                                         className="absolute top-[2px] w-[20px] h-[20px] rounded-full bg-white shadow-sm"
@@ -794,19 +794,19 @@ export default function SettingsPage() {
                                     <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center">
                                         <GhostLogo className="w-3 h-3 text-primary" />
                                     </div>
-                                    <span className="text-xs font-medium text-white/80">GhostAgent</span>
+                                    <span className="text-xs font-medium text-muted-foreground">GhostAgent</span>
                                 </div>
                                 <div className="flex gap-1">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-white/10"></div>
-                                    <div className="w-1.5 h-1.5 rounded-full bg-white/10"></div>
-                                    <div className="w-1.5 h-1.5 rounded-full bg-white/10"></div>
+                                    <div className="w-1.5 h-1.5 rounded-full bg-surface-2"></div>
+                                    <div className="w-1.5 h-1.5 rounded-full bg-surface-2"></div>
+                                    <div className="w-1.5 h-1.5 rounded-full bg-surface-2"></div>
                                 </div>
                             </div>
 
                             {/* Chat Area */}
                             <div className="flex-1 p-4 flex flex-col justify-end space-y-4">
                                 {settings.language !== 'Auto-Detect' ? (
-                                    <div className="absolute inset-0 flex items-center justify-center text-xs text-white/20 text-center px-6">
+                                    <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground text-center px-6">
                                         Enable Auto-Detect to test live translation
                                     </div>
                                 ) : (
@@ -817,7 +817,7 @@ export default function SettingsPage() {
                                                 initial={{ opacity: 0, x: 20 }}
                                                 animate={{ opacity: 1, x: 0 }}
                                                 exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
-                                                className="self-end max-w-[80%] bg-surface-2 text-white/90 text-[13px] px-3.5 py-2.5 rounded-2xl rounded-tr-sm shadow-sm border border-white/[0.04]"
+                                                className="self-end max-w-[80%] bg-surface-2 text-muted-foreground text-[13px] px-3.5 py-2.5 rounded-2xl rounded-tr-sm shadow-sm border border-white/[0.04]"
                                             >
                                                 Bonjour! Avez-vous ça en stock?
                                             </motion.div>
@@ -841,7 +841,7 @@ export default function SettingsPage() {
                                                 initial={{ opacity: 0, x: 20 }}
                                                 animate={{ opacity: 1, x: 0 }}
                                                 exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
-                                                className="self-end max-w-[80%] bg-surface-2 text-white/90 text-[13px] px-3.5 py-2.5 rounded-2xl rounded-tr-sm shadow-sm border border-white/[0.04]"
+                                                className="self-end max-w-[80%] bg-surface-2 text-muted-foreground text-[13px] px-3.5 py-2.5 rounded-2xl rounded-tr-sm shadow-sm border border-white/[0.04]"
                                             >
                                                 مرحبا، في من هيدا؟
                                             </motion.div>
@@ -867,20 +867,20 @@ export default function SettingsPage() {
             </motion.div>
 
             {/* Agent Training */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="glass-card rounded-2xl p-6">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
                     <div className="p-2.5 rounded-xl bg-violet-500/10">
                         <Sparkles className="w-5 h-5 text-violet-400" />
                     </div>
                     <div>
-                        <h2 className="text-sm font-semibold text-white">Agent Training</h2>
+                        <h2 className="text-sm font-semibold text-foreground">Agent Training</h2>
                         <p className="text-[11px] text-muted-foreground">Knowledge base and product data</p>
                     </div>
                 </div>
 
                 <div className="space-y-5">
                     <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Knowledge Base (System Instructions)</label>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Knowledge Base (System Instructions)</label>
 
                         {/* Generate with AI */}
                         <div className="bg-primary/[0.03] border border-primary/[0.08] rounded-xl p-4">
@@ -888,7 +888,7 @@ export default function SettingsPage() {
                                 <Sparkles className="w-3.5 h-3.5 text-primary" />
                                 <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Generate with AI</span>
                             </div>
-                            <p className="text-[10px] text-white/25 mb-3">Describe your business briefly and AI will write detailed instructions.</p>
+                            <p className="text-[10px] text-muted-foreground mb-3">Describe your business briefly and AI will write detailed instructions.</p>
                             <div className="flex flex-col sm:flex-row gap-2 mt-4">
                                 <input
                                     type="text"
@@ -930,11 +930,11 @@ export default function SettingsPage() {
                             onChange={(e) => setSettings({ ...settings, systemPrompt: e.target.value })}
                             placeholder="Example: We are an eco-friendly streetwear brand. Our shipping takes 3-5 days. Return policy is 30 days..."
                         />
-                        <p className="text-[10px] text-white/20 ml-1">Most important field — tell the bot everything about your business.</p>
+                        <p className="text-[10px] text-muted-foreground ml-1">Most important field — tell the bot everything about your business.</p>
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Product Catalog (CSV)</label>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Product Catalog (CSV)</label>
                         {uploadedFile ? (
                             <div className="border border-emerald-500/15 bg-emerald-500/[0.04] rounded-xl p-5 flex items-center justify-between">
                                 <div className="flex items-center gap-3">
@@ -943,7 +943,7 @@ export default function SettingsPage() {
                                     </div>
                                     <div>
                                         <div className="font-semibold text-sm text-emerald-400">{uploadedFile.name}</div>
-                                        <div className="text-[10px] text-white/30">{uploadedFile.rowCount} products loaded</div>
+                                        <div className="text-[10px] text-muted-foreground">{uploadedFile.rowCount} products loaded</div>
                                     </div>
                                 </div>
                                 <button onClick={handleRemoveCatalog} className="p-2 rounded-lg bg-red-500/5 text-red-400/50 hover:bg-red-500/10 hover:text-red-400 transition-colors">
@@ -961,7 +961,7 @@ export default function SettingsPage() {
                                 {uploading ? (
                                     <Loader2 className="w-8 h-8 mx-auto mb-3 text-primary animate-spin" />
                                 ) : (
-                                    <Upload className="w-8 h-8 mx-auto mb-3 text-white/15 group-hover:text-primary/50 transition-colors" />
+                                    <Upload className="w-8 h-8 mx-auto mb-3 text-muted-foreground group-hover:text-primary/50 transition-colors" />
                                 )}
                                 <input
                                     ref={fileInputRef}
@@ -971,10 +971,10 @@ export default function SettingsPage() {
                                     onChange={handleCsvUpload}
                                     disabled={uploading}
                                 />
-                                <div className="text-white/40 mb-1 font-medium text-sm">
+                                <div className="text-muted-foreground mb-1 font-medium text-sm">
                                     {uploading ? 'Processing...' : 'Click to upload CSV'}
                                 </div>
-                                <div className="text-[10px] text-white/20">Required: name, price, description, stock</div>
+                                <div className="text-[10px] text-muted-foreground">Required: name, price, description, stock</div>
                             </div>
                         )}
                     </div>
@@ -994,13 +994,13 @@ export default function SettingsPage() {
                             <h3 className="text-xl font-bold text-red-500 flex items-center gap-2 mb-2">
                                 <Trash2 className="w-5 h-5" /> Danger Zone
                             </h3>
-                            <p className="text-white/40 text-sm">
+                            <p className="text-muted-foreground text-sm">
                                 Permanently delete this workspace and all its data. This action cannot be undone.
                             </p>
                         </div>
                         <button
                             onClick={() => setDeleteWsModal(true)}
-                            className="px-6 py-3 rounded-xl bg-red-500/10 text-red-500 font-semibold hover:bg-red-500 hover:text-white transition-colors shrink-0"
+                            className="px-6 py-3 rounded-xl bg-red-500/10 text-red-500 font-semibold hover:bg-red-500 hover:text-foreground transition-colors shrink-0"
                         >
                             Delete Workspace
                         </button>

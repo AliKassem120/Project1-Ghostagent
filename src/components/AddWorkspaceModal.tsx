@@ -110,11 +110,11 @@ export default function AddWorkspaceModal({ isOpen, onClose }: AddWorkspaceModal
                                         <Building2 className="w-4 h-4 text-primary" />
                                     </div>
                                     <div>
-                                        <h2 className="text-sm font-bold text-white">Add Instagram Account</h2>
-                                        <p className="text-[10px] text-white/30 mt-0.5">Create a new AI agent for this account</p>
+                                        <h2 className="text-sm font-bold text-foreground">Add Instagram Account</h2>
+                                        <p className="text-[10px] text-muted-foreground mt-0.5">Create a new AI agent for this account</p>
                                     </div>
                                 </div>
-                                <button onClick={handleClose} className="p-2 rounded-lg text-white/30 hover:text-white hover:bg-white/[0.05] transition-colors">
+                                <button onClick={handleClose} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/[0.05] transition-colors">
                                     <X className="w-4 h-4" />
                                 </button>
                             </div>
@@ -122,7 +122,7 @@ export default function AddWorkspaceModal({ isOpen, onClose }: AddWorkspaceModal
                             <form onSubmit={handleSubmit} className="p-6 space-y-6">
                                 {/* Business Name */}
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Business Name</label>
+                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Business Name</label>
                                     <input
                                         type="text"
                                         value={name}
@@ -136,7 +136,7 @@ export default function AddWorkspaceModal({ isOpen, onClose }: AddWorkspaceModal
 
                                 {/* Business Type */}
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Business Type</label>
+                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Business Type</label>
                                     <div className="grid grid-cols-2 gap-2">
                                         {BUSINESS_TYPES.map(({ id, label, icon: Icon, desc }) => {
                                             const active = businessType === id;
@@ -149,14 +149,14 @@ export default function AddWorkspaceModal({ isOpen, onClose }: AddWorkspaceModal
                                                     className={clsx(
                                                         'relative flex items-start gap-2.5 p-3 rounded-xl border text-left transition-all',
                                                         active
-                                                            ? 'bg-primary/10 border-primary/40 text-white'
-                                                            : 'bg-white/[0.02] border-white/[0.05] text-white/40 hover:border-white/10 hover:text-white/60'
+                                                            ? 'bg-primary/10 border-primary/40 text-foreground'
+                                                            : 'bg-white/[0.02] border-white/[0.05] text-muted-foreground hover:border-border hover:text-muted-foreground'
                                                     )}
                                                 >
                                                     <Icon className={clsx('w-4 h-4 mt-0.5 shrink-0', active ? 'text-primary' : '')} />
                                                     <div>
                                                         <p className="text-[11px] font-semibold leading-tight">{label}</p>
-                                                        <p className="text-[9px] text-white/25 mt-0.5 leading-tight">{desc}</p>
+                                                        <p className="text-[9px] text-muted-foreground mt-0.5 leading-tight">{desc}</p>
                                                     </div>
                                                     {active && (
                                                         <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary" />
@@ -180,7 +180,7 @@ export default function AddWorkspaceModal({ isOpen, onClose }: AddWorkspaceModal
                                         type="button"
                                         onClick={handleClose}
                                         disabled={saving}
-                                        className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white/30 bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.06] transition-all"
+                                        className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-muted-foreground bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.06] transition-all"
                                     >
                                         Cancel
                                     </button>
@@ -190,8 +190,8 @@ export default function AddWorkspaceModal({ isOpen, onClose }: AddWorkspaceModal
                                         className={clsx(
                                             'flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all',
                                             saving || !name.trim()
-                                                ? 'bg-white/[0.04] text-white/20 cursor-not-allowed'
-                                                : 'bg-primary text-white hover:brightness-110'
+                                                ? 'bg-white/[0.04] text-muted-foreground cursor-not-allowed'
+                                                : 'bg-primary text-foreground hover:brightness-110'
                                         )}
                                     >
                                         {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}

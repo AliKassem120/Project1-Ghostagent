@@ -123,31 +123,31 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                         <div className="bg-primary/10 p-2 rounded-xl group-hover:bg-primary/15 transition-colors">
                             <GhostLogo />
                         </div>
-                        <span className="font-semibold text-lg tracking-tight text-white/90">
+                        <span className="font-semibold text-lg tracking-tight text-muted-foreground">
                             GhostAgent
                         </span>
                     </Link>
-                    <button onClick={onClose} className="lg:hidden p-2 text-white/40 hover:text-white transition-colors">
+                    <button onClick={onClose} className="lg:hidden p-2 text-muted-foreground hover:text-foreground transition-colors">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
 
                 {/* Workspace Switcher */}
                 <div className="mx-4 mt-5 mb-2">
-                    <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest px-1 mb-2">Active Agent</p>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1 mb-2">Active Agent</p>
                     <div className="relative">
                         <button
                             onClick={() => setIsWorkspaceSwitcherOpen(v => !v)}
-                            className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.05] transition-colors text-left group"
+                            className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-surface-1 border border-border hover:bg-surface-2 transition-colors text-left group"
                         >
                             <div className="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
                                 <Building2 className="w-3.5 h-3.5 text-primary" />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="text-xs font-semibold text-white/80 truncate">{activeWorkspace?.name || 'My Store'}</p>
-                                <p className="text-[9px] text-white/25 truncate">{activeWorkspace?.instagram_username ? `@${activeWorkspace.instagram_username}` : 'No Instagram connected'}</p>
+                                <p className="text-xs font-semibold text-muted-foreground truncate">{activeWorkspace?.name || 'My Store'}</p>
+                                <p className="text-[9px] text-muted-foreground truncate">{activeWorkspace?.instagram_username ? `@${activeWorkspace.instagram_username}` : 'No Instagram connected'}</p>
                             </div>
-                            <ChevronRight className={clsx('w-3.5 h-3.5 text-white/20 transition-transform shrink-0', isWorkspaceSwitcherOpen && 'rotate-90')} />
+                            <ChevronRight className={clsx('w-3.5 h-3.5 text-muted-foreground transition-transform shrink-0', isWorkspaceSwitcherOpen && 'rotate-90')} />
                         </button>
 
                         <AnimatePresence>
@@ -157,7 +157,7 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                                     animate={{ opacity: 1, y: 0, scale: 1 }}
                                     exit={{ opacity: 0, y: -6, scale: 0.97 }}
                                     transition={{ duration: 0.15 }}
-                                    className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-[#0d0d14] border border-white/[0.07] rounded-xl shadow-2xl overflow-hidden"
+                                    className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-surface-1 border border-border rounded-xl shadow-2xl overflow-hidden"
                                 >
                                     {workspaces.map(ws => (
                                         <button
@@ -167,13 +167,13 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                                                 'w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors',
                                                 ws.id === activeWorkspaceId
                                                     ? 'bg-primary/10 text-primary'
-                                                    : 'text-white/50 hover:bg-white/[0.04] hover:text-white/80'
+                                                    : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'
                                             )}
                                         >
-                                            <div className={clsx('w-2 h-2 rounded-full shrink-0', ws.id === activeWorkspaceId ? 'bg-primary' : 'bg-white/10')} />
+                                            <div className={clsx('w-2 h-2 rounded-full shrink-0', ws.id === activeWorkspaceId ? 'bg-primary' : 'bg-surface-2')} />
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-[11px] font-semibold truncate">{ws.name}</p>
-                                                <p className="text-[9px] text-white/25 truncate">{ws.instagram_username ? `@${ws.instagram_username}` : ws.business_type}</p>
+                                                <p className="text-[9px] text-muted-foreground truncate">{ws.instagram_username ? `@${ws.instagram_username}` : ws.business_type}</p>
                                             </div>
                                             {ws.id === activeWorkspaceId && <Check className="w-3 h-3 shrink-0" />}
                                         </button>
@@ -190,7 +190,7 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                                             </button>
                                         ) : (
                                             <div className="px-3 py-2">
-                                                <p className="text-[9px] text-white/25">{upgradeMessage}</p>
+                                                <p className="text-[9px] text-muted-foreground">{upgradeMessage}</p>
                                                 <Link href="/dashboard/billing" onClick={() => setIsWorkspaceSwitcherOpen(false)} className="text-[10px] text-primary font-semibold hover:underline">Upgrade plan →</Link>
                                             </div>
                                         )}
@@ -200,9 +200,9 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                         </AnimatePresence>
                     </div>
                 </div>
-                <div className="mx-4 mt-5 mb-2 p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                <div className="mx-4 mt-5 mb-2 p-4 rounded-xl bg-surface-1 border border-border">
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-semibold flex items-center gap-2 text-white/50">
+                        <span className="text-xs font-semibold flex items-center gap-2 text-muted-foreground">
                             <Zap className="w-3.5 h-3.5 text-primary" />
                             Autopilot
                         </span>
@@ -211,7 +211,7 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                             disabled={isLoading}
                             className={clsx(
                                 "relative w-11 rounded-full transition-all duration-300 press",
-                                autopilot ? "bg-primary" : "bg-white/10",
+                                autopilot ? "bg-primary" : "bg-surface-2",
                                 isLoading && "opacity-50 cursor-not-allowed"
                             )}
                             style={{ height: '24px' }}
@@ -222,14 +222,14 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                             )} />
                         </button>
                     </div>
-                    <p className="text-[10px] text-white/25 leading-relaxed">
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">
                         {isLoading ? "Syncing status..." : (autopilot ? "AI replies are sent automatically." : "Manual approval required for replies.")}
                     </p>
                 </div>
 
                 {/* Navigation */}
                 <nav className="flex-1 px-3 mt-2 space-y-0.5">
-                    <p className="text-[10px] font-semibold text-white/20 uppercase tracking-wider px-3 pt-3 pb-2">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 pt-3 pb-2">
                         Menu
                     </p>
                     {navItems.map((item) => {
@@ -243,7 +243,7 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                                     "flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all text-sm font-medium relative group",
                                     isActive
                                         ? "bg-primary/10 text-primary"
-                                        : "text-white/40 hover:text-white/70 hover:bg-white/[0.04]"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-surface-1"
                                 )}
                             >
                                 {isActive && (
@@ -269,20 +269,20 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                         onClick={() => setIsAccountOpen(true)}
                         className="flex items-center gap-3 mb-3 w-full rounded-xl p-2 -mx-2 hover:bg-white/[0.04] transition-colors group text-left"
                     >
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/30 to-violet-600/30 flex items-center justify-center text-white font-semibold text-sm border border-white/[0.06] shrink-0">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/30 to-violet-600/30 flex items-center justify-center text-foreground font-semibold text-sm border border-white/[0.06] shrink-0">
                             {userInitial}
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-white/70 truncate">{userName}</p>
+                            <p className="text-xs font-medium text-muted-foreground truncate">{userName}</p>
                             {userEmail && (
-                                <p className="text-[10px] text-white/25 truncate">{userEmail}</p>
+                                <p className="text-[10px] text-muted-foreground truncate">{userEmail}</p>
                             )}
                         </div>
-                        <ChevronRight className="w-3.5 h-3.5 text-white/15 group-hover:text-white/40 transition-colors shrink-0" />
+                        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-muted-foreground transition-colors shrink-0" />
                     </button>
                     <button
                         onClick={handleLogout}
-                        className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-xs text-white/25 hover:text-red-400 hover:bg-red-500/[0.05] transition-colors press"
+                        className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-xs text-muted-foreground hover:text-red-400 hover:bg-red-500/[0.05] transition-colors press"
                     >
                         <LogOut className="w-4 h-4" />
                         Sign Out
@@ -311,12 +311,12 @@ function DashboardContent({ children, toggleSidebar }: { children: React.ReactNo
         <div className="flex-1 flex flex-col min-w-0">
             {/* Mobile Header */}
             <header className="lg:hidden h-14 border-b border-white/[0.06] bg-surface-0 fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4">
-                <button onClick={toggleSidebar} className="p-3 text-white/40 hover:text-white transition-colors">
+                <button onClick={toggleSidebar} className="p-3 text-muted-foreground hover:text-foreground transition-colors">
                     <Menu className="w-5 h-5" />
                 </button>
                 <div className="flex items-center gap-2">
                     <GhostLogo className="w-5 h-5" />
-                    <span className="font-semibold text-base tracking-tight text-white">GhostAgent</span>
+                    <span className="font-semibold text-base tracking-tight text-foreground">GhostAgent</span>
                 </div>
                 <div className="w-9" />
             </header>

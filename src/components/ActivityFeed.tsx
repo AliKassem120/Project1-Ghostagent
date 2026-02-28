@@ -73,7 +73,7 @@ export default function ActivityFeed({ autopilot, isOpen, onClose }: { autopilot
             case 'inventory': return 'text-yellow-400';
             case 'sale': return 'text-green-400';
             case 'alert': return 'text-red-400';
-            default: return 'text-white';
+            default: return 'text-foreground';
         }
     };
 
@@ -100,14 +100,14 @@ export default function ActivityFeed({ autopilot, isOpen, onClose }: { autopilot
             </AnimatePresence>
 
             <aside className={clsx(
-                "w-80 border-l border-white/10 bg-black/95 lg:bg-black/50 fixed right-0 h-full glass-dark p-6 overflow-y-auto z-50 transition-transform duration-300 lg:translate-x-0",
+                "w-80 border-l border-border bg-surface-0 backdrop-blur-md fixed right-0 h-full p-6 overflow-y-auto z-50 transition-transform duration-300 lg:translate-x-0",
                 isOpen ? "translate-x-0" : "translate-x-full"
             )}>
                 <div className="flex items-center gap-2 mb-6">
                     <Activity className="w-5 h-5 text-primary" />
-                    <h2 className="font-bold text-lg">Live Activity</h2>
+                    <h2 className="font-bold text-lg text-foreground tracking-tight">Live Activity</h2>
                     <div className="flex-1" />
-                    <button onClick={onClose} className="lg:hidden p-2 text-white/60 hover:text-white">
+                    <button onClick={onClose} className="lg:hidden p-2 text-muted-foreground hover:text-foreground">
                         <X className="w-5 h-5" />
                     </button>
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse lg:block hidden" />
@@ -116,7 +116,7 @@ export default function ActivityFeed({ autopilot, isOpen, onClose }: { autopilot
                 {!autopilot && (
                     <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
                         <div className="text-xs font-bold text-yellow-400 mb-1">MANUAL MODE</div>
-                        <div className="text-xs text-white/60">Review pending replies below</div>
+                        <div className="text-xs text-muted-foreground">Review pending replies below</div>
                     </div>
                 )}
 
@@ -131,17 +131,17 @@ export default function ActivityFeed({ autopilot, isOpen, onClose }: { autopilot
                                     animate={{ opacity: 1, x: 0, height: 'auto' }}
                                     exit={{ opacity: 0, x: -20, height: 0 }}
                                     transition={{ duration: 0.3 }}
-                                    className="glass p-3 rounded-xl border border-white/5 hover:border-white/20 transition-colors"
+                                    className="bg-surface-1 p-3 rounded-xl border border-border hover:border-muted-foreground/30 transition-colors shadow-sm"
                                 >
                                     <div className="flex gap-3">
-                                        <div className={clsx("p-2 rounded-lg bg-white/5", getColor(activity.type))}>
+                                        <div className={clsx("p-2 rounded-lg bg-surface-2", getColor(activity.type))}>
                                             <Icon className="w-4 h-4" />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-sm text-white/80 leading-snug mb-1">
+                                            <p className="text-sm text-foreground font-medium leading-snug mb-1">
                                                 {activity.message}
                                             </p>
-                                            <p className="text-xs text-white/40">{formatTime(activity.timestamp)}</p>
+                                            <p className="text-xs text-muted-foreground font-medium">{formatTime(activity.timestamp)}</p>
                                         </div>
                                     </div>
                                 </motion.div>

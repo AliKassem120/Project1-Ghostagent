@@ -449,7 +449,7 @@ export default function InteractionsPage() {
                 </div>
 
                 <div className="relative mb-2">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/25" />
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                     <input
                         placeholder="Search chats..."
                         className="input-premium w-full !pl-10 py-2.5 text-sm"
@@ -465,14 +465,14 @@ export default function InteractionsPage() {
                                 "w-full text-left p-4 rounded-2xl border transition-all duration-200 group relative overflow-hidden",
                                 selectedChatId === conv.chat_id
                                     ? "glass-dark border-primary/40 bg-primary/5"
-                                    : "border-white/5 hover:bg-white/5"
+                                    : "border-border hover:bg-surface-2"
                             )}
                         >
                             <div className={clsx("absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full transition-transform duration-1000", selectedChatId === conv.chat_id ? "translate-x-full" : "")} />
 
                             <div className="flex items-center gap-3 relative z-10">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center border border-white/10 shrink-0">
-                                    <User className="w-5 h-5 text-white/60" />
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center border border-border shrink-0">
+                                    <User className="w-5 h-5 text-muted-foreground" />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between gap-2">
@@ -480,12 +480,12 @@ export default function InteractionsPage() {
                                             {conv.username}
                                             {conv.isComment && <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded-full border border-blue-500/20 uppercase tracking-tighter">Comment</span>}
                                         </h3>
-                                        <span className="text-[10px] text-white/30 whitespace-nowrap">
+                                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                                             {new Date(conv.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </span>
                                     </div>
                                     <p className={clsx("text-xs truncate mt-0.5 flex items-center gap-1",
-                                        conv.messages[conv.messages.length - 1]?.is_bot ? "text-primary/70" : "text-white/40"
+                                        conv.messages[conv.messages.length - 1]?.is_bot ? "text-primary/70" : "text-muted-foreground"
                                     )}>
                                         {conv.messages[conv.messages.length - 1]?.is_bot && <Ghost className="w-3 h-3" />}
                                         {conv.lastMessage}
@@ -508,7 +508,7 @@ export default function InteractionsPage() {
                         <div className="p-4 border-b border-white/[0.06] bg-surface-2/50 flex items-center gap-3 pt-safe-top md:pt-4">
                             <button
                                 onClick={() => setSelectedChatId(null)}
-                                className="md:hidden p-2 -ml-2 text-white/60 hover:text-white"
+                                className="md:hidden p-2 -ml-2 text-muted-foreground hover:text-foreground"
                             >
                                 <ArrowLeft className="w-6 h-6" />
                             </button>
@@ -584,8 +584,8 @@ export default function InteractionsPage() {
                                                     : msg.is_bot
                                                         ? "bg-cyan-950/40 border-cyan-500/30 text-cyan-50 rounded-tr-none shadow-[0_0_20px_rgba(34,211,238,0.15)]"
                                                         : msg.is_manual
-                                                            ? "bg-surface-3 border-white/[0.08] text-white rounded-tr-none"
-                                                            : "bg-surface-2 border-white/[0.06] text-white/90 rounded-tl-none"
+                                                            ? "bg-surface-3 border-white/[0.08] text-foreground rounded-tr-none"
+                                                            : "bg-surface-2 border-white/[0.06] text-muted-foreground rounded-tl-none"
                                             )}>
                                                 {msg.text}
 
@@ -602,7 +602,7 @@ export default function InteractionsPage() {
                                             </div>
                                         </div>
 
-                                        <span className="text-[10px] text-white/20 mt-1 px-1 uppercase tracking-wider flex items-center gap-1">
+                                        <span className="text-[10px] text-muted-foreground mt-1 px-1 uppercase tracking-wider flex items-center gap-1">
                                             {msg.is_bot && <Sparkles className="w-2 h-2 text-cyan-500/50" />}
                                             {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             {msg.is_manual && " • YOU"}
@@ -624,7 +624,7 @@ export default function InteractionsPage() {
                                         "w-12 h-12 rounded-2xl flex items-center justify-center transition-all border shrink-0",
                                         autopilot
                                             ? "bg-primary/10 border-primary/20 text-primary hover:bg-primary/20"
-                                            : "bg-surface-3 border-white/10 text-white/40 hover:text-white"
+                                            : "bg-surface-3 border-border text-muted-foreground hover:text-foreground"
                                     )}
                                     title={autopilot ? "Autopilot ON (Mute)" : "Autopilot OFF (Resume)"}
                                 >
@@ -654,7 +654,7 @@ export default function InteractionsPage() {
                                     </button>
                                 </div>
                             </div>
-                            <p className="text-[10px] text-white/20 mt-2 text-center uppercase tracking-widest flex justify-center gap-2">
+                            <p className="text-[10px] text-muted-foreground mt-2 text-center uppercase tracking-widest flex justify-center gap-2">
                                 <span>Manager Mode Active</span>
                                 {isMuted ? (
                                     <span className="text-yellow-500">• Manual Control</span>
@@ -678,8 +678,8 @@ export default function InteractionsPage() {
                             {/* Inner glow on ghost */}
                             <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
                         </motion.div>
-                        <h2 className="text-2xl font-bold mb-3 tracking-tight text-white/90">Agent Monitor</h2>
-                        <p className="text-sm font-medium text-white/40">Select a conversation to view</p>
+                        <h2 className="text-2xl font-bold mb-3 tracking-tight text-muted-foreground">Agent Monitor</h2>
+                        <p className="text-sm font-medium text-muted-foreground">Select a conversation to view</p>
                     </div>
                 )}
             </div>

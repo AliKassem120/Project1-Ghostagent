@@ -209,7 +209,7 @@ export default function InventoryPage() {
                 className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
             >
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-white">Inventory</h1>
+                    <h1 className="text-2xl font-bold tracking-tight text-foreground">Inventory</h1>
                     <p className="text-sm text-muted-foreground mt-1">Manage your product catalog and stock levels.</p>
                 </div>
                 <motion.button
@@ -236,12 +236,12 @@ export default function InventoryPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.05 + i * 0.05 }}
-                        className="glass-card rounded-2xl p-5"
+                        className="bg-surface-1 border border-border shadow-sm rounded-2xl p-5"
                     >
                         <div className={clsx("p-2 rounded-xl w-fit mb-3", stat.bg)}>
                             <stat.icon className={clsx("w-4 h-4", stat.color)} />
                         </div>
-                        <div className="text-xl font-bold text-white tracking-tight">{stat.value}</div>
+                        <div className="text-xl font-bold text-foreground tracking-tight">{stat.value}</div>
                         <div className="text-[11px] text-muted-foreground mt-0.5">{stat.label}</div>
                     </motion.div>
                 ))}
@@ -249,7 +249,7 @@ export default function InventoryPage() {
 
             {/* ═══ SEARCH ═══ */}
             <div className="relative mb-6">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
                     type="text"
                     value={searchQuery}
@@ -268,17 +268,17 @@ export default function InventoryPage() {
                         exit={{ opacity: 0, height: 0 }}
                         className="overflow-hidden"
                     >
-                        <div className="glass-card rounded-2xl p-6 border-2 border-primary/20 space-y-5">
+                        <div className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6 border-2 border-primary/20 space-y-5">
                             <div className="flex items-center gap-3 pb-4 border-b border-white/[0.04]">
                                 <div className="p-2 rounded-xl bg-primary/10">
                                     <Plus className="w-4 h-4 text-primary" />
                                 </div>
-                                <h3 className="font-bold text-white">New Product</h3>
+                                <h3 className="font-bold text-foreground">New Product</h3>
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div className="space-y-1.5 sm:col-span-1">
-                                    <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest ml-1">Product Name</label>
+                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Product Name</label>
                                     <input
                                         autoFocus
                                         className="input-premium w-full"
@@ -289,9 +289,9 @@ export default function InventoryPage() {
                                     />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest ml-1">Price (USD)</label>
+                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Price (USD)</label>
                                     <div className="relative">
-                                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30 text-sm font-semibold">$</span>
+                                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-semibold">$</span>
                                         <input
                                             type="number"
                                             className="input-premium w-full pl-8 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0"
@@ -302,7 +302,7 @@ export default function InventoryPage() {
                                     </div>
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest ml-1">Stock Qty</label>
+                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Stock Qty</label>
                                     <input
                                         type="number"
                                         className="input-premium w-full appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0"
@@ -323,7 +323,7 @@ export default function InventoryPage() {
                                 </button>
                                 <button
                                     onClick={handleCancelAdd}
-                                    className="px-4 py-3 bg-white/5 text-white/50 rounded-xl hover:bg-white/10 transition-colors"
+                                    className="px-4 py-3 bg-surface-2 text-muted-foreground rounded-xl hover:bg-surface-2 transition-colors"
                                 >
                                     <X className="w-5 h-5" />
                                 </button>
@@ -345,7 +345,7 @@ export default function InventoryPage() {
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: i * 0.03 }}
-                                className="glass-card rounded-2xl p-5 group"
+                                className="bg-surface-1 border border-border shadow-sm rounded-2xl p-5 group"
                             >
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="flex items-center gap-3 w-full">
@@ -360,7 +360,7 @@ export default function InventoryPage() {
                                                     onChange={e => setEditValues({ ...editValues, name: e.target.value })}
                                                 />
                                             ) : (
-                                                <h3 className="font-bold text-white text-base">{item.name}</h3>
+                                                <h3 className="font-bold text-foreground text-base">{item.name}</h3>
                                             )}
                                             <span className={clsx(
                                                 "text-[10px] font-bold uppercase tracking-wider",
@@ -375,18 +375,18 @@ export default function InventoryPage() {
                                             <button onClick={handleSaveEdit} className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-all">
                                                 <Save className="w-4 h-4" />
                                             </button>
-                                            <button onClick={handleCancelEdit} className="p-2 text-white/40 hover:bg-white/10 rounded-xl transition-all">
+                                            <button onClick={handleCancelEdit} className="p-2 text-muted-foreground hover:bg-surface-2 rounded-xl transition-all">
                                                 <X className="w-4 h-4" />
                                             </button>
                                         </div>
                                     ) : (
                                         <div className="flex items-center gap-1 shrink-0 ml-2">
-                                            <button onClick={() => handleEditClick(item)} className="p-2 text-white/30 hover:text-primary hover:bg-primary/10 rounded-xl transition-all">
+                                            <button onClick={() => handleEditClick(item)} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-all">
                                                 <Edit2 className="w-4 h-4" />
                                             </button>
                                             <button
                                                 onClick={() => openDeleteModal(item)}
-                                                className="p-2 text-white/30 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all"
+                                                className="p-2 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all"
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
@@ -395,10 +395,10 @@ export default function InventoryPage() {
                                 </div>
                                 <div className="grid grid-cols-2 gap-4 pt-3 border-t border-white/[0.04]">
                                     <div>
-                                        <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest mb-1.5">Price</p>
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">Price</p>
                                         {isEditing ? (
                                             <div className="relative w-full">
-                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm font-semibold">$</span>
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-semibold">$</span>
                                                 <input
                                                     type="number"
                                                     className="input-premium py-1.5 pl-8 pr-2 w-full text-base font-bold appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0"
@@ -411,7 +411,7 @@ export default function InventoryPage() {
                                         )}
                                     </div>
                                     <div>
-                                        <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest mb-1.5">Stock</p>
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">Stock</p>
                                         {isEditing ? (
                                             <input
                                                 type="number"
@@ -420,7 +420,7 @@ export default function InventoryPage() {
                                                 onChange={e => setEditValues({ ...editValues, stock: e.target.value })}
                                             />
                                         ) : (
-                                            <p className="text-lg font-bold text-white">{item.stock}</p>
+                                            <p className="text-lg font-bold text-foreground">{item.stock}</p>
                                         )}
                                     </div>
                                 </div>
@@ -430,15 +430,15 @@ export default function InventoryPage() {
                 </div>
 
                 {/* Desktop Table */}
-                <div className="hidden lg:block glass-card rounded-2xl overflow-hidden">
+                <div className="hidden lg:block bg-surface-1 border border-border shadow-sm rounded-2xl overflow-hidden">
                     <table className="w-full text-left">
                         <thead>
                             <tr className="border-b border-white/[0.04]">
-                                <th className="px-6 py-4 text-[10px] font-bold text-white/30 uppercase tracking-widest">Product</th>
-                                <th className="px-6 py-4 text-[10px] font-bold text-white/30 uppercase tracking-widest">Price</th>
-                                <th className="px-6 py-4 text-[10px] font-bold text-white/30 uppercase tracking-widest">Stock</th>
-                                <th className="px-6 py-4 text-[10px] font-bold text-white/30 uppercase tracking-widest">Status</th>
-                                <th className="px-6 py-4 text-[10px] font-bold text-white/30 uppercase tracking-widest text-right">Actions</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Product</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Price</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Stock</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Status</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/[0.03]">
@@ -459,14 +459,14 @@ export default function InventoryPage() {
                                                         autoFocus
                                                     />
                                                 ) : (
-                                                    <span className="font-semibold text-white text-sm">{item.name}</span>
+                                                    <span className="font-semibold text-foreground text-sm">{item.name}</span>
                                                 )}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
                                             {isEditing ? (
                                                 <div className="relative w-28">
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-xs font-semibold">$</span>
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-semibold">$</span>
                                                     <input
                                                         type="number"
                                                         className="input-premium py-1 pl-7 pr-2 w-full text-sm font-semibold appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0"
@@ -487,7 +487,7 @@ export default function InventoryPage() {
                                                     onChange={e => setEditValues({ ...editValues, stock: e.target.value })}
                                                 />
                                             ) : (
-                                                <span className="text-sm text-white/70 font-medium">{item.stock}</span>
+                                                <span className="text-sm text-muted-foreground font-medium">{item.stock}</span>
                                             )}
                                         </td>
                                         <td className="px-6 py-4">
@@ -505,18 +505,18 @@ export default function InventoryPage() {
                                                     <button onClick={handleSaveEdit} className="text-emerald-400/80 hover:text-emerald-400 p-1.5 hover:bg-emerald-500/10 rounded-lg transition-all" title="Save">
                                                         <Save className="w-4 h-4" />
                                                     </button>
-                                                    <button onClick={handleCancelEdit} className="text-white/40 hover:text-white/80 p-1.5 hover:bg-white/10 rounded-lg transition-all" title="Cancel">
+                                                    <button onClick={handleCancelEdit} className="text-muted-foreground hover:text-muted-foreground p-1.5 hover:bg-surface-2 rounded-lg transition-all" title="Cancel">
                                                         <X className="w-4 h-4" />
                                                     </button>
                                                 </div>
                                             ) : (
                                                 <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button onClick={() => handleEditClick(item)} className="text-white/40 hover:text-primary/80 transition-all p-2 hover:bg-primary/10 rounded-lg" title="Edit">
+                                                    <button onClick={() => handleEditClick(item)} className="text-muted-foreground hover:text-primary/80 transition-all p-2 hover:bg-primary/10 rounded-lg" title="Edit">
                                                         <Edit2 className="w-4 h-4" />
                                                     </button>
                                                     <button
                                                         onClick={() => openDeleteModal(item)}
-                                                        className="text-white/40 hover:text-red-400 transition-all p-2 hover:bg-red-500/10 rounded-lg" title="Delete"
+                                                        className="text-muted-foreground hover:text-red-400 transition-all p-2 hover:bg-red-500/10 rounded-lg" title="Delete"
                                                     >
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
@@ -547,10 +547,10 @@ export default function InventoryPage() {
                         >
                             <Package className="w-10 h-10 text-primary/60" />
                         </motion.div>
-                        <h3 className="text-white text-lg font-bold tracking-tight mb-2 relative z-10">
+                        <h3 className="text-foreground text-lg font-bold tracking-tight mb-2 relative z-10">
                             {searchQuery ? 'No products match your search' : 'No products yet'}
                         </h3>
-                        <p className="text-white/40 text-sm relative z-10">
+                        <p className="text-muted-foreground text-sm relative z-10">
                             {searchQuery ? 'Try a different search term' : 'Click "Add Product" to start building your catalog'}
                         </p>
                     </motion.div>
@@ -562,7 +562,7 @@ export default function InventoryPage() {
                 isOpen={deleteModal.open}
                 variant="danger"
                 title="Delete Product?"
-                message={<>Are you sure you want to delete <span className="font-bold text-white">&quot;{deleteModal.productName}&quot;</span>? This action cannot be undone.</>}
+                message={<>Are you sure you want to delete <span className="font-bold text-foreground">&quot;{deleteModal.productName}&quot;</span>? This action cannot be undone.</>}
                 confirmText="Delete"
                 cancelText="Keep It"
                 onConfirm={() => {

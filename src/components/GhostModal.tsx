@@ -94,7 +94,7 @@ export default function GhostModal({
                         {/* Close Button */}
                         <button
                             onClick={onCancel}
-                            className="absolute top-4 right-4 p-1.5 rounded-lg text-white/20 hover:text-white hover:bg-white/[0.06] transition-colors"
+                            className="absolute top-4 right-4 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
                         >
                             <X className="w-5 h-5" />
                         </button>
@@ -107,12 +107,12 @@ export default function GhostModal({
                             </div>
 
                             {/* Title */}
-                            <h2 className="text-xl font-semibold text-white mb-2">
+                            <h2 className="text-xl font-semibold text-foreground mb-2">
                                 {title}
                             </h2>
 
                             {/* Message */}
-                            <p className="text-white/40 leading-relaxed text-sm">
+                            <p className="text-muted-foreground leading-relaxed text-sm">
                                 {message}
                             </p>
 
@@ -123,8 +123,8 @@ export default function GhostModal({
                                     className="
                                         rounded-xl px-5 py-2.5 
                                         text-sm font-medium 
-                                        text-white/40 
-                                        hover:text-white hover:bg-white/[0.06] 
+                                        text-muted-foreground 
+                                        hover:text-foreground hover:bg-white/[0.06] 
                                         border border-white/[0.08] hover:border-white/[0.12]
                                         transition-all
                                     "
@@ -138,7 +138,7 @@ export default function GhostModal({
                                     }}
                                     className={`
                                         rounded-xl px-5 py-2.5 
-                                        text-sm font-semibold text-white 
+                                        text-sm font-semibold text-foreground 
                                         ${styles.buttonBg}
                                         shadow-md
                                         transition-all hover:scale-[1.02] active:scale-[0.98]

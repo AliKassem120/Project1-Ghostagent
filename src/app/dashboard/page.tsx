@@ -35,7 +35,7 @@ type InventoryItem = {
 function EngagementChart({ data, labels }: { data: number[]; labels: string[] }) {
     if (data.length < 2) {
         return (
-            <div className="flex items-center justify-center h-full text-white/20 text-sm">
+            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                 <Sparkles className="w-4 h-4 mr-2 opacity-50" />
                 Collecting engagement data...
             </div>
@@ -359,7 +359,7 @@ export default function DashboardPage() {
                 className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8"
             >
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-white">
+                    <h1 className="text-2xl font-bold tracking-tight text-foreground">
                         {greeting}, {userName} 👋
                     </h1>
                     <p className="text-sm text-muted-foreground mt-1">
@@ -369,7 +369,7 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-1 border border-white/[0.06]">
                         <Instagram className="w-4 h-4 text-pink-400" />
-                        <span className="text-xs text-white/50">{isConnected ? 'Connected' : 'Disconnected'}</span>
+                        <span className="text-xs text-muted-foreground">{isConnected ? 'Connected' : 'Disconnected'}</span>
                         <span className={clsx("w-2 h-2 rounded-full", isConnected ? "bg-emerald-400 animate-pulse" : "bg-red-500")} />
                     </div>
                     <div className={clsx(
@@ -398,7 +398,7 @@ export default function DashboardPage() {
                         color: 'text-violet-400',
                         bg: 'bg-violet-500/10',
                         change: 'All time',
-                        changeColor: 'text-white/30',
+                        changeColor: 'text-muted-foreground',
                     },
                     {
                         icon: Clock,
@@ -409,7 +409,7 @@ export default function DashboardPage() {
                         color: 'text-blue-400',
                         bg: 'bg-blue-500/10',
                         change: 'This week',
-                        changeColor: 'text-white/30',
+                        changeColor: 'text-muted-foreground',
                     },
                     {
                         icon: DollarSign,
@@ -419,7 +419,7 @@ export default function DashboardPage() {
                         color: 'text-emerald-400',
                         bg: 'bg-emerald-500/10',
                         change: 'From sales',
-                        changeColor: 'text-white/30',
+                        changeColor: 'text-muted-foreground',
                     },
                     {
                         icon: Bot,
@@ -429,7 +429,7 @@ export default function DashboardPage() {
                         color: 'text-primary',
                         bg: 'bg-primary/10',
                         change: 'AI handled',
-                        changeColor: 'text-white/30',
+                        changeColor: 'text-muted-foreground',
                     },
                 ].map((metric, index) => (
                     <motion.div
@@ -437,7 +437,7 @@ export default function DashboardPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.1 + index * 0.05 }}
-                        className="glass-card rounded-2xl p-6 cursor-default group"
+                        className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6 cursor-default group"
                     >
                         <div className="flex items-center justify-between mb-4">
                             <div className={clsx("p-2.5 rounded-xl", metric.bg)}>
@@ -448,7 +448,7 @@ export default function DashboardPage() {
                                 {metric.changeColor === 'text-emerald-400' && <ArrowUpRight className="w-3 h-3" />}
                             </span>
                         </div>
-                        <div className="text-2xl font-bold text-white leading-none mb-1.5 tracking-tight">
+                        <div className="text-2xl font-bold text-foreground leading-none mb-1.5 tracking-tight">
                             <CountUp
                                 end={metric.value}
                                 prefix={metric.prefix}
@@ -471,7 +471,7 @@ export default function DashboardPage() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 }}
-                    className="lg:col-span-8 glass-card rounded-2xl p-6"
+                    className="lg:col-span-8 bg-surface-1 border border-border shadow-sm rounded-2xl p-6"
                 >
                     <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center gap-3">
@@ -479,7 +479,7 @@ export default function DashboardPage() {
                                 <BarChart3 className="w-4 h-4 text-primary" />
                             </div>
                             <div>
-                                <h3 className="text-sm font-semibold text-white">Engagement Overview</h3>
+                                <h3 className="text-sm font-semibold text-foreground">Engagement Overview</h3>
                                 <p className="text-[11px] text-muted-foreground">Interactions over the last 7 days</p>
                             </div>
                         </div>
@@ -505,7 +505,7 @@ export default function DashboardPage() {
                             <div key={item.label} className="flex items-center gap-3">
                                 <item.icon className={clsx("w-4 h-4", item.color)} />
                                 <div>
-                                    <p className="text-sm font-semibold text-white">{item.value}</p>
+                                    <p className="text-sm font-semibold text-foreground">{item.value}</p>
                                     <p className="text-[10px] text-muted-foreground">{item.label}</p>
                                 </div>
                             </div>
@@ -521,13 +521,13 @@ export default function DashboardPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.35 }}
-                        className="glass-card rounded-2xl p-6"
+                        className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6"
                     >
                         <div className="flex items-center gap-3 mb-5">
                             <div className="p-2 rounded-xl bg-emerald-500/10">
                                 <Shield className="w-4 h-4 text-emerald-400" />
                             </div>
-                            <h3 className="text-sm font-semibold text-white">System Status</h3>
+                            <h3 className="text-sm font-semibold text-foreground">System Status</h3>
                         </div>
 
                         <div className="space-y-4">
@@ -553,7 +553,7 @@ export default function DashboardPage() {
                             <div className="w-full h-px bg-white/[0.04]" />
                             <div className="flex items-center justify-between">
                                 <span className="text-xs text-muted-foreground">Inventory</span>
-                                <span className="text-xs text-white/60 font-medium">{stats.stock} items in stock</span>
+                                <span className="text-xs text-muted-foreground font-medium">{stats.stock} items in stock</span>
                             </div>
 
                             {/* Automation Rate Bar */}
@@ -579,21 +579,21 @@ export default function DashboardPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.4 }}
-                        className="glass-card rounded-2xl p-6"
+                        className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6"
                     >
                         <div className="flex items-center gap-3 mb-4">
                             <div className="p-2 rounded-xl bg-violet-500/10">
                                 <Sparkles className="w-4 h-4 text-violet-400" />
                             </div>
-                            <h3 className="text-sm font-semibold text-white">Today&apos;s Summary</h3>
+                            <h3 className="text-sm font-semibold text-foreground">Today&apos;s Summary</h3>
                         </div>
-                        <p className="text-sm text-white/60 leading-relaxed">
+                        <p className="text-sm text-muted-foreground leading-relaxed">
                             {totalInteractions > 10 ? (
-                                <>Your agent handled <span className="text-white font-semibold">{totalInteractions}</span> interactions, saving you <span className="text-white font-semibold">{stats.timeSaved.toFixed(1)} hours</span> of manual work. {stats.moneySaved > 0 && <>You&apos;ve generated <span className="text-emerald-400 font-semibold">${stats.moneySaved.toFixed(0)}</span> in revenue.</>}</>
+                                <>Your agent handled <span className="text-foreground font-semibold">{totalInteractions}</span> interactions, saving you <span className="text-foreground font-semibold">{stats.timeSaved.toFixed(1)} hours</span> of manual work. {stats.moneySaved > 0 && <>You&apos;ve generated <span className="text-emerald-400 font-semibold">${stats.moneySaved.toFixed(0)}</span> in revenue.</>}</>
                             ) : totalInteractions > 0 ? (
                                 <>Your agent has started processing interactions. Keep going — the data will get richer as more conversations come in!</>
                             ) : (
-                                <span className="text-white/25 italic">Collecting data for your first summary. Once customers message you on Instagram, stats will appear here.</span>
+                                <span className="text-muted-foreground italic">Collecting data for your first summary. Once customers message you on Instagram, stats will appear here.</span>
                             )}
                         </p>
                     </motion.div>
@@ -607,17 +607,17 @@ export default function DashboardPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
-                className="glass-card rounded-2xl mt-5 overflow-hidden"
+                className="bg-surface-1 border border-border shadow-sm rounded-2xl mt-5 overflow-hidden"
             >
                 {/* Feed Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-white/5">
+                        <div className="p-2 rounded-xl bg-surface-2">
                             <Activity className="w-4 h-4 text-muted-foreground" />
                         </div>
-                        <h3 className="text-sm font-semibold text-white">Recent Activity</h3>
+                        <h3 className="text-sm font-semibold text-foreground">Recent Activity</h3>
                         {filteredActivities.length > 0 && (
-                            <span className="badge bg-white/[0.06] text-white/35 font-mono">
+                            <span className="badge bg-white/[0.06] text-muted-foreground font-mono">
                                 {filteredActivities.length}
                             </span>
                         )}
@@ -640,10 +640,10 @@ export default function DashboardPage() {
                     {filteredActivities.length === 0 && !loading ? (
                         <div className="flex flex-col items-center justify-center h-full text-center px-6">
                             <div className="w-14 h-14 rounded-2xl bg-white/[0.03] flex items-center justify-center mb-4">
-                                <Sparkles className="w-6 h-6 text-white/10" />
+                                <Sparkles className="w-6 h-6 text-muted-foreground" />
                             </div>
-                            <p className="text-sm font-medium text-white/20 mb-1">No activity yet</p>
-                            <p className="text-[12px] text-white/10 leading-relaxed max-w-xs">Activity will appear here as your Ghost Agent processes Instagram messages and comments.</p>
+                            <p className="text-sm font-medium text-muted-foreground mb-1">No activity yet</p>
+                            <p className="text-[12px] text-muted-foreground leading-relaxed max-w-xs">Activity will appear here as your Ghost Agent processes Instagram messages and comments.</p>
                         </div>
                     ) : (
                         <div className="divide-y divide-white/[0.03]">
@@ -664,13 +664,13 @@ export default function DashboardPage() {
                                             {getEventIcon(activity.event_type)}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-sm text-white/70 leading-relaxed line-clamp-2 group-hover:text-white/90 transition-colors">
+                                            <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 group-hover:text-muted-foreground transition-colors">
                                                 {activity.description}
                                             </p>
                                         </div>
                                         <div className="flex items-center gap-3 shrink-0">
                                             <EventBadge type={activity.event_type} />
-                                            <span className="text-[10px] text-white/20 font-mono whitespace-nowrap">
+                                            <span className="text-[10px] text-muted-foreground font-mono whitespace-nowrap">
                                                 {formatTime(activity.timestamp)}
                                             </span>
                                         </div>
