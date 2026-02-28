@@ -128,14 +128,16 @@ export async function claimDmBuffer(
     // - status is still 'waiting' (not already claimed/processed)
     // - reply_at matches what we scheduled (no newer message pushed it forward)
     // - No active lock held by another invocation
+    // Explicitly target public schema
     const { data: claimed, error } = await supabase
+        .schema('public')
         .from('dm_buffer')
         .update({ status: 'processing', lock_expires_at: lockExpires, updated_at: now })
         .eq('owner_id', ownerId)
         .eq('sender_id', senderId)
         .eq('channel', channel)
         .eq('status', 'waiting')
-        .eq('reply_at', scheduledReplyAt)           // exact match — newer msg changes this
+        .eq('reply_at', scheduledReplyAt)
         .or(`lock_expires_at.is.null,lock_expires_at.lt.${now}`)
         .select('buffered_text, workspace_id')
         .maybeSingle();
