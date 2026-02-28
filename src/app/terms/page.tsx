@@ -31,7 +31,7 @@ const sections = [
 
 export default function TermsOfService() {
     return (
-        <main className="min-h-screen text-white overflow-hidden relative selection:bg-primary/30">
+        <main className="min-h-screen text-foreground overflow-hidden relative selection:bg-primary/30">
             {/* Background */}
             <div className="fixed inset-0 bg-background">
                 <div
@@ -53,13 +53,13 @@ export default function TermsOfService() {
                     >
                         <div className="flex justify-center mb-6">
                             <div className="p-4 rounded-2xl bg-primary/10 border border-primary/20">
-                                <Scale className="w-10 h-10 text-purple-400" />
+                                <Scale className="w-10 h-10 text-primary" />
                             </div>
                         </div>
-                        <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
+                        <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight text-foreground">
                             Terms of Service
                         </h1>
-                        <p className="text-white/35 text-sm">
+                        <p className="text-muted-foreground text-sm font-medium">
                             Last updated: February 2026
                         </p>
                     </motion.div>
@@ -76,10 +76,10 @@ export default function TermsOfService() {
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
                             transition={{ delay: i * 0.08, duration: 0.5 }}
-                            className="glass-frosted rounded-2xl p-6 md:p-8"
+                            className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6 md:p-8"
                         >
-                            <h2 className="text-xl font-bold text-white mb-4">{section.title}</h2>
-                            <p className="text-white/45 leading-relaxed">{section.content}</p>
+                            <h2 className="text-xl font-bold text-foreground mb-4">{section.title}</h2>
+                            <p className="text-muted-foreground leading-relaxed font-medium">{section.content}</p>
                         </motion.div>
                     ))}
 
@@ -89,24 +89,24 @@ export default function TermsOfService() {
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
                         transition={{ delay: 0.2, duration: 0.5 }}
-                        className="glass-frosted rounded-2xl p-6 md:p-8"
+                        className="bg-surface-1 border border-red-500/20 shadow-sm rounded-2xl p-6 md:p-8"
                         style={{ borderColor: 'rgba(239,68,68,0.2)' }}
                     >
                         <div className="flex items-center gap-3 mb-4">
                             <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-                            <h2 className="text-xl font-bold text-white">3. AI Liability Disclaimer</h2>
+                            <h2 className="text-xl font-bold text-foreground">3. AI Liability Disclaimer</h2>
                         </div>
-                        <p className="text-white/45 leading-relaxed mb-4">
-                            <strong className="text-white">GhostAgent is an AI-powered tool.</strong> While we strive for accuracy, AI models may generate incorrect, misleading, or inappropriate responses (&quot;hallucinations&quot;).
+                        <p className="text-muted-foreground leading-relaxed mb-4 font-medium">
+                            <strong className="text-foreground">GhostAgent is an AI-powered tool.</strong> While we strive for accuracy, AI models may generate incorrect, misleading, or inappropriate responses (&quot;hallucinations&quot;).
                         </p>
-                        <p className="text-white/50 font-medium mb-3">You acknowledge and agree that:</p>
+                        <p className="text-muted-foreground font-semibold mb-3">You acknowledge and agree that:</p>
                         <ul className="space-y-3">
                             {[
                                 'You are solely responsible for reviewing and overseeing the AI\'s interactions with your customers.',
                                 'GhostAgent is not liable for any loss of business, reputation damage, or legal consequences arising from AI-generated content.',
                                 'You should regularly monitor the AI\'s performance and intervene when necessary.',
                             ].map((item, j) => (
-                                <li key={j} className="flex gap-3 text-white/45 leading-relaxed text-sm">
+                                <li key={j} className="flex gap-3 text-muted-foreground leading-relaxed text-sm font-medium">
                                     <span className="text-red-400 mt-0.5 shrink-0">⚠</span>
                                     <span>{item}</span>
                                 </li>

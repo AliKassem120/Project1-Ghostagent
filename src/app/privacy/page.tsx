@@ -39,7 +39,7 @@ const sections = [
 
 export default function PrivacyPolicy() {
     return (
-        <main className="min-h-screen text-white overflow-hidden relative selection:bg-primary/30">
+        <main className="min-h-screen text-foreground overflow-hidden relative selection:bg-primary/30">
             {/* Background */}
             <div className="fixed inset-0 bg-background">
                 <div
@@ -61,13 +61,13 @@ export default function PrivacyPolicy() {
                     >
                         <div className="flex justify-center mb-6">
                             <div className="p-4 rounded-2xl bg-primary/10 border border-primary/20">
-                                <Shield className="w-10 h-10 text-purple-400" />
+                                <Shield className="w-10 h-10 text-primary" />
                             </div>
                         </div>
-                        <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
+                        <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight text-foreground">
                             Privacy Policy
                         </h1>
-                        <p className="text-white/35 text-sm">
+                        <p className="text-muted-foreground text-sm font-medium">
                             Last updated: February 2026
                         </p>
                     </motion.div>
@@ -84,15 +84,15 @@ export default function PrivacyPolicy() {
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
                             transition={{ delay: i * 0.08, duration: 0.5 }}
-                            className="glass-frosted rounded-2xl p-6 md:p-8"
+                            className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6 md:p-8"
                         >
-                            <h2 className="text-xl font-bold text-white mb-4">{section.title}</h2>
-                            <p className="text-white/45 leading-relaxed">{section.content}</p>
+                            <h2 className="text-xl font-bold text-foreground mb-4">{section.title}</h2>
+                            <p className="text-muted-foreground leading-relaxed font-medium">{section.content}</p>
                             {section.list && (
                                 <ul className="mt-4 space-y-3">
                                     {section.list.map((item, j) => (
-                                        <li key={j} className="flex gap-3 text-white/45 leading-relaxed text-sm">
-                                            <span className="text-purple-400 mt-1 shrink-0">•</span>
+                                        <li key={j} className="flex gap-3 text-muted-foreground leading-relaxed text-sm font-medium">
+                                            <span className="text-primary mt-1 shrink-0">•</span>
                                             <span dangerouslySetInnerHTML={{ __html: item }} />
                                         </li>
                                     ))}
@@ -108,11 +108,11 @@ export default function PrivacyPolicy() {
                         viewport={{ once: true }}
                         transition={{ delay: 0.4, duration: 0.5 }}
                         id="deletion"
-                        className="glass-frosted rounded-2xl p-6 md:p-8 border-purple-500/20"
+                        className="bg-surface-1 border border-primary/20 shadow-sm rounded-2xl p-6 md:p-8"
                         style={{ borderColor: 'rgba(139,92,246,0.2)' }}
                     >
-                        <h2 className="text-xl font-bold text-white mb-4">5. Data Deletion Instructions</h2>
-                        <p className="text-white/45 leading-relaxed mb-4">
+                        <h2 className="text-xl font-bold text-foreground mb-4">5. Data Deletion Instructions</h2>
+                        <p className="text-muted-foreground leading-relaxed mb-4 font-medium">
                             You have the right to request the complete deletion of your personal data stored on our servers at any time. To exercise this right:
                         </p>
                         <ol className="space-y-3">
@@ -121,8 +121,8 @@ export default function PrivacyPolicy() {
                                 'Include your registered email address and your connected Instagram handle.',
                                 'We will process your request within 30 days and permanently delete your account, authentication tokens, and all associated chat logs from our database.',
                             ].map((step, j) => (
-                                <li key={j} className="flex gap-3 text-white/45 leading-relaxed text-sm">
-                                    <span className="text-purple-400 font-bold shrink-0">{j + 1}.</span>
+                                <li key={j} className="flex gap-3 text-muted-foreground leading-relaxed text-sm font-medium">
+                                    <span className="text-primary font-bold shrink-0">{j + 1}.</span>
                                     <span>{step}</span>
                                 </li>
                             ))}
