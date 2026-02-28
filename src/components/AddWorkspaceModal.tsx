@@ -102,9 +102,9 @@ export default function AddWorkspaceModal({ isOpen, onClose }: AddWorkspaceModal
                         transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                         className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none"
                     >
-                        <div className="pointer-events-auto w-full max-w-md bg-[#0d0d14] border border-white/[0.07] rounded-2xl shadow-2xl overflow-hidden">
+                        <div className="pointer-events-auto w-full max-w-md bg-surface-1 border border-border rounded-2xl shadow-2xl overflow-hidden">
                             {/* Header */}
-                            <div className="flex items-center justify-between px-6 py-5 border-b border-white/[0.05]">
+                            <div className="flex items-center justify-between px-6 py-5 border-b border-border">
                                 <div className="flex items-center gap-3">
                                     <div className="p-2 rounded-xl bg-primary/10">
                                         <Building2 className="w-4 h-4 text-primary" />
@@ -114,7 +114,7 @@ export default function AddWorkspaceModal({ isOpen, onClose }: AddWorkspaceModal
                                         <p className="text-[10px] text-muted-foreground mt-0.5">Create a new AI agent for this account</p>
                                     </div>
                                 </div>
-                                <button onClick={handleClose} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/[0.05] transition-colors">
+                                <button onClick={handleClose} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors">
                                     <X className="w-4 h-4" />
                                 </button>
                             </div>
@@ -150,7 +150,7 @@ export default function AddWorkspaceModal({ isOpen, onClose }: AddWorkspaceModal
                                                         'relative flex items-start gap-2.5 p-3 rounded-xl border text-left transition-all',
                                                         active
                                                             ? 'bg-primary/10 border-primary/40 text-foreground'
-                                                            : 'bg-white/[0.02] border-white/[0.05] text-muted-foreground hover:border-border hover:text-muted-foreground'
+                                                            : 'bg-surface-1 border-border text-muted-foreground hover:border-border-strong hover:bg-surface-2 hover:text-muted-foreground'
                                                     )}
                                                 >
                                                     <Icon className={clsx('w-4 h-4 mt-0.5 shrink-0', active ? 'text-primary' : '')} />
@@ -180,7 +180,7 @@ export default function AddWorkspaceModal({ isOpen, onClose }: AddWorkspaceModal
                                         type="button"
                                         onClick={handleClose}
                                         disabled={saving}
-                                        className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-muted-foreground bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.06] transition-all"
+                                        className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-muted-foreground bg-surface-2 border border-border hover:bg-surface-3 transition-all"
                                     >
                                         Cancel
                                     </button>
@@ -190,7 +190,7 @@ export default function AddWorkspaceModal({ isOpen, onClose }: AddWorkspaceModal
                                         className={clsx(
                                             'flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all',
                                             saving || !name.trim()
-                                                ? 'bg-white/[0.04] text-muted-foreground cursor-not-allowed'
+                                                ? 'bg-surface-2 text-muted-foreground cursor-not-allowed'
                                                 : 'bg-primary text-foreground hover:brightness-110'
                                         )}
                                     >

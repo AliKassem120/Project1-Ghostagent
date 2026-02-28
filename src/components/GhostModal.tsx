@@ -38,7 +38,7 @@ export default function GhostModal({
                     iconBg: 'bg-red-500/10',
                     iconColor: 'text-red-400',
                     buttonBg: 'bg-red-600 hover:bg-red-500',
-                    borderColor: 'border-white/[0.08]',
+                    borderColor: 'border-border',
                     defaultIcon: <Trash2 className="w-6 h-6" />,
                 };
             case 'info':
@@ -46,7 +46,7 @@ export default function GhostModal({
                     iconBg: 'bg-blue-500/10',
                     iconColor: 'text-blue-400',
                     buttonBg: 'bg-blue-600 hover:bg-blue-500',
-                    borderColor: 'border-white/[0.08]',
+                    borderColor: 'border-border',
                     defaultIcon: <Info className="w-6 h-6" />,
                 };
             default:
@@ -54,7 +54,7 @@ export default function GhostModal({
                     iconBg: 'bg-primary/10',
                     iconColor: 'text-primary',
                     buttonBg: 'bg-primary hover:bg-primary/90',
-                    borderColor: 'border-white/[0.08]',
+                    borderColor: 'border-border',
                     defaultIcon: <AlertTriangle className="w-6 h-6" />,
                 };
         }
@@ -94,7 +94,7 @@ export default function GhostModal({
                         {/* Close Button */}
                         <button
                             onClick={onCancel}
-                            className="absolute top-4 right-4 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
+                            className="absolute top-4 right-4 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors"
                         >
                             <X className="w-5 h-5" />
                         </button>
@@ -124,8 +124,8 @@ export default function GhostModal({
                                         rounded-xl px-5 py-2.5 
                                         text-sm font-medium 
                                         text-muted-foreground 
-                                        hover:text-foreground hover:bg-white/[0.06] 
-                                        border border-white/[0.08] hover:border-white/[0.12]
+                                        hover:text-foreground hover:bg-surface-2 
+                                        border border-border hover:border-border-strong
                                         transition-all
                                     "
                                 >

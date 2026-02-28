@@ -80,8 +80,8 @@ export default function BusinessTypeSelector({
         <div className="w-full space-y-4">
             <div className="flex items-center justify-between">
                 <div>
-                    <h3 className="text-sm font-medium text-slate-200">Business Niche</h3>
-                    <p className="text-xs text-slate-400 mt-1">
+                    <h3 className="text-sm font-medium text-foreground">Business Niche</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
                         Ghost Agent adapts its AI behavior based on your industry.
                     </p>
                 </div>
@@ -104,8 +104,8 @@ export default function BusinessTypeSelector({
                 transition-all duration-300 ease-in-out border
                 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}
                 ${isSelected
-                                    ? 'bg-slate-800/80 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.2)]'
-                                    : 'bg-slate-900/50 border-slate-800 hover:border-slate-700 hover:bg-slate-800/50'
+                                    ? 'bg-primary/10 border-primary shadow-[0_0_15px_rgba(168,85,247,0.2)]'
+                                    : 'bg-surface-1 border-border hover:border-border-strong hover:bg-surface-2'
                                 }
               `}
                         >
@@ -118,20 +118,20 @@ export default function BusinessTypeSelector({
                             )}
 
                             <div className={`p-2 rounded-lg mb-3 transition-colors duration-300 ${isSelected
-                                ? 'bg-purple-500/20 text-purple-400'
+                                ? 'bg-primary/20 text-primary'
                                 : isHovered
-                                    ? 'bg-slate-800 text-slate-300'
-                                    : 'bg-slate-800/50 text-slate-400'
+                                    ? 'bg-surface-3 text-foreground'
+                                    : 'bg-surface-2 text-muted-foreground'
                                 }`}>
                                 <Icon size={20} strokeWidth={isSelected ? 2.5 : 2} />
                             </div>
 
-                            <h4 className={`text-sm font-medium mb-1 transition-colors ${isSelected ? 'text-purple-300' : 'text-slate-200'
+                            <h4 className={`text-sm font-medium mb-1 transition-colors ${isSelected ? 'text-primary' : 'text-foreground'
                                 }`}>
                                 {category.label}
                             </h4>
 
-                            <p className="text-xs text-slate-500 leading-relaxed text-left">
+                            <p className="text-xs text-muted-foreground leading-relaxed text-left">
                                 {category.description}
                             </p>
                         </div>

@@ -172,7 +172,7 @@ export default function AccountPanel({ isOpen, onClose, userEmail, userName, use
                             ) : (
                                 <>
                                     {/* Update Password */}
-                                    <form onSubmit={handleUpdatePassword} className="space-y-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                                    <form onSubmit={handleUpdatePassword} className="space-y-3 p-4 rounded-xl bg-surface-2 border border-border">
                                         <div className="flex items-center gap-2 mb-1">
                                             <Lock className="w-3.5 h-3.5 text-muted-foreground" />
                                             <span className="text-xs font-semibold text-muted-foreground">Update Password</span>
@@ -215,7 +215,7 @@ export default function AccountPanel({ isOpen, onClose, userEmail, userName, use
                                             className={clsx(
                                                 'w-full py-2 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2',
                                                 passwordForm.loading || !newPassword || !confirmPassword
-                                                    ? 'bg-white/[0.04] text-muted-foreground cursor-not-allowed'
+                                                    ? 'bg-surface-3 text-muted-foreground cursor-not-allowed'
                                                     : 'bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20'
                                             )}
                                         >
@@ -225,7 +225,7 @@ export default function AccountPanel({ isOpen, onClose, userEmail, userName, use
                                     </form>
 
                                     {/* Update Email */}
-                                    <form onSubmit={handleUpdateEmail} className="space-y-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                                    <form onSubmit={handleUpdateEmail} className="space-y-3 p-4 rounded-xl bg-surface-2 border border-border">
                                         <div className="flex items-center gap-2 mb-1">
                                             <Mail className="w-3.5 h-3.5 text-muted-foreground" />
                                             <span className="text-xs font-semibold text-muted-foreground">Update Email</span>
@@ -252,7 +252,7 @@ export default function AccountPanel({ isOpen, onClose, userEmail, userName, use
                                             className={clsx(
                                                 'w-full py-2 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2',
                                                 emailForm.loading || !newEmail
-                                                    ? 'bg-white/[0.04] text-muted-foreground cursor-not-allowed'
+                                                    ? 'bg-surface-3 text-muted-foreground cursor-not-allowed'
                                                     : 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20'
                                             )}
                                         >

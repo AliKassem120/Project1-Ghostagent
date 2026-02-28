@@ -369,7 +369,7 @@ export default function DashboardPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-1 border border-white/[0.06]">
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-1 border border-border">
                         <Instagram className="w-4 h-4 text-pink-400" />
                         <span className="text-xs text-muted-foreground">{isConnected ? 'Connected' : 'Disconnected'}</span>
                         <span className={clsx("w-2 h-2 rounded-full", isConnected ? "bg-emerald-400 animate-pulse" : "bg-red-500")} />
@@ -497,7 +497,7 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Mini stats row below chart */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-white/[0.04]">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-border">
                         {[
                             { label: 'DMs Received', value: stats.dms, icon: MessageCircle, color: 'text-blue-400' },
                             { label: 'Comments', value: stats.comments, icon: MessageSquare, color: 'text-pink-400' },
@@ -544,7 +544,7 @@ export default function DashboardPage() {
                                     {autopilot ? '🤖 Autopilot' : '👤 Manual'}
                                 </span>
                             </div>
-                            <div className="w-full h-px bg-white/[0.04]" />
+                            <div className="w-full h-px bg-surface-2" />
                             <div className="flex items-center justify-between">
                                 <span className="text-xs text-muted-foreground">Status</span>
                                 <span className="badge-success flex items-center gap-1.5">
@@ -552,7 +552,7 @@ export default function DashboardPage() {
                                     Online 24/7
                                 </span>
                             </div>
-                            <div className="w-full h-px bg-white/[0.04]" />
+                            <div className="w-full h-px bg-surface-2" />
                             <div className="flex items-center justify-between">
                                 <span className="text-xs text-muted-foreground">Inventory</span>
                                 <span className="text-xs text-muted-foreground font-medium">{stats.stock} items in stock</span>
@@ -564,7 +564,7 @@ export default function DashboardPage() {
                                     <span className="text-[11px] text-muted-foreground">Automation Rate</span>
                                     <span className="text-[11px] text-primary font-semibold">{stats.automationRate}%</span>
                                 </div>
-                                <div className="w-full h-2 bg-white/[0.04] rounded-full overflow-hidden">
+                                <div className="w-full h-2 bg-surface-2 rounded-full overflow-hidden">
                                     <motion.div
                                         initial={{ width: '0%' }}
                                         animate={{ width: `${stats.automationRate}%` }}
@@ -612,14 +612,14 @@ export default function DashboardPage() {
                 className="bg-surface-1 border border-border shadow-sm rounded-2xl mt-5 overflow-hidden"
             >
                 {/* Feed Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-border">
                     <div className="flex items-center gap-3">
                         <div className="p-2 rounded-xl bg-surface-2">
                             <Activity className="w-4 h-4 text-muted-foreground" />
                         </div>
                         <h3 className="text-sm font-semibold text-foreground">Recent Activity</h3>
                         {filteredActivities.length > 0 && (
-                            <span className="badge bg-white/[0.06] text-muted-foreground font-mono">
+                            <span className="badge bg-surface-2 text-muted-foreground font-mono">
                                 {filteredActivities.length}
                             </span>
                         )}
@@ -641,7 +641,7 @@ export default function DashboardPage() {
                 <div className="h-[400px] overflow-y-auto custom-scrollbar">
                     {filteredActivities.length === 0 && !loading ? (
                         <div className="flex flex-col items-center justify-center h-full text-center px-6">
-                            <div className="w-14 h-14 rounded-2xl bg-white/[0.03] flex items-center justify-center mb-4">
+                            <div className="w-14 h-14 rounded-2xl bg-surface-2 flex items-center justify-center mb-4">
                                 <Sparkles className="w-6 h-6 text-muted-foreground" />
                             </div>
                             <p className="text-sm font-medium text-muted-foreground mb-1">No activity yet</p>
@@ -657,7 +657,7 @@ export default function DashboardPage() {
                                         initial={i < 5 ? { opacity: 0, x: 10 } : false}
                                         animate={{ opacity: 1, x: 0 }}
                                         transition={{ delay: i < 5 ? i * 0.03 : 0 }}
-                                        className="flex items-center gap-4 px-6 py-3.5 hover:bg-white/[0.02] transition-all group cursor-default"
+                                        className="flex items-center gap-4 px-6 py-3.5 hover:bg-surface-3 transition-all group cursor-default"
                                     >
                                         <div className={clsx(
                                             "p-2 rounded-xl shrink-0",

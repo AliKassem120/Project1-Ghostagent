@@ -505,7 +505,7 @@ export default function InteractionsPage() {
                 {activeChat ? (
                     <>
                         {/* Header */}
-                        <div className="p-4 border-b border-white/[0.06] bg-surface-2/50 flex items-center gap-3 pt-safe-top md:pt-4">
+                        <div className="p-4 border-b border-border bg-surface-2/50 flex items-center gap-3 pt-safe-top md:pt-4">
                             <button
                                 onClick={() => setSelectedChatId(null)}
                                 className="md:hidden p-2 -ml-2 text-muted-foreground hover:text-foreground"
@@ -584,8 +584,8 @@ export default function InteractionsPage() {
                                                     : msg.is_bot
                                                         ? "bg-cyan-950/40 border-cyan-500/30 text-cyan-50 rounded-tr-none shadow-[0_0_20px_rgba(34,211,238,0.15)]"
                                                         : msg.is_manual
-                                                            ? "bg-surface-3 border-white/[0.08] text-foreground rounded-tr-none"
-                                                            : "bg-surface-2 border-white/[0.06] text-muted-foreground rounded-tl-none"
+                                                            ? "bg-surface-3 border-border text-foreground rounded-tr-none"
+                                                            : "bg-surface-2 border-border text-muted-foreground rounded-tl-none"
                                             )}>
                                                 {msg.text}
 
@@ -615,7 +615,7 @@ export default function InteractionsPage() {
                         </div>
 
                         {/* Footer - Send Input */}
-                        <div className="p-4 bg-surface-2/50 border-t border-white/[0.06] pb-safe-bottom">
+                        <div className="p-4 bg-surface-2/50 border-t border-border pb-safe-bottom">
                             <div className="relative group flex gap-3 items-center">
                                 {/* Global Autopilot Toggle */}
                                 <button

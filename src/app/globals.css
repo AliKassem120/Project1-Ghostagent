@@ -71,32 +71,38 @@
   --radius: 0.75rem;
 
   /* ── Surface layers (Light) ── */
-  --background: #FFFFFF;
-  --surface-0: #F8FAFC;
+  --background: #FCFBFF;
+  /* subtle cool white background */
+  --surface-0: #F4F2F7;
+  /* slightly tinted deep-panel background (sidebar) */
   --surface-1: #FFFFFF;
-  --surface-2: #F1F5F9;
-  --surface-3: #E2E8F0;
+  /* main cards/elevated panes */
+  --surface-2: #EFEBF5;
+  /* inputs, dividers, soft selected */
+  --surface-3: #E6E1EE;
+  /* hover/active soft interactions */
 
   /* ── Semantic ── */
-  --foreground: #0F172A;
+  --foreground: #0F0A18;
+  /* Rich deep purple-charcoal */
   --card: #FFFFFF;
-  --card-foreground: #0F172A;
+  --card-foreground: #0F0A18;
   --popover: #FFFFFF;
-  --popover-foreground: #0F172A;
+  --popover-foreground: #0F0A18;
   --primary: #8B5CF6;
   --primary-foreground: #ffffff;
-  --secondary: #F1F5F9;
-  --secondary-foreground: #0F172A;
-  --muted: #F1F5F9;
-  --muted-foreground: #64748B;
-  --accent: #F1F5F9;
-  --accent-foreground: #0F172A;
+  --secondary: #EFEBF5;
+  --secondary-foreground: #4B455C;
+  --muted: #F4F2F7;
+  --muted-foreground: #6A627B;
+  --accent: #EFEBF5;
+  --accent-foreground: #0F0A18;
   --destructive: #EF4444;
 
   /* ── Borders (2-tier system) ── */
-  --border: rgba(0, 0, 0, 0.08);
-  --border-strong: rgba(0, 0, 0, 0.15);
-  --input: rgba(0, 0, 0, 0.08);
+  --border: rgba(60, 40, 100, 0.08);
+  --border-strong: rgba(60, 40, 100, 0.16);
+  --input: rgba(60, 40, 100, 0.12);
   --ring: #8B5CF6;
 
   /* ── Shadows ── */
@@ -108,31 +114,31 @@
   --shadow-glow: 0 0 24px rgba(139, 92, 246, 0.25);
 
   /* ── Glassmorphism Custom Properties ── */
-  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-bg: rgba(255, 255, 255, 0.75);
   --glass-backdrop-blur: blur(16px);
-  --glass-border: rgba(0, 0, 0, 0.08);
-  --glass-border-hover: rgba(139, 92, 246, 0.4);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.5);
-  --glass-shadow-hover: 0 8px 40px rgba(0, 0, 0, 0.08), 0 0 30px rgba(139, 92, 246, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  --bento-bg: rgba(255, 255, 255, 0.6);
-  --chat-bot-bg: rgba(0, 0, 0, 0.04);
-  --chat-bot-border: rgba(0, 0, 0, 0.05);
-  --chat-bot-fg: #334155;
-  --pricing-bg: rgba(255, 255, 255, 0.6);
-  --phone-bg: linear-gradient(145deg, #f1f5f9 0%, #e2e8f0 100%);
-  --phone-border: rgba(0, 0, 0, 0.08);
-  --phone-shadow: 0 0 0 1px rgba(0, 0, 0, 0.03), 0 25px 80px rgba(0, 0, 0, 0.1), 0 0 60px rgba(139, 92, 246, 0.08);
-  --phone-notch: #cbd5e1;
-  --phone-screen: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  --glass-border: rgba(60, 40, 100, 0.08);
+  --glass-border-hover: rgba(139, 92, 246, 0.3);
+  --glass-shadow: 0 8px 32px rgba(60, 40, 100, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  --glass-shadow-hover: 0 8px 40px rgba(60, 40, 100, 0.08), 0 0 30px rgba(139, 92, 246, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --bento-bg: rgba(255, 255, 255, 0.7);
+  --chat-bot-bg: rgba(60, 40, 100, 0.04);
+  --chat-bot-border: rgba(60, 40, 100, 0.05);
+  --chat-bot-fg: #4B455C;
+  --pricing-bg: rgba(255, 255, 255, 0.7);
+  --phone-bg: linear-gradient(145deg, #F4F2F7 0%, #E6E1EE 100%);
+  --phone-border: rgba(60, 40, 100, 0.08);
+  --phone-shadow: 0 0 0 1px rgba(60, 40, 100, 0.03), 0 25px 80px rgba(60, 40, 100, 0.1), 0 0 60px rgba(139, 92, 246, 0.08);
+  --phone-notch: #c4bcdc;
+  --phone-screen: linear-gradient(180deg, #FFFFFF 0%, #F4F2F7 100%);
 
   /* ── Sidebar ── */
-  --sidebar: #F8FAFC;
-  --sidebar-foreground: #0F172A;
+  --sidebar: #F4F2F7;
+  --sidebar-foreground: #0F0A18;
   --sidebar-primary: #8B5CF6;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #F1F5F9;
-  --sidebar-accent-foreground: #0F172A;
-  --sidebar-border: rgba(0, 0, 0, 0.08);
+  --sidebar-accent: #EFEBF5;
+  --sidebar-accent-foreground: #0F0A18;
+  --sidebar-border: rgba(60, 40, 100, 0.08);
   --sidebar-ring: #8B5CF6;
 }
 
@@ -251,33 +257,34 @@
   .glass-card:hover {
     box-shadow: var(--shadow-md);
     border-color: rgba(255, 255, 255, 0.09);
+    border-color: var(--border);
   }
 
   /* ── Glass: alias for glass-card ── */
   .glass {
     background-color: var(--surface-1);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border);
     box-shadow: var(--shadow-sm);
   }
 
   /* ── Glass dark: deeper surface (sidebar panels) ── */
   .glass-dark {
     background-color: var(--surface-1);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border);
     box-shadow: var(--shadow-sm);
   }
 
   /* ── Metric card: interactive stat card ── */
   .metric-card {
     background-color: var(--surface-1);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border);
     box-shadow: var(--shadow-xs);
     transition: all 0.2s ease;
   }
 
   .metric-card:hover {
     background-color: var(--surface-2);
-    border-color: rgba(255, 255, 255, 0.10);
+    border-color: var(--border);
     box-shadow: var(--shadow-md);
     transform: translateY(-1px);
   }

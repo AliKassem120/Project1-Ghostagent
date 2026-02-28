@@ -110,7 +110,7 @@ export default function ServicesPage() {
                 transition={{ delay: 0.05 }}
                 className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6 "
             >
-                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
+                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
                     <div className="p-2.5 rounded-xl bg-purple-500/10">
                         <Plus className="w-5 h-5 text-purple-400" />
                     </div>
@@ -290,7 +290,7 @@ export default function ServicesPage() {
                                             <DollarSign className="w-3.5 h-3.5 text-purple-400" />
                                             <span className="font-semibold text-foreground">${Number(service.price).toFixed(2)}</span>
                                         </div>
-                                        <div className="w-px h-4 bg-white/[0.06]" />
+                                        <div className="w-px h-4 bg-surface-2" />
                                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                             <Clock className="w-3.5 h-3.5 text-purple-400" />
                                             <span>{service.duration_minutes} min</span>

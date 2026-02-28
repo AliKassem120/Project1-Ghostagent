@@ -234,7 +234,7 @@ export default function BillingPage() {
                     <div className="flex flex-col sm:flex-row gap-3">
                         <button
                             onClick={() => setShowPaymentModal(true)}
-                            className="px-5 py-2.5 bg-white/[0.04] border border-white/[0.06] rounded-xl hover:bg-white/[0.08] transition-all text-sm font-medium text-muted-foreground hover:text-muted-foreground"
+                            className="px-5 py-2.5 bg-surface-2 border border-border rounded-xl hover:bg-surface-3 transition-all text-sm font-medium text-muted-foreground hover:text-muted-foreground"
                         >
                             Update Payment
                         </button>
@@ -330,7 +330,7 @@ export default function BillingPage() {
                             </ul>
 
                             {plan.name === currentPlan ? (
-                                <button disabled className="w-full py-3 rounded-xl bg-white/[0.04] text-muted-foreground cursor-not-allowed text-sm font-medium">
+                                <button disabled className="w-full py-3 rounded-xl bg-surface-2 text-muted-foreground cursor-not-allowed text-sm font-medium">
                                     Current Plan
                                 </button>
                             ) : (
@@ -341,7 +341,7 @@ export default function BillingPage() {
                                         "w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50",
                                         plan.highlight
                                             ? "bg-primary text-black hover:opacity-90 shadow-[0_0_20px_rgba(139,92,246,0.3)]"
-                                            : "bg-white/[0.06] text-muted-foreground hover:bg-white/[0.1] hover:text-foreground"
+                                            : "bg-surface-2 text-muted-foreground hover:bg-surface-3 hover:text-foreground"
                                     )}
                                 >
                                     {isUpdating ? 'Processing...' : (
@@ -373,7 +373,7 @@ export default function BillingPage() {
                                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                                className="relative w-full max-w-md glass-dark rounded-2xl p-8 border border-white/[0.06]"
+                                className="relative w-full max-w-md glass-dark rounded-2xl p-8 border border-border"
                             >
                                 <button
                                     onClick={() => setShowPaymentModal(false)}
@@ -461,7 +461,7 @@ export default function BillingPage() {
                                 <div className="flex gap-3">
                                     <button
                                         onClick={() => setShowCancelModal(false)}
-                                        className="flex-1 py-3 bg-white/[0.04] border border-white/[0.06] rounded-xl hover:bg-white/[0.08] transition-all font-medium text-sm text-muted-foreground"
+                                        className="flex-1 py-3 bg-surface-2 border border-border rounded-xl hover:bg-surface-3 transition-all font-medium text-sm text-muted-foreground"
                                     >
                                         Keep Subscription
                                     </button>

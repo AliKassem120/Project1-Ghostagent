@@ -269,7 +269,7 @@ export default function InventoryPage() {
                         className="overflow-hidden"
                     >
                         <div className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6 border-2 border-primary/20 space-y-5">
-                            <div className="flex items-center gap-3 pb-4 border-b border-white/[0.04]">
+                            <div className="flex items-center gap-3 pb-4 border-b border-border">
                                 <div className="p-2 rounded-xl bg-primary/10">
                                     <Plus className="w-4 h-4 text-primary" />
                                 </div>
@@ -393,7 +393,7 @@ export default function InventoryPage() {
                                         </div>
                                     )}
                                 </div>
-                                <div className="grid grid-cols-2 gap-4 pt-3 border-t border-white/[0.04]">
+                                <div className="grid grid-cols-2 gap-4 pt-3 border-t border-border">
                                     <div>
                                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">Price</p>
                                         {isEditing ? (
@@ -433,7 +433,7 @@ export default function InventoryPage() {
                 <div className="hidden lg:block bg-surface-1 border border-border shadow-sm rounded-2xl overflow-hidden">
                     <table className="w-full text-left">
                         <thead>
-                            <tr className="border-b border-white/[0.04]">
+                            <tr className="border-b border-border">
                                 <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Product</th>
                                 <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Price</th>
                                 <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Stock</th>

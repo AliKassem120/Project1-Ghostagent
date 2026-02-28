@@ -196,6 +196,15 @@ export default function OnboardingPage() {
                                 </button>
                                 <button
                                     onClick={() => {
+                                        setSelectedCategory('ecommerce');
+                                        setStep(3);
+                                    }}
+                                    className="px-6 py-3.5 rounded-xl border border-transparent font-bold text-muted-foreground hover:text-foreground transition-colors text-sm"
+                                >
+                                    Skip
+                                </button>
+                                <button
+                                    onClick={() => {
                                         if (!selectedCategory) setSelectedCategory('ecommerce');
                                         setStep(3);
                                     }}

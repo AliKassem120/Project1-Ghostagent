@@ -222,7 +222,7 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="min-h-screen text-white overflow-hidden relative selection:bg-primary/30">
+    <main className="min-h-screen text-foreground overflow-hidden relative selection:bg-primary/30">
       {/* Background Layers */}
       <div className="fixed inset-0 bg-background">
         <div

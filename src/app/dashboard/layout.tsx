@@ -119,11 +119,11 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             </AnimatePresence>
 
             <aside className={clsx(
-                "w-[260px] border-r border-white/[0.06] bg-surface-0 flex flex-col fixed h-full z-50 transition-transform duration-300 lg:translate-x-0",
+                "w-[260px] border-r border-border bg-surface-0 flex flex-col fixed h-full z-50 transition-transform duration-300 lg:translate-x-0",
                 isOpen ? "translate-x-0" : "-translate-x-full"
             )}>
                 {/* Logo Section */}
-                <div className="flex items-center justify-between px-5 h-16 border-b border-white/[0.04]">
+                <div className="flex items-center justify-between px-5 h-16 border-b border-border">
                     <Link href="/" className="flex items-center gap-2.5 group">
                         <div className="bg-primary/10 p-2 rounded-xl group-hover:bg-primary/15 transition-colors">
                             <GhostLogo />
@@ -184,7 +184,7 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                                         </button>
                                     ))}
 
-                                    <div className="border-t border-white/[0.05] p-2">
+                                    <div className="border-t border-border p-2">
                                         {canAddWorkspace ? (
                                             <button
                                                 onClick={() => { setIsWorkspaceSwitcherOpen(false); setIsAddModalOpen(true); }}
@@ -269,12 +269,12 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                 </nav>
 
                 {/* User Profile — click to open Account Security */}
-                <div className="mt-auto border-t border-white/[0.04] p-4">
+                <div className="mt-auto border-t border-border p-4">
                     <button
                         onClick={() => setIsAccountOpen(true)}
-                        className="flex items-center gap-3 mb-3 w-full rounded-xl p-2 -mx-2 hover:bg-white/[0.04] transition-colors group text-left"
+                        className="flex items-center gap-3 mb-3 w-full rounded-xl p-2 -mx-2 hover:bg-surface-2 transition-colors group text-left"
                     >
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/30 to-violet-600/30 flex items-center justify-center text-foreground font-semibold text-sm border border-white/[0.06] shrink-0">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/30 to-violet-600/30 flex items-center justify-center text-foreground font-semibold text-sm border border-border shrink-0">
                             {userInitial}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -325,7 +325,7 @@ function DashboardContent({ children, toggleSidebar }: { children: React.ReactNo
     return (
         <div className="flex-1 flex flex-col min-w-0">
             {/* Mobile Header */}
-            <header className="lg:hidden h-14 border-b border-white/[0.06] bg-surface-0 fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4">
+            <header className="lg:hidden h-14 border-b border-border bg-surface-0 fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4">
                 <button onClick={toggleSidebar} className="p-3 text-muted-foreground hover:text-foreground transition-colors">
                     <Menu className="w-5 h-5" />
                 </button>
