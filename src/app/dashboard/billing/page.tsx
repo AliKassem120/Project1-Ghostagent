@@ -205,7 +205,7 @@ export default function BillingPage() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                        <div className="flex items-center gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                        <div className="flex items-center gap-3 p-4 rounded-xl bg-surface-2 ">
                             <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
                             <div>
                                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
@@ -222,7 +222,7 @@ export default function BillingPage() {
                                 </p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                        <div className="flex items-center gap-3 p-4 rounded-xl bg-surface-2 ">
                             <CreditCard className="w-4 h-4 text-muted-foreground shrink-0" />
                             <div>
                                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Payment Method</p>

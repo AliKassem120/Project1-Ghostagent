@@ -77,7 +77,7 @@ export default function CustomSelect({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -5, scale: 0.98 }}
                         transition={{ duration: 0.15, ease: "easeOut" }}
-                        className="absolute z-50 w-full mt-2 overflow-hidden bg-[#0C0F16] border border-white/[0.06] shadow-xl rounded-xl"
+                        className="absolute z-50 w-full mt-2 overflow-hidden bg-surface-0 border border-border shadow-xl rounded-xl"
                     >
                         <ul className="max-h-60 overflow-y-auto py-1 custom-scrollbar">
                             {options.map((option) => (
@@ -90,7 +90,7 @@ export default function CustomSelect({
                                         }}
                                         className={clsx(
                                             "w-full flex items-center justify-between px-4 py-2.5 text-sm text-left transition-colors",
-                                            "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]",
+                                            "text-muted-foreground hover:text-foreground hover:bg-surface-2",
                                             value === option.value && "bg-primary/10 text-primary font-medium"
                                         )}
                                     >

@@ -419,7 +419,7 @@ export default function SettingsPage() {
 
             {/* Business Identity */}
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6">
-                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
+                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
                     <div className="p-2.5 rounded-xl bg-indigo-500/10">
                         <Building2 className="w-5 h-5 text-indigo-400" />
                     </div>
@@ -481,7 +481,7 @@ export default function SettingsPage() {
 
             {/* AI Persona */}
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6">
-                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
+                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
                     <div className="p-2.5 rounded-xl bg-primary/10">
                         <Bot className="w-5 h-5 text-primary" />
                     </div>
@@ -508,12 +508,12 @@ export default function SettingsPage() {
 
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Use Emojis</label>
-                        <div className="flex items-center justify-between p-3.5 bg-white/[0.02] rounded-xl border border-white/[0.04] hover:bg-white/[0.04] transition-all cursor-pointer group"
+                        <div className="flex items-center justify-between p-3.5 bg-surface-2 rounded-xl border border-border hover:bg-surface-3 transition-all cursor-pointer group"
                             onClick={() => setSettings({ ...settings, useEmojis: !settings.useEmojis })}>
-                            <span className="text-sm text-muted-foreground group-hover:text-muted-foreground transition-colors">Add emojis to responses</span>
+                            <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">Add emojis to responses</span>
                             <div className={clsx(
                                 "relative w-11 rounded-full transition-colors duration-300",
-                                settings.useEmojis ? "bg-primary" : "bg-surface-2"
+                                settings.useEmojis ? "bg-primary" : "bg-surface-3 border border-border"
                             )} style={{ height: '24px' }}>
                                 <motion.div
                                     className="absolute top-[2px] w-[20px] h-[20px] rounded-full bg-white shadow-sm"
@@ -528,7 +528,7 @@ export default function SettingsPage() {
 
             {/* Manager Alerts */}
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6 relative overflow-hidden">
-                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
+                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
                     <div className="p-2.5 rounded-xl bg-amber-500/10">
                         <Bell className="w-5 h-5 text-amber-400" />
                     </div>
@@ -561,8 +561,8 @@ export default function SettingsPage() {
 
                 {/* Paywall overlay for Starter */}
                 {!isPro && (
-                    <div className="absolute inset-0 bg-[#0B0E14]/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center gap-3 z-10">
-                        <div className="p-3 rounded-full bg-white/[0.04] border border-white/[0.06]">
+                    <div className="absolute inset-0 bg-background/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center gap-3 z-10">
+                        <div className="p-3 rounded-full bg-surface-2 border border-border">
                             <Lock className="w-5 h-5 text-muted-foreground" />
                         </div>
                         <div className="text-center px-6">
@@ -576,7 +576,7 @@ export default function SettingsPage() {
 
             {/* WhatsApp Business (Omnichannel — Empire only) */}
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.17 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6 relative overflow-hidden">
-                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
+                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
                     <div className="p-2.5 rounded-xl bg-emerald-500/10">
                         <Wifi className="w-5 h-5 text-emerald-400" />
                     </div>
@@ -588,7 +588,7 @@ export default function SettingsPage() {
                         'ml-auto flex items-center gap-1 text-[10px] font-bold rounded-full px-2.5 py-1 border',
                         isEmpire
                             ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
-                            : 'text-muted-foreground bg-white/[0.03] border-white/[0.06]'
+                            : 'text-muted-foreground bg-surface-2 border-border'
                     )}>
                         {!isEmpire && <Lock className="w-3 h-3" />}
                         Empire
@@ -619,8 +619,8 @@ export default function SettingsPage() {
 
                 {/* Paywall overlay for non-Empire */}
                 {!isEmpire && (
-                    <div className="absolute inset-0 bg-[#0B0E14]/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center gap-3 z-10">
-                        <div className="p-3 rounded-full bg-white/[0.04] border border-white/[0.06]">
+                    <div className="absolute inset-0 bg-background/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center gap-3 z-10">
+                        <div className="p-3 rounded-full bg-surface-2 border border-border">
                             <Lock className="w-5 h-5 text-muted-foreground" />
                         </div>
                         <div className="text-center px-6">
@@ -635,7 +635,7 @@ export default function SettingsPage() {
             {/* Sales Rules */}
 
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6">
-                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
+                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
                     <div className="p-2.5 rounded-xl bg-emerald-500/10">
                         <DollarSign className="w-5 h-5 text-emerald-400" />
                     </div>
@@ -654,9 +654,9 @@ export default function SettingsPage() {
                             max="50"
                             value={settings.maxDiscount}
                             onChange={(e) => setSettings({ ...settings, maxDiscount: parseInt(e.target.value) })}
-                            className="w-full h-2 bg-surface-2 rounded-full appearance-none cursor-pointer accent-primary"
+                            className="w-full h-2 bg-surface-2 rounded-full appearance-none cursor-pointer accent-primary border border-border"
                             style={{
-                                background: `linear-gradient(to right, rgb(139 92 246) 0%, rgb(139 92 246) ${settings.maxDiscount * 2}%, rgba(255,255,255,0.06) ${settings.maxDiscount * 2}%, rgba(255,255,255,0.06) 100%)`
+                                background: `linear-gradient(to right, rgb(139 92 246) 0%, rgb(139 92 246) ${settings.maxDiscount * 2}%, var(--surface-3) ${settings.maxDiscount * 2}%, var(--surface-3) 100%)`
                             }}
                         />
                         <div className="flex justify-between items-center">
@@ -685,7 +685,7 @@ export default function SettingsPage() {
 
             {/* Integrations */}
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6">
-                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
+                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
                     <div className="p-2.5 rounded-xl bg-pink-500/10">
                         <Instagram className="w-5 h-5 text-pink-400" />
                     </div>
@@ -697,7 +697,7 @@ export default function SettingsPage() {
 
                 <div className="space-y-3">
                     {instagramStatus.accounts.length > 0 && instagramStatus.accounts.map((acc: any) => (
-                        <div key={acc.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white/[0.02] p-4 rounded-xl border border-white/[0.04] gap-4">
+                        <div key={acc.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-surface-2 p-4 rounded-xl border border-border gap-4">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 rounded-xl flex items-center justify-center shrink-0">
                                     <Instagram className="w-5 h-5 text-foreground" />
@@ -724,10 +724,10 @@ export default function SettingsPage() {
                     <button
                         onClick={handleConnectInstagram}
                         disabled={connecting}
-                        className="w-full py-4 border border-dashed border-white/[0.06] hover:border-border hover:bg-white/[0.02] rounded-xl flex items-center justify-center gap-2 text-muted-foreground hover:text-muted-foreground transition-all group press"
+                        className="w-full py-4 border border-dashed border-border hover:border-border-strong hover:bg-surface-2 rounded-xl flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground transition-all group press"
                     >
                         {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> :
-                            <div className="w-7 h-7 rounded-full bg-white/[0.04] flex items-center justify-center group-hover:bg-primary/20 group-hover:text-primary transition-colors">
+                            <div className="w-7 h-7 rounded-full bg-surface-3 flex items-center justify-center group-hover:bg-primary/20 group-hover:text-primary transition-colors">
                                 <Plus className="w-4 h-4" />
                             </div>}
                         <span className="text-sm font-medium">Add Account</span>
@@ -737,7 +737,7 @@ export default function SettingsPage() {
 
             {/* Language */}
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6">
-                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
+                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
                     <div className="p-2.5 rounded-xl bg-blue-500/10">
                         <Globe className="w-5 h-5 text-blue-400" />
                     </div>
@@ -764,12 +764,12 @@ export default function SettingsPage() {
                         </div>
 
                         <div className="space-y-1.5 pt-2">
-                            <label className="text-[10px] font-bold text-amber-500/50 uppercase tracking-widest ml-1">Advanced Personality</label>
-                            <div className="flex items-center justify-between p-3.5 bg-amber-500/[0.02] rounded-xl border border-amber-500/[0.04] hover:bg-amber-500/[0.04] transition-all cursor-pointer group"
+                            <label className="text-[10px] font-bold text-amber-500/60 uppercase tracking-widest ml-1">Advanced Personality</label>
+                            <div className="flex items-center justify-between p-3.5 bg-amber-500/[0.05] rounded-xl border border-amber-500/10 hover:bg-amber-500/10 transition-all cursor-pointer group"
                                 onClick={() => setSettings({ ...settings, useLocalSlang: !settings.useLocalSlang })}>
                                 <div>
-                                    <span className="block text-sm text-amber-500/80 group-hover:text-amber-400 transition-colors">Use Local Slang</span>
-                                    <span className="block text-[10px] text-amber-500/40 mt-0.5">&quot;Walla&quot;, &quot;Yalla&quot;, or &quot;Kifak&quot;</span>
+                                    <span className="block text-sm text-amber-600 dark:text-amber-500/80 group-hover:text-amber-500 transition-colors">Use Local Slang</span>
+                                    <span className="block text-[10px] text-amber-600/70 dark:text-amber-500/40 mt-0.5">&quot;Walla&quot;, &quot;Yalla&quot;, or &quot;Kifak&quot;</span>
                                 </div>
                                 <div className={clsx(
                                     "relative w-11 rounded-full transition-colors duration-300",
@@ -787,9 +787,9 @@ export default function SettingsPage() {
 
                     <div className="hidden md:block">
                         <label className="text-[10px] font-bold text-primary/60 uppercase tracking-widest ml-1 mb-1.5 flex items-center gap-1.5"><Sparkles className="w-3 h-3" /> Live Translation Playground</label>
-                        <div className="rounded-xl border border-white/[0.06] bg-gradient-to-b from-surface-1 to-surface-0 min-h-[200px] flex flex-col relative overflow-hidden shadow-inner">
+                        <div className="rounded-xl border border-border bg-gradient-to-b from-surface-1 to-surface-0 min-h-[200px] flex flex-col relative overflow-hidden shadow-sm">
                             {/* App Header Mockup */}
-                            <div className="h-10 border-b border-white/[0.06] bg-white/[0.02] flex items-center justify-between px-3 shrink-0">
+                            <div className="h-10 border-b border-border bg-surface-2 flex items-center justify-between px-3 shrink-0">
                                 <div className="flex items-center gap-2">
                                     <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center">
                                         <GhostLogo className="w-3 h-3 text-primary" />
@@ -817,7 +817,7 @@ export default function SettingsPage() {
                                                 initial={{ opacity: 0, x: 20 }}
                                                 animate={{ opacity: 1, x: 0 }}
                                                 exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
-                                                className="self-end max-w-[80%] bg-surface-2 text-muted-foreground text-[13px] px-3.5 py-2.5 rounded-2xl rounded-tr-sm shadow-sm border border-white/[0.04]"
+                                                className="self-end max-w-[80%] bg-surface-2 text-foreground text-[13px] px-3.5 py-2.5 rounded-2xl rounded-tr-sm shadow-sm border border-border"
                                             >
                                                 Bonjour! Avez-vous ça en stock?
                                             </motion.div>
@@ -829,7 +829,7 @@ export default function SettingsPage() {
                                                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                                 exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
-                                                className="self-start max-w-[80%] bg-gradient-to-br from-primary/20 to-primary/10 text-primary-100 text-[13px] px-3.5 py-2.5 rounded-2xl rounded-tl-sm border border-primary/20 shadow-[0_0_15px_rgba(139,92,246,0.1)]"
+                                                className="self-start max-w-[80%] bg-gradient-to-br from-primary/20 to-primary/10 text-primary-100 dark:text-primary-foreground text-primary text-[13px] px-3.5 py-2.5 rounded-2xl rounded-tl-sm border border-primary/20 shadow-[0_0_15px_rgba(139,92,246,0.1)]"
                                             >
                                                 Bonjour! Oui, c'est disponible.
                                             </motion.div>
@@ -841,7 +841,7 @@ export default function SettingsPage() {
                                                 initial={{ opacity: 0, x: 20 }}
                                                 animate={{ opacity: 1, x: 0 }}
                                                 exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
-                                                className="self-end max-w-[80%] bg-surface-2 text-muted-foreground text-[13px] px-3.5 py-2.5 rounded-2xl rounded-tr-sm shadow-sm border border-white/[0.04]"
+                                                className="self-end max-w-[80%] bg-surface-2 text-foreground text-[13px] px-3.5 py-2.5 rounded-2xl rounded-tr-sm shadow-sm border border-border"
                                             >
                                                 مرحبا، في من هيدا؟
                                             </motion.div>
@@ -868,7 +868,7 @@ export default function SettingsPage() {
 
             {/* Agent Training */}
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6">
-                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
+                <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
                     <div className="p-2.5 rounded-xl bg-violet-500/10">
                         <Sparkles className="w-5 h-5 text-violet-400" />
                     </div>
@@ -955,7 +955,7 @@ export default function SettingsPage() {
                                 onClick={() => fileInputRef.current?.click()}
                                 className={clsx(
                                     "border border-dashed rounded-xl p-10 text-center transition-all cursor-pointer group",
-                                    uploading ? "border-primary/30 bg-primary/[0.04]" : "border-white/[0.06] hover:border-primary/20 hover:bg-white/[0.02]"
+                                    uploading ? "border-primary/30 bg-primary/[0.04]" : "border-border hover:border-border-strong hover:bg-surface-2"
                                 )}
                             >
                                 {uploading ? (

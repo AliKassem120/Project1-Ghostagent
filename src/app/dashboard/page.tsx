@@ -80,7 +80,8 @@ function EngagementChart({ data, labels }: { data: number[]; labels: string[] })
                     y1={padding.top + chartH * (1 - pct)}
                     x2={w - padding.right}
                     y2={padding.top + chartH * (1 - pct)}
-                    stroke="rgba(255,255,255,0.04)"
+                    stroke="currentColor"
+                    className="text-border/30"
                     strokeWidth="1"
                 />
             ))}
@@ -99,7 +100,8 @@ function EngagementChart({ data, labels }: { data: number[]; labels: string[] })
                     x={padding.left + (i / (labels.length - 1)) * chartW}
                     y={h - 6}
                     textAnchor="middle"
-                    fill="rgba(255,255,255,0.25)"
+                    fill="currentColor"
+                    className="text-muted-foreground/50 font-medium"
                     fontSize="11"
                     fontFamily="var(--font-inter), system-ui"
                 >
@@ -646,7 +648,7 @@ export default function DashboardPage() {
                             <p className="text-[12px] text-muted-foreground leading-relaxed max-w-xs">Activity will appear here as your Ghost Agent processes Instagram messages and comments.</p>
                         </div>
                     ) : (
-                        <div className="divide-y divide-white/[0.03]">
+                        <div className="divide-y divide-border/30">
                             {filteredActivities.map((activity, i) => {
                                 const colorClasses = getEventColor(activity.event_type);
                                 return (

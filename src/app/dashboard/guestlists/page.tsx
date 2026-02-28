@@ -9,13 +9,13 @@ export default function Page() {
         <div className="min-h-[80vh] flex flex-col relative w-full">
             <div className="mb-6">
                 <h1 className="text-2xl font-bold tracking-tight text-foreground">Guestlists</h1>
-                <p className="text-sm text-slate-400 mt-1">Manage your guestlists settings and operations.</p>
+                <p className="text-sm text-muted-foreground mt-1">Manage your guestlists settings and operations.</p>
             </div>
             
             <motion.div 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex-1 bg-surface-1 border border-border shadow-sm rounded-2xl border border-white/[0.04] flex flex-col items-center justify-center p-12 text-center relative overflow-hidden bg-slate-900/50"
+                className="flex-1 bg-surface-1 border border-border shadow-sm rounded-2xl  flex flex-col items-center justify-center p-12 text-center relative overflow-hidden "
             >
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent pointer-events-none" />
                 
@@ -24,12 +24,12 @@ export default function Page() {
                 </div>
                 
                 <h2 className="text-xl font-bold text-foreground mb-2 tracking-tight">Guestlists features coming soon.</h2>
-                <p className="text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
+                <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
                     We're actively working on bringing powerful guestlists capabilities directly to your dashboard. Stay tuned!
                 </p>
                 
                 <div className="mt-8 flex gap-3">
-                    <div className="px-4 py-2 rounded-xl bg-white/[0.02] border border-white/[0.05] text-xs font-mono text-purple-400">
+                    <div className="px-4 py-2 rounded-xl bg-surface-2 border border-border text-xs font-mono text-purple-400">
                         In Development
                     </div>
                 </div>

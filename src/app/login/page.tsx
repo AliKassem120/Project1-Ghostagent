@@ -49,7 +49,7 @@ export default function LoginPage() {
 
             {/* Back to Home */}
             <div className="absolute top-6 left-6 z-20">
-                <Link href="/" className="flex items-center gap-2 text-white/40 hover:text-white/70 transition-colors text-sm">
+                <Link href="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm font-medium">
                     <ArrowLeft className="w-4 h-4" /> Back
                 </Link>
             </div>
@@ -90,16 +90,16 @@ export default function LoginPage() {
                 >
                     <div className="flex items-center gap-3 mb-8">
                         <div className="p-3 bg-primary/10 rounded-2xl">
-                            <GhostLogo className="w-10 h-10" />
+                            <GhostLogo className="w-10 h-10 text-primary" />
                         </div>
-                        <span className="text-2xl font-bold text-white tracking-tight">GhostAgent</span>
+                        <span className="text-2xl font-bold text-foreground tracking-tight">GhostAgent</span>
                     </div>
 
                     <motion.h2
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.2, duration: 0.6 }}
-                        className="text-4xl font-bold text-white leading-tight mb-4"
+                        className="text-4xl font-bold text-foreground leading-tight mb-4"
                     >
                         Your AI sales agent
                         <br />
@@ -112,7 +112,7 @@ export default function LoginPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.4, duration: 0.6 }}
-                        className="text-white/40 text-lg leading-relaxed mb-10"
+                        className="text-muted-foreground text-lg leading-relaxed mb-10 font-medium"
                     >
                         Automate your Instagram DMs and comments with AI. Reply instantly, close sales, and grow your business — 24/7.
                     </motion.p>
@@ -134,12 +134,12 @@ export default function LoginPage() {
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: 0.7 + i * 0.15 }}
-                                className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.04]"
+                                className="flex items-center gap-3 px-4 py-3 rounded-xl bg-surface-1 border border-border shadow-sm"
                             >
                                 <div className={`p-1.5 rounded-lg ${feature.color}`}>
                                     <feature.icon className="w-4 h-4" />
                                 </div>
-                                <span className="text-sm text-white/60">{feature.text}</span>
+                                <span className="text-sm text-muted-foreground font-medium">{feature.text}</span>
                             </motion.div>
                         ))}
                     </motion.div>
@@ -167,8 +167,8 @@ export default function LoginPage() {
                         transition={{ delay: 0.2 }}
                         className="text-center mb-8 lg:text-left"
                     >
-                        <h1 className="text-3xl font-bold text-white mb-2">Welcome back</h1>
-                        <p className="text-white/40">Sign in to your dashboard</p>
+                        <h1 className="text-3xl font-bold text-foreground mb-2 tracking-tight">Welcome back</h1>
+                        <p className="text-muted-foreground font-medium">Sign in to your dashboard</p>
                     </motion.div>
 
                     {/* Google Login — Primary action */}
@@ -191,10 +191,10 @@ export default function LoginPage() {
                     {/* Divider */}
                     <div className="relative my-6">
                         <div className="absolute inset-0 flex items-center">
-                            <div className="w-full border-t border-white/[0.06]"></div>
+                            <div className="w-full border-t border-border"></div>
                         </div>
                         <div className="relative flex justify-center text-xs">
-                            <span className="bg-background px-4 text-white/20 uppercase tracking-wider">or sign in with email</span>
+                            <span className="bg-background px-4 text-muted-foreground uppercase tracking-wider font-bold">or sign in with email</span>
                         </div>
                     </div>
 
@@ -210,30 +210,30 @@ export default function LoginPage() {
 
                     <form onSubmit={handleLogin} className="space-y-4">
                         <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-white/40 uppercase tracking-wider ml-1">Email</label>
+                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Email</label>
                             <div className="relative">
-                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
                                 <input
                                     type="email"
                                     required
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full bg-surface-1 border border-white/[0.06] rounded-xl py-3.5 pl-11 pr-4 text-white text-sm placeholder:text-white/15 focus:outline-none focus:border-primary/40 focus:bg-surface-2 transition-all"
+                                    className="w-full bg-surface-1 border border-border rounded-xl py-3.5 pl-11 pr-4 text-foreground text-sm placeholder:text-muted-foreground/30 focus:outline-none focus:border-primary/40 focus:bg-surface-2 transition-all shadow-sm"
                                     placeholder="you@company.com"
                                 />
                             </div>
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-white/40 uppercase tracking-wider ml-1">Password</label>
+                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Password</label>
                             <div className="relative">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
                                 <input
                                     type="password"
                                     required
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full bg-surface-1 border border-white/[0.06] rounded-xl py-3.5 pl-11 pr-4 text-white text-sm placeholder:text-white/15 focus:outline-none focus:border-primary/40 focus:bg-surface-2 transition-all"
+                                    className="w-full bg-surface-1 border border-border rounded-xl py-3.5 pl-11 pr-4 text-foreground text-sm placeholder:text-muted-foreground/30 focus:outline-none focus:border-primary/40 focus:bg-surface-2 transition-all shadow-sm"
                                     placeholder="••••••••"
                                 />
                             </div>
@@ -252,8 +252,8 @@ export default function LoginPage() {
                         </button>
                     </form>
 
-                    <p className="mt-8 text-center text-sm text-white/25">
-                        Don&apos;t have an account? <Link href="/register" className="text-primary/70 hover:text-primary transition-colors">Start Free Trial</Link>
+                    <p className="mt-8 text-center text-sm text-muted-foreground font-medium">
+                        Don&apos;t have an account? <Link href="/register" className="text-primary hover:underline transition-colors">Start Free Trial</Link>
                     </p>
                 </motion.div>
             </div>

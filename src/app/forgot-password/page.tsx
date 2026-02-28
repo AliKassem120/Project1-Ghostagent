@@ -43,24 +43,24 @@ export default function ForgotPasswordPage() {
             <StarBackground />
 
             <div className="absolute top-6 left-6 z-20">
-                <Link href="/login" className="flex items-center gap-2 text-white/60 hover:text-white transition-colors">
+                <Link href="/login" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors font-medium">
                     <ArrowLeft className="w-4 h-4" /> Back to Login
                 </Link>
             </div>
 
             <div className="w-full max-w-md relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
-                <div className="glass-dark p-8 md:p-12 rounded-3xl border border-white/10 shadow-2xl">
+                <div className="bg-surface-1 p-8 md:p-12 rounded-3xl border border-border shadow-2xl">
                     <div className="flex justify-center mb-8">
-                        <div className="p-4 bg-primary/10 rounded-2xl shadow-[0_0_40px_rgba(192,132,252,0.2)]">
-                            <GhostLogo className="w-12 h-12" />
+                        <div className="p-4 bg-primary/10 rounded-2xl shadow-[0_0_40px_rgba(192,132,252,0.1)]">
+                            <GhostLogo className="w-12 h-12 text-primary" />
                         </div>
                     </div>
 
                     {!submitted ? (
                         <>
                             <div className="text-center mb-10">
-                                <h1 className="text-3xl font-bold mb-2">Reset Password</h1>
-                                <p className="text-white/60">Enter your email and we'll send you a link to return to the void.</p>
+                                <h1 className="text-3xl font-bold mb-2 text-foreground tracking-tight">Reset Password</h1>
+                                <p className="text-muted-foreground font-medium">Enter your email and we'll send you a link to return to the void.</p>
                             </div>
 
                             {error && (
@@ -71,15 +71,15 @@ export default function ForgotPasswordPage() {
 
                             <form onSubmit={handleResetRequest} className="space-y-6">
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-white/80 ml-1">Email</label>
+                                    <label className="text-sm font-bold text-muted-foreground ml-1">Email</label>
                                     <div className="relative">
-                                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+                                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/30" />
                                         <input
                                             type="email"
                                             required
                                             value={email}
                                             onChange={(e) => setEmail(e.target.value)}
-                                            className="w-full bg-black/20 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 focus:bg-black/40 transition-all"
+                                            className="w-full bg-surface-2 border border-border rounded-xl py-4 pl-12 pr-4 text-foreground placeholder:text-muted-foreground/20 focus:outline-none focus:border-primary/50 focus:bg-surface-3 transition-all font-medium"
                                             placeholder="ghost@agent.com"
                                         />
                                     </div>
@@ -101,13 +101,13 @@ export default function ForgotPasswordPage() {
                                     <CheckCircle2 className="w-12 h-12 text-green-400" />
                                 </div>
                             </div>
-                            <h2 className="text-2xl font-bold mb-4">Link Sent!</h2>
-                            <p className="text-white/60 mb-8">
+                            <h2 className="text-2xl font-bold mb-4 text-foreground tracking-tight">Link Sent!</h2>
+                            <p className="text-muted-foreground font-medium mb-8 leading-relaxed">
                                 Check your email for further instructions on how to reset your password.
                             </p>
                             <Link
                                 href="/login"
-                                className="inline-block bg-white/5 border border-white/10 text-white font-medium py-3 px-8 rounded-xl hover:bg-white/10 transition-all"
+                                className="inline-block bg-surface-2 border border-border text-foreground font-bold py-3 px-8 rounded-xl hover:bg-surface-3 transition-all shadow-sm"
                             >
                                 Return to Login
                             </Link>

@@ -88,13 +88,13 @@ export default function Page() {
         <div className="min-h-[80vh] flex flex-col relative w-full pb-8">
             <div className="mb-6">
                 <h1 className="text-2xl font-bold tracking-tight text-foreground">Calendar Integration</h1>
-                <p className="text-sm text-slate-400 mt-1">Connect your calendar to allow the AI to check availability and book appointments.</p>
+                <p className="text-sm text-muted-foreground mt-1">Connect your calendar to allow the AI to check availability and book appointments.</p>
             </div>
 
             <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex-1 bg-surface-1 border border-border shadow-sm rounded-2xl border border-white/[0.04] p-8 lg:p-12 relative overflow-hidden bg-slate-900/50 flex flex-col items-center justify-center text-center"
+                className="flex-1 bg-surface-1 border border-border shadow-sm rounded-2xl  p-8 lg:p-12 relative overflow-hidden  flex flex-col items-center justify-center text-center"
             >
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent pointer-events-none" />
 
@@ -104,7 +104,7 @@ export default function Page() {
                     </div>
 
                     <h2 className="text-xl font-bold text-foreground mb-3 tracking-tight">Sync Your Google Calendar</h2>
-                    <p className="text-sm text-slate-400 max-w-lg mb-10 leading-relaxed text-center">
+                    <p className="text-sm text-muted-foreground max-w-lg mb-10 leading-relaxed text-center">
                         Securely connect your Google Calendar. Ghost Agent will automatically read your free/busy times and manage new customer bookings directly in your schedule.
                     </p>
 
@@ -128,14 +128,14 @@ export default function Page() {
                                 Disconnect Calendar
                             </button>
 
-                            <div className="px-4 py-2 rounded-xl bg-white/[0.02] border border-white/[0.05] text-xs font-mono text-purple-400 mt-4">
+                            <div className="px-4 py-2 rounded-xl bg-surface-2 border border-border text-xs font-mono text-purple-400 mt-4">
                                 Calendar Features In Development
                             </div>
                         </div>
                     ) : (
                         <button
                             onClick={handleConnectClick}
-                            className="flex items-center gap-3 px-8 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-foreground text-sm font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] border border-white/[0.05] press"
+                            className="flex items-center gap-3 px-8 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-foreground text-sm font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] border border-border press"
                         >
                             <CalendarIcon className="w-5 h-5" />
                             Connect Google Calendar

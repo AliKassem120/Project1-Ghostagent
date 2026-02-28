@@ -98,7 +98,7 @@ export default function ServicesPage() {
             {/* Header */}
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
                 <h1 className="text-2xl font-bold tracking-tight text-foreground">Services</h1>
-                <p className="text-sm text-slate-400 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                     Define the services your AI agent can offer and book for customers.
                 </p>
             </motion.div>
@@ -108,7 +108,7 @@ export default function ServicesPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 }}
-                className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6 border border-white/[0.04]"
+                className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6 "
             >
                 <div className="flex items-center gap-3 mb-6 pb-5 border-b border-white/[0.04]">
                     <div className="p-2.5 rounded-xl bg-purple-500/10">
@@ -116,7 +116,7 @@ export default function ServicesPage() {
                     </div>
                     <div>
                         <h2 className="text-sm font-semibold text-foreground">Add New Service</h2>
-                        <p className="text-[11px] text-slate-400">This service will be made available to the AI for booking.</p>
+                        <p className="text-[11px] text-muted-foreground">This service will be made available to the AI for booking.</p>
                     </div>
                 </div>
 
@@ -243,22 +243,22 @@ export default function ServicesPage() {
                     </div>
                     <div>
                         <h2 className="text-sm font-semibold text-foreground">Your Services</h2>
-                        <p className="text-[11px] text-slate-400">{services.length} service{services.length !== 1 ? "s" : ""} defined</p>
+                        <p className="text-[11px] text-muted-foreground">{services.length} service{services.length !== 1 ? "s" : ""} defined</p>
                     </div>
                 </div>
 
                 {loading ? (
-                    <div className="bg-surface-1 border border-border shadow-sm rounded-2xl border border-white/[0.04] flex items-center justify-center py-16">
+                    <div className="bg-surface-1 border border-border shadow-sm rounded-2xl  flex items-center justify-center py-16">
                         <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
                     </div>
                 ) : services.length === 0 ? (
-                    <div className="bg-surface-1 border border-border shadow-sm rounded-2xl border border-white/[0.04] flex flex-col items-center justify-center py-16 text-center relative overflow-hidden bg-slate-900/50">
+                    <div className="bg-surface-1 border border-border shadow-sm rounded-2xl  flex flex-col items-center justify-center py-16 text-center relative overflow-hidden ">
                         <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent pointer-events-none" />
                         <div className="w-14 h-14 rounded-2xl bg-purple-500/10 flex items-center justify-center mb-4">
                             <Scissors className="w-7 h-7 text-purple-400" />
                         </div>
                         <h3 className="text-base font-bold text-foreground mb-1">No services yet</h3>
-                        <p className="text-sm text-slate-400 max-w-xs">
+                        <p className="text-sm text-muted-foreground max-w-xs">
                             Add your first service above — the AI will use these to answer customer queries and book appointments.
                         </p>
                     </div>
@@ -272,7 +272,7 @@ export default function ServicesPage() {
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, x: -20, height: 0, marginBottom: 0 }}
                                     transition={{ delay: i * 0.04 }}
-                                    className="bg-surface-1 border border-border shadow-sm rounded-xl border border-white/[0.04] p-4 flex items-center gap-4 group hover:border-purple-500/20 transition-colors"
+                                    className="bg-surface-1 border border-border shadow-sm rounded-xl  p-4 flex items-center gap-4 group hover:border-purple-500/20 transition-colors"
                                 >
                                     <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center shrink-0">
                                         <Scissors className="w-5 h-5 text-purple-400" />
@@ -281,17 +281,17 @@ export default function ServicesPage() {
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-semibold text-foreground truncate">{service.name}</p>
                                         {service.description && (
-                                            <p className="text-xs text-slate-400 truncate mt-0.5">{service.description}</p>
+                                            <p className="text-xs text-muted-foreground truncate mt-0.5">{service.description}</p>
                                         )}
                                     </div>
 
                                     <div className="hidden sm:flex items-center gap-4 shrink-0">
-                                        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                             <DollarSign className="w-3.5 h-3.5 text-purple-400" />
                                             <span className="font-semibold text-foreground">${Number(service.price).toFixed(2)}</span>
                                         </div>
                                         <div className="w-px h-4 bg-white/[0.06]" />
-                                        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                             <Clock className="w-3.5 h-3.5 text-purple-400" />
                                             <span>{service.duration_minutes} min</span>
                                         </div>

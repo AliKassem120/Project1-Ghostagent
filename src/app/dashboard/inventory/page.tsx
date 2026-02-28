@@ -445,7 +445,7 @@ export default function InventoryPage() {
                             {filteredProducts.map((item) => {
                                 const isEditing = editingProductId === item.id;
                                 return (
-                                    <tr key={item.id} className="hover:bg-white/[0.02] transition-colors group">
+                                    <tr key={item.id} className="hover:bg-surface-2 transition-colors group">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">

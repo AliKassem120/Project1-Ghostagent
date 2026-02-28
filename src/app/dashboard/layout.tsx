@@ -9,9 +9,10 @@ import GhostLogo from '@/components/GhostLogo';
 import StarBackground from '@/components/StarBackground';
 import { AutopilotProvider, useAutopilot } from '@/context/AutopilotContext';
 import { RealtimeProvider } from '@/contexts/RealtimeContext';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Sun, Moon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import { useTheme } from 'next-themes';
 import { supabase } from '@/lib/supabase';
 import { DashboardProvider } from '@/contexts/DashboardContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,6 +34,10 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     const [isAccountOpen, setIsAccountOpen] = useState(false);
     const [isWorkspaceSwitcherOpen, setIsWorkspaceSwitcherOpen] = useState(false);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const { theme, setTheme } = useTheme();
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => setMounted(true), []);
 
     // Base menu items that all users see
     const baseItems = [
@@ -279,6 +284,16 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                             )}
                         </div>
                         <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-muted-foreground transition-colors shrink-0" />
+                    </button>
+                    <button
+                        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                        className="flex items-center justify-between w-full px-3 py-2 rounded-xl text-xs text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors press mb-1"
+                    >
+                        <div className="flex items-center gap-2.5">
+                            {mounted && theme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                            Theme
+                        </div>
+                        <span className="text-[10px] uppercase font-bold tracking-wider">{mounted ? theme : ''}</span>
                     </button>
                     <button
                         onClick={handleLogout}
