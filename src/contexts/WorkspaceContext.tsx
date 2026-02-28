@@ -47,9 +47,9 @@ function normalisePlan(raw: string | null | undefined): PlanTier {
 
 const WORKSPACE_LIMITS: Record<PlanTier, number> = {
     free_trial: 1,
-    starter: 1,
-    pro: 2,
-    empire: 10,
+    starter: 5,
+    pro: 10,
+    empire: 100,
 };
 
 function getUpgradeMessage(plan: PlanTier, count: number): string | null {

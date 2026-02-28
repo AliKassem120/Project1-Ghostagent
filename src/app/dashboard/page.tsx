@@ -205,14 +205,11 @@ export default function DashboardPage() {
         }
     );
 
-    // Show rows matching this workspace, OR rows with no workspace_id yet
-    // (old data before migration). Once migration is run this fallback goes away.
+    // Strict workspace filter: only show rows assigned to the ACTIVE workspace.
+    // If a row has no workspace_id (e.g. before backfill), it will NOT show up here.
     const activities = useMemo(() => {
         if (!activeWorkspaceId) return allActivities;
-        return allActivities.filter(a => {
-            const ws = (a as any).workspace_id;
-            return !ws || ws === activeWorkspaceId;
-        });
+        return allActivities.filter(a => (a as any).workspace_id === activeWorkspaceId);
     }, [allActivities, activeWorkspaceId]);
 
     useRealtimeCount(

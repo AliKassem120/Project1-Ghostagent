@@ -22,13 +22,19 @@ export async function checkUserLimit(userId: string): Promise<{ allowed: boolean
 
         const plan = user.plan_tier || 'free_trial';
 
-        // 2. Check if Pro
-        if (plan === 'Pro Agent' || plan === 'Empire' || plan === 'pro') {
-            const periodEnd = new Date(user.current_period_end || new Date());
+        // 2. Check if Paid Plan (including Starter, Pro, Empire)
+        const planLower = plan.toLowerCase();
+        const isPaidPlan = ['pro agent', 'empire', 'pro', 'starter'].includes(planLower);
+
+        if (isPaidPlan) {
+            // If they are on a paid plan but current_period_end is null, we assume they are active
+            // (e.g., grandfathered users or manual DB entries).
+            const periodEnd = user.current_period_end ? new Date(user.current_period_end) : new Date(Date.now() + 86400000);
+
             if (periodEnd >= new Date()) {
                 return { allowed: true };
             } else {
-                return { allowed: false, reason: 'Your Pro subscription has expired.' };
+                return { allowed: false, reason: 'Your subscription has expired.' };
             }
         }
 
