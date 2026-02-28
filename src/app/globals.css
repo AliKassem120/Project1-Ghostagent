@@ -70,58 +70,69 @@
 :root {
   --radius: 0.75rem;
 
-  /* ── Surface layers (5-step depth ladder) ── */
-  --background: #080A10;
-  --surface-0: #0C0F16;
-  --surface-1: #111520;
-  --surface-2: #171C28;
-  --surface-3: #1E2433;
+  /* ── Surface layers (Light) ── */
+  --background: #FFFFFF;
+  --surface-0: #F8FAFC;
+  --surface-1: #FFFFFF;
+  --surface-2: #F1F5F9;
+  --surface-3: #E2E8F0;
 
   /* ── Semantic ── */
-  --foreground: #94A3B8;
-  --card: #111520;
-  --card-foreground: #E2E8F0;
-  --popover: #111520;
-  --popover-foreground: #E2E8F0;
+  --foreground: #0F172A;
+  --card: #FFFFFF;
+  --card-foreground: #0F172A;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F172A;
   --primary: #8B5CF6;
   --primary-foreground: #ffffff;
-  --secondary: #171C28;
-  --secondary-foreground: #E2E8F0;
-  --muted: #171C28;
+  --secondary: #F1F5F9;
+  --secondary-foreground: #0F172A;
+  --muted: #F1F5F9;
   --muted-foreground: #64748B;
-  --accent: #171C28;
-  --accent-foreground: #E2E8F0;
+  --accent: #F1F5F9;
+  --accent-foreground: #0F172A;
   --destructive: #EF4444;
 
   /* ── Borders (2-tier system) ── */
-  --border: rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.10);
-  --input: rgba(255, 255, 255, 0.06);
+  --border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.15);
+  --input: rgba(0, 0, 0, 0.08);
   --ring: #8B5CF6;
 
   /* ── Shadows ── */
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.04);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.04);
-  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
-  --shadow-glow: 0 0 24px rgba(139, 92, 246, 0.15);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.02);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.02);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.02);
+  --shadow-glow: 0 0 24px rgba(139, 92, 246, 0.25);
 
-  /* ── Charts ── */
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  /* ── Glassmorphism Custom Properties ── */
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-backdrop-blur: blur(16px);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-border-hover: rgba(139, 92, 246, 0.4);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  --glass-shadow-hover: 0 8px 40px rgba(0, 0, 0, 0.08), 0 0 30px rgba(139, 92, 246, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --bento-bg: rgba(255, 255, 255, 0.6);
+  --chat-bot-bg: rgba(0, 0, 0, 0.04);
+  --chat-bot-border: rgba(0, 0, 0, 0.05);
+  --chat-bot-fg: #334155;
+  --pricing-bg: rgba(255, 255, 255, 0.6);
+  --phone-bg: linear-gradient(145deg, #f1f5f9 0%, #e2e8f0 100%);
+  --phone-border: rgba(0, 0, 0, 0.08);
+  --phone-shadow: 0 0 0 1px rgba(0, 0, 0, 0.03), 0 25px 80px rgba(0, 0, 0, 0.1), 0 0 60px rgba(139, 92, 246, 0.08);
+  --phone-notch: #cbd5e1;
+  --phone-screen: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
 
   /* ── Sidebar ── */
-  --sidebar: #0C0F16;
-  --sidebar-foreground: #94A3B8;
+  --sidebar: #F8FAFC;
+  --sidebar-foreground: #0F172A;
   --sidebar-primary: #8B5CF6;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #171C28;
-  --sidebar-accent-foreground: #E2E8F0;
-  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --sidebar-accent: #F1F5F9;
+  --sidebar-accent-foreground: #0F172A;
+  --sidebar-border: rgba(0, 0, 0, 0.08);
   --sidebar-ring: #8B5CF6;
 }
 
@@ -149,11 +160,25 @@
   --border-strong: rgba(255, 255, 255, 0.10);
   --input: rgba(255, 255, 255, 0.06);
   --ring: #8B5CF6;
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
+
+  /* ── Glassmorphism Custom Properties ── */
+  --glass-bg: rgba(17, 21, 32, 0.6);
+  --glass-backdrop-blur: blur(16px);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --glass-border-hover: rgba(139, 92, 246, 0.25);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --glass-shadow-hover: 0 8px 40px rgba(0, 0, 0, 0.4), 0 0 30px rgba(139, 92, 246, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --bento-bg: rgba(17, 21, 32, 0.5);
+  --chat-bot-bg: rgba(255, 255, 255, 0.08);
+  --chat-bot-border: rgba(255, 255, 255, 0.05);
+  --chat-bot-fg: #e2e8f0;
+  --pricing-bg: rgba(17, 21, 32, 0.5);
+  --phone-bg: linear-gradient(145deg, #1a1a2e 0%, #0d0d1a 100%);
+  --phone-border: rgba(255, 255, 255, 0.08);
+  --phone-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03), 0 25px 80px rgba(0, 0, 0, 0.6), 0 0 60px rgba(139, 92, 246, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --phone-notch: #0a0a14;
+  --phone-screen: linear-gradient(180deg, #0a0a14 0%, #111827 100%);
+
   --sidebar: #0C0F16;
   --sidebar-foreground: #94A3B8;
   --sidebar-primary: #8B5CF6;
@@ -187,7 +212,7 @@
   /* ── Global dark scrollbar ── */
   * {
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+    scrollbar-color: var(--border-strong) transparent;
   }
 
   ::-webkit-scrollbar {
@@ -200,12 +225,12 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--border);
     border-radius: 10px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: var(--border-strong);
   }
 }
 
@@ -266,12 +291,12 @@
   /* ── Premium input ── */
   .input-premium {
     background-color: var(--surface-2);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border);
     border-radius: 0.75rem;
     padding: 0.625rem 1rem;
     font-size: 0.875rem;
     line-height: 1.5;
-    color: white;
+    color: var(--foreground);
     transition: all 0.2s ease;
   }
 
@@ -287,7 +312,7 @@
   }
 
   .input-premium:hover:not(:focus) {
-    border-color: rgba(255, 255, 255, 0.10);
+    border-color: var(--border-strong);
   }
 
   /* ── Badge system ── */
@@ -392,25 +417,25 @@
 
 /* ── Frosted glass card ── */
 .glass-frosted {
-  background: rgba(17, 21, 32, 0.6);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-backdrop-blur);
+  -webkit-backdrop-filter: var(--glass-backdrop-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
   transition: border-color 0.4s ease, box-shadow 0.4s ease, transform 0.3s ease;
 }
 
 .glass-frosted:hover {
-  border-color: rgba(139, 92, 246, 0.25);
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4), 0 0 30px rgba(139, 92, 246, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  border-color: var(--glass-border-hover);
+  box-shadow: var(--glass-shadow-hover);
 }
 
 /* ── Bento card with glow ring ── */
 .bento-card {
-  background: rgba(17, 21, 32, 0.5);
+  background: var(--bento-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
   border-radius: 1.5rem;
   padding: 2rem;
   position: relative;
@@ -447,14 +472,10 @@
 .phone-frame {
   width: 280px;
   height: 560px;
-  background: linear-gradient(145deg, #1a1a2e 0%, #0d0d1a 100%);
+  background: var(--phone-bg);
   border-radius: 40px;
-  border: 2px solid rgba(255, 255, 255, 0.08);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.03),
-    0 25px 80px rgba(0, 0, 0, 0.6),
-    0 0 60px rgba(139, 92, 246, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  border: 2px solid var(--phone-border);
+  box-shadow: var(--phone-shadow);
   position: relative;
   overflow: hidden;
   padding: 12px;
@@ -470,21 +491,21 @@
 .phone-notch {
   width: 120px;
   height: 28px;
-  background: #0a0a14;
+  background: var(--phone-notch);
   border-radius: 0 0 16px 16px;
   position: absolute;
   top: 0;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--glass-border);
   border-top: none;
 }
 
 .phone-screen {
   width: 100%;
   height: 100%;
-  background: linear-gradient(180deg, #0a0a14 0%, #111827 100%);
+  background: var(--phone-screen);
   border-radius: 30px;
   overflow: hidden;
   position: relative;
@@ -516,11 +537,11 @@
 }
 
 .chat-bubble-bot {
-  background: rgba(255, 255, 255, 0.08);
-  color: #e2e8f0;
+  background: var(--chat-bot-bg);
+  color: var(--chat-bot-fg);
   margin-right: auto;
   border-bottom-left-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--chat-bot-border);
 }
 
 .chat-typing {
@@ -535,7 +556,8 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--foreground);
+  opacity: 0.3;
   animation: typingDot 1.4s infinite;
 }
 
@@ -549,10 +571,10 @@
 
 /* ── Glassmorphism pricing ── */
 .pricing-card {
-  background: rgba(17, 21, 32, 0.5);
+  background: var(--pricing-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
   border-radius: 1.5rem;
   padding: 2.5rem 2rem;
   transition: all 0.4s ease;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { motion, useInView } from 'framer-motion';
+import { motion, useInView, AnimatePresence } from 'framer-motion';
 import GhostLogo from '@/components/GhostLogo';
 import Navbar from '@/components/Navbar';
 import StarBackground from '@/components/StarBackground';
@@ -19,6 +19,8 @@ import {
   Check,
   Star,
   Quote,
+  Plus,
+  Minus
 } from 'lucide-react';
 
 /* ════════════════════════════════════════════════════
@@ -99,32 +101,32 @@ function PhoneMockup() {
       <div className="phone-notch" />
       <div className="phone-screen">
         {/* Instagram DM Header */}
-        <div className="flex items-center gap-3 px-4 pt-10 pb-3 border-b border-white/5">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
-            <GhostLogo className="w-4 h-4" />
+        <div className="flex items-center gap-3 px-4 pt-10 pb-3 border-b border-border bg-surface-0/50 backdrop-blur-md z-10 relative">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center shadow-lg">
+            <GhostLogo className="w-4 h-4 text-white" />
           </div>
           <div className="flex-1">
-            <p className="text-white text-xs font-semibold">Ghost Agent</p>
-            <p className="text-white/40 text-[10px]">Active now</p>
+            <p className="text-foreground text-xs font-semibold tracking-tight">Ghost Agent</p>
+            <p className="text-muted-foreground text-[10px] font-medium">Active now</p>
           </div>
-          <div className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            <span className="text-green-400 text-[10px]">AI</span>
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/10 border border-green-500/20">
+            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-green-500 text-[9px] font-bold uppercase tracking-wider">AI</span>
           </div>
         </div>
 
         {/* Chat Messages */}
         <div
           ref={chatContainerRef}
-          className="flex flex-col gap-2.5 p-3 overflow-y-auto"
-          style={{ height: 'calc(100% - 60px)' }}
+          className="flex flex-col gap-3 p-4 overflow-y-auto"
+          style={{ height: 'calc(100% - 60px)', scrollBehavior: 'smooth' }}
         >
           {visibleMessages.map((msgIndex) => {
             const msg = chatMessages[msgIndex];
             return (
               <div
                 key={`msg-${msgIndex}`}
-                className={`chat-bubble ${msg.type === 'user' ? 'chat-bubble-user' : 'chat-bubble-bot'}`}
+                className={`chat-bubble shadow-sm ${msg.type === 'user' ? 'chat-bubble-user text-white' : 'chat-bubble-bot'}`}
                 style={{ animationDelay: '0s' }}
               >
                 {msg.text}
@@ -133,8 +135,8 @@ function PhoneMockup() {
           })}
 
           {showTyping && (
-            <div className="chat-bubble chat-bubble-bot" style={{ opacity: 1, transform: 'none' }}>
-              <div className="chat-typing" style={{ opacity: 1, transform: 'none', padding: 0 }}>
+            <div className="chat-bubble chat-bubble-bot shadow-sm" style={{ opacity: 1, transform: 'none', width: 'fit-content' }}>
+              <div className="chat-typing" style={{ opacity: 1, transform: 'none', padding: '8px 12px' }}>
                 <span /><span /><span />
               </div>
             </div>
@@ -170,32 +172,31 @@ function StepCard({
       initial={{ opacity: 0, x: index % 2 === 0 ? -40 : 40 }}
       animate={isInView ? { opacity: 1, x: 0 } : {}}
       transition={{ duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className="flex items-start gap-6 md:gap-8"
+      className="flex items-start gap-6 md:gap-8 group"
     >
       {/* Step Number */}
       <div className="flex flex-col items-center shrink-0">
         <div
-          className="w-16 h-16 md:w-20 md:h-20 rounded-2xl flex items-center justify-center relative"
+          className="w-16 h-16 md:w-20 md:h-20 rounded-2xl flex items-center justify-center relative shadow-sm border border-border bg-surface-1"
           style={{
-            background: 'linear-gradient(135deg, rgba(139,92,246,0.15) 0%, rgba(59,130,246,0.1) 100%)',
-            border: '1px solid rgba(139,92,246,0.2)',
+            background: 'linear-gradient(135deg, rgba(139,92,246,0.1) 0%, rgba(59,130,246,0.05) 100%)',
             animation: isInView ? 'pulseGlow 3s ease-in-out infinite' : 'none',
           }}
         >
-          <Icon className="w-7 h-7 md:w-8 md:h-8 text-purple-400" />
+          <Icon className="w-7 h-7 md:w-8 md:h-8 text-primary group-hover:scale-110 transition-transform duration-300" />
         </div>
         {index < 2 && (
-          <div className="w-px h-16 bg-gradient-to-b from-purple-500/30 to-transparent mt-4" />
+          <div className="w-px h-16 bg-gradient-to-b from-primary/30 to-transparent mt-4" />
         )}
       </div>
 
       {/* Content */}
       <div className="pt-2 md:pt-4">
-        <span className="text-xs font-bold text-purple-400/70 uppercase tracking-widest mb-2 block">
+        <span className="text-xs font-bold text-primary uppercase tracking-widest mb-2 block">
           Step {step}
         </span>
-        <h3 className="text-xl md:text-2xl font-bold text-white mb-3">{title}</h3>
-        <p className="text-white/50 leading-relaxed max-w-md">{description}</p>
+        <h3 className="text-xl md:text-2xl font-bold text-foreground mb-3 tracking-tight">{title}</h3>
+        <p className="text-muted-foreground leading-relaxed max-w-md font-medium">{description}</p>
       </div>
     </motion.div>
   );
@@ -207,6 +208,7 @@ function StepCard({
 export default function Home() {
   const [showVideo, setShowVideo] = useState(false);
   const [liveConversations, setLiveConversations] = useState(847);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -256,24 +258,22 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-purple-500/20 bg-purple-500/5 text-purple-300 text-xs font-medium mb-8">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/20 bg-primary/10 text-primary text-xs font-semibold tracking-wide mb-8 shadow-sm">
               <Zap className="w-3.5 h-3.5" />
               AI-Powered Instagram Automation
             </div>
 
-            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tighter leading-[0.9] mb-6">
-              <span className="bg-clip-text text-transparent bg-gradient-to-b from-white via-white to-white/40">
-                Sell While
-              </span>
+            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tighter leading-[0.95] mb-6 text-foreground">
+              Sell While
               <br />
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-blue-400 to-purple-400 drop-shadow-[0_0_30px_rgba(139,92,246,0.4)]"
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-blue-500 to-primary drop-shadow-sm"
                 style={{ backgroundSize: '200% 100%', animation: 'gradientShift 4s ease infinite' }}
               >
                 You Sleep.
               </span>
             </h1>
 
-            <p className="text-base md:text-lg text-white/50 max-w-lg mx-auto lg:mx-0 leading-relaxed">
+            <p className="text-base md:text-[1.15rem] text-muted-foreground max-w-lg mx-auto lg:mx-0 leading-relaxed font-medium">
               Ghost Agent handles your Instagram DMs in any language, syncs inventory, and closes sales 24/7 — so you never miss a customer again.
             </p>
           </motion.div>
@@ -287,22 +287,22 @@ export default function Home() {
           >
             <Link
               href="/login"
-              className="relative overflow-hidden px-8 py-4 bg-primary text-white font-bold rounded-full hover:scale-[1.03] transition-transform flex items-center justify-center gap-2 group shadow-[0_0_25px_rgba(139,92,246,0.3)] hover:shadow-[0_0_40px_rgba(139,92,246,0.5)]"
+              className="relative overflow-hidden px-8 py-4 bg-primary text-primary-foreground font-bold rounded-full hover:scale-[1.03] transition-transform flex items-center justify-center gap-2 group shadow-[0_0_25px_rgba(139,92,246,0.3)] hover:shadow-[0_0_40px_rgba(139,92,246,0.5)]"
             >
               <span className="relative z-10 flex items-center gap-2">
                 Start Free Trial
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </span>
               <div
-                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
                 style={{ animation: 'shimmer 3s ease-in-out infinite' }}
               />
             </Link>
             <button
               onClick={() => setShowVideo(true)}
-              className="px-8 py-4 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-colors backdrop-blur-md text-white/80 hover:text-white"
+              className="px-8 py-4 bg-foreground/5 border border-border rounded-full hover:bg-foreground/10 transition-colors backdrop-blur-md text-foreground font-semibold flex items-center justify-center gap-2"
             >
-              ▶ Watch Demo
+              <span>▶</span> Watch Demo
             </button>
           </motion.div>
 
@@ -311,17 +311,25 @@ export default function Home() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1.2 }}
-            className="flex items-center gap-6 justify-center lg:justify-start pt-4"
+            className="flex items-center gap-5 justify-center lg:justify-start pt-6"
           >
-            <div className="flex -space-x-2">
-              {['bg-purple-500', 'bg-blue-500', 'bg-green-500', 'bg-orange-500'].map((color, i) => (
-                <div key={i} className={`w-8 h-8 rounded-full ${color} border-2 border-background flex items-center justify-center text-[10px] font-bold`}>
-                  {String.fromCharCode(65 + i)}
-                </div>
+            <div className="flex -space-x-3">
+              {[
+                'https://i.pravatar.cc/150?img=1',
+                'https://i.pravatar.cc/150?img=2',
+                'https://i.pravatar.cc/150?img=3',
+                'https://i.pravatar.cc/150?img=4'
+              ].map((url, i) => (
+                <img key={i} src={url} alt="User Avatar" className="w-10 h-10 rounded-full border-2 border-background object-cover grayscale hover:grayscale-0 transition-all" />
               ))}
             </div>
-            <div className="text-sm text-white/40">
-              <span className="text-white font-semibold">50+</span> stores automated
+            <div className="flex flex-col">
+              <div className="flex gap-1 text-yellow-400 mb-0.5">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star key={star} className="w-3.5 h-3.5 fill-current" />
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground font-medium">Over <span className="text-foreground font-bold">50+ stores</span> automated</p>
             </div>
           </motion.div>
         </div>
@@ -334,9 +342,47 @@ export default function Home() {
           className="flex-1 flex items-center justify-center relative"
         >
           {/* Phone glow */}
-          <div className="absolute inset-0 bg-gradient-radial from-purple-500/10 via-transparent to-transparent blur-3xl" />
+          <div className="absolute inset-0 bg-gradient-radial from-primary/10 via-transparent to-transparent blur-3xl opacity-60 dark:opacity-100" />
           <PhoneMockup />
         </motion.div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════
+         NARRATIVE: PROBLEM / SOLUTION
+         ═══════════════════════════════════════════════════ */}
+      <section className="relative py-20 md:py-32 px-4 md:px-6 z-10 border-t border-border/50 bg-surface-0/30">
+        <div className="max-w-4xl mx-auto text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <h2 className="text-3xl md:text-5xl font-bold mb-6 text-foreground tracking-tight">
+              Stop losing customers in your DMs.
+            </h2>
+            <p className="text-lg md:text-xl text-muted-foreground leading-relaxed mb-10 max-w-2xl mx-auto">
+              Every unanswered question is a lost sale. Ghost Agent gives modern brands the superpower to reply instantly, build trust, and check out customers directly within Instagram.
+            </p>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="flex flex-col sm:flex-row items-center justify-center gap-8 md:gap-16 pt-8 border-t border-border/50"
+          >
+            <div className="text-center">
+              <p className="text-4xl md:text-5xl font-black text-primary mb-2">3x</p>
+              <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest">More Conversions</p>
+            </div>
+            <div className="hidden sm:block w-px h-16 bg-border" />
+            <div className="text-center">
+              <p className="text-4xl md:text-5xl font-black text-primary mb-2">&lt; 1s</p>
+              <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Response Time</p>
+            </div>
+          </motion.div>
+        </div>
       </section>
 
       {/* ═══════════════════════════════════════════════════
@@ -350,10 +396,10 @@ export default function Home() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-3xl md:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
+            <h2 className="text-3xl md:text-5xl font-bold mb-4 text-foreground tracking-tight">
               Everything You Need to Scale
             </h2>
-            <p className="text-white/40 max-w-xl mx-auto">
+            <p className="text-muted-foreground max-w-xl mx-auto text-lg font-medium">
               One platform. Every tool your Instagram business needs to automate, grow, and dominate.
             </p>
           </motion.div>
@@ -369,21 +415,21 @@ export default function Home() {
               whileHover={{ y: -4 }}
               className="bento-card lg:col-span-2 group"
             >
-              <div className="flex items-start gap-4 mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500/20 to-blue-500/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                  <MessageCircle className="w-6 h-6 text-purple-400" />
+              <div className="flex flex-col md:flex-row items-start gap-4 md:gap-6 mb-4">
+                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                  <MessageCircle className="w-7 h-7 text-primary" />
                 </div>
-                <div>
-                  <h3 className="text-xl font-bold text-white mb-2">Smart Replies</h3>
-                  <p className="text-white/45 leading-relaxed">
+                <div className="mt-1">
+                  <h3 className="text-2xl font-bold text-foreground mb-2 tracking-tight">Smart Replies</h3>
+                  <p className="text-muted-foreground leading-relaxed font-medium">
                     Context-aware AI that understands intent, reads tone, and replies like a human — handling questions, objections, and closing sales automatically.
                   </p>
                 </div>
               </div>
-              <div className="mt-4 p-4 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
-                <div className="flex items-center gap-3 text-sm">
-                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                  <span className="text-white/30">Live: {liveConversations.toLocaleString()} conversations handled today</span>
+              <div className="mt-6 p-4 rounded-2xl bg-surface-2 border border-border">
+                <div className="flex items-center gap-3 text-sm font-semibold">
+                  <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-muted-foreground">Live: <span className="text-foreground">{liveConversations.toLocaleString()}</span> conversations handled today</span>
                 </div>
               </div>
             </motion.div>
@@ -395,15 +441,17 @@ export default function Home() {
               viewport={{ once: true }}
               transition={{ delay: 0.1, duration: 0.6 }}
               whileHover={{ y: -4 }}
-              className="bento-card group"
+              className="bento-card group flex flex-col justify-between"
             >
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500/20 to-cyan-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <Globe className="w-6 h-6 text-blue-400" />
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <Globe className="w-6 h-6 text-blue-500" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground mb-3 tracking-tight">Multilingual AI</h3>
+                <p className="text-muted-foreground leading-relaxed text-sm font-medium">
+                  Fluently switches between Arabic, English, French, Spanish and more — mid-conversation.
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">Multilingual AI</h3>
-              <p className="text-white/45 leading-relaxed text-sm">
-                Fluently switches between Arabic, English, French, Spanish and more — mid-conversation.
-              </p>
             </motion.div>
 
             {/* Card 3: Inventory Sync */}
@@ -413,15 +461,17 @@ export default function Home() {
               viewport={{ once: true }}
               transition={{ delay: 0.2, duration: 0.6 }}
               whileHover={{ y: -4 }}
-              className="bento-card group"
+              className="bento-card group flex flex-col justify-between"
             >
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-green-500/20 to-emerald-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <ShoppingBag className="w-6 h-6 text-green-400" />
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <ShoppingBag className="w-6 h-6 text-green-500" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground mb-3 tracking-tight">Inventory Sync</h3>
+                <p className="text-muted-foreground leading-relaxed text-sm font-medium">
+                  Real-time stock levels, pricing, and availability — updated directly from your chats.
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">Inventory Sync</h3>
-              <p className="text-white/45 leading-relaxed text-sm">
-                Real-time stock levels, pricing, and availability — updated directly from your chats.
-              </p>
             </motion.div>
 
             {/* Card 4: Sales Analytics */}
@@ -431,15 +481,17 @@ export default function Home() {
               viewport={{ once: true }}
               transition={{ delay: 0.3, duration: 0.6 }}
               whileHover={{ y: -4 }}
-              className="bento-card group"
+              className="bento-card group flex flex-col justify-between"
             >
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500/20 to-amber-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <BarChart3 className="w-6 h-6 text-orange-400" />
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <BarChart3 className="w-6 h-6 text-orange-500" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground mb-3 tracking-tight">Sales Analytics</h3>
+                <p className="text-muted-foreground leading-relaxed text-sm font-medium">
+                  Track conversions, revenue, response times, and customer sentiment with live dashboards.
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">Sales Analytics</h3>
-              <p className="text-white/45 leading-relaxed text-sm">
-                Track conversions, revenue, response times, and customer sentiment with live dashboards.
-              </p>
             </motion.div>
 
             {/* Card 5: 24/7 Autopilot */}
@@ -449,15 +501,17 @@ export default function Home() {
               viewport={{ once: true }}
               transition={{ delay: 0.4, duration: 0.6 }}
               whileHover={{ y: -4 }}
-              className="bento-card group"
+              className="bento-card group flex flex-col justify-between"
             >
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500/20 to-purple-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <Shield className="w-6 h-6 text-violet-400" />
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <Shield className="w-6 h-6 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground mb-3 tracking-tight">24/7 Autopilot</h3>
+                <p className="text-muted-foreground leading-relaxed text-sm font-medium">
+                  Your Ghost never sleeps. Every DM gets answered — nights, weekends, holidays — instantly.
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">24/7 Autopilot</h3>
-              <p className="text-white/45 leading-relaxed text-sm">
-                Your Ghost never sleeps. Every DM gets answered — nights, weekends, holidays — instantly.
-              </p>
             </motion.div>
           </div>
         </div>
@@ -466,18 +520,18 @@ export default function Home() {
       {/* ═══════════════════════════════════════════════════
          SECTION 3: HOW IT WORKS
          ═══════════════════════════════════════════════════ */}
-      <section id="about" className="relative py-24 md:py-32 px-4 md:px-6 z-10">
+      <section id="about" className="relative py-24 md:py-32 px-4 md:px-6 z-10 border-t border-border">
         <div className="max-w-4xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center mb-20"
+            className="text-center mb-24"
           >
-            <h2 className="text-3xl md:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
+            <h2 className="text-3xl md:text-5xl font-bold mb-4 tracking-tight text-foreground">
               Live in 3 Minutes
             </h2>
-            <p className="text-white/40 max-w-lg mx-auto">
+            <p className="text-muted-foreground max-w-lg mx-auto text-lg font-medium">
               From signup to your first automated sale — faster than making coffee.
             </p>
           </motion.div>
@@ -511,24 +565,24 @@ export default function Home() {
       {/* ═══════════════════════════════════════════════════
          SECTION 4: SOCIAL PROOF
          ═══════════════════════════════════════════════════ */}
-      <section className="relative py-24 md:py-32 px-4 md:px-6 z-10 border-t border-white/5">
+      <section className="relative py-24 md:py-32 px-4 md:px-6 z-10 border-t border-border bg-surface-0/30">
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center mb-16"
+            className="text-center mb-20"
           >
-            <h2 className="text-3xl md:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
+            <h2 className="text-3xl md:text-5xl font-bold mb-4 text-foreground tracking-tight">
               Loved by Sellers Everywhere
             </h2>
-            <p className="text-white/40 max-w-lg mx-auto">
+            <p className="text-muted-foreground text-lg font-medium max-w-lg mx-auto">
               Join thousands of store owners automating their Instagram sales.
             </p>
           </motion.div>
 
           {/* Stats Banner */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-16">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-20">
             {[
               { value: '50+', label: 'Stores' },
               { value: '25,000+', label: 'Messages Handled' },
@@ -541,10 +595,10 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
-                className="glass-frosted rounded-2xl p-5 md:p-6 text-center"
+                className="glass-frosted rounded-2xl p-6 md:p-8 text-center"
               >
-                <div className="text-2xl md:text-3xl font-bold text-white mb-1">{stat.value}</div>
-                <div className="text-xs md:text-sm text-white/40">{stat.label}</div>
+                <div className="text-3xl md:text-4xl font-extrabold text-foreground tracking-tighter mb-2">{stat.value}</div>
+                <div className="text-sm font-semibold text-muted-foreground uppercase tracking-widest">{stat.label}</div>
               </motion.div>
             ))}
           </div>
@@ -583,76 +637,74 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.15, duration: 0.6 }}
-                className="glass-frosted rounded-2xl p-6 flex flex-col"
+                className="glass-frosted rounded-2xl p-6 flex flex-col hover:-translate-y-1 transition-transform duration-300"
               >
                 <div className="flex items-center gap-3 mb-4">
-                  <div className={`w-10 h-10 rounded-full ${testimonial.color} flex items-center justify-center font-bold text-sm text-white`}>
+                  <div className={`w-11 h-11 rounded-full ${testimonial.color} flex items-center justify-center font-bold text-sm text-white shadow-md`}>
                     {testimonial.avatar}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-white">{testimonial.name}</p>
-                    <p className="text-xs text-white/30">{testimonial.handle}</p>
+                    <p className="text-sm font-semibold text-foreground tracking-tight">{testimonial.name}</p>
+                    <p className="text-xs text-muted-foreground">{testimonial.handle}</p>
                   </div>
                 </div>
-                <div className="flex gap-0.5 mb-3">
+                <div className="flex gap-0.5 mb-4">
                   {[...Array(testimonial.stars)].map((_, j) => (
                     <Star key={j} className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
                   ))}
                 </div>
-                <Quote className="w-5 h-5 text-white/10 mb-2" />
-                <p className="text-white/50 text-sm leading-relaxed flex-1">{testimonial.quote}</p>
+                <p className="text-foreground/80 font-medium text-sm leading-relaxed flex-1 italic relative z-10">"{testimonial.quote}"</p>
               </motion.div>
             ))}
           </div>
-
-
         </div>
       </section>
 
       {/* ═══════════════════════════════════════════════════
          SECTION 5: PRICING
          ═══════════════════════════════════════════════════ */}
-      <section id="pricing" className="relative py-24 md:py-32 px-4 md:px-6 z-10">
+      <section id="pricing" className="relative py-24 md:py-32 px-4 md:px-6 z-10 pt-32">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
         <div className="max-w-6xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center mb-16"
+            className="text-center mb-20"
           >
-            <h2 className="text-3xl md:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
+            <h2 className="text-3xl md:text-5xl font-bold mb-4 tracking-tight text-foreground">
               Simple, Transparent Pricing
             </h2>
-            <p className="text-white/40 max-w-lg mx-auto">
+            <p className="text-muted-foreground max-w-lg mx-auto text-lg font-medium">
               Start free. Upgrade when you&apos;re ready to dominate.
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 items-center">
             {/* Starter */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
-              className="pricing-card"
+              className="pricing-card bg-surface-1"
             >
-              <h3 className="text-lg font-bold text-white/70 mb-2">Starter</h3>
-              <div className="mb-6">
-                <span className="text-5xl font-black text-white">$0</span>
-                <span className="text-white/30 text-sm ml-1">/month</span>
+              <h3 className="text-xl font-bold text-muted-foreground mb-2">Starter</h3>
+              <div className="mb-6 flex items-baseline">
+                <span className="text-5xl font-black text-foreground">$0</span>
+                <span className="text-muted-foreground text-sm ml-1 font-medium">/month</span>
               </div>
-              <ul className="space-y-3 mb-8">
+              <ul className="space-y-4 mb-8">
                 {['50 Auto-Replies / day', 'Basic Analytics', 'Community Support', '1 Instagram Account'].map((feature) => (
-                  <li key={feature} className="flex items-center gap-3 text-sm text-white/50">
-                    <Check className="w-4 h-4 text-white/20 shrink-0" />
+                  <li key={feature} className="flex items-start gap-3 text-sm text-foreground/80 font-medium">
+                    <Check className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
                     {feature}
                   </li>
                 ))}
               </ul>
               <Link
                 href="/login"
-                className="block w-full py-3.5 rounded-xl border border-white/10 text-center font-semibold text-white/70 hover:bg-white/5 hover:text-white transition-all"
+                className="block w-full py-3.5 rounded-xl border border-border bg-surface-2 text-center font-bold text-foreground hover:bg-surface-3 transition-colors"
               >
                 Start Free Trial
               </Link>
@@ -664,27 +716,27 @@ export default function Home() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.1, duration: 0.6 }}
-              className="pricing-card pricing-popular md:-translate-y-4"
+              className="pricing-card bg-surface-0 border-primary/30 shadow-[0_0_50px_rgba(139,92,246,0.1)] relative transform scale-105 z-10"
             >
-              <div className="absolute -top-px left-1/2 -translate-x-1/2 px-4 py-1 rounded-b-lg bg-gradient-to-r from-purple-500 to-blue-500 text-[11px] font-bold uppercase tracking-wider">
+              <div className="absolute -top-px left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-b-lg bg-primary text-white text-[11px] font-bold uppercase tracking-wider shadow-sm">
                 Most Popular
               </div>
-              <h3 className="text-lg font-bold text-purple-300 mb-2 mt-4">Pro Agent</h3>
-              <div className="mb-6">
-                <span className="text-5xl font-black text-white">$49</span>
-                <span className="text-white/30 text-sm ml-1">/month</span>
+              <h3 className="text-xl font-bold text-primary mb-2 mt-4">Pro Agent</h3>
+              <div className="mb-6 flex items-baseline">
+                <span className="text-5xl font-black text-foreground">$49</span>
+                <span className="text-muted-foreground text-sm ml-1 font-medium">/month</span>
               </div>
-              <ul className="space-y-3 mb-8">
+              <ul className="space-y-4 mb-10">
                 {['Unlimited Replies', 'Inventory Sync', 'Sales Analytics', 'Multilingual AI', 'Priority Support'].map((feature) => (
-                  <li key={feature} className="flex items-center gap-3 text-sm text-white/70">
-                    <Check className="w-4 h-4 text-purple-400 shrink-0" />
+                  <li key={feature} className="flex items-start gap-3 text-sm text-foreground font-medium">
+                    <Check className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                     {feature}
                   </li>
                 ))}
               </ul>
               <Link
                 href="/login"
-                className="block w-full py-3.5 rounded-xl bg-primary text-white text-center font-bold hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] transition-all"
+                className="block w-full py-4 rounded-xl bg-primary text-primary-foreground text-center font-bold hover:opacity-90 transition-opacity shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:shadow-[0_0_30px_rgba(139,92,246,0.5)]"
               >
                 Get Pro
               </Link>
@@ -696,24 +748,24 @@ export default function Home() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.2, duration: 0.6 }}
-              className="pricing-card"
+              className="pricing-card bg-surface-1"
             >
-              <h3 className="text-lg font-bold text-white/70 mb-2">Empire</h3>
-              <div className="mb-6">
-                <span className="text-5xl font-black text-white">$199</span>
-                <span className="text-white/30 text-sm ml-1">/month</span>
+              <h3 className="text-xl font-bold text-muted-foreground mb-2">Empire</h3>
+              <div className="mb-6 flex items-baseline">
+                <span className="text-5xl font-black text-foreground">$199</span>
+                <span className="text-muted-foreground text-sm ml-1 font-medium">/month</span>
               </div>
-              <ul className="space-y-3 mb-8">
+              <ul className="space-y-4 mb-8">
                 {['Everything in Pro', 'Multiple Accounts', 'Custom AI Model', 'API Access', 'Dedicated Account Mgr'].map((feature) => (
-                  <li key={feature} className="flex items-center gap-3 text-sm text-white/50">
-                    <Check className="w-4 h-4 text-white/20 shrink-0" />
+                  <li key={feature} className="flex items-start gap-3 text-sm text-foreground/80 font-medium">
+                    <Check className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
                     {feature}
                   </li>
                 ))}
               </ul>
               <Link
-                href="/login"
-                className="block w-full py-3.5 rounded-xl border border-white/10 text-center font-semibold text-white/70 hover:bg-white/5 hover:text-white transition-all"
+                href="/contact"
+                className="block w-full py-3.5 rounded-xl border border-border bg-surface-2 text-center font-bold text-foreground hover:bg-surface-3 transition-colors"
               >
                 Contact Sales
               </Link>
@@ -722,26 +774,92 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ═══════════════════════════════════════════════════
+         NEW SECTION: FAQ
+         ═══════════════════════════════════════════════════ */}
+      <section className="relative py-24 md:py-32 px-4 md:px-6 z-10 border-t border-border bg-surface-0/20">
+        <div className="max-w-3xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-3xl md:text-5xl font-bold mb-4 tracking-tight text-foreground">
+              Frequently Asked Questions
+            </h2>
+            <p className="text-muted-foreground text-lg font-medium">
+              Everything you need to know about the product and billing.
+            </p>
+          </motion.div>
+
+          <div className="space-y-4">
+            {[
+              { q: 'Does Ghost Agent reply to comments too?', a: 'Yes! Ghost Agent can be configured to automatically reply to story replies, post comments, and direct messages, smoothly transitioning public comments into private sales conversations.' },
+              { q: 'Will my account get banned for using a bot?', a: 'No. Ghost Agent uses the official Instagram and Facebook Graph APIs. We are fully compliant with Meta’s terms of service and rate limits.' },
+              { q: 'Can it speak my local dialect?', a: 'Ghost Agent powered by advanced LLMs is natively multilingual. It understands and responds fluently in Lebanese Franco, Gulf Arabic, English, French, Spanish, and many more, matching your customer’s tone.' },
+              { q: 'How does it know my inventory?', a: 'During setup, you can connect your Shopify, WooCommerce, or manually upload a simple CSV. Ghost Agent will sync stock levels in real-time and never sell items you don’t have.' },
+              { q: 'Can I jump in and reply manually?', a: 'Absolutely. The AI automatically pauses if it detects you typing or sending a manual message, handing control securely back to you or your human agents.' },
+            ].map((faq, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: idx * 0.1 }}
+                className="border border-border rounded-2xl bg-surface-1 overflow-hidden"
+              >
+                <button
+                  onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
+                  className="flex items-center justify-between w-full px-6 py-5 text-left focus:outline-none"
+                >
+                  <span className="font-semibold text-foreground pr-8">{faq.q}</span>
+                  {openFaq === idx ? (
+                    <Minus className="w-5 h-5 text-primary shrink-0" />
+                  ) : (
+                    <Plus className="w-5 h-5 text-muted-foreground shrink-0" />
+                  )}
+                </button>
+                <AnimatePresence>
+                  {openFaq === idx && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    >
+                      <div className="px-6 pb-6 text-muted-foreground font-medium leading-relaxed border-t border-border/50 pt-4">
+                        {faq.a}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ═══ FINAL CTA STRIP ═══ */}
-      <section className="relative py-20 px-4 md:px-6 z-10 border-t border-white/5">
+      <section className="relative py-24 md:py-32 px-4 md:px-6 z-10 border-t border-border bg-gradient-to-b from-surface-1 to-background">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="max-w-3xl mx-auto text-center"
+          className="max-w-4xl mx-auto text-center"
         >
-          <h2 className="text-3xl md:text-5xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
+          <h2 className="text-4xl md:text-6xl font-black mb-6 tracking-tight text-foreground">
             Ready to Automate Your Sales?
           </h2>
-          <p className="text-white/40 mb-8 max-w-md mx-auto">
+          <p className="text-xl text-muted-foreground mb-10 max-w-xl mx-auto font-medium leading-relaxed">
             Join 50+ store owners already using Ghost Agent. Set up in under 3 minutes.
           </p>
           <Link
             href="/login"
-            className="relative overflow-hidden inline-flex items-center gap-2 px-10 py-4 bg-primary text-white font-bold rounded-full hover:scale-[1.03] transition-transform shadow-[0_0_30px_rgba(139,92,246,0.3)] hover:shadow-[0_0_50px_rgba(139,92,246,0.5)]"
+            className="relative overflow-hidden inline-flex items-center gap-3 px-12 py-5 bg-primary text-primary-foreground font-bold rounded-full hover:scale-[1.03] transition-transform shadow-[0_0_30px_rgba(139,92,246,0.3)] hover:shadow-[0_0_50px_rgba(139,92,246,0.5)] text-lg"
           >
             <span className="relative z-10 flex items-center gap-2">
-              Start Free Trial
+              Start Your Free Trial
               <ArrowRight className="w-5 h-5" />
             </span>
             <div
