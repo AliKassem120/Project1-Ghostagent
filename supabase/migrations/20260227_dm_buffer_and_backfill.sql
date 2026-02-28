@@ -55,9 +55,43 @@ SET workspace_id = (
 )
 WHERE al.workspace_id IS NULL;
 
--- 5. Verification
+-- 5. Create atomic claim RPC function
+-- Bypasses API schema-cache ambiguity using a precise PL/pgSQL bound statement
+CREATE OR REPLACE FUNCTION public.claim_dm_buffer(
+    p_owner_id uuid,
+    p_sender_id text,
+    p_channel text,
+    p_scheduled_reply_at timestamptz,
+    p_lock_ttl_seconds integer
+)
+RETURNS TABLE (buffered_text text, workspace_id uuid)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_now timestamptz := now();
+    v_lock_expires timestamptz := v_now + (p_lock_ttl_seconds || ' seconds')::interval;
+BEGIN
+    RETURN QUERY
+    UPDATE public.dm_buffer
+    SET status = 'processing',
+        lock_expires_at = v_lock_expires,
+        updated_at = v_now
+    WHERE owner_id = p_owner_id
+      AND sender_id = p_sender_id
+      AND channel = p_channel
+      AND status = 'waiting'
+      AND reply_at = p_scheduled_reply_at
+      AND (lock_expires_at IS NULL OR lock_expires_at < v_now)
+    RETURNING 
+        public.dm_buffer.buffered_text, 
+        public.dm_buffer.workspace_id;
+END;
+$$;
+
+-- 6. Verification
 SELECT
     (SELECT COUNT(*) FROM public.workspaces) AS workspaces_count,
     (SELECT COUNT(*) FROM public.dm_buffer) AS dm_buffer_count,
     (SELECT COUNT(*) FROM public.activity_log) AS activity_log_total_count,
     (SELECT COUNT(*) FROM public.activity_log WHERE workspace_id IS NOT NULL) AS activity_log_tagged_count;
+

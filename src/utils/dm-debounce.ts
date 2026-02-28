@@ -124,23 +124,19 @@ export async function claimDmBuffer(
     const now = new Date().toISOString();
     const lockExpires = new Date(Date.now() + LOCK_TTL_SECONDS * 1000).toISOString();
 
-    // Atomically claim: only matches if:
-    // - status is still 'waiting' (not already claimed/processed)
-    // - reply_at matches what we scheduled (no newer message pushed it forward)
-    // - No active lock held by another invocation
-    // Explicitly target public schema
-    const { data: claimed, error } = await supabase
-        .schema('public')
-        .from('dm_buffer')
-        .update({ status: 'processing', lock_expires_at: lockExpires, updated_at: now })
-        .eq('owner_id', ownerId)
-        .eq('sender_id', senderId)
-        .eq('channel', channel)
-        .eq('status', 'waiting')
-        .eq('reply_at', scheduledReplyAt)
-        .or(`lock_expires_at.is.null,lock_expires_at.lt.${now}`)
-        .select('buffered_text, workspace_id')
-        .maybeSingle();
+    // Call the Postgres RPC function to atomically claim the buffer
+    // This bypasses PostgREST .or() URL filter limitations and ensures
+    // the query executes fully-qualified as public.dm_buffer in Postgres.
+    const { data: claimedRows, error } = await supabase
+        .rpc('claim_dm_buffer', {
+            p_owner_id: ownerId,
+            p_sender_id: senderId,
+            p_channel: channel,
+            p_scheduled_reply_at: scheduledReplyAt,
+            p_lock_ttl_seconds: LOCK_TTL_SECONDS
+        });
+
+    const claimed = claimedRows?.[0];
 
     if (error) {
         console.error('❌ [Buffer] Claim error:', error);
