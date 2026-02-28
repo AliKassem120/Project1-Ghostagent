@@ -28,6 +28,7 @@ type Conversation = {
     isComment?: boolean;
 };
 
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useAutopilot } from '@/context/AutopilotContext';
 
 // ...
@@ -44,6 +45,7 @@ export default function InteractionsPage() {
     const [userId, setUserId] = useState<string | null>(null);
     const [draftSending, setDraftSending] = useState<string | null>(null); // Track which draft is being sent
     const [fetchedProfiles, setFetchedProfiles] = useState<Record<string, string>>({}); // Cache for fetched names
+    const { activeWorkspaceId } = useWorkspace(); // Get active workspace
     const supabase = createClient();
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -59,12 +61,17 @@ export default function InteractionsPage() {
         // Store userId for realtime subscription filter
         setUserId(user.id);
 
-        // Fetch Logs
-        const { data: logsData } = await supabase
+        let query = supabase
             .from('activity_log')
             .select('*')
-            .eq('user_id', user.id)
-            .order('timestamp', { ascending: true });
+            .eq('user_id', user.id);
+
+        if (activeWorkspaceId) {
+            query = query.eq('workspace_id', activeWorkspaceId);
+        }
+
+        // Fetch Logs
+        const { data: logsData } = await query.order('timestamp', { ascending: true });
 
         // Fetch Muted States
         const { data: states } = await supabase
@@ -160,7 +167,8 @@ export default function InteractionsPage() {
                 body: JSON.stringify({
                     chatId: selectedChatId,
                     text: currentInput, // send raw text
-                    accountId: activeChat.account_id
+                    accountId: activeChat.account_id,
+                    workspaceId: activeWorkspaceId
                 })
             });
 
@@ -187,7 +195,7 @@ export default function InteractionsPage() {
 
     useEffect(() => {
         fetchLogs();
-    }, []);
+    }, [activeWorkspaceId]);
 
     // 🔥 REALTIME: Subscribe to activity_log with user filter and strict deduplication
     useEffect(() => {
@@ -205,6 +213,8 @@ export default function InteractionsPage() {
                 },
                 (payload) => {
                     const newLog = payload.new;
+                    // Only process logs meant for the active workspace
+                    if (activeWorkspaceId && newLog.workspace_id && newLog.workspace_id !== activeWorkspaceId) return;
                     setLogs((prev) => {
                         if (prev.some(l => l.id === newLog.id)) return prev;
                         return [...prev, newLog];
@@ -304,7 +314,7 @@ export default function InteractionsPage() {
             const res = await fetch('/api/messages/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chatId, text, accountId })
+                body: JSON.stringify({ chatId, text, accountId, workspaceId: activeWorkspaceId })
             });
 
             if (res.ok) {

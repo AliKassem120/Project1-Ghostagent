@@ -330,7 +330,7 @@ export default function SettingsPage() {
         if (!activeWorkspaceId) return;
         setDeletingWs(true);
         try {
-            const { error } = await supabase.from('workspaces').delete().eq('id', activeWorkspaceId);
+            const { error } = await supabase.from('bot_settings').delete().eq('id', activeWorkspaceId);
             if (error) throw error;
             toast.success('Workspace deleted');
             removeWorkspace(activeWorkspaceId); // Sync with context

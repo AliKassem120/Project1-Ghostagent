@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { BusinessCategory } from '@/components/BusinessTypeSelector';
@@ -69,6 +70,7 @@ const LS_KEY = 'ghost_active_workspace';
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
     const { user } = useAuth();
+    const router = useRouter();
     const supabase = createClient();
 
     const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -82,7 +84,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
         // Fetch plan tier + workspaces in parallel
         const [userRes, wsRes, igRes] = await Promise.all([
-            supabase.from('users').select('plan_tier').eq('id', user.id).single(),
+            supabase.from('users').select('plan_tier, business_type').eq('id', user.id).single(),
             supabase
                 .from('bot_settings')
                 .select('id, user_id, name, business_type, created_at')
@@ -97,6 +99,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
         const plan = normalisePlan(userRes.data?.plan_tier);
         setPlanTier(plan);
+
+        // Redirect new signups to onboarding before rendering dashboard
+        if ((!wsRes.data || wsRes.data.length === 0) && !userRes.data?.business_type) {
+            router.push('/onboarding');
+            return;
+        }
 
         // Build a map of account_id -> username from connections
         const igConnections: Array<{ account_id: string; account_username: string }> = igRes.data || [];

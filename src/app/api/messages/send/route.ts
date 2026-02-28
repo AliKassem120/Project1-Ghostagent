@@ -7,7 +7,7 @@ export async function POST(req: Request) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-        const { chatId, text, accountId } = await req.json();
+        const { chatId, text, accountId, workspaceId } = await req.json();
 
         if (!chatId || !text) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
 
@@ -62,6 +62,7 @@ export async function POST(req: Request) {
         // Log to Activity Log (so it shows in UI)
         const { data: insertedLog, error: insertError } = await supabase.from('activity_log').insert({
             user_id: user.id,
+            workspace_id: workspaceId || null,
             event_type: 'MANUAL_REPLY',
             description: `Sent (Manual): "${text}"`,
             metadata: {
