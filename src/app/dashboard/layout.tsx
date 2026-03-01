@@ -119,121 +119,123 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             </AnimatePresence>
 
             <aside className={clsx(
-                "w-[260px] border-r border-border bg-surface-0 flex flex-col fixed h-full z-50 transition-transform duration-300 lg:translate-x-0",
+                "w-[260px] border-r border-border bg-surface-0 flex flex-col fixed h-[100dvh] z-50 transition-transform duration-300 lg:translate-x-0",
                 isOpen ? "translate-x-0" : "-translate-x-full"
             )}>
-                {/* Logo Section */}
-                <div className="flex items-center justify-between px-5 h-16 border-b border-border">
-                    <Link href="/" className="flex items-center gap-2.5 group">
-                        <div className="bg-primary/10 p-2 rounded-xl group-hover:bg-primary/15 transition-colors">
-                            <GhostLogo />
-                        </div>
-                        <span className="font-semibold text-lg tracking-tight text-muted-foreground">
-                            GhostAgent
-                        </span>
-                    </Link>
-                    <button onClick={onClose} className="lg:hidden p-2 text-muted-foreground hover:text-foreground transition-colors">
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-
-                {/* Workspace Switcher */}
-                <div className="mx-4 mt-5 mb-2">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1 mb-2">Active Agent</p>
-                    <div className="relative">
-                        <button
-                            onClick={() => setIsWorkspaceSwitcherOpen(v => !v)}
-                            className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-surface-1 border border-border hover:bg-surface-2 transition-colors text-left group"
-                        >
-                            <div className="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
-                                <Building2 className="w-3.5 h-3.5 text-primary" />
+                <div className="flex-none">
+                    {/* Logo Section */}
+                    <div className="flex items-center justify-between px-5 h-16 border-b border-border">
+                        <Link href="/" className="flex items-center gap-2.5 group">
+                            <div className="bg-primary/10 p-2 rounded-xl group-hover:bg-primary/15 transition-colors">
+                                <GhostLogo />
                             </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-xs font-semibold text-muted-foreground truncate">{activeWorkspace?.name || 'My Store'}</p>
-                                <p className="text-[9px] text-muted-foreground truncate">{activeWorkspace?.instagram_username ? `@${activeWorkspace.instagram_username}` : 'No Instagram connected'}</p>
-                            </div>
-                            <ChevronRight className={clsx('w-3.5 h-3.5 text-muted-foreground transition-transform shrink-0', isWorkspaceSwitcherOpen && 'rotate-90')} />
+                            <span className="font-semibold text-lg tracking-tight text-muted-foreground">
+                                GhostAgent
+                            </span>
+                        </Link>
+                        <button onClick={onClose} className="lg:hidden p-2 text-muted-foreground hover:text-foreground transition-colors">
+                            <X className="w-5 h-5" />
                         </button>
+                    </div>
 
-                        <AnimatePresence>
-                            {isWorkspaceSwitcherOpen && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: -6, scale: 0.97 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    exit={{ opacity: 0, y: -6, scale: 0.97 }}
-                                    transition={{ duration: 0.15 }}
-                                    className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-surface-1 border border-border rounded-xl shadow-2xl overflow-hidden"
-                                >
-                                    {workspaces.map(ws => (
-                                        <button
-                                            key={ws.id}
-                                            onClick={() => { setActiveWorkspace(ws.id); setIsWorkspaceSwitcherOpen(false); if (window.innerWidth < 1024) onClose(); }}
-                                            className={clsx(
-                                                'w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors',
-                                                ws.id === activeWorkspaceId
-                                                    ? 'bg-primary/10 text-primary'
-                                                    : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'
-                                            )}
-                                        >
-                                            <div className={clsx('w-2 h-2 rounded-full shrink-0', ws.id === activeWorkspaceId ? 'bg-primary' : 'bg-surface-2')} />
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-[11px] font-semibold truncate">{ws.name}</p>
-                                                <p className="text-[9px] text-muted-foreground truncate">{ws.instagram_username ? `@${ws.instagram_username}` : ws.business_type}</p>
-                                            </div>
-                                            {ws.id === activeWorkspaceId && <Check className="w-3 h-3 shrink-0" />}
-                                        </button>
-                                    ))}
+                    {/* Workspace Switcher */}
+                    <div className="mx-4 mt-5 mb-2">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1 mb-2">Active Agent</p>
+                        <div className="relative">
+                            <button
+                                onClick={() => setIsWorkspaceSwitcherOpen(v => !v)}
+                                className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-surface-1 border border-border hover:bg-surface-2 transition-colors text-left group"
+                            >
+                                <div className="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
+                                    <Building2 className="w-3.5 h-3.5 text-primary" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-semibold text-muted-foreground truncate">{activeWorkspace?.name || 'My Store'}</p>
+                                    <p className="text-[9px] text-muted-foreground truncate">{activeWorkspace?.instagram_username ? `@${activeWorkspace.instagram_username}` : 'No Instagram connected'}</p>
+                                </div>
+                                <ChevronRight className={clsx('w-3.5 h-3.5 text-muted-foreground transition-transform shrink-0', isWorkspaceSwitcherOpen && 'rotate-90')} />
+                            </button>
 
-                                    <div className="border-t border-border p-2">
-                                        {canAddWorkspace ? (
+                            <AnimatePresence>
+                                {isWorkspaceSwitcherOpen && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                                        transition={{ duration: 0.15 }}
+                                        className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-surface-1 border border-border rounded-xl shadow-2xl overflow-hidden"
+                                    >
+                                        {workspaces.map(ws => (
                                             <button
-                                                onClick={() => { setIsWorkspaceSwitcherOpen(false); setIsAddModalOpen(true); }}
-                                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-semibold text-primary hover:bg-primary/10 transition-colors"
+                                                key={ws.id}
+                                                onClick={() => { setActiveWorkspace(ws.id); setIsWorkspaceSwitcherOpen(false); if (window.innerWidth < 1024) onClose(); }}
+                                                className={clsx(
+                                                    'w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors',
+                                                    ws.id === activeWorkspaceId
+                                                        ? 'bg-primary/10 text-primary'
+                                                        : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'
+                                                )}
                                             >
-                                                <Plus className="w-3.5 h-3.5" />
-                                                Add Account
+                                                <div className={clsx('w-2 h-2 rounded-full shrink-0', ws.id === activeWorkspaceId ? 'bg-primary' : 'bg-surface-2')} />
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-[11px] font-semibold truncate">{ws.name}</p>
+                                                    <p className="text-[9px] text-muted-foreground truncate">{ws.instagram_username ? `@${ws.instagram_username}` : ws.business_type}</p>
+                                                </div>
+                                                {ws.id === activeWorkspaceId && <Check className="w-3 h-3 shrink-0" />}
                                             </button>
-                                        ) : (
-                                            <div className="px-3 py-2">
-                                                <p className="text-[9px] text-muted-foreground">{upgradeMessage}</p>
-                                                <Link href="/dashboard/billing" onClick={() => setIsWorkspaceSwitcherOpen(false)} className="text-[10px] text-primary font-semibold hover:underline">Upgrade plan →</Link>
-                                            </div>
-                                        )}
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
+                                        ))}
+
+                                        <div className="border-t border-border p-2">
+                                            {canAddWorkspace ? (
+                                                <button
+                                                    onClick={() => { setIsWorkspaceSwitcherOpen(false); setIsAddModalOpen(true); }}
+                                                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-semibold text-primary hover:bg-primary/10 transition-colors"
+                                                >
+                                                    <Plus className="w-3.5 h-3.5" />
+                                                    Add Account
+                                                </button>
+                                            ) : (
+                                                <div className="px-3 py-2">
+                                                    <p className="text-[9px] text-muted-foreground">{upgradeMessage}</p>
+                                                    <Link href="/dashboard/billing" onClick={() => setIsWorkspaceSwitcherOpen(false)} className="text-[10px] text-primary font-semibold hover:underline">Upgrade plan →</Link>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
                     </div>
-                </div>
-                <div className="mx-4 mt-5 mb-2 p-4 rounded-xl bg-surface-1 border border-border">
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-semibold flex items-center gap-2 text-muted-foreground">
-                            <Zap className="w-3.5 h-3.5 text-primary" />
-                            Autopilot
-                        </span>
-                        <button
-                            onClick={() => setAutopilot(!autopilot)}
-                            disabled={isLoading}
-                            className={clsx(
-                                "relative w-11 rounded-full transition-all duration-300 press",
-                                autopilot ? "bg-primary" : "bg-surface-2",
-                                isLoading && "opacity-50 cursor-not-allowed"
-                            )}
-                            style={{ height: '24px' }}
-                        >
-                            <div className={clsx(
-                                "absolute top-[2px] w-[20px] h-[20px] rounded-full bg-white transition-transform duration-300 shadow-sm",
-                                autopilot ? "translate-x-[22px]" : "translate-x-[2px]"
-                            )} />
-                        </button>
+                    <div className="mx-4 mt-5 mb-2 p-4 rounded-xl bg-surface-1 border border-border">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-semibold flex items-center gap-2 text-muted-foreground">
+                                <Zap className="w-3.5 h-3.5 text-primary" />
+                                Autopilot
+                            </span>
+                            <button
+                                onClick={() => setAutopilot(!autopilot)}
+                                disabled={isLoading}
+                                className={clsx(
+                                    "relative w-11 rounded-full transition-all duration-300 press",
+                                    autopilot ? "bg-primary" : "bg-surface-2",
+                                    isLoading && "opacity-50 cursor-not-allowed"
+                                )}
+                                style={{ height: '24px' }}
+                            >
+                                <div className={clsx(
+                                    "absolute top-[2px] w-[20px] h-[20px] rounded-full bg-white transition-transform duration-300 shadow-sm",
+                                    autopilot ? "translate-x-[22px]" : "translate-x-[2px]"
+                                )} />
+                            </button>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                            {isLoading ? "Syncing status..." : (autopilot ? "AI replies are sent automatically." : "Manual approval required for replies.")}
+                        </p>
                     </div>
-                    <p className="text-[10px] text-muted-foreground leading-relaxed">
-                        {isLoading ? "Syncing status..." : (autopilot ? "AI replies are sent automatically." : "Manual approval required for replies.")}
-                    </p>
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 px-3 mt-2 space-y-0.5">
+                <nav className="flex-1 overflow-y-auto px-3 mt-2 space-y-0.5 pb-2">
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 pt-3 pb-2">
                         Menu
                     </p>
@@ -269,7 +271,7 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                 </nav>
 
                 {/* User Profile — click to open Account Security */}
-                <div className="mt-auto border-t border-border p-4">
+                <div className="flex-none bg-inherit p-4 pb-6 mt-auto border-t border-border">
                     <button
                         onClick={() => setIsAccountOpen(true)}
                         className="flex items-center gap-3 mb-3 w-full rounded-xl p-2 -mx-2 hover:bg-surface-2 transition-colors group text-left"
