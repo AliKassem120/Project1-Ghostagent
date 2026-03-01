@@ -265,12 +265,46 @@ export default function Home() {
             </div>
 
             <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tighter leading-[0.95] mb-6 text-foreground">
-              Sell While
-              <br />
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-blue-500 to-primary drop-shadow-sm"
-                style={{ backgroundSize: '200% 100%', animation: 'gradientShift 4s ease infinite' }}
+              {/* "Sell While" fades in first */}
+              <motion.span
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+                className="inline-block"
               >
-                You Sleep.
+                Sell While
+              </motion.span>
+              <br />
+              {/* "You Sleep." — ghost reveals gradient from left to right */}
+              <span className="relative inline-block whitespace-nowrap overflow-visible" style={{ lineHeight: 1.15 }}>
+                {/* Base: invisible until gradient paints over */}
+                <span className="text-foreground" style={{ opacity: 0 }}>You Sleep.</span>
+
+                {/* Gradient text layer — revealed by clipPath synced to ghost */}
+                <motion.span
+                  className="absolute left-0 top-0 w-full h-full bg-clip-text text-transparent bg-gradient-to-r from-primary via-blue-500 to-primary"
+                  style={{ backgroundSize: '200% 100%', animation: 'gradientShift 4s ease 2.8s infinite' }}
+                  initial={{ clipPath: "inset(-15% 100% -15% 0)" }}
+                  animate={{ clipPath: "inset(-15% -5% -15% 0)" }}
+                  transition={{ duration: 2.5, ease: [0.25, 0.1, 0.25, 1], delay: 0.6 }}
+                >
+                  You Sleep.
+                </motion.span>
+
+                {/* Ghost gliding across — synced to the same timing */}
+                <motion.div
+                  className="absolute top-1/2 -translate-y-1/2 z-20 pointer-events-none"
+                  initial={{ left: "-20%", opacity: 0 }}
+                  animate={{ left: "105%", opacity: [0, 1, 1, 0.9] }}
+                  transition={{ duration: 2.5, ease: [0.25, 0.1, 0.25, 1], delay: 0.6 }}
+                >
+                  <motion.div
+                    animate={{ y: [-3, 3, -3] }}
+                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    <GhostLogo className="w-12 h-12 md:w-16 md:h-16 lg:w-20 lg:h-20 text-primary drop-shadow-[0_0_20px_rgba(139,92,246,0.5)]" />
+                  </motion.div>
+                </motion.div>
               </span>
             </h1>
 

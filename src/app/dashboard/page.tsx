@@ -13,6 +13,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 // Database types
 type ActivityLog = {
@@ -29,86 +30,103 @@ type InventoryItem = {
     stock_level: number;
 };
 
-/* ── Engagement Chart ─────────────────────────────────────
-   Renders a clean area chart with gradient fill.
-   ───────────────────────────────────────────────────── */
-function EngagementChart({ data, labels }: { data: number[]; labels: string[] }) {
-    if (data.length < 2) {
-        return (
-            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                <Sparkles className="w-4 h-4 mr-2 opacity-50" />
-                Collecting engagement data...
-            </div>
-        );
-    }
+type ChartDataPoint = { day: string; interactions: number };
+type EngagementChartProps = {
+    data: ChartDataPoint[];
+    metrics: {
+        dmsReceived: number;
+        comments: number;
+        aiReplies: number;
+        manualReplies: number;
+    };
+};
 
-    const max = Math.max(...data, 1);
-    const w = 600;
-    const h = 200;
-    const padding = { top: 20, bottom: 30, left: 0, right: 0 };
-    const chartW = w - padding.left - padding.right;
-    const chartH = h - padding.top - padding.bottom;
-
-    const points = data.map((v, i) => ({
-        x: padding.left + (i / (data.length - 1)) * chartW,
-        y: padding.top + chartH - (v / max) * chartH,
-    }));
-
-    // Smooth curve using cubic bezier
-    const linePath = points.map((p, i) => {
-        if (i === 0) return `M${p.x},${p.y}`;
-        const prev = points[i - 1];
-        const cpx = (prev.x + p.x) / 2;
-        return `C${cpx},${prev.y} ${cpx},${p.y} ${p.x},${p.y}`;
-    }).join(' ');
-
-    const areaPath = `${linePath} L${points[points.length - 1].x},${h - padding.bottom} L${points[0].x},${h - padding.bottom} Z`;
-
+/* ── Engagement Overview (Premium Recharts) ────────────── */
+function EngagementOverview({ data, metrics }: EngagementChartProps) {
     return (
-        <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-full" preserveAspectRatio="none">
-            <defs>
-                <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.3" />
-                    <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0" />
-                </linearGradient>
-            </defs>
-            {/* Grid lines */}
-            {[0.25, 0.5, 0.75].map((pct) => (
-                <line
-                    key={pct}
-                    x1={padding.left}
-                    y1={padding.top + chartH * (1 - pct)}
-                    x2={w - padding.right}
-                    y2={padding.top + chartH * (1 - pct)}
-                    stroke="currentColor"
-                    className="text-border/30"
-                    strokeWidth="1"
-                />
-            ))}
-            {/* Area fill */}
-            <path d={areaPath} fill="url(#chartGrad)" />
-            {/* Line */}
-            <path d={linePath} fill="none" stroke="#8B5CF6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-            {/* Dots */}
-            {points.map((p, i) => (
-                <circle key={i} cx={p.x} cy={p.y} r="3.5" fill="#8B5CF6" stroke="#111520" strokeWidth="2" />
-            ))}
-            {/* Labels */}
-            {labels.map((label, i) => (
-                <text
-                    key={i}
-                    x={padding.left + (i / (labels.length - 1)) * chartW}
-                    y={h - 6}
-                    textAnchor="middle"
-                    fill="currentColor"
-                    className="text-muted-foreground/50 font-medium"
-                    fontSize="11"
-                    fontFamily="var(--font-inter), system-ui"
-                >
-                    {label}
-                </text>
-            ))}
-        </svg>
+        <div className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-primary/10">
+                        <BarChart3 className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                        <h3 className="text-sm font-semibold text-foreground">Engagement Overview</h3>
+                        <p className="text-[11px] text-muted-foreground">Interactions over the last 7 days</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full bg-primary" />
+                        Interactions
+                    </div>
+                </div>
+            </div>
+
+            {/* Recharts AreaChart */}
+            <div className="h-[250px] w-full -ml-4">
+                <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={data} margin={{ top: 20, right: 20, left: 10, bottom: 0 }}>
+                        <defs>
+                            <linearGradient id="colorInteractions" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2} />
+                                <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                            </linearGradient>
+                        </defs>
+                        <CartesianGrid vertical={true} horizontal={false} strokeDasharray="4 4" stroke="currentColor" opacity={0.1} />
+                        <XAxis
+                            dataKey="day"
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }}
+                            dy={10}
+                        />
+                        <YAxis hide padding={{ bottom: 15, top: 15 }} />
+                        <Tooltip
+                            contentStyle={{
+                                backgroundColor: '#0f172a',
+                                border: '1px solid #1e293b',
+                                borderRadius: '12px',
+                                fontSize: '11px',
+                                fontWeight: 'semibold',
+                                boxShadow: '0 10px 15px -3px rgba(0,0,0,0.5)'
+                            }}
+                            itemStyle={{ color: '#fff' }}
+                            cursor={{ stroke: '#6366f1', strokeWidth: 1, strokeDasharray: '4 4', opacity: 0.4 }}
+                        />
+                        <Area
+                            type="monotone"
+                            dataKey="interactions"
+                            stroke="#6366f1"
+                            strokeWidth={3}
+                            fillOpacity={1}
+                            fill="url(#colorInteractions)"
+                            animationDuration={1500}
+                            dot={{ stroke: 'var(--color-surface-1, #111520)', strokeWidth: 4, r: 6, fill: '#6366f1' }}
+                            activeDot={{ stroke: 'var(--color-surface-1, #111520)', strokeWidth: 4, r: 8, fill: '#6366f1' }}
+                        />
+                    </AreaChart>
+                </ResponsiveContainer>
+            </div>
+
+            {/* Bottom Stats Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-border">
+                {[
+                    { label: 'DMs Received', value: metrics.dmsReceived, icon: MessageCircle, color: 'text-blue-400' },
+                    { label: 'Comments', value: metrics.comments, icon: MessageSquare, color: 'text-pink-400' },
+                    { label: 'AI Replies', value: metrics.aiReplies, icon: Bot, color: 'text-emerald-400' },
+                    { label: 'Manual Replies', value: metrics.manualReplies, icon: Users, color: 'text-amber-400' },
+                ].map((item) => (
+                    <div key={item.label} className="flex items-center gap-3">
+                        <item.icon className={clsx('w-4 h-4', item.color)} />
+                        <div>
+                            <p className="text-sm font-semibold text-foreground">{item.value}</p>
+                            <p className="text-[10px] text-muted-foreground">{item.label}</p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
     );
 }
 
@@ -322,21 +340,19 @@ export default function DashboardPage() {
     // Generate chart data from activities (last 7 days)
     const chartData = useMemo(() => {
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        const last7 = Array(7).fill(0);
-        const labels: string[] = [];
+        const series: ChartDataPoint[] = [];
 
         for (let i = 6; i >= 0; i--) {
             const d = new Date();
             d.setDate(d.getDate() - i);
-            labels.push(days[d.getDay()]);
+            let count = 0;
+            activities.forEach(a => {
+                const ts = new Date(a.timestamp);
+                if (ts.getDate() === d.getDate() && ts.getMonth() === d.getMonth()) count++;
+            });
+            series.push({ day: days[d.getDay()], interactions: count });
         }
-
-        activities.forEach(a => {
-            const daysAgo = Math.floor((Date.now() - new Date(a.timestamp).getTime()) / 86400000);
-            if (daysAgo < 7) last7[6 - daysAgo]++;
-        });
-
-        return { data: last7, labels };
+        return series;
     }, [activities]);
 
     // Get greeting based on time
@@ -473,46 +489,17 @@ export default function DashboardPage() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 }}
-                    className="lg:col-span-8 bg-surface-1 border border-border shadow-sm rounded-2xl p-6"
+                    className="lg:col-span-8"
                 >
-                    <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-xl bg-primary/10">
-                                <BarChart3 className="w-4 h-4 text-primary" />
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-semibold text-foreground">Engagement Overview</h3>
-                                <p className="text-[11px] text-muted-foreground">Interactions over the last 7 days</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <div className="flex items-center gap-2">
-                                <div className="w-2.5 h-2.5 rounded-full bg-primary" />
-                                Interactions
-                            </div>
-                        </div>
-                    </div>
-                    <div className="h-[200px]">
-                        <EngagementChart data={chartData.data} labels={chartData.labels} />
-                    </div>
-
-                    {/* Mini stats row below chart */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-border">
-                        {[
-                            { label: 'DMs Received', value: stats.dms, icon: MessageCircle, color: 'text-blue-400' },
-                            { label: 'Comments', value: stats.comments, icon: MessageSquare, color: 'text-pink-400' },
-                            { label: 'AI Replies', value: stats.aiReplies, icon: Bot, color: 'text-emerald-400' },
-                            { label: 'Manual Replies', value: stats.manualReplies, icon: Users, color: 'text-amber-400' },
-                        ].map((item) => (
-                            <div key={item.label} className="flex items-center gap-3">
-                                <item.icon className={clsx("w-4 h-4", item.color)} />
-                                <div>
-                                    <p className="text-sm font-semibold text-foreground">{item.value}</p>
-                                    <p className="text-[10px] text-muted-foreground">{item.label}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                    <EngagementOverview
+                        data={chartData}
+                        metrics={{
+                            dmsReceived: stats.dms,
+                            comments: stats.comments,
+                            aiReplies: stats.aiReplies,
+                            manualReplies: stats.manualReplies,
+                        }}
+                    />
                 </motion.div>
 
                 {/* ─── Quick Stats Panel (4 cols) ─── */}
