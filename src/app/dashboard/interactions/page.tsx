@@ -472,7 +472,7 @@ export default function InteractionsPage() {
                             key={conv.chat_id}
                             onClick={() => setSelectedChatId(conv.chat_id)}
                             className={clsx(
-                                "w-full text-left p-4 rounded-2xl border transition-all duration-200 group relative overflow-hidden",
+                                "w-full text-left p-4 rounded-2xl border transition-all duration-200 group relative overflow-x-clip",
                                 selectedChatId === conv.chat_id
                                     ? "glass-dark border-primary/40 bg-primary/5"
                                     : "border-border hover:bg-surface-2"
@@ -675,7 +675,7 @@ export default function InteractionsPage() {
                         </div>
                     </>
                 ) : (
-                    <div className="hidden md:flex flex-1 flex-col items-center justify-center opacity-70 select-none relative overflow-hidden">
+                    <div className="hidden md:flex flex-1 flex-col items-center justify-center opacity-70 select-none relative overflow-x-clip">
                         {/* Ambient Background Glow */}
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-primary/10 rounded-full blur-[100px] pointer-events-none" />
 

@@ -76,7 +76,7 @@ export default function OnboardingPage() {
 
     if (authLoading || checkingStatus) {
         return (
-            <div className="min-h-screen bg-background flex flex-col items-center justify-center relative overflow-hidden">
+            <div className="min-h-[100dvh] bg-background flex flex-col items-center justify-center relative overflow-x-clip">
                 <StarBackground />
                 <Loader2 className="w-8 h-8 text-primary animate-spin relative z-10" />
             </div>
@@ -90,7 +90,7 @@ export default function OnboardingPage() {
     ];
 
     return (
-        <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center relative overflow-hidden p-4">
+        <div className="min-h-[100dvh] bg-background text-foreground flex flex-col items-center justify-center relative overflow-x-clip p-4">
             <StarBackground />
 
             {/* Stepper Progress */}
@@ -115,7 +115,7 @@ export default function OnboardingPage() {
                 className="w-full max-w-2xl bg-surface-1 rounded-2xl p-8 relative z-10 border border-border flex flex-col min-h-[480px] shadow-sm"
             >
                 <div className="flex flex-col items-center text-center mb-8 gap-4 mt-4">
-                    <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center p-3 relative overflow-hidden group">
+                    <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center p-3 relative overflow-x-clip group">
                         <div className="absolute inset-0 bg-primary/20 scale-0 group-hover:scale-100 rounded-2xl transition-transform duration-500 ease-out" />
                         <GhostLogo className="w-full h-full text-primary relative z-10" />
                     </div>

@@ -48,7 +48,7 @@ export default function HowToConnectPage() {
     ];
 
     return (
-        <div className="min-h-screen bg-[#0B0C10] text-[#E2E8F0] selection:bg-primary/30 font-sans flex flex-col pt-24 pb-12 overflow-hidden relative">
+        <div className="min-h-[100dvh] bg-[#0B0C10] text-[#E2E8F0] selection:bg-primary/30 font-sans flex flex-col pt-24 pb-12 overflow-x-clip relative">
 
             {/* Ambient Background Glow */}
             <div className="absolute top-0 inset-x-0 h-[500px] w-full bg-gradient-to-b from-primary/10 to-transparent pointer-events-none opacity-50 blur-3xl z-0" />
@@ -65,7 +65,7 @@ export default function HowToConnectPage() {
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.5 }}
-                        className="inline-flex items-center justify-center p-3 sm:p-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] mb-4 overflow-hidden relative group"
+                        className="inline-flex items-center justify-center p-3 sm:p-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] mb-4 overflow-x-clip relative group"
                     >
                         <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-violet-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                         <GhostLogo className="w-10 h-10 sm:w-12 sm:h-12 relative z-10 drop-shadow-[0_0_15px_rgba(139,92,246,0.3)]" />
@@ -107,7 +107,7 @@ export default function HowToConnectPage() {
                             >
                                 {/* Timeline Node (Desktop) */}
                                 <div className="hidden md:flex flex-col items-center z-10">
-                                    <div className="w-14 h-14 rounded-2xl bg-[#0B0C10] border-2 border-primary/30 flex items-center justify-center shadow-[0_0_20px_rgba(139,92,246,0.15)] overflow-hidden relative group">
+                                    <div className="w-14 h-14 rounded-2xl bg-[#0B0C10] border-2 border-primary/30 flex items-center justify-center shadow-[0_0_20px_rgba(139,92,246,0.15)] overflow-x-clip relative group">
                                         <div className={`absolute inset-0 opacity-20 bg-gradient-to-br ${step.color}`} />
                                         <span className="text-primary font-bold text-xl relative z-10">{index + 1}</span>
                                     </div>
@@ -134,7 +134,7 @@ export default function HowToConnectPage() {
                                         </div>
 
                                         {/* Mockup Image Box */}
-                                        <div className="w-full xl:w-[400px] aspect-[16/9] sm:aspect-video rounded-xl bg-[#1A1C23] border border-white/[0.08] flex flex-col items-center justify-center text-white/20 group-hover:border-primary/20 transition-colors overflow-hidden relative shadow-inner">
+                                        <div className="w-full xl:w-[400px] aspect-[16/9] sm:aspect-video rounded-xl bg-[#1A1C23] border border-white/[0.08] flex flex-col items-center justify-center text-white/20 group-hover:border-primary/20 transition-colors overflow-x-clip relative shadow-inner">
                                             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:16px_16px] opacity-50 z-0" />
                                             {/* eslint-disable-next-line @next/next/no-img-element */}
                                             <img

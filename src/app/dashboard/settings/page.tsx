@@ -502,7 +502,7 @@ export default function SettingsPage() {
             </motion.div>
 
             {/* Manager Alerts */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6 relative overflow-hidden">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6 relative overflow-x-clip">
                 <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
                     <div className="p-2.5 rounded-xl bg-amber-500/10">
                         <Bell className="w-5 h-5 text-amber-400" />
@@ -550,7 +550,7 @@ export default function SettingsPage() {
             </motion.div>
 
             {/* WhatsApp Business (Omnichannel — Empire only) */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.17 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6 relative overflow-hidden">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.17 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6 relative overflow-x-clip">
                 <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
                     <div className="p-2.5 rounded-xl bg-emerald-500/10">
                         <Wifi className="w-5 h-5 text-emerald-400" />
@@ -762,7 +762,7 @@ export default function SettingsPage() {
 
                     <div className="hidden md:block">
                         <label className="text-[10px] font-bold text-primary/60 uppercase tracking-widest ml-1 mb-1.5 flex items-center gap-1.5"><Sparkles className="w-3 h-3" /> Live Translation Playground</label>
-                        <div className="rounded-xl border border-border bg-gradient-to-b from-surface-1 to-surface-0 min-h-[200px] flex flex-col relative overflow-hidden shadow-sm">
+                        <div className="rounded-xl border border-border bg-gradient-to-b from-surface-1 to-surface-0 min-h-[200px] flex flex-col relative overflow-x-clip shadow-sm">
                             {/* App Header Mockup */}
                             <div className="h-10 border-b border-border bg-surface-2 flex items-center justify-between px-3 shrink-0">
                                 <div className="flex items-center gap-2">

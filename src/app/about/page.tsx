@@ -15,7 +15,7 @@ const fadeUp = {
 
 export default function AboutUs() {
     return (
-        <main className="min-h-screen text-foreground overflow-hidden relative selection:bg-primary/30">
+        <main className="min-h-[100dvh] text-foreground overflow-x-clip relative selection:bg-primary/30">
             {/* Background */}
             <div className="fixed inset-0 bg-background">
                 <div

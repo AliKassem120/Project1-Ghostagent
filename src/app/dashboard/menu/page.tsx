@@ -15,7 +15,7 @@ export default function Page() {
             <motion.div 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex-1 bg-surface-1 border border-border shadow-sm rounded-2xl  flex flex-col items-center justify-center p-12 text-center relative overflow-hidden "
+                className="flex-1 bg-surface-1 border border-border shadow-sm rounded-2xl  flex flex-col items-center justify-center p-12 text-center relative overflow-x-clip "
             >
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent pointer-events-none" />
                 

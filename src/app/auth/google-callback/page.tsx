@@ -110,7 +110,7 @@ function GoogleCallbackLogic() {
 
 export default function GoogleCallbackPage() {
     return (
-        <div className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden bg-background">
+        <div className="min-h-[100dvh] flex items-center justify-center p-6 relative overflow-x-clip bg-background">
             <StarBackground />
             <Suspense fallback={null}>
                 <GoogleCallbackLogic />

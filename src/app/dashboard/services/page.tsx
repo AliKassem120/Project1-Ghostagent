@@ -252,7 +252,7 @@ export default function ServicesPage() {
                         <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
                     </div>
                 ) : services.length === 0 ? (
-                    <div className="bg-surface-1 border border-border shadow-sm rounded-2xl  flex flex-col items-center justify-center py-16 text-center relative overflow-hidden ">
+                    <div className="bg-surface-1 border border-border shadow-sm rounded-2xl  flex flex-col items-center justify-center py-16 text-center relative overflow-x-clip ">
                         <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent pointer-events-none" />
                         <div className="w-14 h-14 rounded-2xl bg-purple-500/10 flex items-center justify-center mb-4">
                             <Scissors className="w-7 h-7 text-purple-400" />

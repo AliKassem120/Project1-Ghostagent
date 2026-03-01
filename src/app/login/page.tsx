@@ -44,7 +44,7 @@ export default function LoginPage() {
 
     // Removed old handleGoogleLogin
     return (
-        <div className="min-h-screen flex relative overflow-hidden">
+        <div className="min-h-[100dvh] flex relative overflow-x-clip">
             <StarBackground />
 
             {/* Back to Home */}

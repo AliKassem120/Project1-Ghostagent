@@ -222,7 +222,7 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="min-h-screen text-foreground overflow-hidden relative selection:bg-primary/30">
+    <main className="min-h-[100dvh] text-foreground overflow-x-clip relative selection:bg-primary/30">
       {/* Background Layers */}
       <div className="fixed inset-0 bg-background">
         <div
@@ -251,7 +251,7 @@ export default function Home() {
       {/* ═══════════════════════════════════════════════════
          SECTION 1: HERO
          ═══════════════════════════════════════════════════ */}
-      <section className="relative min-h-screen flex flex-col lg:flex-row items-center justify-center px-4 md:px-6 pt-28 md:pt-32 pb-12 max-w-7xl mx-auto gap-8 lg:gap-16 z-10">
+      <section className="relative min-h-[100dvh] flex flex-col lg:flex-row items-center justify-center px-4 md:px-6 pt-28 md:pt-32 pb-12 max-w-7xl mx-auto gap-8 lg:gap-16 z-10">
         {/* Left: Copy */}
         <div className="flex-1 space-y-8 text-center lg:text-left">
           <motion.div
@@ -322,7 +322,7 @@ export default function Home() {
           >
             <Link
               href="/login"
-              className="relative overflow-hidden px-8 py-4 bg-primary text-primary-foreground font-bold rounded-full hover:scale-[1.03] transition-transform flex items-center justify-center gap-2 group shadow-[0_0_25px_rgba(139,92,246,0.3)] hover:shadow-[0_0_40px_rgba(139,92,246,0.5)]"
+              className="relative overflow-x-clip px-8 py-4 bg-primary text-primary-foreground font-bold rounded-full hover:scale-[1.03] transition-transform flex items-center justify-center gap-2 group shadow-[0_0_25px_rgba(139,92,246,0.3)] hover:shadow-[0_0_40px_rgba(139,92,246,0.5)]"
             >
               <span className="relative z-10 flex items-center gap-2">
                 Start Free Trial
@@ -782,7 +782,7 @@ export default function Home() {
           </p>
           <Link
             href="/login"
-            className="relative overflow-hidden inline-flex items-center gap-3 px-12 py-5 bg-primary text-primary-foreground font-bold rounded-full hover:scale-[1.03] transition-transform shadow-[0_0_30px_rgba(139,92,246,0.3)] hover:shadow-[0_0_50px_rgba(139,92,246,0.5)] text-lg"
+            className="relative overflow-x-clip inline-flex items-center gap-3 px-12 py-5 bg-primary text-primary-foreground font-bold rounded-full hover:scale-[1.03] transition-transform shadow-[0_0_30px_rgba(139,92,246,0.3)] hover:shadow-[0_0_50px_rgba(139,92,246,0.5)] text-lg"
           >
             <span className="relative z-10 flex items-center gap-2">
               Start Your Free Trial

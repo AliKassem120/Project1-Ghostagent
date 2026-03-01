@@ -119,7 +119,7 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
     };
 
     return (
-        <div className="flex flex-col h-full w-full bg-surface-1 rounded-xl overflow-hidden relative border border-border">
+        <div className="flex flex-col h-full w-full bg-surface-1 rounded-xl overflow-x-clip relative border border-border">
 
             {/* Success Overlay */}
             <AnimatePresence>

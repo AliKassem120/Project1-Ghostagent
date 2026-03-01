@@ -71,7 +71,7 @@ function ConfirmAuthLogic() {
 
 export default function ConfirmAuthPage() {
     return (
-        <div className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden bg-background">
+        <div className="min-h-[100dvh] flex items-center justify-center p-6 relative overflow-x-clip bg-background">
             <StarBackground />
             <div className="w-full max-w-sm relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
                 <div className="glass-dark p-8 rounded-3xl border border-white/10 shadow-2xl text-center flex flex-col items-center">

@@ -68,7 +68,7 @@ function CheckoutContent() {
 
 export default function CheckoutPage() {
     return (
-        <div className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden">
+        <div className="min-h-[100dvh] flex items-center justify-center p-6 relative overflow-x-clip">
             <StarBackground />
 
             <div className="absolute top-6 left-6 z-20">

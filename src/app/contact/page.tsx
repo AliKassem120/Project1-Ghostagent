@@ -22,7 +22,7 @@ export default function Contact() {
     };
 
     return (
-        <main className="min-h-screen text-foreground overflow-hidden relative selection:bg-primary/30">
+        <main className="min-h-[100dvh] text-foreground overflow-x-clip relative selection:bg-primary/30">
             {/* Background */}
             <div className="fixed inset-0 bg-background">
                 <div
@@ -34,7 +34,7 @@ export default function Contact() {
 
             <Navbar />
 
-            <section className="relative z-10 pt-32 pb-20 px-4 md:px-6 min-h-screen flex flex-col items-center justify-center">
+            <section className="relative z-10 pt-32 pb-20 px-4 md:px-6 min-h-[100dvh] flex flex-col items-center justify-center">
                 <div className="max-w-lg w-full mx-auto">
                     <motion.div
                         initial={{ opacity: 0, y: 30 }}

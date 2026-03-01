@@ -340,7 +340,7 @@ function DashboardContent({ children, toggleSidebar }: { children: React.ReactNo
 
             {/* Main Content Area */}
             <div className="flex-1 lg:ml-[260px] relative z-10">
-                <main className="p-4 lg:p-8 pt-[72px] lg:pt-8 overflow-y-auto min-h-screen">
+                <main className="p-4 lg:p-8 pt-[72px] lg:pt-8 overflow-y-auto min-h-[100dvh]">
                     <div className="max-w-[1400px] mx-auto">
                         {children}
                     </div>
@@ -390,7 +390,7 @@ export default function DashboardLayout({
 
     if (isLoadingData) {
         return (
-            <div className="min-h-screen bg-background flex flex-col items-center justify-center relative overflow-hidden">
+            <div className="min-h-[100dvh] bg-background flex flex-col items-center justify-center relative overflow-x-clip">
                 <StarBackground />
                 <Loader2 className="w-8 h-8 text-primary animate-spin relative z-10" />
             </div>
@@ -402,7 +402,7 @@ export default function DashboardLayout({
             <RealtimeProvider userId={userId}>
                 <DashboardProvider>
                     <WorkspaceProvider>
-                        <div className="min-h-screen bg-background text-foreground flex relative overflow-hidden">
+                        <div className="min-h-[100dvh] bg-background text-foreground flex relative overflow-x-clip">
                             <StarBackground />
                             <DashboardSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
                             <DashboardContent

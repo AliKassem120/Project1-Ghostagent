@@ -17,7 +17,7 @@ export default function AuthCodeErrorPage() {
     }, []);
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden">
+        <div className="min-h-[100dvh] flex items-center justify-center p-6 relative overflow-x-clip">
             <StarBackground />
 
             <div className="w-full max-w-md relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
