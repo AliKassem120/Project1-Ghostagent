@@ -20,14 +20,11 @@ export default function SettingsPage() {
     const { activeWorkspaceId, planTier, isLoading: wsLoading, removeWorkspace, workspaces } = useWorkspace();
     const isPro = planTier === 'pro' || planTier === 'empire';
     const isEmpire = planTier === 'empire';
-    const fileInputRef = useRef<HTMLInputElement>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState(false);
-    const [uploading, setUploading] = useState(false);
     const [connecting, setConnecting] = useState(false);
     const [instagramStatus, setInstagramStatus] = useState<{ connected: boolean; accounts: any[] }>({ connected: false, accounts: [] });
-    const [uploadedFile, setUploadedFile] = useState<{ name: string; rowCount: number } | null>(null);
     const [disconnectModal, setDisconnectModal] = useState<{ open: boolean; accountId: string | null }>({ open: false, accountId: null });
     const [deleteWsModal, setDeleteWsModal] = useState(false);
     const [deletingWs, setDeletingWs] = useState(false);
@@ -180,93 +177,6 @@ export default function SettingsPage() {
     useEffect(() => {
         checkInstagramStatus();
     }, [checkInstagramStatus]);
-
-    // CSV Upload Handler
-    const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        if (!file.name.endsWith('.csv')) {
-            toast.error('Please upload a CSV file');
-            return;
-        }
-
-        setUploading(true);
-
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                toast.error('Please log in to upload a catalog');
-                setUploading(false);
-                return;
-            }
-
-            Papa.parse(file, {
-                header: true,
-                skipEmptyLines: true,
-                complete: async (results) => {
-                    const rows = results.data as Record<string, string>[];
-
-                    if (rows.length === 0) {
-                        toast.error('CSV file is empty');
-                        setUploading(false);
-                        return;
-                    }
-
-                    const jsonContent = JSON.stringify(rows, null, 2);
-
-                    const { error } = await supabase
-                        .from('business_knowledge')
-                        .upsert({
-                            user_id: user.id,
-                            file_name: file.name,
-                            content: jsonContent,
-                            updated_at: new Date().toISOString()
-                        }, {
-                            onConflict: 'user_id'
-                        });
-
-                    if (error) {
-                        console.error('Upload error:', error);
-                        toast.error('Failed to save catalog. Please try again.');
-                    } else {
-                        setUploadedFile({ name: file.name, rowCount: rows.length });
-                        toast.success('Catalog Uploaded', { description: `"${file.name}" with ${rows.length} products loaded.` });
-                    }
-
-                    setUploading(false);
-                },
-                error: (parseError) => {
-                    console.error('CSV parse error:', parseError);
-                    toast.error('Failed to parse CSV file');
-                    setUploading(false);
-                }
-            });
-        } catch (err) {
-            console.error('Upload error:', err);
-            toast.error('Upload failed');
-            setUploading(false);
-        }
-
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-        }
-    };
-
-    const handleRemoveCatalog = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const { error } = await supabase
-            .from('business_knowledge')
-            .delete()
-            .eq('user_id', user.id);
-
-        if (!error) {
-            setUploadedFile(null);
-            toast.info('Product catalog removed');
-        }
-    };
 
     const handleConnectInstagram = () => {
         setConnecting(true);
@@ -908,51 +818,7 @@ export default function SettingsPage() {
                         <p className="text-[10px] text-muted-foreground ml-1">Most important field — tell the bot everything about your business.</p>
                     </div>
 
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Product Catalog (CSV)</label>
-                        {uploadedFile ? (
-                            <div className="border border-emerald-500/15 bg-emerald-500/[0.04] rounded-xl p-5 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2.5 rounded-xl bg-emerald-500/10">
-                                        <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
-                                    </div>
-                                    <div>
-                                        <div className="font-semibold text-sm text-emerald-400">{uploadedFile.name}</div>
-                                        <div className="text-[10px] text-muted-foreground">{uploadedFile.rowCount} products loaded</div>
-                                    </div>
-                                </div>
-                                <button onClick={handleRemoveCatalog} className="p-2 rounded-lg bg-red-500/5 text-red-400/50 hover:bg-red-500/10 hover:text-red-400 transition-colors">
-                                    <X className="w-4 h-4" />
-                                </button>
-                            </div>
-                        ) : (
-                            <div
-                                onClick={() => fileInputRef.current?.click()}
-                                className={clsx(
-                                    "border border-dashed rounded-xl p-10 text-center transition-all cursor-pointer group",
-                                    uploading ? "border-primary/30 bg-primary/[0.04]" : "border-border hover:border-border-strong hover:bg-surface-2"
-                                )}
-                            >
-                                {uploading ? (
-                                    <Loader2 className="w-8 h-8 mx-auto mb-3 text-primary animate-spin" />
-                                ) : (
-                                    <Upload className="w-8 h-8 mx-auto mb-3 text-muted-foreground group-hover:text-primary/50 transition-colors" />
-                                )}
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    className="hidden"
-                                    accept=".csv"
-                                    onChange={handleCsvUpload}
-                                    disabled={uploading}
-                                />
-                                <div className="text-muted-foreground mb-1 font-medium text-sm">
-                                    {uploading ? 'Processing...' : 'Click to upload CSV'}
-                                </div>
-                                <div className="text-[10px] text-muted-foreground">Required: name, price, description, stock</div>
-                            </div>
-                        )}
-                    </div>
+
                 </div>
             </motion.div>
 

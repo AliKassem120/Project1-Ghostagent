@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Trash2, Save, X, Package, Loader2, DollarSign, Box, TrendingUp, AlertTriangle, Edit2 } from 'lucide-react';
+import { Plus, Search, Trash2, Save, X, Package, Loader2, DollarSign, Box, TrendingUp, AlertTriangle, Edit2, Upload, FileSpreadsheet } from 'lucide-react';
 import { clsx } from 'clsx';
+import Papa from 'papaparse';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
 import GhostModal from '@/components/GhostModal';
@@ -38,6 +39,9 @@ export default function InventoryPage() {
     const [editingProductId, setEditingProductId] = useState<string | null>(null);
     const [editValues, setEditValues] = useState({ name: '', price: '', stock: '' });
     const [deleteModal, setDeleteModal] = useState<{ open: boolean; productId: string | null; productName: string }>({ open: false, productId: null, productName: '' });
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [uploading, setUploading] = useState(false);
+    const [uploadedFile, setUploadedFile] = useState<{ name: string; rowCount: number } | null>(null);
 
     // Get user ID on mount
     useEffect(() => {
@@ -191,6 +195,111 @@ export default function InventoryPage() {
         setDeleteModal({ open: true, productId: product.id, productName: product.name });
     };
 
+    // Fetch existing CSV
+    useEffect(() => {
+        const fetchCatalogInfo = async () => {
+            if (!userId) return;
+            const { data } = await supabase
+                .from('business_knowledge')
+                .select('file_name, content')
+                .eq('user_id', userId)
+                .single();
+            if (data && data.file_name) {
+                try {
+                    const rows = JSON.parse(data.content);
+                    setUploadedFile({ name: data.file_name, rowCount: rows.length });
+                } catch {
+                    setUploadedFile({ name: data.file_name, rowCount: 0 });
+                }
+            }
+        };
+        fetchCatalogInfo();
+    }, [userId, supabase]);
+
+    const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.name.endsWith('.csv')) {
+            toast.error('Please upload a CSV file');
+            return;
+        }
+
+        setUploading(true);
+
+        try {
+            if (!userId) {
+                toast.error('Please log in to upload a catalog');
+                setUploading(false);
+                return;
+            }
+
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: async (results) => {
+                    const rows = results.data as Record<string, string>[];
+
+                    if (rows.length === 0) {
+                        toast.error('CSV file is empty');
+                        setUploading(false);
+                        return;
+                    }
+
+                    const jsonContent = JSON.stringify(rows, null, 2);
+
+                    const { error } = await supabase
+                        .from('business_knowledge')
+                        .upsert({
+                            user_id: userId,
+                            file_name: file.name,
+                            content: jsonContent,
+                            updated_at: new Date().toISOString()
+                        }, {
+                            onConflict: 'user_id'
+                        });
+
+                    if (error) {
+                        console.error('Upload error:', error);
+                        toast.error('Failed to save catalog. Please try again.');
+                    } else {
+                        setUploadedFile({ name: file.name, rowCount: rows.length });
+                        toast.success('Catalog Uploaded', { description: `"${file.name}" with ${rows.length} products loaded.` });
+                    }
+
+                    setUploading(false);
+                },
+                error: (parseError: any) => {
+                    console.error('CSV parse error:', parseError);
+                    toast.error('Failed to parse CSV file');
+                    setUploading(false);
+                }
+            });
+        } catch (err) {
+            console.error('Upload error:', err);
+            toast.error('Upload failed');
+            setUploading(false);
+        }
+
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    const handleRemoveCatalog = async () => {
+        if (!userId) return;
+
+        const { error } = await supabase
+            .from('business_knowledge')
+            .delete()
+            .eq('user_id', userId);
+
+        if (!error) {
+            setUploadedFile(null);
+            toast.info('Product catalog removed');
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
@@ -247,16 +356,63 @@ export default function InventoryPage() {
                 ))}
             </div>
 
-            {/* ═══ SEARCH ═══ */}
-            <div className="relative mb-6">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search products..."
-                    className="input-premium w-full !pl-10"
-                />
+            <div className="flex flex-col md:flex-row gap-4 mb-6">
+                {/* ═══ SEARCH ═══ */}
+                <div className="relative flex-1">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search products..."
+                        className="input-premium w-full !pl-10 h-full py-3"
+                    />
+                </div>
+
+                {/* ═══ CSV UPLOAD ═══ */}
+                <div className="w-full md:w-[400px]">
+                    {uploadedFile ? (
+                        <div className="border border-emerald-500/15 bg-emerald-500/[0.04] rounded-xl p-3 flex items-center justify-between h-full">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-xl bg-emerald-500/10 shrink-0">
+                                    <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                                </div>
+                                <div className="truncate pr-2">
+                                    <div className="font-semibold text-sm text-emerald-400 truncate">{uploadedFile.name}</div>
+                                    <div className="text-[10px] text-muted-foreground">{uploadedFile.rowCount} products parsed</div>
+                                </div>
+                            </div>
+                            <button onClick={handleRemoveCatalog} className="p-2 rounded-lg bg-red-500/5 text-red-400/50 hover:bg-red-500/10 hover:text-red-400 transition-colors shrink-0">
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                    ) : (
+                        <div
+                            onClick={() => fileInputRef.current?.click()}
+                            className={clsx(
+                                "border border-dashed rounded-xl p-3 text-center transition-all cursor-pointer group flex items-center justify-center gap-3 h-full min-h-[48px]",
+                                uploading ? "border-primary/30 bg-primary/[0.04]" : "border-border hover:border-border-strong hover:bg-surface-2"
+                            )}
+                        >
+                            {uploading ? (
+                                <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />
+                            ) : (
+                                <Upload className="w-4 h-4 text-muted-foreground group-hover:text-primary/50 transition-colors shrink-0" />
+                            )}
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                className="hidden"
+                                accept=".csv"
+                                onChange={handleCsvUpload}
+                                disabled={uploading}
+                            />
+                            <div className="text-muted-foreground font-medium text-sm">
+                                {uploading ? 'Processing...' : 'Upload CSV Catalog'}
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* ═══ ADD PRODUCT FORM ═══ */}
