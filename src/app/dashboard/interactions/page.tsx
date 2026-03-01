@@ -67,7 +67,7 @@ export default function InteractionsPage() {
             .eq('user_id', user.id);
 
         if (activeWorkspaceId) {
-            query = query.eq('workspace_id', activeWorkspaceId);
+            query = query.or(`workspace_id.eq.${activeWorkspaceId},workspace_id.is.null`);
         }
 
         // Fetch Logs

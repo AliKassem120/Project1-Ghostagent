@@ -182,7 +182,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             removeWorkspace,
             refreshWorkspaces: fetchWorkspaces,
         }}>
-            {children}
+            {isLoading ? (
+                <div className="flex-1 flex items-center justify-center min-h-[50vh]">
+                    <div className="w-8 h-8 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+                </div>
+            ) : children}
         </WorkspaceContext.Provider>
     );
 }

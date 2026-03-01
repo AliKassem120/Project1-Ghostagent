@@ -12,6 +12,7 @@ import CustomSelect from '@/components/CustomSelect';
 import Papa from 'papaparse';
 import BusinessTypeSelector, { BusinessCategory } from '@/components/BusinessTypeSelector';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { updateWorkspaceSettingsAction } from '@/app/actions/settings';
 
 export default function SettingsPage() {
     const supabase = createClient();
@@ -346,49 +347,20 @@ export default function SettingsPage() {
     const handleSave = async () => {
         setSaving(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-
             if (!activeWorkspaceId) {
                 toast.error('No active workspace selected.');
                 setSaving(false);
                 return;
             }
 
-            const { error } = await supabase
-                .from('bot_settings')
-                .update({
-                    business_name: settings.businessName,
-                    tone: settings.tone,
-                    use_emojis: settings.useEmojis,
-                    max_discount: settings.maxDiscount,
-                    min_order_for_discount: settings.minOrderForDiscount,
-                    emergency_whatsapp: settings.emergencyWhatsApp,
-                    language: settings.language,
-                    system_instructions: settings.systemPrompt,
-                    whatsapp_template: settings.whatsappTemplate,
-                    store_location: settings.storeLocation,
-                    contact_info: settings.contactInfo,
-                    shipping_rules: settings.shippingRules || null,
-                    use_local_slang: settings.useLocalSlang,
-                    business_type: settings.businessType,
-                    updated_at: new Date().toISOString(),
-                    // Empire-only: WhatsApp Business credentials
-                    ...(isEmpire ? {
-                        whatsapp_business_account_id: settings.waBusinessAccountId || null,
-                        whatsapp_phone_number_id: settings.waPhoneNumberId || null,
-                        whatsapp_access_token: settings.waAccessToken || null,
-                    } : {}),
-                })
-                .eq('id', activeWorkspaceId);
+            const { success } = await updateWorkspaceSettingsAction(activeWorkspaceId, settings, isEmpire);
 
-            if (error) {
-                throw error;
+            if (success) {
+                console.log('✅ Settings Saved Successfully!');
+                toast.success('Settings Saved', { description: 'Your Ghost Agent configuration has been updated.' });
+                setSuccess(true);
+                setTimeout(() => setSuccess(false), 2000);
             }
-
-            console.log('✅ Settings Saved Successfully!');
-            toast.success('Settings Saved', { description: 'Your Ghost Agent configuration has been updated.' });
-            setSuccess(true);
-            setTimeout(() => setSuccess(false), 2000);
         } catch (error: any) {
             console.error('Error saving settings:', error);
             const errorMessage = error?.message || error?.details || 'Unknown error occurred while saving';

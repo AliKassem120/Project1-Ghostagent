@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Sun, Moon } from 'lucide-react';
+import { Menu, X, Sun, Moon, Zap, Tag, Info, Mail, User } from 'lucide-react';
 import GhostLogo from '@/components/GhostLogo';
 import { useTheme } from 'next-themes';
 
@@ -20,10 +20,10 @@ export default function Navbar() {
     }, []);
 
     const links = [
-        { name: 'Features', href: '/#features', section: 'features' },
-        { name: 'Pricing', href: '/#pricing', section: 'pricing' },
-        { name: 'About', href: '/about', section: null },
-        { name: 'Contact', href: '/contact', section: null },
+        { name: 'Features', href: '/#features', section: 'features', icon: Zap },
+        { name: 'Pricing', href: '/#pricing', section: 'pricing', icon: Tag },
+        { name: 'About', href: '/about', section: null, icon: Info },
+        { name: 'Contact', href: '/contact', section: null, icon: Mail },
     ];
 
     useEffect(() => {
@@ -148,44 +148,54 @@ export default function Navbar() {
                             animate={{ x: 0 }}
                             exit={{ x: '100%' }}
                             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                            className="fixed right-0 top-0 bottom-0 w-3/4 max-w-sm bg-surface-0 border-l border-border z-50 p-6 md:hidden shadow-2xl flex flex-col"
+                            className="fixed right-0 top-0 bottom-0 w-3/4 max-w-sm bg-white/95 backdrop-blur-xl border-l border-slate-200 z-50 p-6 md:hidden shadow-2xl flex flex-col"
                         >
-                            <div className="flex justify-between items-center mb-8">
-                                <span className="font-semibold text-xl text-foreground">Menu</span>
-                                <button onClick={() => setIsOpen(false)} className="p-2 text-muted-foreground hover:text-foreground bg-foreground/5 rounded-full">
+                            <div className="flex justify-between items-center mb-10">
+                                <span className="font-bold text-xl text-slate-900 tracking-tight">Menu</span>
+                                <button
+                                    onClick={() => setIsOpen(false)}
+                                    className="p-2 text-slate-400 hover:text-slate-600 bg-slate-100 rounded-full transition-colors"
+                                >
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
 
-                            <div className="flex flex-col gap-6 flex-1">
+                            <div className="flex flex-col space-y-4 flex-1">
                                 {links.map((item) => (
-                                    <Link
-                                        key={item.name}
-                                        href={item.href}
-                                        onClick={(e) => {
-                                            handleClick(e, item.href);
-                                            setIsOpen(false);
-                                        }}
-                                        className="text-lg font-medium text-muted-foreground hover:text-foreground transition-colors"
-                                    >
-                                        {item.name}
-                                    </Link>
+                                    <div key={item.name} className="group/item overflow-hidden">
+                                        <Link
+                                            href={item.href}
+                                            onClick={(e) => {
+                                                handleClick(e, item.href);
+                                                setIsOpen(false);
+                                            }}
+                                            className="flex items-center gap-4 py-2 text-lg font-medium text-slate-700 hover:text-indigo-600 transition-all duration-200 hover:translate-x-2"
+                                        >
+                                            <item.icon className="w-5 h-5 text-indigo-500 shrink-0" />
+                                            {item.name}
+                                        </Link>
+                                    </div>
                                 ))}
-                                <hr className="border-border my-2" />
-                                <Link
-                                    href="/login"
-                                    onClick={() => setIsOpen(false)}
-                                    className="text-lg font-medium text-muted-foreground hover:text-foreground transition-colors"
-                                >
-                                    Login
-                                </Link>
-                                <Link
-                                    href="/login"
-                                    onClick={() => setIsOpen(false)}
-                                    className="px-6 py-3.5 mt-2 rounded-xl bg-primary text-primary-foreground font-semibold text-center hover:opacity-90 transition-opacity shadow-[0_0_20px_rgba(139,92,246,0.2)]"
-                                >
-                                    Start Free Trial
-                                </Link>
+
+                                <div className="pt-6 mt-2 border-t border-slate-100 space-y-4">
+                                    <div className="group/item overflow-hidden">
+                                        <Link
+                                            href="/login"
+                                            onClick={() => setIsOpen(false)}
+                                            className="flex items-center gap-4 py-2 text-lg font-medium text-slate-700 hover:text-indigo-600 transition-all duration-200 hover:translate-x-2"
+                                        >
+                                            <User className="w-5 h-5 text-indigo-500 shrink-0" />
+                                            Login
+                                        </Link>
+                                    </div>
+                                    <Link
+                                        href="/login"
+                                        onClick={() => setIsOpen(false)}
+                                        className="inline-flex items-center justify-center w-full px-6 py-4 mt-2 rounded-xl bg-indigo-600 text-white font-semibold text-center hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/30"
+                                    >
+                                        Start Free Trial
+                                    </Link>
+                                </div>
                             </div>
                         </motion.div>
                     </>

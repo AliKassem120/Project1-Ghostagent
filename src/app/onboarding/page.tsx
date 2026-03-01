@@ -94,21 +94,14 @@ export default function OnboardingPage() {
             <StarBackground />
 
             {/* Stepper Progress */}
-            <div className="absolute top-8 left-1/2 -translate-x-1/2 z-20 w-full max-w-md px-4">
-                <div className="flex items-center justify-between relative">
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 h-0.5 bg-border w-full z-0" />
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 h-0.5 bg-primary z-0 transition-all duration-500" style={{ width: `${((step - 1) / (stepsItems.length - 1)) * 100}%` }} />
-
+            <div className="absolute top-8 left-1/2 -translate-x-1/2 z-20 w-full max-w-sm px-4">
+                <div className="flex gap-2">
                     {stepsItems.map((s, idx) => {
                         const active = step >= idx + 1;
                         return (
-                            <div key={idx} className="relative z-10 flex flex-col items-center gap-2">
-                                <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center font-bold text-xs transition-colors duration-500
-                                    ${active ? "bg-primary border-primary text-black" : "bg-surface-2 border-border text-muted-foreground"}`}
-                                >
-                                    {active && step > idx + 1 ? <CheckCircle2 className="w-4 h-4 text-black" /> : idx + 1}
-                                </div>
-                                <span className={`text-[10px] font-bold uppercase tracking-wider ${active ? "text-primary" : "text-muted-foreground"}`}>
+                            <div key={idx} className="flex-1 flex flex-col gap-2">
+                                <div className={`h-1.5 w-full rounded-full transition-colors duration-500 ${active ? "bg-primary" : "bg-surface-2"}`} />
+                                <span className={`text-[10px] font-bold uppercase tracking-wider transition-colors duration-500 ${active ? "text-primary" : "text-muted-foreground"}`}>
                                     {s.label}
                                 </span>
                             </div>
@@ -226,32 +219,40 @@ export default function OnboardingPage() {
                             transition={{ duration: 0.3 }}
                             className="flex-1 flex flex-col items-center justify-center max-w-md mx-auto w-full text-center"
                         >
-                            <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-orange-500 pt-1 flex items-center justify-center via-pink-500 to-primary mb-6 animate-pulse">
-                                <div className="w-[72px] h-[72px] rounded-full bg-surface-1 flex items-center justify-center">
+                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-orange-500 via-pink-500 to-primary p-[1px] mb-6 shadow-lg shadow-pink-500/20">
+                                <div className="w-full h-full rounded-2xl bg-surface-1 flex items-center justify-center">
                                     <Instagram className="w-8 h-8 text-foreground" />
                                 </div>
                             </div>
 
-                            <h1 className="text-2xl font-bold text-foreground mb-2 tracking-tight">Connect to Instagram</h1>
-                            <p className="text-sm text-muted-foreground mb-8">
-                                You can link your professional Instagram account now or securely via the dashboard later. The AI needs this connection to read and reply to your DMs automatically.
+                            <h1 className="text-2xl font-bold text-foreground mb-2 tracking-tight">Connect Instagram</h1>
+                            <p className="text-sm text-muted-foreground mb-10 w-4/5 mx-auto">
+                                The AI needs this connection to read and reply to your DMs and comments automatically.
                             </p>
 
-                            <div className="w-full flex flex-col gap-3">
+                            <div className="w-full flex flex-col gap-3 mt-auto">
+                                <button
+                                    onClick={async () => {
+                                        if (!selectedCategory || !user || !workspaceName.trim()) return;
+                                        setIsSaving(true);
+                                        try {
+                                            await supabase.from("users").upsert({ id: user.id, business_type: selectedCategory }, { onConflict: "id" });
+                                            await supabase.from("bot_settings").insert({ user_id: user.id, name: workspaceName.trim(), business_type: selectedCategory });
+                                            router.push('/api/auth/instagram');
+                                        } catch (e) { console.error(e); setIsSaving(false); }
+                                    }}
+                                    disabled={isSaving}
+                                    className="w-full py-3.5 bg-primary text-primary-foreground font-bold rounded-xl flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 shadow-md"
+                                >
+                                    {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Instagram className="w-4 h-4" />}
+                                    {isSaving ? "Setting Up..." : "Connect Instagram"}
+                                </button>
                                 <button
                                     onClick={handleFinalize}
                                     disabled={isSaving}
-                                    className="w-full py-4 bg-primary text-primary-foreground font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50"
-                                >
-                                    {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Building2 className="w-5 h-5 relative -top-px" />}
-                                    {isSaving ? "Setting Up Workspace..." : "Skip to Dashboard"}
-                                </button>
-                                <button
-                                    onClick={() => setStep(2)}
-                                    disabled={isSaving}
                                     className="w-full py-3 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
                                 >
-                                    Actually, wait, go back
+                                    Skip for now
                                 </button>
                             </div>
                         </motion.div>

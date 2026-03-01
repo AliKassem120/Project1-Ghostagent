@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
+import { toggleAutopilotAction } from '@/app/actions/settings';
 
 interface AutopilotContextType {
     autopilot: boolean;
@@ -53,18 +54,7 @@ export function AutopilotProvider({ children }: { children: React.ReactNode }) {
         setAutopilotState(value);
 
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error('No user found');
-
-            const { error } = await supabase
-                .from('users')
-                .update({ is_autopilot_enabled: value })
-                .eq('id', user.id);
-
-            if (error) {
-                console.error('Supabase Error:', error.message);
-                throw error;
-            }
+            await toggleAutopilotAction(value);
 
             toast.success(value ? "Autopilot Enabled" : "Autopilot Disabled", {
                 description: value
