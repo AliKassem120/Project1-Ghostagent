@@ -77,10 +77,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
     const [planTier, setPlanTier] = useState<PlanTier>('free_trial');
     const [isLoading, setIsLoading] = useState(true);
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-    const fetchWorkspaces = useCallback(async () => {
+    const fetchWorkspaces = useCallback(async (isSilent = false) => {
         if (!user?.id) return;
-        setIsLoading(true);
+        if (!isSilent) setIsLoading(true);
 
         // Fetch plan tier + workspaces in parallel
         const [userRes, wsRes, igRes] = await Promise.all([
@@ -130,10 +131,18 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         if (validId && typeof window !== 'undefined') localStorage.setItem(LS_KEY, validId);
 
         setIsLoading(false);
-    }, [user?.id]);
+        setIsInitialLoad(false);
+    }, [user?.id, router]);
 
     useEffect(() => {
         fetchWorkspaces();
+    }, [fetchWorkspaces]);
+
+    // Background sync on window focus (to catch checkout/plan updates)
+    useEffect(() => {
+        const handleFocus = () => fetchWorkspaces(true);
+        window.addEventListener('focus', handleFocus);
+        return () => window.removeEventListener('focus', handleFocus);
     }, [fetchWorkspaces]);
 
     const setActiveWorkspace = useCallback((id: string) => {
@@ -180,9 +189,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             setActiveWorkspace,
             addWorkspace,
             removeWorkspace,
-            refreshWorkspaces: fetchWorkspaces,
+            refreshWorkspaces: () => fetchWorkspaces(true),
         }}>
-            {isLoading ? (
+            {isLoading && isInitialLoad ? (
                 <div className="flex-1 flex items-center justify-center min-h-[50vh]">
                     <div className="w-8 h-8 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
                 </div>

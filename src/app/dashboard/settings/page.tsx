@@ -110,57 +110,60 @@ export default function SettingsPage() {
         }
     };
 
-    useEffect(() => {
-        // If workspace context is still loading, wait
-        if (wsLoading) return;
+    const fetchSettings = useCallback(async (isSilent = false) => {
+        if (!isSilent) setLoading(true);
+        try {
+            let query = supabase.from('bot_settings').select('*');
 
-        const fetchSettings = async () => {
-            setLoading(true);
-            try {
-                let query = supabase.from('bot_settings').select('*');
-
-                if (activeWorkspaceId) {
-                    // Workspace-scoped fetch (new mode — after SQL migration)
-                    query = query.eq('id', activeWorkspaceId);
-                } else {
-                    // Fallback: fetch by user_id (existing users before migration)
-                    const { data: { user } } = await supabase.auth.getUser();
-                    if (!user) { setLoading(false); return; }
-                    query = query.eq('user_id', user.id);
-                }
-
-                const { data } = await query.single();
-
-                if (data) {
-                    setSettings({
-                        businessName: data.business_name || '',
-                        tone: data.tone || 'Professional',
-                        useEmojis: data.use_emojis ?? true,
-                        maxDiscount: data.max_discount || 20,
-                        minOrderForDiscount: data.min_order_for_discount || 50,
-                        emergencyWhatsApp: data.emergency_whatsapp || '',
-                        language: data.language || 'Auto-Detect',
-                        useLocalSlang: data.use_local_slang ?? false,
-                        systemPrompt: data.system_instructions || '',
-                        whatsappTemplate: data.whatsapp_template || '',
-                        storeLocation: data.store_location || '',
-                        contactInfo: data.contact_info || '',
-                        shippingRules: data.shipping_rules || '',
-                        businessType: (data.business_type || 'ecommerce') as BusinessCategory,
-                        waBusinessAccountId: data.whatsapp_business_account_id || '',
-                        waPhoneNumberId: data.whatsapp_phone_number_id || '',
-                        waAccessToken: data.whatsapp_access_token || '',
-                    });
-                }
-            } catch (err) {
-                console.error('Unexpected error:', err);
-            } finally {
-                setLoading(false);
+            if (activeWorkspaceId) {
+                query = query.eq('id', activeWorkspaceId);
+            } else {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) { setLoading(false); return; }
+                query = query.eq('user_id', user.id);
             }
-        };
 
+            const { data } = await query.single();
+
+            if (data) {
+                setSettings({
+                    businessName: data.business_name || '',
+                    tone: data.tone || 'Professional',
+                    useEmojis: data.use_emojis ?? true,
+                    maxDiscount: data.max_discount || 20,
+                    minOrderForDiscount: data.min_order_for_discount || 50,
+                    emergencyWhatsApp: data.emergency_whatsapp || '',
+                    language: data.language || 'Auto-Detect',
+                    useLocalSlang: data.use_local_slang ?? false,
+                    systemPrompt: data.system_instructions || '',
+                    whatsappTemplate: data.whatsapp_template || '',
+                    storeLocation: data.store_location || '',
+                    contactInfo: data.contact_info || '',
+                    shippingRules: data.shipping_rules || '',
+                    businessType: (data.business_type || 'ecommerce') as BusinessCategory,
+                    waBusinessAccountId: data.whatsapp_business_account_id || '',
+                    waPhoneNumberId: data.whatsapp_phone_number_id || '',
+                    waAccessToken: data.whatsapp_access_token || '',
+                });
+            }
+        } catch (err) {
+            console.error('Unexpected error:', err);
+        } finally {
+            setLoading(false);
+        }
+    }, [activeWorkspaceId, supabase]);
+
+    useEffect(() => {
+        if (wsLoading) return;
         fetchSettings();
-    }, [activeWorkspaceId, wsLoading]);
+    }, [fetchSettings, wsLoading]);
+
+    // Background sync on window focus
+    useEffect(() => {
+        const handleFocus = () => fetchSettings(true);
+        window.addEventListener('focus', handleFocus);
+        return () => window.removeEventListener('focus', handleFocus);
+    }, [fetchSettings]);
 
     const checkInstagramStatus = useCallback(async () => {
         if (!activeWorkspaceId) return;

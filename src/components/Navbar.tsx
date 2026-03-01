@@ -148,13 +148,13 @@ export default function Navbar() {
                             animate={{ x: 0 }}
                             exit={{ x: '100%' }}
                             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                            className="fixed right-0 top-0 bottom-0 w-3/4 max-w-sm bg-white/95 backdrop-blur-xl border-l border-slate-200 z-50 p-6 md:hidden shadow-2xl flex flex-col"
+                            className="fixed right-0 top-0 bottom-0 w-3/4 max-w-sm bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-l border-slate-200 dark:border-slate-800 z-50 p-6 md:hidden shadow-2xl flex flex-col"
                         >
                             <div className="flex justify-between items-center mb-10">
-                                <span className="font-bold text-xl text-slate-900 tracking-tight">Menu</span>
+                                <span className="font-bold text-xl text-slate-900 dark:text-white tracking-tight">Menu</span>
                                 <button
                                     onClick={() => setIsOpen(false)}
-                                    className="p-2 text-slate-400 hover:text-slate-600 bg-slate-100 rounded-full transition-colors"
+                                    className="p-2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-full transition-colors"
                                 >
                                     <X className="w-5 h-5" />
                                 </button>
@@ -169,7 +169,7 @@ export default function Navbar() {
                                                 handleClick(e, item.href);
                                                 setIsOpen(false);
                                             }}
-                                            className="flex items-center gap-4 py-2 text-lg font-medium text-slate-700 hover:text-indigo-600 transition-all duration-200 hover:translate-x-2"
+                                            className="flex items-center gap-4 py-2 text-lg font-medium text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all duration-200 hover:translate-x-2"
                                         >
                                             <item.icon className="w-5 h-5 text-indigo-500 shrink-0" />
                                             {item.name}
@@ -177,12 +177,12 @@ export default function Navbar() {
                                     </div>
                                 ))}
 
-                                <div className="pt-6 mt-2 border-t border-slate-100 space-y-4">
+                                <div className="pt-6 mt-2 border-t border-slate-100 dark:border-slate-800 space-y-4">
                                     <div className="group/item overflow-hidden">
                                         <Link
                                             href="/login"
                                             onClick={() => setIsOpen(false)}
-                                            className="flex items-center gap-4 py-2 text-lg font-medium text-slate-700 hover:text-indigo-600 transition-all duration-200 hover:translate-x-2"
+                                            className="flex items-center gap-4 py-2 text-lg font-medium text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all duration-200 hover:translate-x-2"
                                         >
                                             <User className="w-5 h-5 text-indigo-500 shrink-0" />
                                             Login

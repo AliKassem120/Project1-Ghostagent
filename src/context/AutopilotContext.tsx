@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
 import { toggleAutopilotAction } from '@/app/actions/settings';
@@ -19,34 +19,38 @@ export function AutopilotProvider({ children }: { children: React.ReactNode }) {
     const supabase = createClient();
     const toast = useToast();
 
-    // Fetch initial state
-    useEffect(() => {
-        const fetchAutopilotStatus = async () => {
-            try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (!user) return;
+    const fetchAutopilotStatus = useCallback(async (isSilent = false) => {
+        try {
+            if (!isSilent) setIsLoading(true);
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
 
-                const { data, error } = await supabase
-                    .from('users')
-                    .select('is_autopilot_enabled')
-                    .eq('id', user.id)
-                    .single();
+            const { data, error } = await supabase
+                .from('users')
+                .select('is_autopilot_enabled')
+                .eq('id', user.id)
+                .single();
 
-                if (error) {
-                    console.error('Supabase fetch error:', error.message);
-                }
-
-                if (data) {
-                    setAutopilotState(data.is_autopilot_enabled ?? true);
-                }
-            } catch (err) {
-                console.error('Failed to fetch autopilot status:', err);
-            } finally {
-                setIsLoading(false);
+            if (data) {
+                setAutopilotState(data.is_autopilot_enabled ?? true);
             }
-        };
+        } catch (err) {
+            console.error('Failed to fetch autopilot status:', err);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [supabase]);
+
+    useEffect(() => {
         fetchAutopilotStatus();
-    }, []);
+    }, [fetchAutopilotStatus]);
+
+    // Sync on window focus
+    useEffect(() => {
+        const handleFocus = () => fetchAutopilotStatus(true);
+        window.addEventListener('focus', handleFocus);
+        return () => window.removeEventListener('focus', handleFocus);
+    }, [fetchAutopilotStatus]);
 
     const setAutopilot = async (value: boolean) => {
         // Optimistic update
