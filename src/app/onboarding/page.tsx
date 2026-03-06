@@ -237,8 +237,15 @@ export default function OnboardingPage() {
                                         setIsSaving(true);
                                         try {
                                             await supabase.from("users").upsert({ id: user.id, business_type: selectedCategory }, { onConflict: "id" });
-                                            await supabase.from("bot_settings").insert({ user_id: user.id, name: workspaceName.trim(), business_type: selectedCategory });
-                                            router.push('/api/auth/instagram');
+                                            const { data: wsData } = await supabase.from("bot_settings").insert({ user_id: user.id, name: workspaceName.trim(), business_type: selectedCategory }).select('id').single();
+                                            const workspaceId = wsData?.id || '';
+                                            // Build the proper Instagram OAuth URL (same as Settings page)
+                                            const appId = process.env.NEXT_PUBLIC_INSTAGRAM_APP_ID;
+                                            if (!appId) { console.error("Missing NEXT_PUBLIC_INSTAGRAM_APP_ID"); setIsSaving(false); return; }
+                                            const redirectUri = `${window.location.origin}/api/auth/callback/instagram`;
+                                            const scope = 'instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments';
+                                            const authUrl = `https://www.instagram.com/oauth/authorize?enable_fb_login=0&force_authentication=1&client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&state=${workspaceId}`;
+                                            window.location.href = authUrl;
                                         } catch (e) { console.error(e); setIsSaving(false); }
                                     }}
                                     disabled={isSaving}

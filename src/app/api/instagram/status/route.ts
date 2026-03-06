@@ -16,17 +16,11 @@ export async function GET(request: NextRequest) {
         const workspaceId = request.nextUrl.searchParams.get('workspace_id');
 
         // 1. Check database
-        let query = supabase
+        const { data: dbConnections, error } = await supabase
             .from('user_connections')
             .select('*')
             .eq('user_id', user.id)
             .eq('provider', 'INSTAGRAM');
-
-        if (workspaceId) {
-            query = query.eq('workspace_id', workspaceId);
-        }
-
-        const { data: dbConnections, error } = await query;
 
         if (error) {
             console.error("[Status] DB Error:", error);

@@ -227,9 +227,15 @@ export default function SettingsPage() {
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        if (params.get('success') === 'true') {
+        if (params.get('success') === 'instagram_connected') {
             toast.success('Instagram Connected', { description: 'Your account is now linked to Ghost Agent.' });
             checkInstagramStatus();
+            window.history.replaceState({}, '', window.location.pathname);
+        }
+        const errorParam = params.get('error');
+        if (errorParam) {
+            const details = params.get('details') || errorParam;
+            toast.error('Instagram Connection Failed', { description: details });
             window.history.replaceState({}, '', window.location.pathname);
         }
     }, []);
