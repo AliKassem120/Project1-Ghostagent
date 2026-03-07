@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -11,6 +11,9 @@ export default function Contact() {
     const [submitted, setSubmitted] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => { setMounted(true); }, []);
 
     const [form, setForm] = useState({
         name: '',
@@ -23,7 +26,7 @@ export default function Contact() {
         if (error) setError(null); // Clear error on new input
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setLoading(true);
         setError(null);
@@ -99,7 +102,7 @@ export default function Contact() {
                                 </p>
                             </motion.div>
                         ) : (
-                            <form onSubmit={handleSubmit} className="space-y-5">
+                            <form onSubmit={mounted ? handleSubmit : undefined} method="post" action="/api/contact" className="space-y-5">
                                 <div className="space-y-2">
                                     <label className="text-sm font-semibold text-muted-foreground ml-1">Your Name</label>
                                     <input
