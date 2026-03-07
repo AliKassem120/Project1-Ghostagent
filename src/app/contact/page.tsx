@@ -5,20 +5,48 @@ import { motion } from 'framer-motion';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import StarBackground from '@/components/StarBackground';
-import { Mail, Send, Clock, CheckCircle } from 'lucide-react';
+import { Mail, Send, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 
 export default function Contact() {
     const [submitted, setSubmitted] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const [form, setForm] = useState({
+        name: '',
+        email: '',
+        message: '',
+    });
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+        if (error) setError(null); // Clear error on new input
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
-        // Simulate form submission
-        setTimeout(() => {
+        setError(null);
+
+        try {
+            const res = await fetch('/api/contact', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(form),
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+                setSubmitted(true);
+            } else {
+                setError(data.error || 'Something went wrong. Please try again.');
+            }
+        } catch (err) {
+            setError('Network error. Please check your connection and try again.');
+        } finally {
             setLoading(false);
-            setSubmitted(true);
-        }, 1500);
+        }
     };
 
     return (
@@ -73,12 +101,28 @@ export default function Contact() {
                         ) : (
                             <form onSubmit={handleSubmit} className="space-y-5">
                                 <div className="space-y-2">
+                                    <label className="text-sm font-semibold text-muted-foreground ml-1">Your Name</label>
+                                    <input
+                                        type="text"
+                                        name="name"
+                                        required
+                                        value={form.name}
+                                        onChange={handleChange}
+                                        placeholder="John Doe"
+                                        className="w-full bg-surface-2 border border-border rounded-xl px-4 py-3.5 text-foreground focus:ring-1 focus:ring-primary/50 focus:border-primary/30 outline-none transition-all placeholder:text-muted-foreground/50 hover:border-muted-foreground/30 font-medium"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
                                     <label className="text-sm font-semibold text-muted-foreground ml-1">Email Address</label>
                                     <div className="relative">
                                         <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
                                         <input
                                             type="email"
+                                            name="email"
                                             required
+                                            value={form.email}
+                                            onChange={handleChange}
                                             placeholder="you@example.com"
                                             className="w-full bg-surface-2 border border-border rounded-xl px-4 py-3.5 pl-11 text-foreground focus:ring-1 focus:ring-primary/50 focus:border-primary/30 outline-none transition-all placeholder:text-muted-foreground/50 hover:border-muted-foreground/30 font-medium"
                                         />
@@ -86,24 +130,29 @@ export default function Contact() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-sm font-semibold text-muted-foreground ml-1">Subject</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        placeholder="How can we help?"
-                                        className="w-full bg-surface-2 border border-border rounded-xl px-4 py-3.5 text-foreground focus:ring-1 focus:ring-primary/50 focus:border-primary/30 outline-none transition-all placeholder:text-muted-foreground/50 hover:border-muted-foreground/30 font-medium"
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
                                     <label className="text-sm font-semibold text-muted-foreground ml-1">Message</label>
                                     <textarea
+                                        name="message"
                                         rows={5}
                                         required
+                                        value={form.message}
+                                        onChange={handleChange}
                                         placeholder="Tell us more..."
                                         className="w-full bg-surface-2 border border-border rounded-xl px-4 py-3.5 text-foreground focus:ring-1 focus:ring-primary/50 focus:border-primary/30 outline-none transition-all placeholder:text-muted-foreground/50 resize-none hover:border-muted-foreground/30 font-medium"
                                     />
                                 </div>
+
+                                {/* Error message */}
+                                {error && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: -8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="flex items-center gap-3 p-4 rounded-xl bg-red-500/5 border border-red-500/20 text-red-400 text-sm font-medium"
+                                    >
+                                        <AlertCircle className="w-4 h-4 shrink-0" />
+                                        {error}
+                                    </motion.div>
+                                )}
 
                                 <button
                                     type="submit"
@@ -125,11 +174,11 @@ export default function Contact() {
                         {/* Contact Info */}
                         <div className="mt-8 pt-6 border-t border-border space-y-3">
                             <a
-                                href="mailto:support@ghostagent.qzz.io"
+                                href="mailto:contact@ghostagent.qzz.io"
                                 className="flex items-center gap-3 text-sm text-muted-foreground hover:text-primary transition-colors font-medium"
                             >
                                 <Mail className="w-4 h-4" />
-                                support@ghostagent.qzz.io
+                                contact@ghostagent.qzz.io
                             </a>
                             <div className="flex items-center gap-3 text-sm text-muted-foreground font-medium">
                                 <Clock className="w-4 h-4" />
