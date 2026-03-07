@@ -1,41 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
+// Required: nodemailer uses Node.js APIs not available on Vercel Edge Runtime
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
-    try {
-        const body = await request.json();
-        const { name, email, message } = body;
+  try {
+    const body = await request.json();
+    const { name, email, message } = body;
 
-        // Basic validation
-        if (!name?.trim() || !email?.trim() || !message?.trim()) {
-            return NextResponse.json(
-                { success: false, error: 'Name, email, and message are required.' },
-                { status: 400 }
-            );
-        }
+    // Basic validation
+    if (!name?.trim() || !email?.trim() || !message?.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'Name, email, and message are required.' },
+        { status: 400 }
+      );
+    }
 
-        // Validate email format
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            return NextResponse.json(
-                { success: false, error: 'Invalid email address.' },
-                { status: 400 }
-            );
-        }
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid email address.' },
+        { status: 400 }
+      );
+    }
 
-        // Configure Zoho SMTP transporter
-        const transporter = nodemailer.createTransport({
-            host: 'smtp.zoho.com',
-            port: 465,
-            secure: true, // SSL — required for port 465
-            auth: {
-                user: process.env.ZOHO_EMAIL,
-                pass: process.env.ZOHO_APP_PASSWORD,
-            },
-        });
+    // Guard: fail fast if env vars are missing (e.g. not set on Vercel)
+    if (!process.env.ZOHO_EMAIL || !process.env.ZOHO_APP_PASSWORD) {
+      console.error('[Contact API] Missing ZOHO_EMAIL or ZOHO_APP_PASSWORD env vars');
+      return NextResponse.json(
+        { success: false, error: 'Email service is not configured. Please contact us directly.' },
+        { status: 500 }
+      );
+    }
 
-        // HTML email template
-        const htmlBody = `
+    // Configure Zoho SMTP transporter
+    const transporter = nodemailer.createTransport({
+      host: 'smtp.zoho.com',
+      port: 465,
+      secure: true,
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
+      auth: {
+        user: process.env.ZOHO_EMAIL,
+        pass: process.env.ZOHO_APP_PASSWORD,
+      },
+    });
+
+    // HTML email template
+    const htmlBody = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -86,32 +101,32 @@ export async function POST(request: NextRequest) {
 </body>
 </html>`;
 
-        // Send the email
-        await transporter.sendMail({
-            from: `"GhostAgent Contact" <${process.env.ZOHO_EMAIL}>`,
-            to: process.env.ZOHO_EMAIL,
-            replyTo: email,
-            subject: `New Contact Form Submission from ${name}`,
-            html: htmlBody,
-        });
+    // Send the email
+    await transporter.sendMail({
+      from: `"GhostAgent Contact" <${process.env.ZOHO_EMAIL}>`,
+      to: process.env.ZOHO_EMAIL,
+      replyTo: email,
+      subject: `New Contact Form Submission from ${name}`,
+      html: htmlBody,
+    });
 
-        return NextResponse.json({ success: true, message: 'Email sent successfully.' });
+    return NextResponse.json({ success: true, message: 'Email sent successfully.' });
 
-    } catch (error: any) {
-        console.error('[Contact API] Error sending email:', error);
-        return NextResponse.json(
-            { success: false, error: 'Failed to send message. Please try again later.' },
-            { status: 500 }
-        );
-    }
+  } catch (error: any) {
+    console.error('[Contact API] Error sending email:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to send message. Please try again later.' },
+      { status: 500 }
+    );
+  }
 }
 
 // Prevent XSS in the email HTML
 function escapeHtml(text: string): string {
-    return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
