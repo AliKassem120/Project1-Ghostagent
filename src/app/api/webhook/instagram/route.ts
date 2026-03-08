@@ -4,8 +4,8 @@ import { generateGhostReply } from '@/utils/ghost-brain';
 import { upsertDmBuffer, claimDmBuffer, clearDmBuffer, releaseDmBuffer, DEBOUNCE_SECONDS } from '@/utils/dm-debounce';
 import { containsAlertKeyword, triggerManagerAlert, ALERT_KEYWORDS } from '@/utils/whatsapp-alerts';
 import {
-    getCheckoutSession, createCheckoutSession, advanceCheckoutSession,
-    completeCheckoutOrder, extractCheckoutField, detectsPurchaseIntent,
+    getCheckoutSession, createCheckoutSession,
+    completeCheckoutOrder, extractAllCheckoutFields, detectsPurchaseIntent,
     buildCheckoutPromptSection
 } from '@/utils/checkout-flow';
 import crypto from 'crypto';
@@ -529,19 +529,18 @@ async function processDmBuffer({
         void (async () => {
             try {
                 if (!checkoutSession) return;
-                const extracted = await extractCheckoutField(batchedMessage, checkoutSession.stage);
-                if (!extracted) {
-                    console.log(`🛒 [Checkout] Field not found in message for stage "${checkoutSession.stage}". Waiting for next message.`);
-                    return;
-                }
 
-                console.log(`🛒 [Checkout] Extracted (${checkoutSession.stage}): "${extracted}"`);
-                const { completed, updated } = await advanceCheckoutSession(supabaseAdmin, checkoutSession, extracted);
+                // Try to extract name + phone + address from the customer's single reply
+                const info = await extractAllCheckoutFields(batchedMessage);
+                console.log(`🛒 [Checkout] Extracted — name: "${info.name}", phone: "${info.phone}", address: "${info.address}"`);
 
-                if (completed) {
+                // Only save if we have at least name + phone (address is most important too, but be lenient)
+                if (info.name && info.phone && info.address) {
                     const handle = await fetchUserProfile(senderId) || senderId;
-                    await completeCheckoutOrder(supabaseAdmin, updated, handle);
+                    await completeCheckoutOrder(supabaseAdmin, checkoutSession, info, handle);
                     console.log('✅ [Checkout] Order complete and saved to orders table.');
+                } else {
+                    console.log('🛒 [Checkout] Not all fields found yet — waiting for customer to provide missing info.');
                 }
             } catch (e) {
                 console.error('🛒 [Checkout] Advance error:', e);

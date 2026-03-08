@@ -1,14 +1,14 @@
 // ═══════════════════════════════════════════════════════════════
-// 🛒 GHOST AGENT — Checkout Session State Machine
+// 🛒 GHOST AGENT — Checkout Session (Single-Turn Info Collection)
 //
-// Manages multi-turn checkout conversations for ecommerce workspaces.
-// Flow: purchase intent detected → collect name → phone → address → save order
+// Flow: purchase intent detected → bot asks for name + phone + address
+//       in ONE message → customer replies → extract all 3 → save order
 // ═══════════════════════════════════════════════════════════════
 
 import { createGroq } from '@ai-sdk/groq';
 import { generateText } from 'ai';
 
-export type CheckoutStage = 'collecting_name' | 'collecting_phone' | 'collecting_address';
+export type CheckoutStage = 'collecting_info';
 
 export interface CheckoutSession {
     id: string;
@@ -20,6 +20,12 @@ export interface CheckoutSession {
     customer_name: string | null;
     customer_phone: string | null;
     customer_address: string | null;
+}
+
+export interface ExtractedInfo {
+    name: string | null;
+    phone: string | null;
+    address: string | null;
 }
 
 // ─── Fetch active checkout session for a sender ───────────────────────────
@@ -37,7 +43,7 @@ export async function getCheckoutSession(
     return data || null;
 }
 
-// ─── Create a new checkout session (purchase intent detected) ─────────────
+// ─── Create a new checkout session ───────────────────────────────────────
 export async function createCheckoutSession(
     supabase: any,
     userId: string,
@@ -51,7 +57,7 @@ export async function createCheckoutSession(
             user_id: userId,
             workspace_id: workspaceId,
             sender_id: senderId,
-            stage: 'collecting_name',
+            stage: 'collecting_info',
             item_requested: item,
             customer_name: null,
             customer_phone: null,
@@ -69,46 +75,46 @@ export async function createCheckoutSession(
     return data;
 }
 
-// ─── Advance the session to the next stage with extracted value ───────────
-export async function advanceCheckoutSession(
-    supabase: any,
-    session: CheckoutSession,
-    extractedValue: string
-): Promise<{ completed: boolean; nextStage: CheckoutStage | null; updated: CheckoutSession }> {
-    const updates: Partial<CheckoutSession> & { updated_at: string } = {
-        updated_at: new Date().toISOString(),
-    };
+// ─── Use Groq to extract name, phone, address from ONE message ───────────
+export async function extractAllCheckoutFields(
+    customerMessage: string
+): Promise<ExtractedInfo> {
+    try {
+        const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
+        const { text } = await generateText({
+            model: groq('llama-3.3-70b-versatile'),
+            system: `Extract the following from the customer's message:
+1. Full name
+2. Phone number (digits, include country code if present)
+3. Delivery address (street/area/city)
 
-    let nextStage: CheckoutStage | null = null;
-    let completed = false;
+Return ONLY valid JSON — no markdown, no explanation:
+{"name": "...", "phone": "...", "address": "..."}
 
-    if (session.stage === 'collecting_name') {
-        updates.customer_name = extractedValue;
-        updates.stage = 'collecting_phone';
-        nextStage = 'collecting_phone';
-    } else if (session.stage === 'collecting_phone') {
-        updates.customer_phone = extractedValue;
-        updates.stage = 'collecting_address';
-        nextStage = 'collecting_address';
-    } else if (session.stage === 'collecting_address') {
-        updates.customer_address = extractedValue;
-        completed = true;
+If any field is missing or unclear, use null for that field.
+Examples:
+- "Ali Kassem, 78820707, Aramoun Aley" → {"name": "Ali Kassem", "phone": "78820707", "address": "Aramoun, Aley"}
+- "My name is Sara Haddad, phone 03123456, I live in Hamra Beirut" → {"name": "Sara Haddad", "phone": "03123456", "address": "Hamra, Beirut"}
+- "Ali Kassem Haret Hreik Beirut 78820707" → {"name": "Ali Kassem", "phone": "78820707", "address": "Haret Hreik, Beirut"}`,
+            messages: [{ role: 'user', content: customerMessage }],
+        });
+
+        const parsed = JSON.parse(text.trim());
+        return {
+            name: parsed.name || null,
+            phone: parsed.phone || null,
+            address: parsed.address || null,
+        };
+    } catch {
+        return { name: null, phone: null, address: null };
     }
-
-    const { data } = await supabase
-        .from('order_sessions')
-        .update(updates)
-        .eq('id', session.id)
-        .select()
-        .single();
-
-    return { completed, nextStage, updated: data || { ...session, ...updates } };
 }
 
 // ─── Save completed order and clean up session ────────────────────────────
 export async function completeCheckoutOrder(
     supabase: any,
     session: CheckoutSession,
+    info: ExtractedInfo,
     instagramHandle: string
 ): Promise<void> {
     const { error } = await supabase.from('orders').insert({
@@ -117,9 +123,9 @@ export async function completeCheckoutOrder(
         instagram_handle: instagramHandle,
         instagram_user_id: session.sender_id,
         item_requested: session.item_requested || 'Unknown item',
-        customer_name: session.customer_name,
-        customer_phone: session.customer_phone,
-        customer_address: session.customer_address,
+        customer_name: info.name,
+        customer_phone: info.phone,
+        customer_address: info.address,
         status: 'Pending',
         created_at: new Date().toISOString(),
     });
@@ -132,34 +138,7 @@ export async function completeCheckoutOrder(
 
     // Clean up session
     await supabase.from('order_sessions').delete().eq('id', session.id);
-}
-
-// ─── Use Groq to extract a specific field from the customer's message ─────
-export async function extractCheckoutField(
-    customerMessage: string,
-    stage: CheckoutStage
-): Promise<string | null> {
-    const fieldDescriptions: Record<CheckoutStage, string> = {
-        collecting_name: 'full name',
-        collecting_phone: 'phone number (digits only, include country code if present)',
-        collecting_address: 'delivery address',
-    };
-
-    try {
-        const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
-        const { text } = await generateText({
-            model: groq('llama-3.3-70b-versatile'),
-            system: `Extract the customer's ${fieldDescriptions[stage]} from their message.
-Return ONLY the extracted value as plain text — nothing else.
-If the value is NOT present or unclear, return exactly: NOT_FOUND`,
-            messages: [{ role: 'user', content: customerMessage }],
-        });
-
-        const trimmed = text.trim();
-        return trimmed === 'NOT_FOUND' ? null : trimmed;
-    } catch {
-        return null;
-    }
+    console.log(`🗑️ [Checkout] Session cleared for ${session.sender_id}`);
 }
 
 // ─── Lightweight purchase intent detection (no AI call, fast) ────────────
@@ -175,53 +154,18 @@ export function detectsPurchaseIntent(message: string): boolean {
 // ─── Build checkout system prompt injection ───────────────────────────────
 export function buildCheckoutPromptSection(session: CheckoutSession): string {
     const item = session.item_requested || 'an item';
-    const name = session.customer_name;
-    const phone = session.customer_phone;
 
-    if (session.stage === 'collecting_name') {
-        return `
+    return `
 ═══════════════════════════════════════
-🛒 ACTIVE CHECKOUT — COLLECTING INFO
+🛒 ACTIVE CHECKOUT — COLLECT ORDER INFO
 ═══════════════════════════════════════
-The customer wants to order: "${item}"
-✅ Item: confirmed
-❌ Name: NOT YET COLLECTED
-❌ Phone: NOT YET COLLECTED
-❌ Address: NOT YET COLLECTED
+The customer has confirmed they want to order: "${item}"
 
-⚠️ YOUR ONLY JOB RIGHT NOW: Ask the customer for their FULL NAME to register the order.
-Do NOT discuss anything else. Just ask for the name naturally and briefly.`;
-    }
+⚠️ YOUR ONLY JOB RIGHT NOW:
+Ask for their FULL NAME, PHONE NUMBER, and DELIVERY ADDRESS — all in ONE single message.
+Be natural and brief. Example:
+"To register your order, I just need: your full name, phone number, and delivery address 📦"
 
-    if (session.stage === 'collecting_phone') {
-        return `
-═══════════════════════════════════════
-🛒 ACTIVE CHECKOUT — COLLECTING INFO
-═══════════════════════════════════════
-The customer wants to order: "${item}"
-✅ Item: confirmed
-✅ Name: ${name}
-❌ Phone: NOT YET COLLECTED
-❌ Address: NOT YET COLLECTED
-
-⚠️ YOUR ONLY JOB RIGHT NOW: Thank them for the name and ask for their PHONE NUMBER.
-Do NOT discuss anything else.`;
-    }
-
-    if (session.stage === 'collecting_address') {
-        return `
-═══════════════════════════════════════
-🛒 ACTIVE CHECKOUT — COLLECTING INFO
-═══════════════════════════════════════
-The customer wants to order: "${item}"
-✅ Item: confirmed
-✅ Name: ${name}
-✅ Phone: ${phone}
-❌ Address: NOT YET COLLECTED
-
-⚠️ YOUR ONLY JOB RIGHT NOW: Ask them for their DELIVERY ADDRESS (street, city).
-Do NOT discuss anything else.`;
-    }
-
-    return '';
+Do NOT ask for them one at a time. Ask for all 3 in one go.
+Do NOT discuss anything else until you have this info.`;
 }

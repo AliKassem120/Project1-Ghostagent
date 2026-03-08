@@ -41,8 +41,8 @@ create table if not exists order_sessions (
   user_id          uuid not null,
   workspace_id     uuid,
   sender_id        text not null,                -- Instagram sender ID
-  stage            text not null default 'collecting_name'
-                     check (stage in ('collecting_name','collecting_phone','collecting_address')),
+  stage            text not null default 'collecting_info'
+                     check (stage in ('collecting_info')),
   item_requested   text,
   customer_name    text,
   customer_phone   text,
