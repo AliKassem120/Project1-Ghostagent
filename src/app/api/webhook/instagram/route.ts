@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { generateGhostReply } from '@/utils/ghost-brain';
 import { upsertDmBuffer, claimDmBuffer, clearDmBuffer, releaseDmBuffer, DEBOUNCE_SECONDS } from '@/utils/dm-debounce';
 import { containsAlertKeyword, triggerManagerAlert, ALERT_KEYWORDS } from '@/utils/whatsapp-alerts';
+import { detectOrderIntent, saveOrderLead } from '@/utils/order-detector';
 import crypto from 'crypto';
 import { checkUserLimit } from '@/lib/billing';
 
@@ -492,7 +493,38 @@ async function processDmBuffer({
             metadata: { chat_id: senderId, platform: 'instagram' }
         });
 
-        // 7. Clear the buffer
+        // 7. 🛒 ORDER INTENT DETECTION (ecommerce only, fire-and-forget)
+        void (async () => {
+            try {
+                // Only run for ecommerce workspaces
+                const { data: ws } = await supabaseAdmin
+                    .from('bot_settings')
+                    .select('business_type')
+                    .eq(effectiveWorkspaceId ? 'id' : 'user_id', effectiveWorkspaceId || ownerId)
+                    .maybeSingle();
+
+                if (ws?.business_type !== 'ecommerce') return;
+
+                const intent = await detectOrderIntent(batchedMessage, aiResponse);
+                if (!intent.wantsToBuy || !intent.item) return;
+
+                // Fetch the sender's Instagram username for a nicer display
+                const senderHandle = await fetchUserProfile(senderId) || senderId;
+
+                await saveOrderLead(supabaseAdmin, {
+                    userId: ownerId,
+                    workspaceId: effectiveWorkspaceId || null,
+                    instagramHandle: senderHandle,
+                    instagramUserId: senderId,
+                    item: intent.item,
+                    rawMessage: batchedMessage,
+                });
+            } catch (e) {
+                console.error('🛒 [OrderDetector] Error:', e);
+            }
+        })();
+
+        // 8. Clear the buffer
         await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
         console.log(`✅ [Buffer] Reply sent and buffer cleared for sender ${senderId}`);
 
