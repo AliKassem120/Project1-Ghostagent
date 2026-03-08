@@ -266,20 +266,43 @@ export default function SettingsPage() {
     const handleSave = async () => {
         setSaving(true);
         try {
-            if (!activeWorkspaceId) {
-                toast.error('No active workspace selected.');
-                setSaving(false);
-                return;
+            if (activeWorkspaceId) {
+                // Empire mode: save scoped to the active workspace row
+                await updateWorkspaceSettingsAction(activeWorkspaceId, settings, isEmpire);
+            } else {
+                // Single-workspace mode: save by user_id directly
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) {
+                    toast.error('Not authenticated.');
+                    setSaving(false);
+                    return;
+                }
+                const { error } = await supabase.from('bot_settings').upsert({
+                    user_id: user.id,
+                    business_name: settings.businessName,
+                    tone: settings.tone,
+                    use_emojis: settings.useEmojis,
+                    max_discount: settings.maxDiscount,
+                    min_order_for_discount: settings.minOrderForDiscount,
+                    emergency_whatsapp: settings.emergencyWhatsApp,
+                    language: settings.language,
+                    use_local_slang: settings.useLocalSlang,
+                    system_instructions: settings.systemPrompt,
+                    whatsapp_template: settings.whatsappTemplate,
+                    store_location: settings.storeLocation,
+                    contact_info: settings.contactInfo,
+                    shipping_rules: settings.shippingRules || null,
+                    business_type: settings.businessType,
+                    updated_at: new Date().toISOString(),
+                }, { onConflict: 'user_id' });
+
+                if (error) throw error;
             }
 
-            const { success } = await updateWorkspaceSettingsAction(activeWorkspaceId, settings, isEmpire);
-
-            if (success) {
-                console.log('✅ Settings Saved Successfully!');
-                toast.success('Settings Saved', { description: 'Your Ghost Agent configuration has been updated.' });
-                setSuccess(true);
-                setTimeout(() => setSuccess(false), 2000);
-            }
+            console.log('✅ Settings Saved Successfully!');
+            toast.success('Settings Saved', { description: 'Your Ghost Agent configuration has been updated.' });
+            setSuccess(true);
+            setTimeout(() => setSuccess(false), 2000);
         } catch (error: any) {
             console.error('Error saving settings:', error);
             const errorMessage = error?.message || error?.details || 'Unknown error occurred while saving';
@@ -288,6 +311,7 @@ export default function SettingsPage() {
             setSaving(false);
         }
     };
+
 
     if (loading) {
         return (
