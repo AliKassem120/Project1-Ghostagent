@@ -34,7 +34,6 @@ export interface PromptContext {
     historyContext: string;
     contextSummary: string | null;
     hasGreetedRecently: boolean;
-    checkoutContext?: string | null;
 }
 
 
@@ -101,7 +100,7 @@ export function generateSystemPrompt(business: BusinessProfile): string {
  * and behavior across all conversations.
  */
 export function buildSystemPrompt(ctx: PromptContext): string {
-    const { business, inventoryContext, catalogContext, historyContext, contextSummary, hasGreetedRecently, checkoutContext } = ctx;
+    const { business, inventoryContext, catalogContext, historyContext, contextSummary, hasGreetedRecently } = ctx;
     const businessName = business.business_name || 'our store';
 
     // ── MODULE 3: BUSINESS TYPE DIRECTIVE ──
@@ -199,7 +198,7 @@ ${historyContext}`;
     // ══════════════════════════════════════════════════════════════
     // 🏗️ ASSEMBLE THE MASTER SYSTEM PROMPT
     // ══════════════════════════════════════════════════════════════
-    return `${checkoutContext ? checkoutContext + '\n\n' : ''}
+    return `
 ═══════════════════════════════════════
 🎭 MODULE 1 — IDENTITY & ROLE
 ═══════════════════════════════════════

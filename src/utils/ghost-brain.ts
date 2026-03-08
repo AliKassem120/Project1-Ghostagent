@@ -134,10 +134,11 @@ export async function generateGhostReply(
             historyContext,
             contextSummary,
             hasGreetedRecently,
-            checkoutContext: checkoutContext || null,
         };
 
-        const systemPrompt = buildSystemPrompt(promptContext);
+        // Prepend checkout instructions at top of system prompt if active
+        const basePrompt = buildSystemPrompt(promptContext);
+        const systemPrompt = checkoutContext ? `${checkoutContext}\n\n${basePrompt}` : basePrompt;
 
         // ═══════════════════════════════════════
         // 6. GENERATE AI RESPONSE
