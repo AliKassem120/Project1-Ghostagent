@@ -27,8 +27,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Guard: fail fast if env vars are missing (e.g. not set on Vercel)
-    if (!process.env.ZOHO_EMAIL || !process.env.ZOHO_APP_PASSWORD) {
-      console.error('[Contact API] Missing ZOHO_EMAIL or ZOHO_APP_PASSWORD env vars');
+    if (!process.env.ZOHO_CONTACT_EMAIL || !process.env.ZOHO_CONTACT_PASSWORD) {
+      console.error('[Contact API] Missing ZOHO_CONTACT_EMAIL or ZOHO_CONTACT_PASSWORD env vars');
       return NextResponse.json(
         { success: false, error: 'Email service is not configured. Please contact us directly.' },
         { status: 500 }
@@ -44,8 +44,8 @@ export async function POST(request: NextRequest) {
       greetingTimeout: 10000,
       socketTimeout: 15000,
       auth: {
-        user: process.env.ZOHO_EMAIL,
-        pass: process.env.ZOHO_APP_PASSWORD,
+        user: process.env.ZOHO_CONTACT_EMAIL,
+        pass: process.env.ZOHO_CONTACT_PASSWORD,
       },
     });
 
@@ -103,8 +103,8 @@ export async function POST(request: NextRequest) {
 
     // Send the email
     await transporter.sendMail({
-      from: `"GhostAgent Contact" <${process.env.ZOHO_EMAIL}>`,
-      to: process.env.ZOHO_EMAIL,
+      from: `"GhostAgent Contact" <${process.env.ZOHO_CONTACT_EMAIL}>`,
+      to: process.env.ZOHO_CONTACT_EMAIL,
       replyTo: email,
       subject: `New Contact Form Submission from ${name}`,
       html: htmlBody,
