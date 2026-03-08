@@ -145,7 +145,7 @@ export async function generateGhostReply(
         // ═══════════════════════════════════════
         const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
         const result = await generateText({
-            model: groq('llama-3.3-70b-versatile'),
+            model: groq('llama-3.1-8b-instant'),
             system: systemPrompt,
             messages: [{ role: 'user', content: userMessage }],
         });
@@ -161,8 +161,13 @@ export async function generateGhostReply(
 
         return result.text;
 
-    } catch (error) {
+    } catch (error: any) {
+        // Rate limit — stay silent rather than sending a confusing maintenance message
+        if (error?.message?.includes('rate_limit') || error?.statusCode === 429 || error?.message?.includes('Rate limit')) {
+            console.warn('⚠️ Ghost Brain: Groq rate limit hit — skipping reply.');
+            return null;
+        }
         console.error('Ghost Brain Error:', error);
-        return "I'm currently undergoing maintenance and can't check the stock right now. Please try again later.";
+        return null;
     }
 }
