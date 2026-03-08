@@ -452,42 +452,49 @@ async function processDmBuffer({
             return;
         }
 
-        // 3. CHECK FOR ACTIVE CHECKOUT SESSION (or start one if purchase intent detected)
+        // 3. CHECK FOR ACTIVE CHECKOUT SESSION
         let checkoutCtx: string | undefined;
-        let checkoutSession = await getCheckoutSession(supabaseAdmin, ownerId, senderId);
-
-        if (!checkoutSession) {
-            // Check if this is an ecommerce workspace and message shows purchase intent
-            if (detectsPurchaseIntent(batchedMessage)) {
+        let checkoutSession: any = null;
+        try {
+            checkoutSession = await getCheckoutSession(supabaseAdmin, ownerId, senderId);
+            if (!checkoutSession && detectsPurchaseIntent(batchedMessage)) {
                 const { data: wsData } = await supabaseAdmin
                     .from('bot_settings')
                     .select('business_type')
                     .eq(effectiveWorkspaceId ? 'id' : 'user_id', effectiveWorkspaceId || ownerId)
                     .maybeSingle();
-
                 if (wsData?.business_type === 'ecommerce') {
-                    // Extract item from message
                     const itemMatch = batchedMessage.match(/(?:buy|order|purchase|get|take|want)\s+(?:a\s+|the\s+|an\s+)?(.+)/i);
                     const item = itemMatch?.[1]?.trim() || 'an item';
                     checkoutSession = await createCheckoutSession(supabaseAdmin, ownerId, effectiveWorkspaceId || null, senderId, item);
                     console.log(`🛒 [Checkout] New session created for "${item}"`);
                 }
             }
-        }
-
-        if (checkoutSession) {
-            checkoutCtx = buildCheckoutPromptSection(checkoutSession);
+            if (checkoutSession) {
+                checkoutCtx = buildCheckoutPromptSection(checkoutSession);
+            }
+        } catch (checkoutErr) {
+            console.warn('⚠️ [Checkout] Session lookup failed — proceeding without checkout ctx:', checkoutErr);
+            checkoutSession = null;
+            checkoutCtx = undefined;
         }
 
         // 4. Generate AI reply (with checkout context if active)
-        const aiResponse = await generateGhostReply(
-            ownerId,
-            batchedMessage,
-            supabaseAdmin,
-            senderId,
-            effectiveWorkspaceId ?? undefined,
-            checkoutCtx
-        );
+        let aiResponse: string | null;
+        try {
+            aiResponse = await generateGhostReply(
+                ownerId,
+                batchedMessage,
+                supabaseAdmin,
+                senderId,
+                effectiveWorkspaceId ?? undefined,
+                checkoutCtx
+            );
+        } catch (ghostErr) {
+            console.error('❌ [Ghost Brain] generateGhostReply threw:', ghostErr);
+            await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
+            return;
+        }
 
         if (!aiResponse) {
             console.log('Ghost Protocol: No reply (handoff or empty).');
@@ -529,18 +536,14 @@ async function processDmBuffer({
         void (async () => {
             try {
                 if (!checkoutSession) return;
-
-                // Try to extract name + phone + address from the customer's single reply
                 const info = await extractAllCheckoutFields(batchedMessage);
                 console.log(`🛒 [Checkout] Extracted — name: "${info.name}", phone: "${info.phone}", address: "${info.address}"`);
-
-                // Only save if we have at least name + phone (address is most important too, but be lenient)
                 if (info.name && info.phone && info.address) {
                     const handle = await fetchUserProfile(senderId) || senderId;
                     await completeCheckoutOrder(supabaseAdmin, checkoutSession, info, handle);
-                    console.log('✅ [Checkout] Order complete and saved to orders table.');
+                    console.log('✅ [Checkout] Order complete and saved.');
                 } else {
-                    console.log('🛒 [Checkout] Not all fields found yet — waiting for customer to provide missing info.');
+                    console.log('🛒 [Checkout] Not all fields found yet — waiting for next message.');
                 }
             } catch (e) {
                 console.error('🛒 [Checkout] Advance error:', e);
@@ -550,6 +553,7 @@ async function processDmBuffer({
         // 9. Clear the buffer
         await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
         console.log(`✅ [Buffer] Reply sent and buffer cleared for sender ${senderId}`);
+
 
     } catch (err) {
         console.error(`❌ [Buffer] processDmBuffer failed for sender ${senderId}:`, err);
