@@ -175,11 +175,27 @@ async function processWebhookEvent(body: any) {
                     // ═══════════════════════════════════════
                     void (async () => {
                         try {
-                            let q = supabaseAdmin.from('bot_settings').select('emergency_whatsapp, handoff_keywords');
-                            q = workspaceId ? q.eq('id', workspaceId) : q.eq('user_id', ownerId);
-                            const { data: ws } = await q.single();
-                            if (!ws?.emergency_whatsapp) return;
-                            if (!containsAlertKeyword(messageText, ws.handoff_keywords || [])) return;
+                            // Try workspace-scoped settings first, then fall back to user-level
+                            let ws: any = null;
+                            if (workspaceId) {
+                                const { data } = await supabaseAdmin.from('bot_settings').select('emergency_whatsapp, handoff_keywords').eq('id', workspaceId).maybeSingle();
+                                ws = data;
+                            }
+                            if (!ws) {
+                                const { data } = await supabaseAdmin.from('bot_settings').select('emergency_whatsapp, handoff_keywords').eq('user_id', ownerId).maybeSingle();
+                                ws = data;
+                            }
+
+                            console.log(`🚨 [Alert] bot_settings found. emergency_whatsapp: "${ws?.emergency_whatsapp || 'NOT SET'}"`);
+
+                            if (!ws?.emergency_whatsapp) {
+                                console.log('🚨 [Alert] Skipping: no emergency_whatsapp configured.');
+                                return;
+                            }
+                            if (!containsAlertKeyword(messageText, ws.handoff_keywords || [])) {
+                                console.log(`🚨 [Alert] Skipping: no alert keyword in: "${messageText}"`);
+                                return;
+                            }
 
                             const allKeywords = [...ALERT_KEYWORDS, ...(Array.isArray(ws.handoff_keywords) ? ws.handoff_keywords : [])];
                             const matchedKeyword = allKeywords.find(k => messageText.toLowerCase().includes(k.toLowerCase())) || 'alert';
