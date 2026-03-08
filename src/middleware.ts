@@ -5,8 +5,8 @@ export async function middleware(request: NextRequest) {
     // Skip auth for public API routes
     const { pathname } = request.nextUrl;
     if (
-        pathname.startsWith('/api/webhook') ||  // Instagram/WhatsApp webhooks
-        pathname === '/api/contact'              // Public contact form
+        pathname.startsWith('/api/webhook') ||   // /api/webhook/* and /api/webhooks/*
+        pathname === '/api/contact'               // Public contact form
     ) {
         return NextResponse.next();
     }
