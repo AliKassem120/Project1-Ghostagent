@@ -56,7 +56,6 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             dynamicItems = [
                 { icon: Package, label: 'Inventory', href: '/dashboard/inventory' },
                 { icon: BookOpen, label: 'Orders', href: '/dashboard/orders' },
-                { icon: Zap, label: 'Shipping', href: '/dashboard/shipping' },
             ];
             break;
         case 'appointments':
