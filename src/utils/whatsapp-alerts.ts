@@ -48,8 +48,13 @@ export async function triggerManagerAlert(opts: ManagerAlertOptions): Promise<vo
         return;
     }
 
-    // Normalise: strip spaces, ensure + prefix
-    const to = ownerWhatsAppNumber.replace(/\s+/g, '').replace(/^00/, '+');
+    // Normalise to E.164: strip spaces, handle 00-prefix, add + if missing
+    let to = ownerWhatsAppNumber.replace(/\s+/g, '');
+    if (to.startsWith('00')) {
+        to = '+' + to.slice(2);       // 00961... → +961...
+    } else if (!to.startsWith('+')) {
+        to = '+' + to;                 // 96178820707 → +96178820707
+    }
 
     const alertMessage = `🚨 *Ghost Agent Alert*\n\nA customer on ${platform} (*${senderName}*) triggered the keyword: _“${triggerKeyword}”_\n\n*Their message:*\n“${customerMessage}”\n\nPlease check your DMs promptly.`;
 
