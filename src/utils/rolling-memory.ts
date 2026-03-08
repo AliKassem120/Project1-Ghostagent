@@ -121,8 +121,8 @@ export async function summarizeConversationIfNeeded(
     console.log(`📝 Rolling Summary: ${fullHistory.length} messages — triggering summarization`);
 
     try {
-        // Take all messages EXCEPT the most recent ones
-        const olderMessages = fullHistory.slice(0, -RECENT_MESSAGES_TO_KEEP);
+        // Take older messages (capped at 30 to avoid token overload)
+        const olderMessages = fullHistory.slice(0, -RECENT_MESSAGES_TO_KEEP).slice(-30);
         const olderText = olderMessages.map(h => {
             const role = h.event_type === 'AI_REPLY' ? 'AI'
                 : h.event_type === 'MANUAL_REPLY' ? 'Owner'
@@ -162,8 +162,11 @@ Focus on: what the customer wants, what was discussed, any decisions made, and c
 CONVERSATION:
 ${olderText}`;
 
+        // Wait 3s so summarization doesn't race with the main reply for TPM budget
+        await new Promise(r => setTimeout(r, 3000));
+
         const result = await generateText({
-            model: groq('llama-3.1-8b-instant'),
+            model: groq('gemma2-9b-it'),  // 15K TPM on free tier (vs 6K for llama-3.1-8b)
             system: `You are a conversation summarizer. Output ONLY bullet points (using "-" prefix). 
 Be concise but capture all important details: customer requests, products discussed, 
 prices mentioned, delivery details, and any commitments made. Max 10 bullet points.`,
