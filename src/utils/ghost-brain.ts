@@ -14,7 +14,8 @@ export async function generateGhostReply(
     userMessage: string,
     supabase: any,
     chatId?: string,
-    workspaceId?: string
+    workspaceId?: string,
+    checkoutContext?: string
 ) {
     console.log('👻 Ghost Brain v2: Generating reply for', userId, workspaceId ? `(workspace: ${workspaceId})` : '');
 
@@ -133,6 +134,7 @@ export async function generateGhostReply(
             historyContext,
             contextSummary,
             hasGreetedRecently,
+            checkoutContext: checkoutContext || null,
         };
 
         const systemPrompt = buildSystemPrompt(promptContext);

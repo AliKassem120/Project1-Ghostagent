@@ -13,6 +13,9 @@ interface OrderLead {
     created_at: string;
     instagram_handle: string;
     item_requested: string;
+    customer_name: string | null;
+    customer_phone: string | null;
+    customer_address: string | null;
     status: OrderStatus;
     raw_message: string | null;
 }
@@ -194,8 +197,11 @@ export default function OrdersPage() {
                             <thead>
                                 <tr className="border-b border-border bg-muted/30">
                                     <th className="text-left text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-6 py-3">Date</th>
-                                    <th className="text-left text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-6 py-3">Instagram Handle</th>
-                                    <th className="text-left text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-6 py-3">Item Requested</th>
+                                    <th className="text-left text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-6 py-3">Handle</th>
+                                    <th className="text-left text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-6 py-3">Item</th>
+                                    <th className="text-left text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-6 py-3">Name</th>
+                                    <th className="text-left text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-6 py-3">Phone</th>
+                                    <th className="text-left text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-6 py-3">Address</th>
                                     <th className="text-left text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-6 py-3">Status</th>
                                 </tr>
                             </thead>
@@ -219,6 +225,15 @@ export default function OrdersPage() {
                                         </td>
                                         <td className="px-6 py-4 text-foreground">
                                             {order.item_requested}
+                                        </td>
+                                        <td className="px-6 py-4 text-foreground text-xs">
+                                            {order.customer_name || <span className="text-muted-foreground/50 italic">Pending…</span>}
+                                        </td>
+                                        <td className="px-6 py-4 text-foreground text-xs">
+                                            {order.customer_phone || <span className="text-muted-foreground/50 italic">Pending…</span>}
+                                        </td>
+                                        <td className="px-6 py-4 text-foreground text-xs max-w-[160px] truncate">
+                                            {order.customer_address || <span className="text-muted-foreground/50 italic">Pending…</span>}
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide ${STATUS_CONFIG[order.status].className}`}>

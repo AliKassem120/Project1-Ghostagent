@@ -3,7 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 import { generateGhostReply } from '@/utils/ghost-brain';
 import { upsertDmBuffer, claimDmBuffer, clearDmBuffer, releaseDmBuffer, DEBOUNCE_SECONDS } from '@/utils/dm-debounce';
 import { containsAlertKeyword, triggerManagerAlert, ALERT_KEYWORDS } from '@/utils/whatsapp-alerts';
-import { detectOrderIntent, saveOrderLead } from '@/utils/order-detector';
+import {
+    getCheckoutSession, createCheckoutSession, advanceCheckoutSession,
+    completeCheckoutOrder, extractCheckoutField, detectsPurchaseIntent,
+    buildCheckoutPromptSection
+} from '@/utils/checkout-flow';
 import crypto from 'crypto';
 import { checkUserLimit } from '@/lib/billing';
 
@@ -448,13 +452,41 @@ async function processDmBuffer({
             return;
         }
 
-        // 3. Generate AI reply
+        // 3. CHECK FOR ACTIVE CHECKOUT SESSION (or start one if purchase intent detected)
+        let checkoutCtx: string | undefined;
+        let checkoutSession = await getCheckoutSession(supabaseAdmin, ownerId, senderId);
+
+        if (!checkoutSession) {
+            // Check if this is an ecommerce workspace and message shows purchase intent
+            if (detectsPurchaseIntent(batchedMessage)) {
+                const { data: wsData } = await supabaseAdmin
+                    .from('bot_settings')
+                    .select('business_type')
+                    .eq(effectiveWorkspaceId ? 'id' : 'user_id', effectiveWorkspaceId || ownerId)
+                    .maybeSingle();
+
+                if (wsData?.business_type === 'ecommerce') {
+                    // Extract item from message
+                    const itemMatch = batchedMessage.match(/(?:buy|order|purchase|get|take|want)\s+(?:a\s+|the\s+|an\s+)?(.+)/i);
+                    const item = itemMatch?.[1]?.trim() || 'an item';
+                    checkoutSession = await createCheckoutSession(supabaseAdmin, ownerId, effectiveWorkspaceId || null, senderId, item);
+                    console.log(`🛒 [Checkout] New session created for "${item}"`);
+                }
+            }
+        }
+
+        if (checkoutSession) {
+            checkoutCtx = buildCheckoutPromptSection(checkoutSession);
+        }
+
+        // 4. Generate AI reply (with checkout context if active)
         const aiResponse = await generateGhostReply(
             ownerId,
             batchedMessage,
             supabaseAdmin,
             senderId,
-            effectiveWorkspaceId ?? undefined
+            effectiveWorkspaceId ?? undefined,
+            checkoutCtx
         );
 
         if (!aiResponse) {
@@ -463,7 +495,7 @@ async function processDmBuffer({
             return;
         }
 
-        // 4. Autopilot check
+        // 5. Autopilot check
         const isAutopilot = await checkAutopilot(supabaseAdmin, ownerId, senderId);
         if (!isAutopilot) {
             console.log('🛑 AUTOPILOT OFF: Saving draft reply.');
@@ -479,11 +511,11 @@ async function processDmBuffer({
             return;
         }
 
-        // 5. Send the reply
+        // 6. Send the reply
         console.log('🤖 AI Reply:', aiResponse);
         await sendReply(ownerId, senderId, aiResponse, supabaseAdmin);
 
-        // 6. Log the reply
+        // 7. Log the reply
         await supabaseAdmin.from('activity_log').insert({
             user_id: ownerId,
             workspace_id: effectiveWorkspaceId || null,
@@ -493,38 +525,30 @@ async function processDmBuffer({
             metadata: { chat_id: senderId, platform: 'instagram' }
         });
 
-        // 7. 🛒 ORDER INTENT DETECTION (ecommerce only, fire-and-forget)
+        // 8. 🛒 ADVANCE CHECKOUT (fire-and-forget — doesn't block)
         void (async () => {
             try {
-                // Only run for ecommerce workspaces
-                const { data: ws } = await supabaseAdmin
-                    .from('bot_settings')
-                    .select('business_type')
-                    .eq(effectiveWorkspaceId ? 'id' : 'user_id', effectiveWorkspaceId || ownerId)
-                    .maybeSingle();
+                if (!checkoutSession) return;
+                const extracted = await extractCheckoutField(batchedMessage, checkoutSession.stage);
+                if (!extracted) {
+                    console.log(`🛒 [Checkout] Field not found in message for stage "${checkoutSession.stage}". Waiting for next message.`);
+                    return;
+                }
 
-                if (ws?.business_type !== 'ecommerce') return;
+                console.log(`🛒 [Checkout] Extracted (${checkoutSession.stage}): "${extracted}"`);
+                const { completed, updated } = await advanceCheckoutSession(supabaseAdmin, checkoutSession, extracted);
 
-                const intent = await detectOrderIntent(batchedMessage, aiResponse);
-                if (!intent.wantsToBuy || !intent.item) return;
-
-                // Fetch the sender's Instagram username for a nicer display
-                const senderHandle = await fetchUserProfile(senderId) || senderId;
-
-                await saveOrderLead(supabaseAdmin, {
-                    userId: ownerId,
-                    workspaceId: effectiveWorkspaceId || null,
-                    instagramHandle: senderHandle,
-                    instagramUserId: senderId,
-                    item: intent.item,
-                    rawMessage: batchedMessage,
-                });
+                if (completed) {
+                    const handle = await fetchUserProfile(senderId) || senderId;
+                    await completeCheckoutOrder(supabaseAdmin, updated, handle);
+                    console.log('✅ [Checkout] Order complete and saved to orders table.');
+                }
             } catch (e) {
-                console.error('🛒 [OrderDetector] Error:', e);
+                console.error('🛒 [Checkout] Advance error:', e);
             }
         })();
 
-        // 8. Clear the buffer
+        // 9. Clear the buffer
         await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
         console.log(`✅ [Buffer] Reply sent and buffer cleared for sender ${senderId}`);
 
