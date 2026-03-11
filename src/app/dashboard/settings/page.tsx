@@ -110,7 +110,7 @@ export default function SettingsPage() {
     const fetchSettings = useCallback(async (isSilent = false) => {
         if (!isSilent) setLoading(true);
         try {
-            let query = supabase.from('bot_settings').select('*');
+            let query = supabase.from('ai_settings').select('*');
 
             if (activeWorkspaceId) {
                 query = query.eq('id', activeWorkspaceId);
@@ -250,7 +250,7 @@ export default function SettingsPage() {
         if (!activeWorkspaceId) return;
         setDeletingWs(true);
         try {
-            const { error } = await supabase.from('bot_settings').delete().eq('id', activeWorkspaceId);
+            const { error } = await supabase.from('ai_settings').delete().eq('id', activeWorkspaceId);
             if (error) throw error;
             toast.success('Workspace deleted');
             removeWorkspace(activeWorkspaceId); // Sync with context
@@ -277,7 +277,7 @@ export default function SettingsPage() {
                     setSaving(false);
                     return;
                 }
-                const { error } = await supabase.from('bot_settings').upsert({
+                const { error } = await supabase.from('ai_settings').upsert({
                     user_id: user.id,
                     business_name: settings.businessName,
                     tone: settings.tone,

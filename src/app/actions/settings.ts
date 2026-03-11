@@ -36,7 +36,7 @@ export async function updateWorkspaceSettingsAction(workspaceId: string, setting
     }
 
     const { error } = await supabase
-        .from('bot_settings')
+        .from('ai_settings')
         .update({
             business_name: settings.businessName,
             tone: settings.tone,

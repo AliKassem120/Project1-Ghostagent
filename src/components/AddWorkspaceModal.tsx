@@ -52,7 +52,7 @@ export default function AddWorkspaceModal({ isOpen, onClose }: AddWorkspaceModal
         setError(null);
 
         const { data, error: insertError } = await supabase
-            .from('bot_settings')
+            .from('ai_settings')
             .insert({
                 user_id: user.id,
                 name: name.trim(),

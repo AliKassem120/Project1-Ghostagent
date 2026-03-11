@@ -183,15 +183,15 @@ async function processWebhookEvent(body: any) {
                             // Try workspace-scoped settings first, then fall back to user-level
                             let ws: any = null;
                             if (workspaceId) {
-                                const { data } = await supabaseAdmin.from('bot_settings').select('emergency_whatsapp, handoff_keywords').eq('id', workspaceId).maybeSingle();
+                                const { data } = await supabaseAdmin.from('ai_settings').select('emergency_whatsapp, handoff_keywords').eq('id', workspaceId).maybeSingle();
                                 ws = data;
                             }
                             if (!ws) {
-                                const { data } = await supabaseAdmin.from('bot_settings').select('emergency_whatsapp, handoff_keywords').eq('user_id', ownerId).maybeSingle();
+                                const { data } = await supabaseAdmin.from('ai_settings').select('emergency_whatsapp, handoff_keywords').eq('user_id', ownerId).maybeSingle();
                                 ws = data;
                             }
 
-                            console.log(`🚨 [Alert] bot_settings found. emergency_whatsapp: "${ws?.emergency_whatsapp || 'NOT SET'}"`);
+                            console.log(`🚨 [Alert] ai_settings found. emergency_whatsapp: "${ws?.emergency_whatsapp || 'NOT SET'}"`);
 
                             if (!ws?.emergency_whatsapp) {
                                 console.log('🚨 [Alert] Skipping: no emergency_whatsapp configured.');
@@ -459,7 +459,7 @@ async function processDmBuffer({
             checkoutSession = await getCheckoutSession(supabaseAdmin, ownerId, senderId);
             if (!checkoutSession && detectsPurchaseIntent(batchedMessage)) {
                 const { data: wsData } = await supabaseAdmin
-                    .from('bot_settings')
+                    .from('ai_settings')
                     .select('business_type')
                     .eq(effectiveWorkspaceId ? 'id' : 'user_id', effectiveWorkspaceId || ownerId)
                     .maybeSingle();
@@ -635,42 +635,28 @@ async function sendReply(ownerId: string, recipientId: string, text: string, sup
 async function findOwner(supabaseAdmin: any, accountId: string | undefined): Promise<{ userId: string; workspaceId: string | null } | null> {
     if (!accountId) return null;
 
-    // 1. Strict DB Match — now also returns workspace_id
-    const { data: connectedUser } = await supabaseAdmin.from('user_connections')
-        .select('user_id, workspace_id')
-        .eq('account_id', accountId)
-        .limit(1).maybeSingle();
+    // 1. Strict DB Match against instagram_integrations
+    const { data: integration } = await supabaseAdmin.from('instagram_integrations')
+        .select('workspace_id')
+        .eq('instagram_account_id', accountId)
+        .maybeSingle();
 
-    if (connectedUser) return { userId: connectedUser.user_id, workspaceId: connectedUser.workspace_id ?? null };
-
-    // 2. Metadata Scan (Fallback) - handles token mismatch formats
-    const { data: allConnections } = await supabaseAdmin.from('user_connections')
-        .select('user_id, workspace_id, metadata, account_id')
-        .in('provider', ['INSTAGRAM', 'instagram_api_login']);
-
-    if (allConnections) {
-        for (const conn of allConnections) {
-            const meta = conn.metadata as any || {};
-
-            // Old Pages methodology
-            const pages = meta.pages || [];
-            const hasPage = Array.isArray(pages) && pages.some((p: any) => p.instagram_business_account?.id === accountId);
-
-            if (hasPage) {
-                console.log(`[Loose Match] Found owner ${conn.user_id} via metadata page link. Account: ${accountId}`);
-                return { userId: conn.user_id, workspaceId: conn.workspace_id ?? null };
-            }
-
-            // New Instagram API methodology: The token exchange returned app-scoped IDs while webhook returns global IDs
-            // So we explicitly match the metadata fields that might contain the correct global ID
-            if (meta.user_id?.toString() === accountId || meta.instagram_account_id?.toString() === accountId) {
-                console.log(`[Loose Match] Found owner ${conn.user_id} via metadata internal match. Account: ${accountId}`);
-                return { userId: conn.user_id, workspaceId: conn.workspace_id ?? null };
-            }
-        }
+    if (!integration || !integration.workspace_id) {
+        console.log(`[findOwner] No integration found for account ${accountId}`);
+        return null;
     }
 
-    console.log(`[findOwner] No owner found for account ${accountId}`);
+    // 2. Retrieve user_id from the linked ai_settings workspace
+    const { data: workspace } = await supabaseAdmin.from('ai_settings')
+        .select('user_id')
+        .eq('id', integration.workspace_id)
+        .maybeSingle();
+
+    if (workspace && workspace.user_id) {
+        return { userId: workspace.user_id, workspaceId: integration.workspace_id };
+    }
+
+    console.log(`[findOwner] Integration found but no valid ai_settings workspace for account ${accountId}`);
     return null;
 }
 

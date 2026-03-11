@@ -13,7 +13,7 @@ export async function POST(req: Request) {
             process.env.SUPABASE_SERVICE_ROLE_KEY!
         );
 
-        const { error } = await supabase.from('user_connections').delete().eq('account_id', accountId);
+        const { error } = await supabase.from('instagram_integrations').delete().eq('instagram_account_id', accountId);
 
         if (error) throw error;
 

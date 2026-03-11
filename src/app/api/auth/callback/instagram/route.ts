@@ -74,25 +74,20 @@ export async function GET(request: NextRequest) {
         const targetAccountId = profileData.user_id || profileData.id;
         const targetUsername = profileData.username || profileData.name || 'Instagram User';
 
-        // 3. Store Connection in DB
+        // 3. Store Connection in DB (Strict Isolation)
         // We store the INSTAGRAM ACCOUNT ID as the account_id, so webhooks match.
-        const connectionData = {
-            access_token: accessToken, // Instagram User Access Token
-            provider: 'instagram_api_login',
-            connected_at: new Date().toISOString(),
-            token_type: 'instagram_user_access_token',
-            instagram_account_id: targetAccountId,
-            user_id: instagramUserId
-        };
+        if (!stateParam) {
+            console.error('No workspace_id in state param');
+            return NextResponse.redirect(`${origin}/dashboard/settings?error=missing_workspace`);
+        }
 
-        const { error: dbError } = await supabase.from('user_connections').upsert({
-            user_id: user.id,
-            provider: 'INSTAGRAM',
-            account_id: targetAccountId,
+        const { error: dbError } = await supabase.from('instagram_integrations').upsert({
+            workspace_id: stateParam,
+            instagram_account_id: targetAccountId,
             account_username: targetUsername,
-            workspace_id: stateParam || null, // Link to the active workspace
-            metadata: connectionData
-        }, { onConflict: 'account_id' });
+            access_token: accessToken,
+            connected_at: new Date().toISOString()
+        }, { onConflict: 'workspace_id, instagram_account_id' });
 
         if (dbError) {
             console.error('DB Error:', dbError);

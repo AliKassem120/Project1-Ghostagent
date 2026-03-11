@@ -82,7 +82,7 @@ async function processWhatsAppEvent(body: any) {
                 // Match by whatsapp_phone_number_id so each SaaS user's
                 // connected number routes to their correct agent.
                 const { data: workspace, error: wsError } = await supabase
-                    .from('bot_settings')
+                    .from('ai_settings')
                     .select('id, user_id, business_name, whatsapp_access_token')
                     .eq('whatsapp_phone_number_id', phoneNumberId)
                     .single();

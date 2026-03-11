@@ -87,7 +87,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         const [userRes, wsRes, igRes] = await Promise.all([
             supabase.from('users').select('plan_tier, business_type').eq('id', user.id).single(),
             supabase
-                .from('bot_settings')
+                .from('ai_settings')
                 .select('id, user_id, name, business_type, created_at')
                 .eq('user_id', user.id)
                 .order('created_at', { ascending: true }),

@@ -56,9 +56,9 @@ export default function OnboardingPage() {
                 .upsert({ id: user.id, business_type: selectedCategory }, { onConflict: "id" });
             if (userError) throw userError;
 
-            // 2) Create the initial workspace (bot_settings)
+            // 2) Create the initial workspace (ai_settings)
             const { error: botError } = await supabase
-                .from("bot_settings")
+                .from("ai_settings")
                 .insert({
                     user_id: user.id,
                     name: workspaceName.trim(),
@@ -237,7 +237,7 @@ export default function OnboardingPage() {
                                         setIsSaving(true);
                                         try {
                                             await supabase.from("users").upsert({ id: user.id, business_type: selectedCategory }, { onConflict: "id" });
-                                            const { data: wsData } = await supabase.from("bot_settings").insert({ user_id: user.id, name: workspaceName.trim(), business_type: selectedCategory }).select('id').single();
+                                            const { data: wsData } = await supabase.from("ai_settings").insert({ user_id: user.id, name: workspaceName.trim(), business_type: selectedCategory }).select('id').single();
                                             const workspaceId = wsData?.id || '';
                                             // Build the proper Instagram OAuth URL (same as Settings page)
                                             const appId = process.env.NEXT_PUBLIC_INSTAGRAM_APP_ID;

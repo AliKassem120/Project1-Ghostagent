@@ -15,52 +15,33 @@ export async function GET(request: NextRequest) {
         // Optional workspace_id filter — shows only connections for that workspace
         const workspaceId = request.nextUrl.searchParams.get('workspace_id');
 
+        if (!workspaceId) {
+            console.log("[Status] No workspace_id provided.");
+            return NextResponse.json({ connected: false, accounts: [] });
+        }
+
         // 1. Check database
         const { data: dbConnections, error } = await supabase
-            .from('user_connections')
+            .from('instagram_integrations')
             .select('*')
-            .eq('user_id', user.id)
-            .eq('provider', 'INSTAGRAM');
+            .eq('workspace_id', workspaceId);
 
         if (error) {
             console.error("[Status] DB Error:", error);
             return NextResponse.json({ connected: false, error: error.message });
         }
 
-        console.log(`[Status] Found ${dbConnections?.length || 0} connections for user ${user.id}`);
+        console.log(`[Status] Found ${dbConnections?.length || 0} connections for workspace ${workspaceId}`);
 
         if (dbConnections && dbConnections.length > 0) {
             const accounts = dbConnections.map(conn => {
-                // Determine display name
-                let name = conn.account_username;
-                const meta = conn.metadata || {};
-
-                // DEBUG LOGGING
-                if (meta.pages && Array.isArray(meta.pages)) {
-                    meta.pages.forEach((p: any, i: number) => {
-                        console.log(`[Status Debug] Page ${i} (ID: ${p.id}): Has IG? ${!!p.instagram_business_account}`);
-                        if (p.instagram_business_account) {
-                            console.log(`[Status Debug] IG ID: ${p.instagram_business_account.id}`);
-                        }
-                    });
-                }
-
-                // If username is missing, try to find it in metadata or fallback
-                if (!name) {
-                    if (meta.pages && Array.isArray(meta.pages) && meta.pages.length > 0) {
-                        name = meta.pages[0].name; // Use first page name
-                    } else if (meta.username) {
-                        name = meta.username;
-                    } else {
-                        name = 'Connected Account';
-                    }
-                }
+                let name = conn.account_username || 'Connected Account';
 
                 return {
-                    id: conn.account_id,
+                    id: conn.instagram_account_id,
                     username: name,
-                    provider: conn.provider,
-                    metadata: meta
+                    provider: 'INSTAGRAM',
+                    connected_at: conn.connected_at
                 };
             });
 
