@@ -167,7 +167,12 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                                         {workspaces.map(ws => (
                                             <button
                                                 key={ws.id}
-                                                onClick={() => { setActiveWorkspace(ws.id); setIsWorkspaceSwitcherOpen(false); if (window.innerWidth < 1024) onClose(); }}
+                                                onClick={() => {
+                                                    setActiveWorkspace(ws.id);
+                                                    setIsWorkspaceSwitcherOpen(false);
+                                                    if (window.innerWidth < 1024) onClose();
+                                                    router.push('/dashboard'); // Reset view to root dashboard on switch
+                                                }}
                                                 className={clsx(
                                                     'w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors',
                                                     ws.id === activeWorkspaceId

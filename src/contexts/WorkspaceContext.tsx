@@ -92,10 +92,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
                 .eq('user_id', user.id)
                 .order('created_at', { ascending: true }),
             supabase
-                .from('user_connections')
-                .select('account_id, account_username')
-                .eq('user_id', user.id)
-                .eq('provider', 'INSTAGRAM'),
+                .from('instagram_integrations')
+                .select('workspace_id, instagram_account_id, account_username')
         ]);
 
         const plan = normalisePlan(userRes.data?.plan_tier);
@@ -107,20 +105,21 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        // Build a map of account_id -> username from connections
-        const igConnections: Array<{ account_id: string; account_username: string }> = igRes.data || [];
-        const firstIg = igConnections[0] ?? null;
+        // Filter connections by their specific workspace_id
+        const igConnections: Array<{ workspace_id: string; instagram_account_id: string; account_username: string }> = igRes.data || [];
 
-        const rows: Workspace[] = (wsRes.data || []).map((r: any, index: number) => ({
-            id: r.id,
-            user_id: r.user_id,
-            name: r.name || 'My Store',
-            business_type: (r.business_type || 'ecommerce') as BusinessCategory,
-            // Attach the Instagram connection to the first workspace (current 1:1 model)
-            instagram_account_id: index === 0 && firstIg ? firstIg.account_id : null,
-            instagram_username: index === 0 && firstIg ? firstIg.account_username : null,
-            created_at: r.created_at,
-        }));
+        const rows: Workspace[] = (wsRes.data || []).map((r: any) => {
+            const igMatch = igConnections.find(ig => ig.workspace_id === r.id);
+            return {
+                id: r.id,
+                user_id: r.user_id,
+                name: r.name || 'My Store',
+                business_type: (r.business_type || 'ecommerce') as BusinessCategory,
+                instagram_account_id: igMatch?.instagram_account_id || null,
+                instagram_username: igMatch?.account_username || null,
+                created_at: r.created_at,
+            }
+        });
 
         setWorkspaces(rows);
 
