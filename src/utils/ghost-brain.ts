@@ -271,7 +271,7 @@ export async function generateGhostReply(
                         type: 'tool-call',
                         toolCallId: tc.toolCallId,
                         toolName: tc.toolName,
-                        args: tc.input || tc.args
+                        input: tc.input || tc.args
                     }))
                 });
 
@@ -282,7 +282,7 @@ export async function generateGhostReply(
                         type: 'tool-result',
                         toolCallId: tr.toolCallId,
                         toolName: tr.toolName,
-                        result: tr.output || tr.result
+                        output: { type: 'json', value: tr.output || tr.result }
                     }))
                 });
 
