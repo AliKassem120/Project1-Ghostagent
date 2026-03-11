@@ -243,12 +243,47 @@ export async function generateGhostReply(
         }
 
         const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
-        const result = await generateText({
-            model: groq('llama-3.3-70b-versatile'), // 70B handles tool calling far more reliably than 8B
+        let finalResult = await generateText({
+            model: groq('llama-3.3-70b-versatile'),
             system: systemPrompt,
             messages: [{ role: 'user', content: userMessage }],
             tools: toolsMapping,
         });
+
+        // ─── MANUAL REASONING STEP ───
+        // If the LLM called a lookup tool (e.g., inventory) but provided no text, 
+        // we need to feed the result back manually once so it can actually answer the user.
+        if (finalResult.toolCalls && finalResult.toolCalls.length > 0 && !finalResult.text) {
+            const readToolCalls = finalResult.toolCalls.filter(tc => tc.toolName !== 'finalize_transaction');
+
+            if (readToolCalls.length > 0) {
+                console.log(`[Ghost Brain] Executing ${readToolCalls.length} read tool(s) and looping...`);
+
+                const toolResultsMessages: any[] = [{ role: 'user', content: userMessage }];
+                toolResultsMessages.push({
+                    role: 'assistant', content: finalResult.toolCalls.map((tc: any) => {
+                        return { type: 'tool-call', toolCallId: tc.toolCallId, toolName: tc.toolName, args: tc.args };
+                    })
+                });
+
+                const toolResults = await Promise.all(readToolCalls.map(async (tc: any) => {
+                    const tool = toolsMapping[tc.toolName];
+                    const result = await tool.execute(tc.args, { toolCallId: tc.toolCallId, messages: [] });
+                    return { type: 'tool-result', toolCallId: tc.toolCallId, toolName: tc.toolName, result };
+                }));
+
+                toolResultsMessages.push({ role: 'tool', content: toolResults });
+
+                finalResult = await generateText({
+                    model: groq('llama-3.3-70b-versatile'),
+                    system: systemPrompt,
+                    messages: toolResultsMessages,
+                    tools: toolsMapping,
+                });
+            }
+        }
+
+        const result = finalResult;
 
         // ═══════════════════════════════════════
         // 7. HANDLE TOOL CALLS (finalize_transaction)

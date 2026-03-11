@@ -9,11 +9,13 @@ import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
 import GhostModal from '@/components/GhostModal';
 import { useRealtime } from '@/hooks/useRealtime';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 // Database row type
 type InventoryRow = {
     id: string;
     user_id: string;
+    workspace_id: string;
     item_name: string;
     price: number;
     stock_level: number;
@@ -32,6 +34,7 @@ type Product = {
 export default function InventoryPage() {
     const supabase = createClient();
     const toast = useToast();
+    const { activeWorkspaceId } = useWorkspace();
     const [userId, setUserId] = useState<string | null>(null);
     const [isAdding, setIsAdding] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -57,10 +60,10 @@ export default function InventoryPage() {
         'inventory',
         '*',
         {
-            filter: userId ? { column: 'user_id', value: userId } : undefined,
+            filter: activeWorkspaceId ? { column: 'workspace_id', value: activeWorkspaceId } : undefined,
             orderBy: 'created_at',
             orderDirection: 'desc',
-            enabled: !!userId,
+            enabled: !!activeWorkspaceId,
             onInsert: (item) => {
                 toast.ghost('Inventory Updated', { description: `"${item.item_name}" was added.` });
             },
@@ -115,6 +118,7 @@ export default function InventoryPage() {
                 .from('inventory')
                 .insert({
                     user_id: userId,
+                    workspace_id: activeWorkspaceId,
                     item_name: newProduct.name,
                     price: price,
                     stock_level: stock,
