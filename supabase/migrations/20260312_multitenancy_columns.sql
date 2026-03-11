@@ -43,6 +43,22 @@ BEGIN
         END IF;
     END IF;
 
+    -- ORDERS (Commerce Leads)
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'orders') THEN
+        IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'orders' AND column_name = 'workspace_id') THEN
+            ALTER TABLE orders ADD COLUMN workspace_id UUID REFERENCES ai_settings(id) ON DELETE CASCADE;
+            UPDATE orders SET workspace_id = (SELECT id FROM ai_settings WHERE user_id = orders.user_id LIMIT 1) WHERE workspace_id IS NULL;
+        END IF;
+    END IF;
+
+    -- SERVICES (Vertical specific)
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'services') THEN
+        IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'services' AND column_name = 'workspace_id') THEN
+            ALTER TABLE services ADD COLUMN workspace_id UUID REFERENCES ai_settings(id) ON DELETE CASCADE;
+            UPDATE services SET workspace_id = (SELECT id FROM ai_settings WHERE user_id = services.user_id LIMIT 1) WHERE workspace_id IS NULL;
+        END IF;
+    END IF;
+
     -- ACTIVITY LOG (Traceability)
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'activity_log') THEN
         IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'activity_log' AND column_name = 'workspace_id') THEN

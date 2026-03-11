@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS ai_settings (
   language TEXT DEFAULT 'Auto-Detect',
   use_local_slang BOOLEAN DEFAULT false,
   use_emojis BOOLEAN DEFAULT true,
+  is_autopilot_enabled BOOLEAN DEFAULT true,
   
   -- Handoff & Omnichannel
   emergency_whatsapp TEXT,
@@ -35,9 +36,13 @@ CREATE TABLE IF NOT EXISTS ai_settings (
 );
 
 ALTER TABLE ai_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view own ai_settings" ON ai_settings;
 CREATE POLICY "Users can view own ai_settings" ON ai_settings FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can insert own ai_settings" ON ai_settings;
 CREATE POLICY "Users can insert own ai_settings" ON ai_settings FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own ai_settings" ON ai_settings;
 CREATE POLICY "Users can update own ai_settings" ON ai_settings FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own ai_settings" ON ai_settings;
 CREATE POLICY "Users can delete own ai_settings" ON ai_settings FOR DELETE USING (auth.uid() = user_id);
 
 -- 2. Instagram Integrations (Replaces user_connections, isolated by workspace_id)
@@ -53,6 +58,7 @@ CREATE TABLE IF NOT EXISTS instagram_integrations (
 );
 
 ALTER TABLE instagram_integrations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can manage integrations through their workspace" ON instagram_integrations;
 CREATE POLICY "Users can manage integrations through their workspace" ON instagram_integrations
 FOR ALL
 USING (

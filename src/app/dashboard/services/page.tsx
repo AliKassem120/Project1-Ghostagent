@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Trash2, Clock, DollarSign, Briefcase, Loader2, AlertCircle, Scissors, ChevronUp, ChevronDown } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 interface Service {
     id: string;
@@ -21,6 +22,7 @@ const EMPTY_FORM = { name: "", description: "", price: "", duration_minutes: "30
 export default function ServicesPage() {
     const supabase = createClient();
     const { user } = useAuth();
+    const { activeWorkspaceId } = useWorkspace();
     const toast = useToast();
 
     const [services, setServices] = useState<Service[]>([]);
@@ -31,12 +33,12 @@ export default function ServicesPage() {
     const [formError, setFormError] = useState<string | null>(null);
 
     const fetchServices = useCallback(async () => {
-        if (!user?.id) return;
+        if (!activeWorkspaceId) return;
         setLoading(true);
         const { data, error } = await supabase
             .from("services")
             .select("*")
-            .eq("user_id", user.id)
+            .eq("workspace_id", activeWorkspaceId)
             .order("created_at", { ascending: false });
 
         if (error) {
@@ -65,6 +67,7 @@ export default function ServicesPage() {
         setSaving(true);
         const { error } = await supabase.from("services").insert({
             user_id: user.id,
+            workspace_id: activeWorkspaceId,
             name: form.name.trim(),
             description: form.description.trim() || null,
             price: Number(form.price),

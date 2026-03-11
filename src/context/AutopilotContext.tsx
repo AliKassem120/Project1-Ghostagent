@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { toggleAutopilotAction } from '@/app/actions/settings';
 
 interface AutopilotContextType {
@@ -14,21 +15,21 @@ interface AutopilotContextType {
 const AutopilotContext = createContext<AutopilotContextType | undefined>(undefined);
 
 export function AutopilotProvider({ children }: { children: React.ReactNode }) {
-    const [autopilot, setAutopilotState] = useState(true); // Default robust fallback
+    const [autopilot, setAutopilotState] = useState(true);
     const [isLoading, setIsLoading] = useState(true);
+    const { activeWorkspaceId } = useWorkspace();
     const supabase = createClient();
     const toast = useToast();
 
     const fetchAutopilotStatus = useCallback(async (isSilent = false) => {
         try {
+            if (!activeWorkspaceId) return;
             if (!isSilent) setIsLoading(true);
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
 
             const { data, error } = await supabase
-                .from('users')
+                .from('ai_settings')
                 .select('is_autopilot_enabled')
-                .eq('id', user.id)
+                .eq('id', activeWorkspaceId)
                 .single();
 
             if (data) {
@@ -39,7 +40,7 @@ export function AutopilotProvider({ children }: { children: React.ReactNode }) {
         } finally {
             setIsLoading(false);
         }
-    }, [supabase]);
+    }, [supabase, activeWorkspaceId]);
 
     useEffect(() => {
         fetchAutopilotStatus();
@@ -53,12 +54,17 @@ export function AutopilotProvider({ children }: { children: React.ReactNode }) {
     }, [fetchAutopilotStatus]);
 
     const setAutopilot = async (value: boolean) => {
-        // Optimistic update
+        if (!activeWorkspaceId) return;
         const previousValue = autopilot;
         setAutopilotState(value);
 
         try {
-            await toggleAutopilotAction(value);
+            const { error } = await supabase
+                .from('ai_settings')
+                .update({ is_autopilot_enabled: value })
+                .eq('id', activeWorkspaceId);
+
+            if (error) throw error;
 
             toast.success(value ? "Autopilot Enabled" : "Autopilot Disabled", {
                 description: value
@@ -68,7 +74,7 @@ export function AutopilotProvider({ children }: { children: React.ReactNode }) {
 
         } catch (err) {
             console.error('Failed to update autopilot:', err);
-            setAutopilotState(previousValue); // Revert on error
+            setAutopilotState(previousValue);
             toast.error("Failed to update autopilot status");
         }
     };

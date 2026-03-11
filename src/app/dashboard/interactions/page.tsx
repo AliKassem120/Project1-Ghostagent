@@ -61,14 +61,15 @@ export default function InteractionsPage() {
         // Store userId for realtime subscription filter
         setUserId(user.id);
 
+        if (!activeWorkspaceId) {
+            setLoading(false);
+            return;
+        }
+
         let query = supabase
             .from('activity_log')
             .select('*')
-            .eq('user_id', user.id);
-
-        if (activeWorkspaceId) {
-            query = query.or(`workspace_id.eq.${activeWorkspaceId},workspace_id.is.null`);
-        }
+            .eq('workspace_id', activeWorkspaceId);
 
         // Fetch Logs
         const { data: logsData } = await query.order('timestamp', { ascending: true });
@@ -77,7 +78,7 @@ export default function InteractionsPage() {
         const { data: states } = await supabase
             .from('conversation_states')
             .select('external_chat_id, is_muted')
-            .eq('user_id', user.id)
+            .eq('workspace_id', activeWorkspaceId)
             .eq('is_muted', true);
 
         if (logsData) {
@@ -101,12 +102,13 @@ export default function InteractionsPage() {
 
             const { error: upsertError } = await supabase.from('conversation_states').upsert({
                 user_id: user.id,
+                workspace_id: activeWorkspaceId,
                 external_chat_id: chatId,
                 platform: 'INSTAGRAM',
                 is_muted: newStatus,
                 muted_until: newStatus ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null,
                 last_interaction_at: new Date().toISOString()
-            }, { onConflict: 'user_id,external_chat_id' });
+            }, { onConflict: 'workspace_id,external_chat_id' });
 
             if (upsertError) {
                 console.error("Supabase upsert error:", upsertError);

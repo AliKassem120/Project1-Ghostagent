@@ -248,37 +248,51 @@ export async function generateGhostReply(
             system: systemPrompt,
             messages: [{ role: 'user', content: userMessage }],
             tools: toolsMapping,
+            toolChoice: 'auto',
+            temperature: 0,
         });
 
         // ─── MANUAL REASONING STEP ───
         // If the LLM called a lookup tool (e.g., inventory) but provided no text, 
         // we need to feed the result back manually once so it can actually answer the user.
+        // In this SDK version, tools with 'execute' are run automatically in the first pass.
         if (finalResult.toolCalls && finalResult.toolCalls.length > 0 && !finalResult.text) {
-            const readToolCalls = finalResult.toolCalls.filter(tc => tc.toolName !== 'finalize_transaction');
+            const executedResults = (finalResult as any).toolResults || [];
 
-            if (readToolCalls.length > 0) {
-                console.log(`[Ghost Brain] Executing ${readToolCalls.length} read tool(s) and looping...`);
+            if (executedResults.length > 0) {
+                console.log(`[Ghost Brain] Found ${executedResults.length} executed tool results. Looping for final answer...`);
 
                 const toolResultsMessages: any[] = [{ role: 'user', content: userMessage }];
+
+                // 1. Assistant message with tool calls (using .input for this SDK version)
                 toolResultsMessages.push({
-                    role: 'assistant', content: finalResult.toolCalls.map((tc: any) => {
-                        return { type: 'tool-call', toolCallId: tc.toolCallId, toolName: tc.toolName, args: tc.args };
-                    })
+                    role: 'assistant',
+                    content: finalResult.toolCalls.map((tc: any) => ({
+                        type: 'tool-call',
+                        toolCallId: tc.toolCallId,
+                        toolName: tc.toolName,
+                        args: tc.input || tc.args
+                    }))
                 });
 
-                const toolResults = await Promise.all(readToolCalls.map(async (tc: any) => {
-                    const tool = toolsMapping[tc.toolName];
-                    const result = await tool.execute(tc.args, { toolCallId: tc.toolCallId, messages: [] });
-                    return { type: 'tool-result', toolCallId: tc.toolCallId, toolName: tc.toolName, result };
-                }));
-
-                toolResultsMessages.push({ role: 'tool', content: toolResults });
+                // 2. Tool message with results (using .output for this SDK version)
+                toolResultsMessages.push({
+                    role: 'tool',
+                    content: executedResults.map((tr: any) => ({
+                        type: 'tool-result',
+                        toolCallId: tr.toolCallId,
+                        toolName: tr.toolName,
+                        result: tr.output || tr.result
+                    }))
+                });
 
                 finalResult = await generateText({
                     model: groq('llama-3.3-70b-versatile'),
                     system: systemPrompt,
                     messages: toolResultsMessages,
                     tools: toolsMapping,
+                    toolChoice: 'auto',
+                    temperature: 0,
                 });
             }
         }
@@ -292,7 +306,7 @@ export async function generateGhostReply(
         if (result.toolCalls && result.toolCalls.length > 0) {
             const toolCall = result.toolCalls.find((tc: any) => tc.toolName === 'finalize_transaction');
             if (toolCall && toolCall.type === 'tool-call') {
-                const args = (toolCall as any).args as Record<string, string | undefined>;
+                const args = ((toolCall as any).input || (toolCall as any).args) as Record<string, string | undefined>;
 
                 console.log('🔧 [Tool] finalize_transaction called with args:', args);
 

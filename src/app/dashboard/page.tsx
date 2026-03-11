@@ -215,37 +215,21 @@ export default function DashboardPage() {
         'activity_log',
         '*',
         {
-            // Always filter by user_id (guaranteed to have data)
-            filter: userId ? { column: 'user_id', value: userId } : undefined,
+            filter: activeWorkspaceId ? { column: 'workspace_id', value: activeWorkspaceId } : undefined,
             orderBy: 'timestamp',
             orderDirection: 'desc',
             limit: 50,
-            enabled: !!userId,
+            enabled: !!activeWorkspaceId,
             pollingInterval: 3000,
         }
     );
 
-    // Strict workspace filter: only show rows assigned to the ACTIVE workspace.
-    // Fallback: If a row has NO workspace_id (due to un-run migration or Supabase API cache dropping the new column),
-    // we assume it belongs to their VERY FIRST chronological workspace so data isn't lost.
-    const activities = useMemo(() => {
-        if (!activeWorkspaceId) return allActivities;
-        const firstWorkspaceId = workspaces?.[0]?.id; // From useWorkspace context
-
-        return allActivities.filter(a => {
-            const wId = (a as any).workspace_id;
-            if (!wId) {
-                // If the column is missing in the API response, only show this row if we are currently looking at the first workspace.
-                return activeWorkspaceId === firstWorkspaceId;
-            }
-            return wId === activeWorkspaceId;
-        });
-    }, [allActivities, activeWorkspaceId, workspaces]);
+    const activities = allActivities;
 
     useRealtimeCount(
         'activity_log',
-        userId ? { column: 'user_id', value: userId } : undefined,
-        { pollingInterval: 3000 }
+        activeWorkspaceId ? { column: 'workspace_id', value: activeWorkspaceId } : undefined,
+        { pollingInterval: 3000, enabled: !!activeWorkspaceId }
     );
     // Adjust count to match the client-side filtered set
     const totalInteractions = activities.length;
@@ -254,24 +238,12 @@ export default function DashboardPage() {
         'inventory',
         'id, stock_level',
         {
-            filter: userId ? { column: 'user_id', value: userId } : undefined,
-            enabled: !!userId,
+            filter: activeWorkspaceId ? { column: 'workspace_id', value: activeWorkspaceId } : undefined,
+            enabled: !!activeWorkspaceId,
             pollingInterval: 3000,
         }
     );
-    // Client-side filter for inventory too
-    const inventoryItems = useMemo(() => {
-        if (!activeWorkspaceId) return allInventoryItems;
-        const firstWorkspaceId = workspaces?.[0]?.id; // From useWorkspace context
-
-        return allInventoryItems.filter(i => {
-            const wId = (i as any).workspace_id;
-            if (!wId) {
-                return activeWorkspaceId === firstWorkspaceId;
-            }
-            return wId === activeWorkspaceId;
-        });
-    }, [allInventoryItems, activeWorkspaceId, workspaces]);
+    const inventoryItems = allInventoryItems;
 
     const { version } = useDashboard();
 

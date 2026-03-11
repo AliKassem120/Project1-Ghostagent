@@ -66,12 +66,12 @@ export default function OrdersPage() {
         setLoading(true);
         try {
             let q = supabase.from('orders').select('*').order('created_at', { ascending: false });
-            if (activeWorkspaceId) {
-                q = q.eq('workspace_id', activeWorkspaceId);
-            } else {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user) q = q.eq('user_id', user.id);
+            if (!activeWorkspaceId) {
+                setOrders([]);
+                setLoading(false);
+                return;
             }
+            q = q.eq('workspace_id', activeWorkspaceId);
             const { data, error } = await q;
             if (!error && data) setOrders(data as OrderLead[]);
         } finally {
