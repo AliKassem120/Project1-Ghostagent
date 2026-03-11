@@ -248,7 +248,6 @@ export async function generateGhostReply(
             system: systemPrompt,
             messages: [{ role: 'user', content: userMessage }],
             tools: toolsMapping,
-            maxSteps: 3, // Enable multi-step reasoning for the model to use the read tools and respond
         });
 
         // ═══════════════════════════════════════

@@ -13,10 +13,10 @@ const getAdminClient = () => {
 // 1. E-Commerce Inventory
 export const checkEcommerceInventoryTool = (workspaceId: string) => tool({
     description: "Queries the exact, real-time stock count and variants for the active workspace's store. Call this before confirming product availability.",
-    parameters: z.object({
+    inputSchema: z.object({
         product_name: z.string().describe("The name or category of the product to check. Be broad if checking availability of types.")
     }),
-    execute: async ({ product_name }) => {
+    execute: async ({ product_name }: { product_name: string }) => {
         const supabase = getAdminClient();
         console.log(`[Read Tool] check_ecommerce_inventory: ${product_name} | ws: ${workspaceId}`);
         const { data, error } = await supabase.from('inventory')
@@ -33,11 +33,11 @@ export const checkEcommerceInventoryTool = (workspaceId: string) => tool({
 // 2. Appointments / Calendar
 export const checkCalendarAvailabilityTool = (workspaceId: string) => tool({
     description: "Check available time slots for a specified date and service. Call this before offering appointment times to the user.",
-    parameters: z.object({
+    inputSchema: z.object({
         date: z.string().describe("The requested date (YYYY-MM-DD format)."),
         service: z.string().optional().describe("The specific service requested, if any.")
     }),
-    execute: async ({ date, service }) => {
+    execute: async ({ date, service }: { date: string; service?: string }) => {
         const supabase = getAdminClient();
         console.log(`[Read Tool] check_calendar_availability: ${date} ${service} | ws: ${workspaceId}`);
         // In reality, this queries your Google Calendar / Bookings table
@@ -55,11 +55,11 @@ export const checkCalendarAvailabilityTool = (workspaceId: string) => tool({
 // 3. Real Estate
 export const searchActiveListingsTool = (workspaceId: string) => tool({
     description: "Searches the real estate database for active listings matching budget and location. Must be queried to present real properties.",
-    parameters: z.object({
+    inputSchema: z.object({
         budget_max: z.number().optional().describe("Maximum budget the customer is willing to spend."),
         location_keyword: z.string().optional().describe("Location, neighborhood, or city name.")
     }),
-    execute: async ({ budget_max, location_keyword }) => {
+    execute: async ({ budget_max, location_keyword }: { budget_max?: number; location_keyword?: string }) => {
         const supabase = getAdminClient();
         console.log(`[Read Tool] search_active_listings: ${budget_max} ${location_keyword} | ws: ${workspaceId}`);
         let query = supabase.from('properties')
@@ -79,10 +79,10 @@ export const searchActiveListingsTool = (workspaceId: string) => tool({
 // 4. Food & Beverage
 export const searchMenuItemsTool = (workspaceId: string) => tool({
     description: "Returns the current menu items, availability, and prices. Ensure you cross-reference this before confirming orders.",
-    parameters: z.object({
+    inputSchema: z.object({
         item_category: z.string().optional().describe("E.g., Pizza, Drinks, Dessert. Leave blank to check random items.")
     }),
-    execute: async ({ item_category }) => {
+    execute: async ({ item_category }: { item_category?: string }) => {
         const supabase = getAdminClient();
         console.log(`[Read Tool] search_menu_items: ${item_category} | ws: ${workspaceId}`);
         let query = supabase.from('menu_items')
@@ -101,11 +101,11 @@ export const searchMenuItemsTool = (workspaceId: string) => tool({
 // 5. Events & Ticketing
 export const checkTicketAvailabilityTool = (workspaceId: string) => tool({
     description: "Checks if an event has remaining ticket capacity for a specific tier (e.g. VIP or General). Do this before checkout.",
-    parameters: z.object({
+    inputSchema: z.object({
         event_name: z.string().describe("Name of the event. Be broad."),
         tier: z.string().optional().describe("Specific ticket tier (VIP, General, etc).")
     }),
-    execute: async ({ event_name, tier }) => {
+    execute: async ({ event_name, tier }: { event_name: string; tier?: string }) => {
         const supabase = getAdminClient();
         console.log(`[Read Tool] check_ticket_availability: ${event_name} ${tier} | ws: ${workspaceId}`);
         let query = supabase.from('events')
@@ -124,10 +124,10 @@ export const checkTicketAvailabilityTool = (workspaceId: string) => tool({
 // 6. Digital Services
 export const fetchSupportDocsTool = (workspaceId: string) => tool({
     description: "Searches the business' specific knowledge base or FAQs. Use this to provide accurate, business-specific technical support and policies.",
-    parameters: z.object({
+    inputSchema: z.object({
         query: z.string().describe("The core question or topic to search the knowledge base for.")
     }),
-    execute: async ({ query }) => {
+    execute: async ({ query }: { query: string }) => {
         const supabase = getAdminClient();
         console.log(`[Read Tool] fetch_support_docs: ${query} | ws: ${workspaceId}`);
         // Basic full text search emulation (in reality, you might use pg_search or embeddings)
