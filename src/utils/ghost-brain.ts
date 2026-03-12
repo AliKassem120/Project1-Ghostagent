@@ -179,6 +179,79 @@ export async function generateGhostReply(
         // ═══════════════════════════════════════
 
         // Define the finalize_transaction tool inside so it can use the closure (supabase, userId, etc.)
+        // Dynamically build strict Zod schemas per workspace type to force LLM field collection
+        let transactionSchema: z.ZodType<any>;
+        switch (business.business_type) {
+            case 'ecommerce':
+                transactionSchema = z.object({
+                    workspace_type: z.literal('ecommerce'),
+                    item_name: z.string().describe("Product name the customer ordered."),
+                    item_variant: z.string().optional().describe("Product variant or size (if applicable)."),
+                    payment_method: z.string().describe("Payment method, e.g. Cash on Delivery."),
+                    customer_name: z.string().describe("Full name of the customer."),
+                    customer_phone: z.string().describe("Customer phone number."),
+                    delivery_address: z.string().describe("Delivery or shipping address."),
+                });
+                break;
+            case 'appointments':
+                transactionSchema = z.object({
+                    workspace_type: z.literal('appointments'),
+                    service_type: z.string().describe("Type of service being booked."),
+                    preferred_datetime: z.string().describe("Preferred date and time for the appointment."),
+                    customer_name: z.string().describe("Full name of the customer."),
+                    customer_phone: z.string().optional().describe("Customer phone number."),
+                    customer_email: z.string().optional().describe("Customer email address. (At least one contact method is required)"),
+                });
+                break;
+            case 'real_estate':
+                transactionSchema = z.object({
+                    workspace_type: z.literal('real_estate'),
+                    budget: z.string().describe("Customer's budget range."),
+                    desired_location: z.string().describe("Preferred property location(s)."),
+                    property_type: z.string().describe("Rent or buy, and property type (apartment, villa, etc.)."),
+                    timeline: z.string().describe("How soon the customer wants to move or invest."),
+                    customer_name: z.string().describe("Full name of the prospect."),
+                    customer_phone: z.string().describe("Customer phone number."),
+                });
+                break;
+            case 'food_and_beverage':
+                transactionSchema = z.object({
+                    workspace_type: z.literal('food_and_beverage'),
+                    menu_items: z.string().describe("Ordered menu items as a comma-separated list."),
+                    delivery_address: z.string().describe("Delivery address OR 'pickup'."),
+                    customer_name: z.string().describe("Full name of the customer."),
+                    customer_phone: z.string().describe("Customer phone number."),
+                    dietary_notes: z.string().optional().describe("Dietary restrictions or notes."),
+                });
+                break;
+            case 'events_ticketing':
+                transactionSchema = z.object({
+                    workspace_type: z.literal('events_ticketing'),
+                    event_name: z.string().describe("Name of the event."),
+                    ticket_count: z.string().describe("Number of tickets requested."),
+                    ticket_tier: z.string().describe("Ticket tier: VIP or General Admission."),
+                    customer_name: z.string().describe("Full name of the customer."),
+                    customer_email: z.string().describe("Email address (for digital ticket delivery)."),
+                });
+                break;
+            case 'digital_services':
+                transactionSchema = z.object({
+                    workspace_type: z.literal('digital_services'),
+                    service_required: z.string().describe("The specific service or product the customer needs."),
+                    problem_description: z.string().describe("Description of the customer's specific request or problem."),
+                    customer_name: z.string().describe("Full name of the customer."),
+                    customer_email: z.string().describe("Email address (for delivery or support)."),
+                });
+                break;
+            default:
+                transactionSchema = z.object({
+                    workspace_type: z.string().describe("The active workspace type."),
+                    customer_name: z.string().describe("Full name of the customer."),
+                    customer_phone: z.string().optional().describe("Customer phone number."),
+                    delivery_address: z.string().optional().describe("Delivery or shipping address."),
+                });
+        }
+
         const finalizeTransactionTool = tool({
             description:
                 "Call this tool IMMEDIATELY once the customer has provided ALL required information " +
@@ -186,52 +259,7 @@ export async function generateGhostReply(
                 "DO NOT call this tool if any required field is still missing. " +
                 "DO NOT ask for the same field twice. " +
                 "After calling this tool, send ONE brief success message and stop.",
-            inputSchema: z.object({
-                workspace_type: z.enum([
-                    'ecommerce',
-                    'appointments',
-                    'real_estate',
-                    'food_and_beverage',
-                    'events_ticketing',
-                    'digital_services',
-                ]).describe("The active workspace type."),
-
-                // ── Ecommerce ──
-                item_name: z.string().optional().describe("Product name the customer ordered."),
-                item_variant: z.string().optional().describe("Product variant or size (if applicable)."),
-                payment_method: z.string().optional().describe("Payment method, e.g. Cash on Delivery."),
-
-                // ── Universal contact fields (shared across workspace types) ──
-                customer_name: z.string().optional().describe("Full name of the customer."),
-                customer_phone: z.string().optional().describe("Customer phone number."),
-                customer_email: z.string().optional().describe("Customer email address."),
-
-                // ── Ecommerce / Food ──
-                delivery_address: z.string().optional().describe("Delivery or shipping address."),
-
-                // ── Food extras ──
-                menu_items: z.string().optional().describe("Ordered menu items as a comma-separated list."),
-                dietary_notes: z.string().optional().describe("Dietary restrictions or notes."),
-
-                // ── Appointments ──
-                service_type: z.string().optional().describe("Type of service being booked."),
-                preferred_datetime: z.string().optional().describe("Preferred date and time for the appointment."),
-
-                // ── Real Estate ──
-                budget: z.string().optional().describe("Customer's budget range."),
-                desired_location: z.string().optional().describe("Preferred property location(s)."),
-                property_type: z.string().optional().describe("Rent or buy, and property type (apartment, villa, etc.)."),
-                timeline: z.string().optional().describe("How soon the customer wants to move or invest."),
-
-                // ── Events & Ticketing ──
-                event_name: z.string().optional().describe("Name of the event."),
-                ticket_count: z.string().optional().describe("Number of tickets requested."),
-                ticket_tier: z.string().optional().describe("Ticket tier: VIP or General Admission."),
-
-                // ── Digital Services ──
-                service_required: z.string().optional().describe("The specific service or product the customer needs."),
-                problem_description: z.string().optional().describe("Description of the customer's specific request or problem."),
-            }),
+            inputSchema: transactionSchema,
             execute: async (args) => {
                 console.log('✅ Finalizing transaction via tool:', args);
                 let handle = chatId || 'unknown_customer';

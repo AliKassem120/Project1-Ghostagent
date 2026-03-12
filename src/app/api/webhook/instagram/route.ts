@@ -620,12 +620,19 @@ async function fetchUserProfile(senderId: string, supabaseAdmin: any, workspaceI
 
     try {
         const baseUrl = isNewAPI ? 'https://graph.instagram.com' : 'https://graph.facebook.com';
-        const url = `${baseUrl}/v21.0/${senderId}?fields=name,username&access_token=${token}`;
+        const url = `${baseUrl}/v21.0/${senderId}?fields=name,username,profile_pic&access_token=${token}`;
         const res = await fetch(url);
         const data = await res.json();
+
+        if (data.error) {
+            console.error('⚠️ [fetchUserProfile] Graph API Error:', data.error);
+            return null;
+        }
+
+        // Return name or username, fallback to null
         return data.name || data.username || null;
     } catch (e) {
-        console.error('Failed to fetch profile:', e);
+        console.error('❌ [fetchUserProfile] Fatal Error fetching profile:', e);
         return null;
     }
 }
