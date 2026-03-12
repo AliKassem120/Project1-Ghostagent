@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Download, ShoppingBag, Instagram, Clock, CheckCircle2, PhoneCall, Loader2, RefreshCw, ChevronDown, Trash2 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
+import CustomSelect from '@/components/CustomSelect';
+import GhostModal from '@/components/GhostModal';
+import clsx from 'clsx';
 
 type OrderStatus = 'Pending' | 'Contacted' | 'Fulfilled';
 
@@ -37,19 +40,86 @@ function StatusBadge({ status }: { status: OrderStatus }) {
 }
 
 function StatusSelector({ current, onChange }: { current: OrderStatus; onChange: (s: OrderStatus) => void }) {
+    const options = [
+        { label: 'Pending', value: 'Pending' },
+        { label: 'Contacted', value: 'Contacted' },
+        { label: 'Fulfilled', value: 'Fulfilled' }
+    ];
+
     return (
-        <div className="relative inline-flex items-center group cursor-pointer">
-            <select
+        <div className="relative inline-flex items-center min-w-[110px]" onClick={e => e.stopPropagation()}>
+            <CustomSelect
+                options={options}
                 value={current}
-                onChange={(e) => onChange(e.target.value as OrderStatus)}
-                className="appearance-none text-[11px] sm:text-[12px] font-semibold bg-transparent border-0 outline-none cursor-pointer text-current pr-5 pl-1 focus:ring-0"
-                onClick={(e) => e.stopPropagation()}
+                onChange={(v) => onChange(v as OrderStatus)}
+                className="!py-0"
+            />
+        </div>
+    );
+}
+
+// Custom specialized selector to fit in the table row
+function InlineStatusSelector({ current, onChange }: { current: OrderStatus; onChange: (s: OrderStatus) => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isOpen]);
+
+    const options: OrderStatus[] = ['Pending', 'Contacted', 'Fulfilled'];
+
+    return (
+        <div className="relative" ref={containerRef} onClick={e => e.stopPropagation()}>
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className={clsx(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold tracking-wide transition-all",
+                    STATUS_CONFIG[current].className,
+                    "hover:scale-[1.02] active:scale-[0.98]"
+                )}
             >
-                <option value="Pending" className="text-foreground bg-surface-1">Pending</option>
-                <option value="Contacted" className="text-foreground bg-surface-1">Contacted</option>
-                <option value="Fulfilled" className="text-foreground bg-surface-1">Fulfilled</option>
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 absolute right-0 pointer-events-none opacity-50 group-hover:opacity-100 transition-opacity" />
+                {current}
+                <ChevronDown className={clsx("w-3 h-3 transition-transform", isOpen && "rotate-180")} />
+            </button>
+
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 5, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 5, scale: 0.95 }}
+                        className="absolute bottom-full left-0 mb-2 z-50 min-w-[130px] bg-surface-1 border border-border shadow-xl rounded-xl overflow-hidden p-1"
+                    >
+                        {options.map((status) => {
+                            const { icon: Icon } = STATUS_CONFIG[status];
+                            return (
+                                <button
+                                    key={status}
+                                    onClick={() => {
+                                        onChange(status);
+                                        setIsOpen(false);
+                                    }}
+                                    className={clsx(
+                                        "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors",
+                                        current === status ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-surface-2 hover:text-foreground"
+                                    )}
+                                >
+                                    <Icon className="w-3.5 h-3.5" />
+                                    {status}
+                                    {current === status && <CheckCircle2 className="w-3 h-3 ml-auto" />}
+                                </button>
+                            );
+                        })}
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
@@ -64,6 +134,8 @@ export default function OrdersPage() {
     const [orders, setOrders] = useState<OrderLead[]>([]);
     const [loading, setLoading] = useState(true);
     const [updating, setUpdating] = useState<string | null>(null);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
 
     const fetchOrders = useCallback(async () => {
         setLoading(true);
@@ -91,12 +163,19 @@ export default function OrdersPage() {
         setUpdating(null);
     };
 
-    const handleDeleteOrder = async (orderId: string) => {
-        if (!window.confirm('Are you sure you want to delete this order? This cannot be undone.')) return;
-        setUpdating(orderId);
-        await supabase.from('orders').delete().eq('id', orderId);
-        setOrders(prev => prev.filter(o => o.id !== orderId));
+    const confirmDeleteOrder = async () => {
+        if (!orderToDelete) return;
+        const id = orderToDelete;
+        setOrderToDelete(null);
+        setUpdating(id);
+        await supabase.from('orders').delete().eq('id', id);
+        setOrders(prev => prev.filter(o => o.id !== id));
         setUpdating(null);
+    };
+
+    const handleDeleteOrderRequest = (orderId: string) => {
+        setOrderToDelete(orderId);
+        setDeleteModalOpen(true);
     };
 
     const handleExportCSV = () => {
@@ -248,16 +327,14 @@ export default function OrdersPage() {
                                             {order.customer_address || <span className="text-muted-foreground/50 italic">Pending…</span>}
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] sm:text-[12px] font-semibold tracking-wide ${STATUS_CONFIG[order.status].className}`}>
-                                                {updating === order.id
-                                                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                                    : <StatusSelector current={order.status} onChange={(s) => handleStatusChange(order.id, s)} />
-                                                }
-                                            </div>
+                                            {updating === order.id
+                                                ? <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-2 border border-border"><Loader2 className="w-3.5 h-3.5 animate-spin" /><span className="text-[11px]">Updating…</span></div>
+                                                : <InlineStatusSelector current={order.status} onChange={(s) => handleStatusChange(order.id, s)} />
+                                            }
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <button
-                                                onClick={() => handleDeleteOrder(order.id)}
+                                                onClick={() => handleDeleteOrderRequest(order.id)}
                                                 disabled={updating === order.id}
                                                 className="p-2 text-muted-foreground hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors inline-flex disabled:opacity-50"
                                                 title="Delete Order"
@@ -272,6 +349,17 @@ export default function OrdersPage() {
                     </div>
                 )}
             </motion.div>
+
+            <GhostModal
+                isOpen={deleteModalOpen}
+                title="Delete Order Lead"
+                message="Are you sure you want to delete this order? This action cannot be undone and will permanently remove the lead from your dashboard."
+                confirmText="Delete Permanently"
+                cancelText="Keep Order"
+                variant="danger"
+                onConfirm={confirmDeleteOrder}
+                onCancel={() => setDeleteModalOpen(false)}
+            />
         </div>
     );
 }
