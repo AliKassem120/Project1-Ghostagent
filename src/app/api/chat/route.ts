@@ -126,15 +126,15 @@ INSTRUCTIONS:
                 }
 
                 // FETCH CSV PRODUCT CATALOG FROM business_knowledge (workspace-aware)
-                const knowledgeQuery = supabase
+                let knowledgeQuery = supabase
                     .from('business_knowledge')
                     .select('content, file_name')
                     .eq('user_id', ownerId);
 
                 if (workspaceId) {
-                    knowledgeQuery.eq('workspace_id', workspaceId);
+                    knowledgeQuery = knowledgeQuery.eq('workspace_id', workspaceId);
                 } else {
-                    knowledgeQuery.is('workspace_id', null);
+                    knowledgeQuery = knowledgeQuery.is('workspace_id', null);
                 }
 
                 const { data: knowledgeData } = await knowledgeQuery.maybeSingle();
