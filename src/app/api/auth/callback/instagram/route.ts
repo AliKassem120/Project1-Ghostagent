@@ -74,6 +74,28 @@ export async function GET(request: NextRequest) {
         const targetAccountId = profileData.user_id || profileData.id;
         const targetUsername = profileData.username || profileData.name || 'Instagram User';
 
+        // 2.5 Subscribe the App to Webhooks for this specific Instagram account
+        // Without this, Meta knows you have permission but doesn't actively send the webhooks to your server.
+        try {
+            const subscribeUrl = `https://graph.instagram.com/v21.0/me/subscribed_apps`;
+
+            const subscribeBody = new URLSearchParams();
+            subscribeBody.append('access_token', accessToken);
+            subscribeBody.append('subscribed_fields', 'messages,comments');
+
+            const subscribeRes = await fetch(subscribeUrl, {
+                method: 'POST',
+                body: subscribeBody
+            });
+            const subscribeData = await subscribeRes.json();
+            console.log('Webhook Subscription Status:', subscribeData);
+            if (subscribeData.error) {
+                console.error('Failed to subscribe to webhooks:', subscribeData.error);
+            }
+        } catch (subErr) {
+            console.error('Error auto-subscribing to webhooks:', subErr);
+        }
+
         // 3. Store Connection in DB (Strict Isolation)
         // We store the INSTAGRAM ACCOUNT ID as the account_id, so webhooks match.
         if (!stateParam) {

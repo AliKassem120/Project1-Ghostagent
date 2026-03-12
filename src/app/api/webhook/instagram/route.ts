@@ -589,6 +589,7 @@ async function fetchUserProfile(senderId: string) {
 async function sendReply(ownerId: string, recipientId: string, text: string, supabaseAdmin: any, workspaceId?: string) {
     let token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
     let url = `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`;
+    let isNewAPI = false;
 
     // Get the workspace-specific token from DB
     const { data: connection } = await supabaseAdmin.from('instagram_integrations')
@@ -598,6 +599,7 @@ async function sendReply(ownerId: string, recipientId: string, text: string, sup
 
     if (connection?.access_token) {
         token = connection.access_token;
+        isNewAPI = true;
         console.log(`[sendReply] Using workspace token for ${workspaceId}`);
     } else {
         // Fallback to old table if migration isn't fully complete or for legacy reasons
@@ -641,8 +643,9 @@ async function sendReply(ownerId: string, recipientId: string, text: string, sup
         return;
     }
 
-    // Reconstruct URL with the sanitized token
-    url = `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`;
+    // Reconstruct URL with the sanitized token using appropriate host
+    const baseUrl = isNewAPI ? 'https://graph.instagram.com' : 'https://graph.facebook.com';
+    url = `${baseUrl}/v21.0/me/messages?access_token=${token}`;
 
     const body = {
         recipient: { id: recipientId },
@@ -744,7 +747,7 @@ async function sendCommentReply(ownerId: string, commentId: string, message: str
 
     if (connection?.access_token) {
         token = connection.access_token;
-        url = `https://graph.facebook.com/v21.0/${commentId}/replies?access_token=${token}`;
+        url = `https://graph.instagram.com/v21.0/${commentId}/replies?access_token=${token}`;
         console.log(`[sendCommentReply] Using workspace token for ${workspaceId}`);
     } else {
         const { data: oldConn } = await supabaseAdmin.from('user_connections')
@@ -755,6 +758,7 @@ async function sendCommentReply(ownerId: string, commentId: string, message: str
 
         if (oldConn?.metadata?.access_token) {
             token = oldConn.metadata.access_token;
+            url = `https://graph.facebook.com/v21.0/${commentId}/replies?access_token=${token}`;
             console.log(`[sendCommentReply] Using legacy user_connections token for ${ownerId}`);
         }
     }
