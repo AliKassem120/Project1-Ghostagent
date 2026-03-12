@@ -348,6 +348,18 @@ export async function generateGhostReply(
 
         const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
 
+        // ─── MODEL TIERING (Intent Detection) ───
+        const purchaseKeywords = ['buy', 'order', 'checkout', 'pay', 'purchase', 'book', 'schedule', 'viewing', 'ticket', 'delivery', 'shipping'];
+        const isPurchaseIntent = purchaseKeywords.some(kw => userMessage.toLowerCase().includes(kw));
+        const hasActiveToolContext = historyContext.toLowerCase().includes('transaction') || historyContext.toLowerCase().includes('order');
+
+        // Choose Model: Use Big Brain (70B) for transactions, else use fast/cheap 8B
+        const selectedModel = (isPurchaseIntent || hasActiveToolContext || checkoutContext)
+            ? 'llama-3.3-70b-versatile'
+            : 'llama-3.1-8b-instant';
+
+        console.log(`🚀 [Ghost Brain] Selected Model: ${selectedModel} (${isPurchaseIntent ? 'Purchase Intent' : 'General Chat'})`);
+
         // ─── CONSTRUCT MESSAGE HISTORY ───
         // Map the database activity_log history to a format the LLM understands (role: user/assistant)
         const messages: any[] = (fullHistory || [])
@@ -362,7 +374,7 @@ export async function generateGhostReply(
         messages.push({ role: 'user', content: userMessage });
 
         let finalResult = await generateText({
-            model: groq('llama-3.3-70b-versatile'),
+            model: groq(selectedModel),
             system: systemPrompt,
             messages: messages,
             tools: toolsMapping,
@@ -370,19 +382,24 @@ export async function generateGhostReply(
             temperature: 0,
         });
 
+        // Log Usage
+        if (finalResult.usage) {
+            const { promptTokens, completionTokens, totalTokens } = finalResult.usage as any;
+            console.log(`📊 [Usage] Tokens: ${promptTokens || 0} (In) / ${completionTokens || 0} (Out) — Total: ${totalTokens || 0}`);
+        }
+
         // ─── MANUAL REASONING STEP ───
         // If the LLM called a lookup tool (e.g., inventory) but provided no text, 
         // we need to feed the result back manually once so it can actually answer the user.
-        // In this SDK version, tools with 'execute' are run automatically in the first pass.
         if (finalResult.toolCalls && finalResult.toolCalls.length > 0 && !finalResult.text) {
             const executedResults = (finalResult as any).toolResults || [];
 
             if (executedResults.length > 0) {
-                console.log(`[Ghost Brain] Found ${executedResults.length} executed tool results. Looping for final answer...`);
+                console.log(`[Ghost Brain] Tool used. Powering up for final answer...`);
 
                 const toolResultsMessages: any[] = [{ role: 'user', content: userMessage }];
 
-                // 1. Assistant message with tool calls (using .input for this SDK version)
+                // Assistant message with tool calls
                 toolResultsMessages.push({
                     role: 'assistant',
                     content: finalResult.toolCalls.map((tc: any) => ({
@@ -393,7 +410,7 @@ export async function generateGhostReply(
                     }))
                 });
 
-                // 2. Tool message with results (using .output for this SDK version)
+                // Tool message with results
                 toolResultsMessages.push({
                     role: 'tool',
                     content: executedResults.map((tr: any) => ({
@@ -405,13 +422,18 @@ export async function generateGhostReply(
                 });
 
                 finalResult = await generateText({
-                    model: groq('llama-3.3-70b-versatile'),
+                    model: groq('llama-3.3-70b-versatile'), // Always use 70B for the final reasoning pass if tools were involved
                     system: systemPrompt,
                     messages: toolResultsMessages,
                     tools: toolsMapping,
                     toolChoice: 'auto',
                     temperature: 0,
                 });
+
+                if (finalResult.usage) {
+                    const { promptTokens, completionTokens, totalTokens } = finalResult.usage as any;
+                    console.log(`📊 [Usage - Pass 2] Tokens: ${promptTokens || 0} (In) / ${completionTokens || 0} (Out) — Total: ${totalTokens || 0}`);
+                }
             }
         }
 
