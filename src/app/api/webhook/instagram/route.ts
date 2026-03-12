@@ -293,13 +293,14 @@ async function processWebhookEvent(body: any) {
                         console.log('🛑 SKIPPING COMMENT: No connected owner found.');
                         continue;
                     }
-                    const { userId: ownerId } = commentOwnerResult;
+                    const { userId: ownerId, workspaceId: commentWorkspaceId } = commentOwnerResult;
 
                     // Check for duplicate replies
                     const { data: existingReply } = await supabaseAdmin
                         .from('activity_log')
                         .select('id')
                         .eq('user_id', ownerId)
+                        .eq('workspace_id', commentWorkspaceId || null)
                         .eq('event_type', 'COMMENT_REPLY')
                         .filter('metadata->>comment_id', 'eq', commentId)
                         .limit(1)
@@ -313,6 +314,7 @@ async function processWebhookEvent(body: any) {
                     // Log incoming comment
                     await supabaseAdmin.from('activity_log').insert({
                         user_id: ownerId,
+                        workspace_id: commentWorkspaceId || null,
                         event_type: 'INCOMING_COMMENT',
                         description: `Comment from @${commenterName}: "${commentText}"`,
                         timestamp: new Date().toISOString(),
@@ -333,6 +335,7 @@ async function processWebhookEvent(body: any) {
                         console.log(`🛑 LIMIT REACHED for ${ownerId}: ${limitCheck.reason}`);
                         await supabaseAdmin.from('activity_log').insert({
                             user_id: ownerId,
+                            workspace_id: commentWorkspaceId || null,
                             event_type: 'SYSTEM_WARNING',
                             description: `⚠️ Comment Agent Paused: ${limitCheck.reason}`,
                             timestamp: new Date().toISOString(),
@@ -342,7 +345,7 @@ async function processWebhookEvent(body: any) {
                     }
 
                     // Generate comment reply
-                    const aiResponse = await generateCommentReply(ownerId, commentText, commenterName, supabaseAdmin);
+                    const aiResponse = await generateCommentReply(ownerId, commentText, commenterName, supabaseAdmin, commentWorkspaceId ?? undefined);
 
                     if (!aiResponse) {
                         console.log('Ghost Protocol: No comment reply generated.');
@@ -350,12 +353,13 @@ async function processWebhookEvent(body: any) {
                     }
 
                     // Autopilot check
-                    const isAutopilot = await checkAutopilot(supabaseAdmin, ownerId, commenterId);
+                    const isAutopilot = await checkAutopilot(supabaseAdmin, ownerId, commenterId, commentWorkspaceId ?? undefined);
 
                     if (!isAutopilot) {
                         console.log('🛑 AUTOPILOT OFF: Saving draft comment reply.');
                         await supabaseAdmin.from('activity_log').insert({
                             user_id: ownerId,
+                            workspace_id: commentWorkspaceId || null,
                             event_type: 'DRAFT_COMMENT_REPLY',
                             description: `Draft Comment Reply: "${aiResponse}"`,
                             timestamp: new Date().toISOString(),
@@ -375,10 +379,11 @@ async function processWebhookEvent(body: any) {
 
                     console.log(`🤖 Comment Reply to @${commenterName}: ${aiResponse}`);
 
-                    await sendCommentReply(ownerId, commentId, aiResponse, supabaseAdmin);
+                    await sendCommentReply(ownerId, commentId, aiResponse, supabaseAdmin, commentWorkspaceId ?? undefined);
 
                     await supabaseAdmin.from('activity_log').insert({
                         user_id: ownerId,
+                        workspace_id: commentWorkspaceId || null,
                         event_type: 'COMMENT_REPLY',
                         description: `Replied to @${commenterName}: "${aiResponse}"`,
                         timestamp: new Date().toISOString(),
@@ -456,7 +461,7 @@ async function processDmBuffer({
         let checkoutCtx: string | undefined;
         let checkoutSession: any = null;
         try {
-            checkoutSession = await getCheckoutSession(supabaseAdmin, ownerId, senderId);
+            checkoutSession = await getCheckoutSession(supabaseAdmin, ownerId, senderId, effectiveWorkspaceId || null);
             if (!checkoutSession && detectsPurchaseIntent(batchedMessage)) {
                 const { data: wsData } = await supabaseAdmin
                     .from('ai_settings')
@@ -503,7 +508,7 @@ async function processDmBuffer({
         }
 
         // 5. Autopilot check
-        const isAutopilot = await checkAutopilot(supabaseAdmin, ownerId, senderId);
+        const isAutopilot = await checkAutopilot(supabaseAdmin, ownerId, senderId, effectiveWorkspaceId ?? undefined);
         if (!isAutopilot) {
             console.log('🛑 AUTOPILOT OFF: Saving draft reply.');
             await supabaseAdmin.from('activity_log').insert({
@@ -520,7 +525,7 @@ async function processDmBuffer({
 
         // 6. Send the reply
         console.log('🤖 AI Reply:', aiResponse);
-        await sendReply(ownerId, senderId, aiResponse, supabaseAdmin);
+        await sendReply(ownerId, senderId, aiResponse, supabaseAdmin, effectiveWorkspaceId || undefined);
 
         // 7. Log the reply
         await supabaseAdmin.from('activity_log').insert({
@@ -581,27 +586,35 @@ async function fetchUserProfile(senderId: string) {
     }
 }
 
-async function sendReply(ownerId: string, recipientId: string, text: string, supabaseAdmin: any) {
+async function sendReply(ownerId: string, recipientId: string, text: string, supabaseAdmin: any, workspaceId?: string) {
     let token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
     let url = `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`;
 
-    // Get the user's specific token from DB
-    const { data: connection } = await supabaseAdmin.from('user_connections')
-        .select('metadata, provider')
-        .eq('user_id', ownerId)
-        .in('provider', ['INSTAGRAM', 'instagram_api_login'])
+    // Get the workspace-specific token from DB
+    const { data: connection } = await supabaseAdmin.from('instagram_integrations')
+        .select('access_token')
+        .eq('workspace_id', workspaceId || '')
         .limit(1).maybeSingle();
 
-    if (connection?.metadata?.access_token) {
-        token = connection.metadata.access_token;
-        // Check metadata.provider (not the DB column which is always 'INSTAGRAM')
-        const isInstagramLogin = connection.metadata?.provider === 'instagram_api_login';
-        if (isInstagramLogin) {
-            url = `https://graph.instagram.com/v21.0/me/messages?access_token=${token}`;
-        } else {
-            url = `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`;
+    if (connection?.access_token) {
+        token = connection.access_token;
+        // Check if we should use the Instagram Graph API instead of the Facebook Graph API
+        // For standard Instagram Professional accounts, both work, but some specific setups prefer graph.instagram.com
+        // We'll stick to the standard Facebook Graph API unless we have a reason to switch.
+        url = `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`;
+        console.log(`[sendReply] Using workspace token for ${workspaceId}`);
+    } else {
+        // Fallback to old table if migration isn't fully complete or for legacy reasons
+        const { data: oldConn } = await supabaseAdmin.from('user_connections')
+            .select('metadata')
+            .eq('user_id', ownerId)
+            .in('provider', ['INSTAGRAM', 'instagram_api_login'])
+            .limit(1).maybeSingle();
+
+        if (oldConn?.metadata?.access_token) {
+            token = oldConn.metadata.access_token;
+            console.log(`[sendReply] Using legacy user_connections token for ${ownerId}`);
         }
-        console.log(`[sendReply] Using ${isInstagramLogin ? 'Instagram' : 'Facebook'} API for user ${ownerId}`);
     }
 
     if (!token) {
@@ -660,12 +673,13 @@ async function findOwner(supabaseAdmin: any, accountId: string | undefined): Pro
     return null;
 }
 
-async function checkAutopilot(supabaseAdmin: any, ownerId: string, externalChatId?: string): Promise<boolean> {
-    // 1. Global autopilot check
+async function checkAutopilot(supabaseAdmin: any, ownerId: string, externalChatId?: string, workspaceId?: string): Promise<boolean> {
+    // 1. Global/Workspace autopilot check
+    // If workspaceId is provided, we check ai_settings for that specific workspace
     const { data: settings, error: settingsError } = await supabaseAdmin
-        .from('users')
+        .from('ai_settings')
         .select('is_autopilot_enabled')
-        .eq('id', ownerId)
+        .eq(workspaceId ? 'id' : 'user_id', workspaceId || ownerId)
         .maybeSingle();
 
     if (settingsError) {
@@ -675,7 +689,7 @@ async function checkAutopilot(supabaseAdmin: any, ownerId: string, externalChatI
     const globalAutopilot = settings?.is_autopilot_enabled ?? true;
 
     if (!globalAutopilot) {
-        console.log(`🤖 Global Autopilot for ${ownerId}: OFF`);
+        console.log(`🤖 Global Autopilot for ${workspaceId || ownerId}: OFF`);
         return false;
     }
 
@@ -685,6 +699,8 @@ async function checkAutopilot(supabaseAdmin: any, ownerId: string, externalChatI
             .from('conversation_states')
             .select('is_muted')
             .eq('user_id', ownerId)
+            // Added workspace filter for chat state if available
+            .eq(workspaceId ? 'workspace_id' : 'user_id', workspaceId || ownerId)
             .eq('external_chat_id', externalChatId)
             .maybeSingle();
 
@@ -694,30 +710,35 @@ async function checkAutopilot(supabaseAdmin: any, ownerId: string, externalChatI
         }
     }
 
-    console.log(`🤖 Autopilot System for ${ownerId}: ON`);
+    console.log(`🤖 Autopilot System for ${workspaceId || ownerId}: ON`);
     return true;
 }
 
-async function sendCommentReply(ownerId: string, commentId: string, message: string, supabaseAdmin: any) {
+async function sendCommentReply(ownerId: string, commentId: string, message: string, supabaseAdmin: any, workspaceId?: string) {
     let token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
     let url = `https://graph.facebook.com/v21.0/${commentId}/replies?access_token=${token}`;
 
-    const { data: connection } = await supabaseAdmin.from('user_connections')
-        .select('metadata, provider')
-        .eq('user_id', ownerId)
-        .in('provider', ['INSTAGRAM', 'instagram_api_login'])
+    // Get the workspace-specific token from DB
+    const { data: connection } = await supabaseAdmin.from('instagram_integrations')
+        .select('access_token')
+        .eq('workspace_id', workspaceId || '')
         .limit(1).maybeSingle();
 
-    if (connection?.metadata?.access_token) {
-        token = connection.metadata.access_token;
-        // Check metadata.provider (not the DB column which is always 'INSTAGRAM')
-        const isInstagramLogin = connection.metadata?.provider === 'instagram_api_login';
-        if (isInstagramLogin) {
-            url = `https://graph.instagram.com/v21.0/${commentId}/replies?access_token=${token}`;
-        } else {
-            url = `https://graph.facebook.com/v21.0/${commentId}/replies?access_token=${token}`;
+    if (connection?.access_token) {
+        token = connection.access_token;
+        url = `https://graph.facebook.com/v21.0/${commentId}/replies?access_token=${token}`;
+        console.log(`[sendCommentReply] Using workspace token for ${workspaceId}`);
+    } else {
+        const { data: oldConn } = await supabaseAdmin.from('user_connections')
+            .select('metadata')
+            .eq('user_id', ownerId)
+            .in('provider', ['INSTAGRAM', 'instagram_api_login'])
+            .limit(1).maybeSingle();
+
+        if (oldConn?.metadata?.access_token) {
+            token = oldConn.metadata.access_token;
+            console.log(`[sendCommentReply] Using legacy user_connections token for ${ownerId}`);
         }
-        console.log(`[sendCommentReply] Using ${isInstagramLogin ? 'Instagram' : 'Facebook'} API for user ${ownerId}`);
     }
 
     if (!token) {
@@ -749,21 +770,24 @@ async function generateCommentReply(
     userId: string,
     commentText: string,
     commenterName: string,
-    supabase: any
+    supabase: any,
+    workspaceId?: string
 ): Promise<string | null> {
     try {
+        // Fetch from ai_settings (Workspace scoped)
         const { data: settings } = await supabase
-            .from('bot_settings')
+            .from('ai_settings')
             .select('business_name, business_type, tone, system_instructions, language')
-            .eq('user_id', userId)
-            .single();
+            .eq(workspaceId ? 'id' : 'user_id', workspaceId || userId)
+            .maybeSingle();
 
         const businessName = settings?.business_name || 'our store';
 
+        // Fetch workspace-scoped inventory
         const { data: inventory } = await supabase
             .from('inventory')
             .select('item_name, stock_level, price')
-            .eq('user_id', userId);
+            .eq(workspaceId ? 'workspace_id' : 'user_id', workspaceId || userId);
 
         let inventoryContext = "No inventory items listed.";
         if (inventory?.length) {

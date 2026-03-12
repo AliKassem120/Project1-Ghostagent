@@ -131,6 +131,7 @@ export default function InventoryPage() {
             if (data) {
                 await supabase.from('activity_log').insert({
                     user_id: userId,
+                    workspace_id: activeWorkspaceId || null,
                     event_type: 'INVENTORY_ADD',
                     description: `Added "${data.item_name}" to stock`,
                     timestamp: new Date().toISOString()
@@ -199,15 +200,17 @@ export default function InventoryPage() {
         setDeleteModal({ open: true, productId: product.id, productName: product.name });
     };
 
-    // Fetch existing CSV
+    // Fetch existing CSV for THIS workspace
     useEffect(() => {
         const fetchCatalogInfo = async () => {
-            if (!userId) return;
+            if (!userId || !activeWorkspaceId) return;
             const { data } = await supabase
                 .from('business_knowledge')
                 .select('file_name, content')
                 .eq('user_id', userId)
-                .single();
+                .eq('workspace_id', activeWorkspaceId)
+                .maybeSingle();
+
             if (data && data.file_name) {
                 try {
                     const rows = JSON.parse(data.content);
@@ -215,10 +218,12 @@ export default function InventoryPage() {
                 } catch {
                     setUploadedFile({ name: data.file_name, rowCount: 0 });
                 }
+            } else {
+                setUploadedFile(null); // Reset if switching to empty ws
             }
         };
         fetchCatalogInfo();
-    }, [userId, supabase]);
+    }, [userId, activeWorkspaceId, supabase]);
 
     const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -232,8 +237,8 @@ export default function InventoryPage() {
         setUploading(true);
 
         try {
-            if (!userId) {
-                toast.error('Please log in to upload a catalog');
+            if (!userId || !activeWorkspaceId) {
+                toast.error('Missing context for upload');
                 setUploading(false);
                 return;
             }
@@ -256,11 +261,12 @@ export default function InventoryPage() {
                         .from('business_knowledge')
                         .upsert({
                             user_id: userId,
+                            workspace_id: activeWorkspaceId,
                             file_name: file.name,
                             content: jsonContent,
                             updated_at: new Date().toISOString()
                         }, {
-                            onConflict: 'user_id'
+                            onConflict: 'user_id,workspace_id'
                         });
 
                     if (error) {
@@ -291,12 +297,13 @@ export default function InventoryPage() {
     };
 
     const handleRemoveCatalog = async () => {
-        if (!userId) return;
+        if (!userId || !activeWorkspaceId) return;
 
         const { error } = await supabase
             .from('business_knowledge')
             .delete()
-            .eq('user_id', userId);
+            .eq('user_id', userId)
+            .eq('workspace_id', activeWorkspaceId);
 
         if (!error) {
             setUploadedFile(null);

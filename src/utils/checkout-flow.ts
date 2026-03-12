@@ -32,14 +32,22 @@ export interface ExtractedInfo {
 export async function getCheckoutSession(
     supabase: any,
     userId: string,
-    senderId: string
+    senderId: string,
+    workspaceId: string | null = null
 ): Promise<CheckoutSession | null> {
-    const { data } = await supabase
+    let query = supabase
         .from('order_sessions')
         .select('*')
         .eq('user_id', userId)
-        .eq('sender_id', senderId)
-        .maybeSingle();
+        .eq('sender_id', senderId);
+
+    if (workspaceId) {
+        query = query.eq('workspace_id', workspaceId);
+    } else {
+        query = query.is('workspace_id', null);
+    }
+
+    const { data } = await query.maybeSingle();
     return data || null;
 }
 

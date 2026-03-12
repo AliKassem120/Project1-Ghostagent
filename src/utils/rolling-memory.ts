@@ -29,7 +29,8 @@ interface HistoryEntry {
 export async function getConversationMemory(
     supabase: any,
     ownerId: string,
-    externalChatId: string
+    externalChatId: string,
+    workspaceId?: string
 ): Promise<{
     contextSummary: string | null;
     recentHistory: string;
@@ -40,7 +41,7 @@ export async function getConversationMemory(
     const { data: conversation } = await supabase
         .from('conversations')
         .select('id, context_summary, message_count')
-        .eq('owner_id', ownerId)
+        .eq(workspaceId ? 'workspace_id' : 'owner_id', workspaceId || ownerId)
         .eq('external_chat_id', externalChatId)
         .maybeSingle();
 
@@ -48,7 +49,7 @@ export async function getConversationMemory(
     const { data: history } = await supabase
         .from('activity_log')
         .select('description, event_type, metadata, timestamp')
-        .eq('user_id', ownerId)
+        .eq(workspaceId ? 'workspace_id' : 'user_id', workspaceId || ownerId)
         .filter('metadata->>chat_id', 'eq', externalChatId)
         .in('event_type', ['INCOMING_MESSAGE', 'AI_REPLY', 'MANUAL_REPLY'])
         .order('timestamp', { ascending: true });
@@ -112,7 +113,8 @@ export async function summarizeConversationIfNeeded(
     supabase: any,
     ownerId: string,
     externalChatId: string,
-    fullHistory: HistoryEntry[]
+    fullHistory: HistoryEntry[],
+    workspaceId?: string
 ): Promise<void> {
     if (fullHistory.length <= SUMMARY_THRESHOLD) {
         return; // Not enough messages to warrant summarization
@@ -138,7 +140,7 @@ export async function summarizeConversationIfNeeded(
         const { data: existing } = await supabase
             .from('conversations')
             .select('context_summary')
-            .eq('owner_id', ownerId)
+            .eq(workspaceId ? 'workspace_id' : 'owner_id', workspaceId || ownerId)
             .eq('external_chat_id', externalChatId)
             .maybeSingle();
 
@@ -180,13 +182,14 @@ prices mentioned, delivery details, and any commitments made. Max 10 bullet poin
             .from('conversations')
             .upsert({
                 owner_id: ownerId,
+                workspace_id: workspaceId || null,
                 external_chat_id: externalChatId,
                 platform: 'instagram',
                 context_summary: summary,
                 message_count: fullHistory.length,
                 updated_at: new Date().toISOString(),
             }, {
-                onConflict: 'owner_id,external_chat_id',
+                onConflict: workspaceId ? 'workspace_id,external_chat_id' : 'owner_id,external_chat_id',
             });
 
         console.log(`✅ Rolling Summary saved (${summary.split('\n').length} bullet points)`);
@@ -204,14 +207,15 @@ prices mentioned, delivery details, and any commitments made. Max 10 bullet poin
 export async function trackConversationMessage(
     supabase: any,
     ownerId: string,
-    externalChatId: string
+    externalChatId: string,
+    workspaceId?: string
 ): Promise<void> {
     try {
         // Try to increment existing
         const { data: existing } = await supabase
             .from('conversations')
             .select('id, message_count')
-            .eq('owner_id', ownerId)
+            .eq(workspaceId ? 'workspace_id' : 'owner_id', workspaceId || ownerId)
             .eq('external_chat_id', externalChatId)
             .maybeSingle();
 
@@ -228,6 +232,7 @@ export async function trackConversationMessage(
                 .from('conversations')
                 .insert({
                     owner_id: ownerId,
+                    workspace_id: workspaceId || null,
                     external_chat_id: externalChatId,
                     platform: 'instagram',
                     message_count: 1,

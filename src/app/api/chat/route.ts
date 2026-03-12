@@ -14,7 +14,7 @@ export const maxDuration = 30;
 
 export async function POST(req: Request) {
     try {
-        const { messages, userId } = await req.json();
+        const { messages, userId, workspaceId } = await req.json();
         console.log('Message received on server:', messages);
         console.log('Stream started');
 
@@ -62,20 +62,16 @@ export async function POST(req: Request) {
             );
         }
 
-        // 2. FETCH CURRENT INVENTORY FOR CONTEXT (Keep existing logic...)
-        // ... (We just need to ensure the variable names match what's below or above) ...
-        // Actually, to avoid breaking the surrounding code organization, I will rewrite the section 1-3.
-
-        // FETCH USER PROFILE FOR BUSINESS TYPE
-        let businessType = 'generic';
+        // FETCH WORKSPACE SETTINGS FOR BUSINESS TYPE
+        let businessType = 'ecommerce';
         if (ownerId) {
-            const { data: userProfile } = await supabase
-                .from('users')
+            const { data: wsProfile } = await supabase
+                .from('ai_settings')
                 .select('business_type')
-                .eq('id', ownerId)
-                .single();
-            if (userProfile?.business_type) {
-                businessType = userProfile.business_type;
+                .eq(workspaceId ? 'id' : 'user_id', workspaceId || ownerId)
+                .maybeSingle();
+            if (wsProfile?.business_type) {
+                businessType = wsProfile.business_type;
             }
         }
 
@@ -91,7 +87,7 @@ export async function POST(req: Request) {
                 const { data: services } = await supabase
                     .from('services')
                     .select('name, description, price, duration_minutes')
-                    .eq('user_id', ownerId);
+                    .eq(workspaceId ? 'workspace_id' : 'user_id', workspaceId || ownerId);
 
                 if (services?.length) {
                     servicesContext = services
@@ -120,7 +116,7 @@ INSTRUCTIONS:
                 const { data: inventory } = await supabase
                     .from('inventory')
                     .select('item_name, stock_level, price')
-                    .eq('user_id', ownerId);
+                    .eq(workspaceId ? 'workspace_id' : 'user_id', workspaceId || ownerId);
 
                 if (inventory?.length) {
                     inventoryContext = inventory
@@ -129,12 +125,19 @@ INSTRUCTIONS:
                         .join('\n');
                 }
 
-                // FETCH CSV PRODUCT CATALOG FROM business_knowledge
-                const { data: knowledgeData } = await supabase
+                // FETCH CSV PRODUCT CATALOG FROM business_knowledge (workspace-aware)
+                const knowledgeQuery = supabase
                     .from('business_knowledge')
                     .select('content, file_name')
-                    .eq('user_id', ownerId)
-                    .single();
+                    .eq('user_id', ownerId);
+
+                if (workspaceId) {
+                    knowledgeQuery.eq('workspace_id', workspaceId);
+                } else {
+                    knowledgeQuery.is('workspace_id', null);
+                }
+
+                const { data: knowledgeData } = await knowledgeQuery.maybeSingle();
 
                 if (knowledgeData?.content) {
                     try {
@@ -200,9 +203,9 @@ CATALOG-INVENTORY SYNC RULES:
                 const { data: existingItem } = await supabase
                     .from('inventory')
                     .select('*')
-                    .eq('user_id', ownerId)
+                    .eq(workspaceId ? 'workspace_id' : 'user_id', workspaceId || ownerId)
                     .ilike('item_name', itemName)
-                    .single();
+                    .maybeSingle();
 
                 if (action === 'add') {
                     if (existingItem) {
@@ -225,6 +228,7 @@ CATALOG-INVENTORY SYNC RULES:
                         // Log activity
                         await supabase.from('activity_log').insert({
                             user_id: ownerId,
+                            workspace_id: workspaceId || null,
                             event_type: 'RESTOCK',
                             description: `Restocked ${itemName}: +${quantity} units (New Level: ${newStock})${price !== undefined ? ` at $${price}/unit` : ''}`,
                             timestamp: new Date().toISOString()
@@ -241,6 +245,7 @@ CATALOG-INVENTORY SYNC RULES:
                             .from('inventory')
                             .insert({
                                 user_id: ownerId,
+                                workspace_id: workspaceId || null,
                                 item_name: itemName,
                                 stock_level: quantity,
                                 price: price
@@ -253,6 +258,7 @@ CATALOG-INVENTORY SYNC RULES:
                         // Log activity
                         await supabase.from('activity_log').insert({
                             user_id: ownerId,
+                            workspace_id: workspaceId || null,
                             event_type: 'NEW_ITEM',
                             description: `Added new item "${itemName}": ${quantity} units at $${price}/unit`,
                             timestamp: new Date().toISOString()
@@ -283,6 +289,7 @@ CATALOG-INVENTORY SYNC RULES:
                     // Log activity
                     await supabase.from('activity_log').insert({
                         user_id: ownerId,
+                        workspace_id: workspaceId || null,
                         event_type: 'SALE',
                         description: `Sold/Removed ${quantity} units of "${itemName}" (Remaining: ${newStock})`,
                         timestamp: new Date().toISOString()
@@ -366,6 +373,7 @@ CATALOG-INVENTORY SYNC RULES:
                     // 5. Log activity with metadata for threading
                     await supabase.from('activity_log').insert({
                         user_id: ownerId,
+                        workspace_id: workspaceId || null,
                         event_type: 'AI_REPLY',
                         description: `Sent DM to ${username}: "${content.substring(0, 30)}..."`,
                         metadata: {

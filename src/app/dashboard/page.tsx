@@ -211,6 +211,44 @@ export default function DashboardPage() {
         }
     };
 
+    // State for clearing activities
+    const [clearing, setClearing] = useState(false);
+    const [showClearConfirm, setShowClearConfirm] = useState(false);
+
+    // Function to refetch all dashboard data (activities and inventory)
+    const fetchDashboardData = () => {
+        refetchActivities();
+        refetchInventory();
+    };
+
+    const handleClearActivities = async () => {
+        if (!userId) return;
+        setClearing(true);
+        try {
+            const query = supabase
+                .from('activity_log')
+                .delete()
+                .eq('user_id', userId);
+
+            if (activeWorkspaceId) {
+                query.eq('workspace_id', activeWorkspaceId);
+            } else {
+                query.is('workspace_id', null);
+            }
+
+            const { error } = await query;
+            if (error) throw error;
+            toast.success("Activity cleared");
+            fetchDashboardData();
+        } catch (err) {
+            console.error('Failed to clear activity:', err);
+            toast.error("Failed to clear activity");
+        } finally {
+            setClearing(false);
+            setShowClearConfirm(false);
+        }
+    };
+
     const { data: allActivities, loading: activitiesLoading, refetch: refetchActivities } = useRealtime<ActivityLog>(
         'activity_log',
         '*',

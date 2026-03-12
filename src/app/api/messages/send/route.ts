@@ -11,18 +11,35 @@ export async function POST(req: Request) {
 
         if (!chatId || !text) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
 
-        // 1. Fetch User's Instagram Connection for the token
-        const { data: connection, error: connError } = await supabase
-            .from('user_connections')
-            .select('access_token')
-            .eq('user_id', user.id)
-            .eq('provider', 'INSTAGRAM')
-            .single();
+        // 1. Fetch Instagram Connection for this workspace
+        let token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
 
-        let token = connection?.access_token || process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
+        if (workspaceId) {
+            const { data: integration } = await supabase
+                .from('instagram_integrations')
+                .select('access_token')
+                .eq('workspace_id', workspaceId)
+                .maybeSingle();
+
+            if (integration?.access_token) {
+                token = integration.access_token;
+            }
+        } else {
+            // Fallback for non-workspace requests
+            const { data: connection } = await supabase
+                .from('user_connections')
+                .select('access_token')
+                .eq('user_id', user.id)
+                .eq('provider', 'INSTAGRAM')
+                .limit(1).maybeSingle();
+
+            if (connection?.access_token) {
+                token = connection.access_token;
+            }
+        }
 
         if (!token) {
-            return NextResponse.json({ error: 'Missing Instagram Access Token. Please reconnect your account.' }, { status: 401 });
+            return NextResponse.json({ error: 'Missing Instagram Access Token. Please ensure your workspace is connected.' }, { status: 401 });
         }
 
         const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`;

@@ -102,6 +102,7 @@ async function processWhatsAppEvent(body: any) {
                 // ── 2. LOG INCOMING MESSAGE ───────────────────────────────
                 await supabase.from('activity_log').insert({
                     user_id: ownerId,
+                    workspace_id: workspace.id,
                     event_type: 'INCOMING_MESSAGE',
                     description: `WhatsApp ${customerPhone}: "${messageText}"`,
                     timestamp: new Date().toISOString(),
@@ -114,7 +115,8 @@ async function processWhatsAppEvent(body: any) {
                     ownerId,
                     messageText,
                     supabase,
-                    customerPhone   // chatId = customer phone for rolling memory
+                    customerPhone,   // chatId = customer phone for rolling memory
+                    workspace.id     // Pass workspace ID for isolation
                 );
 
                 if (!aiResponse) {
@@ -147,6 +149,7 @@ async function processWhatsAppEvent(body: any) {
                 // ── 5. LOG AI REPLY ───────────────────────────────────────
                 await supabase.from('activity_log').insert({
                     user_id: ownerId,
+                    workspace_id: workspace.id,
                     event_type: 'AI_REPLY',
                     description: `WhatsApp reply to ${customerPhone}: "${aiResponse}"`,
                     timestamp: new Date().toISOString(),

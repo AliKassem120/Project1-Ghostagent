@@ -6,6 +6,7 @@ import { useChat, type UIMessage } from "@ai-sdk/react";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDashboard } from '@/contexts/DashboardContext';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { createClient } from '@/utils/supabase/client';
 
 interface GhostChatProps {
@@ -14,6 +15,7 @@ interface GhostChatProps {
 
 export default function GhostChat({ onActionComplete }: GhostChatProps) {
     const { refreshDashboard } = useDashboard();
+    const { activeWorkspaceId } = useWorkspace();
     const supabase = createClient();
     const [userName, setUserName] = useState<string>("Boss");
 
@@ -31,6 +33,7 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
     }, []);
 
     const { messages, setMessages, sendMessage, status, error } = useChat({
+        body: { workspaceId: activeWorkspaceId },
         onError: (err) => {
             console.error("GhostChat Client Error:", err);
         },

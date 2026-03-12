@@ -214,7 +214,7 @@ export default function SettingsPage() {
             await fetch('/api/disconnect', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ accountId })
+                body: JSON.stringify({ accountId, workspaceId: activeWorkspaceId })
             });
 
             toast.success('Account Disconnected', { description: 'The integration has been removed.' });

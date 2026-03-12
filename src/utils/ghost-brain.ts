@@ -37,64 +37,6 @@ const SUCCESS_MESSAGES: Record<string, string> = {
     default: "All done! We've got everything we need. ✅",
 };
 
-// ─── finalize_transaction Tool Schema ─────────────────────────
-// All fields are optional at the schema level; the system prompt
-// instructs the AI which subset is required for each workspace type.
-// This allows a single universal tool across all 6 workspace types.
-const finalizeTransactionTool = tool({
-    description:
-        "Call this tool IMMEDIATELY once the customer has provided ALL required information " +
-        "for their workspace type AND has confirmed their intent. " +
-        "DO NOT call this tool if any required field is still missing. " +
-        "DO NOT ask for the same field twice. " +
-        "After calling this tool, send ONE brief success message and stop.",
-    inputSchema: z.object({
-        workspace_type: z.enum([
-            'ecommerce',
-            'appointments',
-            'real_estate',
-            'food_and_beverage',
-            'events_ticketing',
-            'digital_services',
-        ]).describe("The active workspace type."),
-
-        // ── Ecommerce ──
-        item_name: z.string().optional().describe("Product name the customer ordered."),
-        item_variant: z.string().optional().describe("Product variant or size (if applicable)."),
-        payment_method: z.string().optional().describe("Payment method, e.g. Cash on Delivery."),
-
-        // ── Universal contact fields (shared across workspace types) ──
-        customer_name: z.string().optional().describe("Full name of the customer."),
-        customer_phone: z.string().optional().describe("Customer phone number."),
-        customer_email: z.string().optional().describe("Customer email address."),
-
-        // ── Ecommerce / Food ──
-        delivery_address: z.string().optional().describe("Delivery or shipping address."),
-
-        // ── Food extras ──
-        menu_items: z.string().optional().describe("Ordered menu items as a comma-separated list."),
-        dietary_notes: z.string().optional().describe("Dietary restrictions or notes."),
-
-        // ── Appointments ──
-        service_type: z.string().optional().describe("Type of service being booked."),
-        preferred_datetime: z.string().optional().describe("Preferred date and time for the appointment."),
-
-        // ── Real Estate ──
-        budget: z.string().optional().describe("Customer's budget range."),
-        desired_location: z.string().optional().describe("Preferred property location(s)."),
-        property_type: z.string().optional().describe("Rent or buy, and property type (apartment, villa, etc.)."),
-        timeline: z.string().optional().describe("How soon the customer wants to move or invest."),
-
-        // ── Events & Ticketing ──
-        event_name: z.string().optional().describe("Name of the event."),
-        ticket_count: z.string().optional().describe("Number of tickets requested."),
-        ticket_tier: z.string().optional().describe("Ticket tier: VIP or General Admission."),
-
-        // ── Digital Services ──
-        service_required: z.string().optional().describe("The specific service or product the customer needs."),
-        problem_description: z.string().optional().describe("Description of the customer's specific request or problem."),
-    }),
-});
 
 export async function generateGhostReply(
     userId: string,
@@ -156,12 +98,13 @@ export async function generateGhostReply(
         let hasGreetedRecently = false;
 
         if (chatId) {
-            const memory = await getConversationMemory(supabase, userId, chatId);
-            contextSummary = memory.contextSummary;
-            historyContext = memory.recentHistory;
-            fullHistory = memory.fullHistory;
+            const { contextSummary: fetchedContextSummary, recentHistory, fullHistory: fetchedFullHistory } =
+                await getConversationMemory(supabase, userId, chatId, workspaceId);
+            contextSummary = fetchedContextSummary;
+            historyContext = recentHistory;
+            fullHistory = fetchedFullHistory;
 
-            const recentBotMessages = memory.fullHistory
+            const recentBotMessages = fullHistory
                 .filter((h: any) => h.event_type === 'AI_REPLY')
                 .slice(-3);
             hasGreetedRecently = recentBotMessages.some((h: any) =>
@@ -169,8 +112,6 @@ export async function generateGhostReply(
                 h.description.toLowerCase().includes('how can i help') ||
                 h.description.toLowerCase().includes('store manager')
             );
-
-            await trackConversationMessage(supabase, userId, chatId);
         }
 
         // ═══════════════════════════════════════
@@ -229,6 +170,114 @@ export async function generateGhostReply(
         // ═══════════════════════════════════════
         // 6. GENERATE AI RESPONSE (with Tool Calling)
         // ═══════════════════════════════════════
+
+        // Define the finalize_transaction tool inside so it can use the closure (supabase, userId, etc.)
+        const finalizeTransactionTool = tool({
+            description:
+                "Call this tool IMMEDIATELY once the customer has provided ALL required information " +
+                "for their workspace type AND has confirmed their intent. " +
+                "DO NOT call this tool if any required field is still missing. " +
+                "DO NOT ask for the same field twice. " +
+                "After calling this tool, send ONE brief success message and stop.",
+            inputSchema: z.object({
+                workspace_type: z.enum([
+                    'ecommerce',
+                    'appointments',
+                    'real_estate',
+                    'food_and_beverage',
+                    'events_ticketing',
+                    'digital_services',
+                ]).describe("The active workspace type."),
+
+                // ── Ecommerce ──
+                item_name: z.string().optional().describe("Product name the customer ordered."),
+                item_variant: z.string().optional().describe("Product variant or size (if applicable)."),
+                payment_method: z.string().optional().describe("Payment method, e.g. Cash on Delivery."),
+
+                // ── Universal contact fields (shared across workspace types) ──
+                customer_name: z.string().optional().describe("Full name of the customer."),
+                customer_phone: z.string().optional().describe("Customer phone number."),
+                customer_email: z.string().optional().describe("Customer email address."),
+
+                // ── Ecommerce / Food ──
+                delivery_address: z.string().optional().describe("Delivery or shipping address."),
+
+                // ── Food extras ──
+                menu_items: z.string().optional().describe("Ordered menu items as a comma-separated list."),
+                dietary_notes: z.string().optional().describe("Dietary restrictions or notes."),
+
+                // ── Appointments ──
+                service_type: z.string().optional().describe("Type of service being booked."),
+                preferred_datetime: z.string().optional().describe("Preferred date and time for the appointment."),
+
+                // ── Real Estate ──
+                budget: z.string().optional().describe("Customer's budget range."),
+                desired_location: z.string().optional().describe("Preferred property location(s)."),
+                property_type: z.string().optional().describe("Rent or buy, and property type (apartment, villa, etc.)."),
+                timeline: z.string().optional().describe("How soon the customer wants to move or invest."),
+
+                // ── Events & Ticketing ──
+                event_name: z.string().optional().describe("Name of the event."),
+                ticket_count: z.string().optional().describe("Number of tickets requested."),
+                ticket_tier: z.string().optional().describe("Ticket tier: VIP or General Admission."),
+
+                // ── Digital Services ──
+                service_required: z.string().optional().describe("The specific service or product the customer needs."),
+                problem_description: z.string().optional().describe("Description of the customer's specific request or problem."),
+            }),
+            execute: async (args) => {
+                console.log('✅ Finalizing transaction via tool:', args);
+                try {
+                    // 1. Resolve customer handle from activity_log metadata
+                    let handle = chatId || 'unknown_customer';
+                    const { data: lastMsg } = await supabase
+                        .from('activity_log')
+                        .select('metadata')
+                        .eq('user_id', userId)
+                        .filter('metadata->>chat_id', 'eq', chatId)
+                        .order('timestamp', { ascending: false })
+                        .limit(1)
+                        .maybeSingle();
+
+                    if (lastMsg?.metadata?.username) {
+                        handle = lastMsg.metadata.username;
+                    }
+
+                    // 2. Map workspace items based on type
+                    const itemRequested = args.item_name || args.service_type || args.event_name || args.service_required || 'General Request';
+
+                    // 3. Insert into orders table
+                    const { error } = await supabase.from('orders').insert({
+                        user_id: userId,
+                        workspace_id: workspaceId || null,
+                        instagram_handle: handle,
+                        instagram_user_id: chatId,
+                        item_requested: itemRequested,
+                        customer_name: args.customer_name || null,
+                        customer_phone: args.customer_phone || null,
+                        customer_address: args.delivery_address || null,
+                        status: 'Pending',
+                        created_at: new Date().toISOString(),
+                    });
+
+                    if (error) throw error;
+                    console.log(`✅ [Ghost Brain] Order saved for ${handle}: ${itemRequested}`);
+
+                    return {
+                        status: 'success',
+                        message: "Transaction finalized and saved to the dashboard.",
+                        order_details: {
+                            item: itemRequested,
+                            customer: args.customer_name || 'Guest'
+                        }
+                    };
+                } catch (err) {
+                    console.error('❌ [Ghost Brain] Failed to finalize transaction:', err);
+                    return { status: 'error', message: "Failed to save the transaction to the database." };
+                }
+            }
+        });
+
         const toolsMapping: Record<string, any> = { finalize_transaction: finalizeTransactionTool };
 
         if (workspaceId) {
@@ -353,7 +402,9 @@ export async function generateGhostReply(
         // 8. BACKGROUND: Rolling Summarization
         // ═══════════════════════════════════════
         if (chatId && fullHistory.length > 0) {
-            summarizeConversationIfNeeded(supabase, userId, chatId, fullHistory)
+            trackConversationMessage(supabase, userId, chatId, workspaceId)
+                .catch(err => console.error('⚠️ message tracking failed:', err));
+            summarizeConversationIfNeeded(supabase, userId, chatId, fullHistory, workspaceId)
                 .catch(err => console.error('⚠️ Background summarization failed:', err));
         }
 

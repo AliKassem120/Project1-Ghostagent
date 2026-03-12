@@ -1,19 +1,27 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/utils/supabase/server';
 
 export async function POST(req: Request) {
     try {
-        const { accountId } = await req.json();
+        const { accountId, workspaceId } = await req.json();
 
-        // 1. Supabase Delete (Direct DB removal)
-        // Using service role to ensure deletion even if RLS is tricky, but strictly by account_id
-        // Ideally we should check user ownership, but for now matching previous admin behavior.
-        const supabase = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!
-        );
+        if (!accountId || !workspaceId) {
+            return NextResponse.json({ error: 'Missing accountId or workspaceId' }, { status: 400 });
+        }
 
-        const { error } = await supabase.from('instagram_integrations').delete().eq('instagram_account_id', accountId);
+        const supabase = await createClient(); // Use server client to respect RLS or check session
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Only delete if it belongs to the user and the workspace
+        const { error } = await supabase
+            .from('instagram_integrations')
+            .delete()
+            .eq('instagram_account_id', accountId)
+            .eq('workspace_id', workspaceId);
 
         if (error) throw error;
 

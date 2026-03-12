@@ -15,7 +15,26 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Missing Data' }, { status: 400 });
     }
 
-    const token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
+    // 1. Fetch activity log to get workspace_id
+    const { data: activity } = await supabase
+        .from('activity_log')
+        .select('workspace_id')
+        .eq('id', activityId)
+        .maybeSingle();
+
+    // 2. Resolve final token
+    let token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
+    if (activity?.workspace_id) {
+        const { data: integration } = await supabase
+            .from('instagram_integrations')
+            .select('access_token')
+            .eq('workspace_id', activity.workspace_id)
+            .maybeSingle();
+
+        if (integration?.access_token) {
+            token = integration.access_token;
+        }
+    }
 
     if (!token) {
         return NextResponse.json({ error: 'Missing Instagram Access Token' }, { status: 500 });
@@ -44,7 +63,7 @@ export async function POST(request: Request) {
         const { error: updateError } = await supabase
             .from('activity_log')
             .update({
-                event_type: 'MANUAL_REPLY', // Changed from DRAFT_REPLY
+                event_type: 'MANUAL_REPLY',
                 description: `Sent (Manual): "${replyText}"`,
                 metadata: {
                     chat_id: recipientId,

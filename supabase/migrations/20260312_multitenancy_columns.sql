@@ -66,4 +66,15 @@ BEGIN
             UPDATE activity_log SET workspace_id = (SELECT id FROM ai_settings WHERE user_id = activity_log.user_id LIMIT 1) WHERE workspace_id IS NULL;
         END IF;
     END IF;
+    -- CONVERSATIONS (Rolling Memory)
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'conversations') THEN
+        IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'conversations' AND column_name = 'workspace_id') THEN
+            ALTER TABLE conversations ADD COLUMN workspace_id UUID REFERENCES ai_settings(id) ON DELETE CASCADE;
+            UPDATE conversations SET workspace_id = (SELECT id FROM ai_settings WHERE user_id = conversations.owner_id LIMIT 1) WHERE workspace_id IS NULL;
+            
+            -- Update unique constraint to include workspace_id
+            ALTER TABLE conversations DROP CONSTRAINT IF EXISTS unique_conversation;
+            ALTER TABLE conversations ADD CONSTRAINT unique_conversation UNIQUE (workspace_id, external_chat_id);
+        END IF;
+    END IF;
 END $$;
