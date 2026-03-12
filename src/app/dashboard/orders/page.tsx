@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Download, ShoppingBag, Instagram, Clock, CheckCircle2, PhoneCall, Loader2, RefreshCw } from 'lucide-react';
+import { Download, ShoppingBag, Instagram, Clock, CheckCircle2, PhoneCall, Loader2, RefreshCw, ChevronDown, Trash2 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 
@@ -38,16 +38,19 @@ function StatusBadge({ status }: { status: OrderStatus }) {
 
 function StatusSelector({ current, onChange }: { current: OrderStatus; onChange: (s: OrderStatus) => void }) {
     return (
-        <select
-            value={current}
-            onChange={(e) => onChange(e.target.value as OrderStatus)}
-            className="text-[11px] font-semibold bg-transparent border-0 outline-none cursor-pointer text-foreground"
-            onClick={(e) => e.stopPropagation()}
-        >
-            <option value="Pending">Pending</option>
-            <option value="Contacted">Contacted</option>
-            <option value="Fulfilled">Fulfilled</option>
-        </select>
+        <div className="relative inline-flex items-center group cursor-pointer">
+            <select
+                value={current}
+                onChange={(e) => onChange(e.target.value as OrderStatus)}
+                className="appearance-none text-[11px] sm:text-[12px] font-semibold bg-transparent border-0 outline-none cursor-pointer text-current pr-5 pl-1 focus:ring-0"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <option value="Pending" className="text-foreground bg-surface-1">Pending</option>
+                <option value="Contacted" className="text-foreground bg-surface-1">Contacted</option>
+                <option value="Fulfilled" className="text-foreground bg-surface-1">Fulfilled</option>
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 absolute right-0 pointer-events-none opacity-50 group-hover:opacity-100 transition-opacity" />
+        </div>
     );
 }
 
@@ -85,6 +88,14 @@ export default function OrdersPage() {
         setUpdating(orderId);
         setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
         await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
+        setUpdating(null);
+    };
+
+    const handleDeleteOrder = async (orderId: string) => {
+        if (!window.confirm('Are you sure you want to delete this order? This cannot be undone.')) return;
+        setUpdating(orderId);
+        await supabase.from('orders').delete().eq('id', orderId);
+        setOrders(prev => prev.filter(o => o.id !== orderId));
         setUpdating(null);
     };
 
@@ -203,6 +214,7 @@ export default function OrdersPage() {
                                     <th className="text-left text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-6 py-3">Phone</th>
                                     <th className="text-left text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-6 py-3">Address</th>
                                     <th className="text-left text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-6 py-3">Status</th>
+                                    <th className="text-right text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-6 py-3">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border">
@@ -236,12 +248,22 @@ export default function OrdersPage() {
                                             {order.customer_address || <span className="text-muted-foreground/50 italic">Pending…</span>}
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide ${STATUS_CONFIG[order.status].className}`}>
+                                            <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] sm:text-[12px] font-semibold tracking-wide ${STATUS_CONFIG[order.status].className}`}>
                                                 {updating === order.id
-                                                    ? <Loader2 className="w-3 h-3 animate-spin" />
+                                                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                                     : <StatusSelector current={order.status} onChange={(s) => handleStatusChange(order.id, s)} />
                                                 }
                                             </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <button
+                                                onClick={() => handleDeleteOrder(order.id)}
+                                                disabled={updating === order.id}
+                                                className="p-2 text-muted-foreground hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors inline-flex disabled:opacity-50"
+                                                title="Delete Order"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
                                         </td>
                                     </motion.tr>
                                 ))}
