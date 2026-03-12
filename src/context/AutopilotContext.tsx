@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
-import { toggleAutopilotAction } from '@/app/actions/settings';
+
 
 interface AutopilotContextType {
     autopilot: boolean;
