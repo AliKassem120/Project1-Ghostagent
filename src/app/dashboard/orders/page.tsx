@@ -92,10 +92,10 @@ function InlineStatusSelector({ current, onChange }: { current: OrderStatus; onC
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
-                        initial={{ opacity: 0, y: 5, scale: 0.95 }}
+                        initial={{ opacity: 0, y: -5, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 5, scale: 0.95 }}
-                        className="absolute bottom-full left-0 mb-2 z-50 min-w-[130px] bg-surface-1 border border-border shadow-xl rounded-xl overflow-hidden p-1"
+                        exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                        className="absolute top-full left-0 mt-2 z-[100] min-w-[130px] bg-surface-1 border border-border shadow-2xl rounded-xl overflow-hidden p-1"
                     >
                         {options.map((status) => {
                             const { icon: Icon } = STATUS_CONFIG[status];
@@ -256,7 +256,7 @@ export default function OrdersPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="bg-surface-1 border border-border rounded-2xl overflow-hidden shadow-sm"
+                className="bg-surface-1 border border-border rounded-2xl shadow-sm"
             >
                 {/* Card header */}
                 <div className="flex items-center gap-3 px-6 py-4 border-b border-border">
