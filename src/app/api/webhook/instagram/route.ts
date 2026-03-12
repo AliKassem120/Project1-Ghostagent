@@ -172,7 +172,7 @@ async function processWebhookEvent(body: any) {
                     const { userId: ownerId, workspaceId } = ownerResult;
 
                     // ── FETCH SENDER PROFILE ──
-                    const userProfileName = await fetchUserProfile(senderId);
+                    const userProfileName = await fetchUserProfile(senderId, supabaseAdmin, workspaceId ?? undefined, ownerId);
                     const senderName = userProfileName || `User ${senderId.slice(-4)}`;
 
                     // ═══════════════════════════════════════
@@ -544,7 +544,7 @@ async function processDmBuffer({
                 const info = await extractAllCheckoutFields(batchedMessage);
                 console.log(`🛒 [Checkout] Extracted — name: "${info.name}", phone: "${info.phone}", address: "${info.address}"`);
                 if (info.name && info.phone && info.address) {
-                    const handle = await fetchUserProfile(senderId) || senderId;
+                    const handle = await fetchUserProfile(senderId, supabaseAdmin, effectiveWorkspaceId ?? undefined, ownerId) || senderId;
                     await completeCheckoutOrder(supabaseAdmin, checkoutSession, info, handle);
                     console.log('✅ [Checkout] Order complete and saved.');
                 } else {
@@ -571,12 +571,56 @@ async function processDmBuffer({
 // 🔧 HELPER FUNCTIONS
 // ═══════════════════════════════════════
 
-async function fetchUserProfile(senderId: string) {
-    const token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
+async function fetchUserProfile(senderId: string, supabaseAdmin: any, workspaceId?: string, ownerId?: string) {
+    let token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
+    let isNewAPI = false;
+
+    // Get the workspace-specific token from DB
+    if (supabaseAdmin && workspaceId) {
+        const { data: connection } = await supabaseAdmin.from('instagram_integrations')
+            .select('access_token')
+            .eq('workspace_id', workspaceId)
+            .limit(1).maybeSingle();
+
+        if (connection?.access_token) {
+            token = connection.access_token;
+            isNewAPI = true;
+        }
+    }
+
+    if (!isNewAPI && supabaseAdmin && ownerId) {
+        // Fallback to old table if migration isn't fully complete or for legacy reasons
+        const { data: oldConn } = await supabaseAdmin.from('user_connections')
+            .select('metadata')
+            .eq('user_id', ownerId)
+            .in('provider', ['INSTAGRAM', 'instagram_api_login'])
+            .limit(1).maybeSingle();
+
+        if (oldConn?.metadata?.access_token) {
+            token = oldConn.metadata.access_token;
+        }
+    }
+
+    if (token) {
+        token = token.trim();
+        if (token.startsWith('"') && token.endsWith('"')) {
+            token = token.slice(1, -1);
+        }
+        if (token.startsWith('{')) {
+            try {
+                const parsed = JSON.parse(token);
+                token = parsed.access_token || token;
+            } catch (e) {
+                // ignore
+            }
+        }
+    }
+
     if (!token) return null;
 
     try {
-        const url = `https://graph.facebook.com/v21.0/${senderId}?fields=name,username&access_token=${token}`;
+        const baseUrl = isNewAPI ? 'https://graph.instagram.com' : 'https://graph.facebook.com';
+        const url = `${baseUrl}/v21.0/${senderId}?fields=name,username&access_token=${token}`;
         const res = await fetch(url);
         const data = await res.json();
         return data.name || data.username || null;
