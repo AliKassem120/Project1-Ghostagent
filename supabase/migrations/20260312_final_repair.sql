@@ -61,8 +61,10 @@ BEGIN
 
     -- 4. ENSURE REALTIME IS ACTIVE
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'inventory') THEN
-        ALTER PUBLICATION supabase_realtime ADD TABLE inventory;
-    EXCEPTION WHEN others THEN NULL; -- Skip if already added
+        BEGIN
+            ALTER PUBLICATION supabase_realtime ADD TABLE inventory;
+        EXCEPTION WHEN others THEN NULL; -- Skip if already added
+        END;
     END IF;
 
 END $$;
