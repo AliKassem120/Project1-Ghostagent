@@ -284,7 +284,7 @@ export default function InteractionsPage() {
             // Fetch each profile
             for (const chatId of chatIds) {
                 try {
-                    const res = await fetch(`/api/instagram/profile?id=${chatId}`);
+                    const res = await fetch(`/api/instagram/profile?id=${chatId}&workspaceId=${activeWorkspaceId}`);
                     const data = await res.json();
 
                     if (data.name) {

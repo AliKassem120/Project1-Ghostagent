@@ -619,7 +619,9 @@ async function fetchUserProfile(senderId: string, supabaseAdmin: any, workspaceI
     if (!token) return null;
 
     try {
-        const url = `https://graph.facebook.com/v21.0/${senderId}?fields=name,username,profile_pic&access_token=${token}`;
+        const baseUrl = isNewAPI ? 'https://graph.instagram.com' : 'https://graph.facebook.com';
+        const url = `${baseUrl}/v21.0/${senderId}?fields=name,username,profile_pic&access_token=${token}`;
+        console.log(`🔍 [fetchUserProfile] Fetching profile from ${baseUrl} for ${senderId}`);
         const res = await fetch(url);
         const data = await res.json();
 
@@ -697,7 +699,9 @@ async function sendReply(ownerId: string, recipientId: string, text: string, sup
         return;
     }
 
-    url = `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`;
+    const baseUrl = isNewAPI ? 'https://graph.instagram.com' : 'https://graph.facebook.com';
+    url = `${baseUrl}/v21.0/me/messages?access_token=${token}`;
+    console.log(`✉️ [sendReply] Sending to ${baseUrl} for ${recipientId}`);
 
     const body = {
         recipient: { id: recipientId },
