@@ -617,6 +617,23 @@ async function sendReply(ownerId: string, recipientId: string, text: string, sup
         }
     }
 
+    if (token) {
+        token = token.trim();
+        // Remove surrounding quotes if they exist
+        if (token.startsWith('"') && token.endsWith('"')) {
+            token = token.slice(1, -1);
+        }
+        // If the token is actually a JSON string (accidental backfill error)
+        if (token.startsWith('{')) {
+            try {
+                const parsed = JSON.parse(token);
+                token = parsed.access_token || token;
+            } catch (e) {
+                // Not JSON, continue with original trimmed token
+            }
+        }
+    }
+
     if (!token) {
         // Absolute last resort: ENV
         token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
