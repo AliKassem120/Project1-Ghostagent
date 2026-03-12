@@ -12,7 +12,8 @@ export async function POST(req: Request) {
         if (!chatId || !text) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
 
         // 1. Fetch Instagram Connection for this workspace
-        let token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
+        let token = '';
+        let isNewAPI = false;
 
         if (workspaceId) {
             const { data: integration } = await supabase
@@ -23,26 +24,48 @@ export async function POST(req: Request) {
 
             if (integration?.access_token) {
                 token = integration.access_token;
+                isNewAPI = true;
             }
-        } else {
-            // Fallback for non-workspace requests
+        }
+
+        if (!token) {
+            // Fallback for non-workspace requests or legacy connections
             const { data: connection } = await supabase
                 .from('user_connections')
-                .select('access_token')
+                .select('access_token, metadata')
                 .eq('user_id', user.id)
-                .eq('provider', 'INSTAGRAM')
+                .in('provider', ['INSTAGRAM', 'instagram_api_login'])
                 .limit(1).maybeSingle();
 
             if (connection?.access_token) {
                 token = connection.access_token;
+            } else if ((connection as any)?.metadata?.access_token) {
+                token = (connection as any).metadata.access_token;
             }
+        }
+
+        // Final fallback to ENV
+        if (!token) {
+            token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN || '';
         }
 
         if (!token) {
             return NextResponse.json({ error: 'Missing Instagram Access Token. Please ensure your workspace is connected.' }, { status: 401 });
         }
 
-        const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`;
+        // Sanitize Token
+        token = token.trim();
+        if (token.startsWith('"') && token.endsWith('"')) token = token.slice(1, -1);
+        if (token.startsWith('{')) {
+            try {
+                const parsed = JSON.parse(token);
+                token = parsed.access_token || token;
+            } catch (e) { /* ignore */ }
+        }
+
+        // Determine API Host based on token origin
+        const baseUrl = isNewAPI ? 'https://graph.instagram.com' : 'https://graph.facebook.com';
+        const url = `${baseUrl}/v21.0/me/messages?access_token=${token}`;
 
         // Send via Meta Graph API
         const sendRes = await fetch(url, {
