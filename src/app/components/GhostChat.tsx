@@ -34,10 +34,10 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
 
     const { messages, setMessages, sendMessage, status, error } = useChat({
         body: { workspaceId: activeWorkspaceId },
-        onError: (err) => {
+        onError: (err: any) => {
             console.error("GhostChat Client Error:", err);
         },
-        onFinish: (msg) => {
+        onFinish: (msg: any) => {
             console.log("GhostChat Client Finished:", msg);
 
             const content = (msg as any).content || '';
@@ -65,7 +65,7 @@ export default function GhostChat({ onActionComplete }: GhostChatProps) {
                 setTimeout(() => setShowSuccess(false), 3000);
             }
         }
-    });
+    } as any);
 
     const [input, setInput] = useState("");
     const [showSuccess, setShowSuccess] = useState(false);
