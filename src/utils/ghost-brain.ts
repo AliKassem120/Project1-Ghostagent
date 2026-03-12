@@ -254,10 +254,11 @@ export async function generateGhostReply(
 
         const finalizeTransactionTool = tool({
             description:
-                "Call this tool IMMEDIATELY once the customer has provided ALL required information " +
-                "for their workspace type AND has confirmed their intent. " +
-                "DO NOT call this tool if any required field is still missing. " +
-                "DO NOT ask for the same field twice. " +
+                "Call this tool ONLY AND IMMEDIATELY once the customer has provided ALL required information " +
+                "for their workspace type (Name, Phone, Address, etc.) AND has confirmed their intent. " +
+                "CRITICAL: If any required field is missing (e.g. you don't have their name or phone), " +
+                "STOP and ask the customer for the missing information. DO NOT call this tool with empty or placeholder values. " +
+                "Do not ask for the same field twice. " +
                 "After calling this tool, send ONE brief success message and stop.",
             inputSchema: transactionSchema,
             execute: async (args) => {
@@ -346,10 +347,24 @@ export async function generateGhostReply(
         }
 
         const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
+
+        // ─── CONSTRUCT MESSAGE HISTORY ───
+        // Map the database activity_log history to a format the LLM understands (role: user/assistant)
+        const messages: any[] = (fullHistory || [])
+            .filter((h: any) => h.event_type === 'INCOMING_MESSAGE' || h.event_type === 'AI_REPLY')
+            .map((h: any) => ({
+                role: h.event_type === 'INCOMING_MESSAGE' ? 'user' : 'assistant',
+                content: h.description.includes('"') ? h.description.split('"')[1] : h.description // Extract text from log description
+            }))
+            .slice(-10); // Keep last 10 messages for context efficiency
+
+        // Append the current message if it's not already in history
+        messages.push({ role: 'user', content: userMessage });
+
         let finalResult = await generateText({
             model: groq('llama-3.3-70b-versatile'),
             system: systemPrompt,
-            messages: [{ role: 'user', content: userMessage }],
+            messages: messages,
             tools: toolsMapping,
             toolChoice: 'auto',
             temperature: 0,
