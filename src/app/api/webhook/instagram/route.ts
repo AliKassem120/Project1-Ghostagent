@@ -598,10 +598,6 @@ async function sendReply(ownerId: string, recipientId: string, text: string, sup
 
     if (connection?.access_token) {
         token = connection.access_token;
-        // Check if we should use the Instagram Graph API instead of the Facebook Graph API
-        // For standard Instagram Professional accounts, both work, but some specific setups prefer graph.instagram.com
-        // We'll stick to the standard Facebook Graph API unless we have a reason to switch.
-        url = `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`;
         console.log(`[sendReply] Using workspace token for ${workspaceId}`);
     } else {
         // Fallback to old table if migration isn't fully complete or for legacy reasons
@@ -644,6 +640,9 @@ async function sendReply(ownerId: string, recipientId: string, text: string, sup
         console.error("❌ REPLY FAILED: Missing Access Token for user", ownerId);
         return;
     }
+
+    // Reconstruct URL with the sanitized token
+    url = `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`;
 
     const body = {
         recipient: { id: recipientId },
