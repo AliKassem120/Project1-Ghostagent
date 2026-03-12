@@ -73,8 +73,7 @@ export async function POST(request: Request) {
         } catch (e) { /* ignore */ }
     }
 
-    const baseUrl = isNewAPI ? 'https://graph.instagram.com' : 'https://graph.facebook.com';
-    const url = `${baseUrl}/v21.0/me/messages?access_token=${token}`;
+    const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`;
 
     try {
         const response = await fetch(url, {

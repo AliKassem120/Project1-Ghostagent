@@ -63,9 +63,8 @@ export async function POST(req: Request) {
             } catch (e) { /* ignore */ }
         }
 
-        // Determine API Host based on token origin
-        const baseUrl = isNewAPI ? 'https://graph.instagram.com' : 'https://graph.facebook.com';
-        const url = `${baseUrl}/v21.0/me/messages?access_token=${token}`;
+        // Send to Facebook Graph (even for Instagram messaging)
+        const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`;
 
         // Send via Meta Graph API
         const sendRes = await fetch(url, {

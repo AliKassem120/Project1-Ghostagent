@@ -619,8 +619,7 @@ async function fetchUserProfile(senderId: string, supabaseAdmin: any, workspaceI
     if (!token) return null;
 
     try {
-        const baseUrl = isNewAPI ? 'https://graph.instagram.com' : 'https://graph.facebook.com';
-        const url = `${baseUrl}/v21.0/${senderId}?fields=name,username,profile_pic&access_token=${token}`;
+        const url = `https://graph.facebook.com/v21.0/${senderId}?fields=name,username,profile_pic&access_token=${token}`;
         const res = await fetch(url);
         const data = await res.json();
 
@@ -698,9 +697,7 @@ async function sendReply(ownerId: string, recipientId: string, text: string, sup
         return;
     }
 
-    // Reconstruct URL with the sanitized token using appropriate host
-    const baseUrl = isNewAPI ? 'https://graph.instagram.com' : 'https://graph.facebook.com';
-    url = `${baseUrl}/v21.0/me/messages?access_token=${token}`;
+    url = `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`;
 
     const body = {
         recipient: { id: recipientId },
@@ -802,7 +799,6 @@ async function sendCommentReply(ownerId: string, commentId: string, message: str
 
     if (connection?.access_token) {
         token = connection.access_token;
-        url = `https://graph.instagram.com/v21.0/${commentId}/replies?access_token=${token}`;
         console.log(`[sendCommentReply] Using workspace token for ${workspaceId}`);
     } else {
         const { data: oldConn } = await supabaseAdmin.from('user_connections')
@@ -813,7 +809,6 @@ async function sendCommentReply(ownerId: string, commentId: string, message: str
 
         if (oldConn?.metadata?.access_token) {
             token = oldConn.metadata.access_token;
-            url = `https://graph.facebook.com/v21.0/${commentId}/replies?access_token=${token}`;
             console.log(`[sendCommentReply] Using legacy user_connections token for ${ownerId}`);
         }
     }
@@ -822,6 +817,8 @@ async function sendCommentReply(ownerId: string, commentId: string, message: str
         console.error("❌ COMMENT REPLY FAILED: Missing Access Token for user", ownerId);
         return;
     }
+
+    url = `https://graph.facebook.com/v21.0/${commentId}/replies?access_token=${token}`;
 
     try {
         const response = await fetch(url, {
