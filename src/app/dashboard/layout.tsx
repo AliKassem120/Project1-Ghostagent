@@ -402,10 +402,10 @@ export default function DashboardLayout({
     }
 
     return (
-        <AutopilotProvider>
-            <RealtimeProvider userId={userId}>
-                <DashboardProvider>
-                    <WorkspaceProvider>
+        <WorkspaceProvider>
+            <AutopilotProvider>
+                <RealtimeProvider userId={userId}>
+                    <DashboardProvider>
                         <div className="min-h-[100dvh] bg-background text-foreground flex relative overflow-x-clip">
                             <StarBackground />
                             <DashboardSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
@@ -415,9 +415,9 @@ export default function DashboardLayout({
                                 {children}
                             </DashboardContent>
                         </div>
-                    </WorkspaceProvider>
-                </DashboardProvider>
-            </RealtimeProvider>
-        </AutopilotProvider>
+                    </DashboardProvider>
+                </RealtimeProvider>
+            </AutopilotProvider>
+        </WorkspaceProvider>
     );
 }
