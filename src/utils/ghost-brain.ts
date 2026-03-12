@@ -54,7 +54,7 @@ export async function generateGhostReply(
         // ═══════════════════════════════════════
         let settingsQuery = supabase
             .from('ai_settings')
-            .select('business_name, business_type, tone, system_instructions, urgency_mode, handoff_keywords, language, store_location, contact_info, use_emojis, use_local_slang, shipping_rules');
+            .select('business_name, business_type, tone, system_instructions, urgency_mode, handoff_keywords, language, store_location, contact_info, use_emojis, use_local_slang, shipping_rules, is_autopilot_enabled');
 
         if (workspaceId) {
             settingsQuery = settingsQuery.eq('id', workspaceId);
@@ -62,11 +62,18 @@ export async function generateGhostReply(
             settingsQuery = settingsQuery.eq('user_id', userId);
         }
 
-        const { data: settings } = await settingsQuery.single();
+        const { data: settings, error: settingsError } = await settingsQuery.limit(1).maybeSingle();
+
+        if (settingsError) {
+            console.warn('⚠️ Business settings fetch warning (schema cache?):', settingsError.message);
+        }
+
+        const businessType = settings?.business_type || 'ecommerce';
+        const isAutopilot = settings?.is_autopilot_enabled ?? true; // Default to true if missing
 
         const business: BusinessProfile = {
             business_name: settings?.business_name || 'our store',
-            business_type: settings?.business_type || 'ecommerce',
+            business_type: businessType,
             tone: settings?.tone || 'Professional',
             system_instructions: settings?.system_instructions || null,
             language: settings?.language || 'Auto',
@@ -227,9 +234,10 @@ export async function generateGhostReply(
             }),
             execute: async (args) => {
                 console.log('✅ Finalizing transaction via tool:', args);
+                let handle = chatId || 'unknown_customer';
+                let itemRequested = 'General Request';
                 try {
                     // 1. Resolve customer handle from activity_log metadata
-                    let handle = chatId || 'unknown_customer';
                     const { data: lastMsg } = await supabase
                         .from('activity_log')
                         .select('metadata')
@@ -244,7 +252,7 @@ export async function generateGhostReply(
                     }
 
                     // 2. Map workspace items based on type
-                    const itemRequested = args.item_name || args.service_type || args.event_name || args.service_required || 'General Request';
+                    itemRequested = args.item_name || args.service_type || args.event_name || args.service_required || 'General Request';
 
                     // 3. Insert into orders table
                     const { error } = await supabase.from('orders').insert({
@@ -271,8 +279,26 @@ export async function generateGhostReply(
                             customer: args.customer_name || 'Guest'
                         }
                     };
-                } catch (err) {
+                } catch (err: any) {
                     console.error('❌ [Ghost Brain] Failed to finalize transaction:', err);
+
+                    // Fallback: If column is missing, try inserting without it to at least save the lead
+                    if (err?.message?.includes('customer_address')) {
+                        console.log('🔄 Retrying order insert without customer_address column...');
+                        const { error: retryError } = await supabase.from('orders').insert({
+                            user_id: userId,
+                            workspace_id: workspaceId || null,
+                            instagram_handle: handle,
+                            instagram_user_id: chatId,
+                            item_requested: itemRequested,
+                            customer_name: args.customer_name || null,
+                            customer_phone: args.customer_phone || null,
+                            status: 'Pending',
+                            raw_message: `Address (fallback): ${args.delivery_address || 'N/A'}`
+                        });
+                        if (!retryError) return { status: 'success', message: "Order saved (with address in notes)." };
+                    }
+
                     return { status: 'error', message: "Failed to save the transaction to the database." };
                 }
             }

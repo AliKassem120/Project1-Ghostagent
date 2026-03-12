@@ -618,6 +618,12 @@ async function sendReply(ownerId: string, recipientId: string, text: string, sup
     }
 
     if (!token) {
+        // Absolute last resort: ENV
+        token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
+        console.log(`[sendReply] No DB token found, trying ENV fallback...`);
+    }
+
+    if (!token) {
         console.error("❌ REPLY FAILED: Missing Access Token for user", ownerId);
         return;
     }
@@ -681,10 +687,6 @@ async function checkAutopilot(supabaseAdmin: any, ownerId: string, externalChatI
         .select('is_autopilot_enabled')
         .eq(workspaceId ? 'id' : 'user_id', workspaceId || ownerId)
         .maybeSingle();
-
-    if (settingsError) {
-        console.error('⚠️ Global Autopilot Check Failed:', settingsError.message);
-    }
 
     const globalAutopilot = settings?.is_autopilot_enabled ?? true;
 
