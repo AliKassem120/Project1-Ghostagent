@@ -163,6 +163,24 @@ async function processWebhookEvent(body: any) {
 
                     console.log(`📩 Received from ${senderId}: ${messageText}`);
 
+                    // ── AI LOOP PREVENTION ──
+                    // Check if the sender is another bot integrated in our system (new API)
+                    const { data: isNewBot } = await supabaseAdmin.from('instagram_integrations')
+                        .select('id')
+                        .eq('instagram_account_id', senderId)
+                        .maybeSingle();
+
+                    // Check legacy API connections too
+                    const { data: isLegacyBot } = await supabaseAdmin.from('user_connections')
+                        .select('id')
+                        .eq('external_user_id', senderId)
+                        .maybeSingle();
+
+                    if (isNewBot || isLegacyBot) {
+                        console.log(`🤖 [AI-LOOP PREVENTION] Ignoring message from ${senderId} as it is a registered GhostAgent account.`);
+                        continue;
+                    }
+
                     // ── IDENTIFY THE BUSINESS OWNER + WORKSPACE ──
                     const ownerResult = await findOwner(supabaseAdmin, recipientId);
                     if (!ownerResult) {
