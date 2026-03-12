@@ -10,6 +10,10 @@ BEGIN
         IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'ai_settings' AND column_name = 'is_autopilot_enabled') THEN
             ALTER TABLE ai_settings ADD COLUMN is_autopilot_enabled BOOLEAN DEFAULT true;
         END IF;
+        
+        IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'ai_settings' AND column_name = 'urgency_mode') THEN
+            ALTER TABLE ai_settings ADD COLUMN urgency_mode BOOLEAN DEFAULT false;
+        END IF;
     END IF;
 
     -- 2. FIX ORDERS (Ensure columns exist and FK is correct)
@@ -41,16 +45,17 @@ BEGIN
         END IF;
     END IF;
 
-    -- 3. FIX INSTAGRAM_INTEGRATIONS (Reset backfill if tokens are broken)
+    -- 3. FIX INSTAGRAM_INTEGRATIONS (Repair tokens and backfill)
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'instagram_integrations') THEN
-        -- Re-backfill if tokens look suspicious (optional, but good for repair)
-        -- We'll try to find tokens that might have been skipped or malformed
+        -- Delete potentially malformed tokens first to allow fresh backfill
+        DELETE FROM instagram_integrations WHERE access_token LIKE '"%';
+        
         INSERT INTO instagram_integrations (workspace_id, instagram_account_id, account_username, access_token)
         SELECT 
             workspace_id, 
             account_id, 
             account_username, 
-            COALESCE(metadata->>'access_token', metadata::text) -- Handle both JSONB and potential TEXT fallback
+            TRIM(BOTH '"' FROM COALESCE(metadata->>'access_token', metadata::text)) -- STRIP QUOTES
         FROM user_connections
         WHERE provider IN ('INSTAGRAM', 'instagram_api_login') 
           AND workspace_id IS NOT NULL 
