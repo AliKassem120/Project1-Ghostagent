@@ -85,10 +85,14 @@ export default function InventoryPage() {
             status: (item.stock_level > 0 ? 'In Stock' : 'Out of Stock') as Product['status']
         })),
         ...uploadedRows.map((row, index) => {
-            // Best-effort mapping of standard CSV columns
-            const name = row.name || row.title || row.product || row.item || row.item_name || `CSV Item ${index + 1}`;
-            const priceStr = String(row.price || row.cost || row.value || '0').replace(/[^0-9.]/g, '');
-            const stockStr = String(row.stock || row.qty || row.quantity || row.stock_level || '1').replace(/[^0-9]/g, '');
+            // Best-effort mapping of standard CSV columns (case-insensitive)
+            const getVal = (keys: string[]) => {
+                const rowKey = Object.keys(row).find(k => keys.some(key => k.toLowerCase().includes(key)));
+                return rowKey ? row[rowKey] : null;
+            };
+            const name = getVal(['name', 'title', 'product', 'item']) || `CSV Item ${index + 1}`;
+            const priceStr = String(getVal(['price', 'cost', 'value']) || '0').replace(/[^0-9.]/g, '');
+            const stockStr = String(getVal(['stock', 'qty', 'quantity', 'level']) || '1').replace(/[^0-9]/g, '');
             const stock = parseInt(stockStr, 10) || 0;
             return {
                 id: `csv-${index}`,

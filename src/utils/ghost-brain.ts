@@ -360,17 +360,24 @@ export async function generateGhostReply(
 
         const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
 
-        // ─── MODEL TIERING (Intent Detection) ───
+        // ─── MODEL TIERING (Intent Detection & Vision) ───
         const purchaseKeywords = ['buy', 'order', 'checkout', 'pay', 'purchase', 'book', 'schedule', 'viewing', 'ticket', 'delivery', 'shipping'];
         const isPurchaseIntent = purchaseKeywords.some(kw => userMessage.toLowerCase().includes(kw));
         const hasActiveToolContext = historyContext.toLowerCase().includes('transaction') || historyContext.toLowerCase().includes('order');
 
-        // Choose Model: Use Big Brain (70B) for transactions, else use fast/cheap 8B
-        const selectedModel = (isPurchaseIntent || hasActiveToolContext || checkoutContext)
-            ? 'llama-3.3-70b-versatile'
-            : 'llama-3.1-8b-instant';
+        // Extract attachment URL if present
+        const attachmentMatch = userMessage.match(/\[ATTACHMENT:(.*?)\]/);
+        const attachmentUrl = attachmentMatch ? attachmentMatch[1] : null;
 
-        console.log(`🚀 [Ghost Brain] Selected Model: ${selectedModel} (${isPurchaseIntent ? 'Purchase Intent' : 'General Chat'})`);
+        // Strip the attachment tag from the text prompt
+        const cleanMessage = userMessage.replace(/\[ATTACHMENT:.*?\]/g, '').trim() || 'What is this?';
+
+        // Choose Model: Use Vision if attachment, Big Brain (70B) for transactions, else use fast/cheap 8B
+        let selectedModel = 'llama-3.1-8b-instant';
+        if (attachmentUrl) selectedModel = 'llama-3.2-90b-vision-preview';
+        else if (isPurchaseIntent || hasActiveToolContext || checkoutContext) selectedModel = 'llama-3.3-70b-versatile';
+
+        console.log(`🚀 [Ghost Brain] Selected Model: ${selectedModel} (${attachmentUrl ? 'Vision' : isPurchaseIntent ? 'Purchase Intent' : 'General Chat'})`);
 
         // ─── CONSTRUCT MESSAGE HISTORY ───
         // Map the database activity_log history to a format the LLM understands (role: user/assistant)
@@ -382,8 +389,18 @@ export async function generateGhostReply(
             }))
             .slice(-10); // Keep last 10 messages for context efficiency
 
-        // Append the current message if it's not already in history
-        messages.push({ role: 'user', content: userMessage });
+        // Append the current message
+        if (attachmentUrl) {
+            messages.push({
+                role: 'user',
+                content: [
+                    { type: 'text', text: cleanMessage },
+                    { type: 'image', image: attachmentUrl }
+                ]
+            });
+        } else {
+            messages.push({ role: 'user', content: cleanMessage });
+        }
 
         let finalResult = await generateText({
             model: groq(selectedModel),

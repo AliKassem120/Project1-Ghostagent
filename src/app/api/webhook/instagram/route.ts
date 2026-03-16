@@ -156,8 +156,21 @@ async function processWebhookEvent(body: any) {
                     }
 
                     const senderId = event.sender.id;
-                    const messageText = event.message?.text;
                     const recipientId = event.recipient?.id;
+
+                    let messageText = event.message?.text || '';
+                    const attachments = event.message?.attachments;
+
+                    if (attachments && attachments.length > 0) {
+                        const firstMedia = attachments.find((a: any) => a.type === 'image' || a.type === 'video' || a.type === 'share');
+                        if (firstMedia && firstMedia.payload?.url) {
+                            messageText += `\n[ATTACHMENT:${firstMedia.payload.url}]`;
+                        } else if (firstMedia?.type === 'share' && firstMedia.payload?.share?.link) {
+                            messageText += `\n[ATTACHMENT:${firstMedia.payload.share.link}]`;
+                        }
+                    }
+
+                    messageText = messageText.trim();
 
                     if (!messageText) continue;
 
