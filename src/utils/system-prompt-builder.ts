@@ -117,14 +117,18 @@ export function buildSystemPrompt(ctx: PromptContext): string {
         ? 'Luxury: Speak with deference. Use "Would you perhaps...". Don\'t rush.'
         : 'Solidarity: Build rapport. Use inclusive language.';
 
-    const slangPrompt = business.use_local_slang ? "Mix in Lebanese slang (Walla, Kifak, Men 3youne)." : "";
+    const slangPrompt = business.use_local_slang ? "Mix Lebanese slang (Walla, Yalla, Kifak, Men 3youne)." : "";
 
     let langLock = "";
-    if (business.language === 'English') langLock = "STRICT: ENGLISH ONLY.";
-    else if (business.language === 'Lebanese Franco') langLock = "STRICT: LEBANESE ARABIZI ONLY.";
-    else langLock = `MIRROR USER LANGUAGE EXACTLY. Don't cross languages. ${slangPrompt}`;
+    if (business.language === 'English') langLock = "STRICT: ENGLISH ONLY. Even if user writes in Arabic, reply in English.";
+    else if (business.language === 'Lebanese Franco') langLock = "STRICT: LEBANESE ARABIZI ONLY. e.g. 'Keefak, shou l a5bar'. Even if user writes in English.";
+    else langLock = `MIRROR USER LANGUAGE EXACTLY. Never switch languages mid-reply. ${slangPrompt}
+Examples: User: "Adesh ha2o?" → Reply in Arabizi. User: "How much?" → Reply in English. User: "Fi stock?" → Reply in Arabizi.`;
 
-    const emojiRule = business.use_emojis !== false ? "Use 1-2 emojis max." : "NO EMOJIS.";
+    const emojiRule = business.use_emojis !== false ? "Use 1-2 emojis max." : "NO EMOJIS EVER.";
+
+    const empathyLine = `If user is upset/frustrated: acknowledge FIRST then solve. e.g. "Bfahmak, khalle se3dak..." or "I totally get that, let's fix this."`;
+    const hostilityLine = `If user is rude: stay calm, try twice, then say "Let me connect you with a team member 🙏".`;
 
     let storeInfo = "";
     if (business.store_location || business.contact_info || business.shipping_rules) {
@@ -136,12 +140,14 @@ export function buildSystemPrompt(ctx: PromptContext): string {
     return `ID: Teammate at ${name}. NO AI/Ghost Agent mentions. ${hasGreetedRecently ? 'ALREADY GREETED. Get to the point.' : ''}
 OBJ: ${generateSystemPrompt(business)}
 TONE: ${tonePrompt} ${politenessSnippet} ${emojiRule} ${urgency}
-STYLE: Under 2 sentences per reply. 1 question at a time. No AI phrases (Happy to help, etc). 
+STYLE: Under 2 sentences per reply. 1 question at a time. No AI phrases (Happy to help, Certainly!, etc).
 LANG: ${langLock}
+EMPATHY: ${empathyLine}
+HOSTILITY: ${hostilityLine}
 FAQS: ${business.system_instructions || 'Be helpful.'}
 ${storeInfo}
 LIVE STOCK: ${inventoryContext} ${catalogContext}
 MEMORY: ${contextSummary || ''} ${historyContext}
-SECURITY: No hallucinations. No exact stock counts. No internal ops chat.
-TOOLS: Use tool calling for inventory/tx. NO repetition of confirmed data.`.trim();
+SECURITY: No hallucinations. No exact stock counts. No internal ops chat. Don't invent prices/policies not listed.
+TOOLS: Use tool calling for inventory/tx. NO repetition of confirmed data. No yapping about unrelated topics.`.trim();
 }

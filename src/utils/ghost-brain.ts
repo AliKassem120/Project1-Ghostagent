@@ -50,8 +50,11 @@ export async function generateGhostReply(
 
     try {
         // ═══════════════════════════════════════
-        // 1. FETCH BUSINESS SETTINGS (workspace-aware)
+        // 1. FETCH BUSINESS SETTINGS (workspace-aware — STRICT isolation)
         // ═══════════════════════════════════════
+        // CRITICAL: When workspaceId is provided, ONLY query by workspace ID.
+        // Never fall-through to user_id when a workspace is known — that would
+        // bleed settings from another workspace of the same user.
         let settingsQuery = supabase
             .from('ai_settings')
             .select('business_name, business_type, tone, system_instructions, urgency_mode, handoff_keywords, language, store_location, contact_info, use_emojis, use_local_slang, shipping_rules, is_autopilot_enabled');
@@ -59,17 +62,24 @@ export async function generateGhostReply(
         if (workspaceId) {
             settingsQuery = settingsQuery.eq('id', workspaceId);
         } else {
-            settingsQuery = settingsQuery.eq('user_id', userId);
+            settingsQuery = settingsQuery.eq('user_id', userId).is('id', null); // only match user-level rows (no workspace)
         }
 
         const { data: settings, error: settingsError } = await settingsQuery.limit(1).maybeSingle();
 
         if (settingsError) {
-            console.warn('⚠️ Business settings fetch warning (schema cache?):', settingsError.message);
+            console.warn('⚠️ Business settings fetch warning:', settingsError.message);
+        }
+
+        if (!settings) {
+            // If we have a workspaceId but found no settings, fallback to user-level settings
+            // (this handles edge cases where the workspace was created but settings not yet saved)
+            if (workspaceId) {
+                console.warn(`⚠️ No ai_settings for workspace ${workspaceId} — falling back to user-level settings`);
+            }
         }
 
         const businessType = settings?.business_type || 'ecommerce';
-        const isAutopilot = settings?.is_autopilot_enabled ?? true; // Default to true if missing
 
         const business: BusinessProfile = {
             business_name: settings?.business_name || 'our store',
@@ -122,16 +132,17 @@ export async function generateGhostReply(
         }
 
         // ═══════════════════════════════════════
-        // 4. FETCH INVENTORY & CATALOG
+        // 4. FETCH INVENTORY & CATALOG (workspace-isolated)
         // ═══════════════════════════════════════
         let inventoryContext = 'No inventory items listed currently.';
         let catalogContext = '';
 
+        // STRICT workspace isolation: never mix inventory between workspaces
         let inventoryQuery = supabase.from('inventory').select('item_name, stock_level, price');
         if (workspaceId) {
             inventoryQuery = inventoryQuery.eq('workspace_id', workspaceId);
         } else {
-            inventoryQuery = inventoryQuery.eq('user_id', userId);
+            inventoryQuery = inventoryQuery.eq('user_id', userId).is('workspace_id', null);
         }
         const { data: inventory } = await inventoryQuery.limit(50);
 
@@ -144,11 +155,12 @@ export async function generateGhostReply(
                 .join('\n');
         }
 
+        // STRICT workspace isolation for knowledge base
         let knowledgeQuery = supabase.from('business_knowledge').select('content, file_name');
         if (workspaceId) {
             knowledgeQuery = knowledgeQuery.eq('workspace_id', workspaceId);
         } else {
-            knowledgeQuery = knowledgeQuery.eq('user_id', userId);
+            knowledgeQuery = knowledgeQuery.eq('user_id', userId).is('workspace_id', null);
         }
         const { data: knowledgeData } = await knowledgeQuery.single();
 

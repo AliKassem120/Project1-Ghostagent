@@ -647,11 +647,14 @@ async function sendReply(ownerId: string, recipientId: string, text: string, sup
     let url = `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`;
     let isNewAPI = false;
 
-    // Get the workspace-specific token from DB
-    const { data: connection } = await supabaseAdmin.from('instagram_integrations')
-        .select('access_token')
-        .eq('workspace_id', workspaceId || '')
-        .limit(1).maybeSingle();
+    // Get the workspace-specific token from DB (fix: use IS NULL when no workspaceId)
+    let connectionQuery = supabaseAdmin.from('instagram_integrations').select('access_token');
+    if (workspaceId) {
+        connectionQuery = connectionQuery.eq('workspace_id', workspaceId);
+    } else {
+        connectionQuery = connectionQuery.is('workspace_id', null);
+    }
+    const { data: connection } = await connectionQuery.limit(1).maybeSingle();
 
     if (connection?.access_token) {
         token = connection.access_token;
@@ -729,28 +732,51 @@ async function sendReply(ownerId: string, recipientId: string, text: string, sup
 async function findOwner(supabaseAdmin: any, accountId: string | undefined): Promise<{ userId: string; workspaceId: string | null } | null> {
     if (!accountId) return null;
 
-    // 1. Strict DB Match against instagram_integrations
+    // 1. Try new instagram_integrations table first
     const { data: integration } = await supabaseAdmin.from('instagram_integrations')
         .select('workspace_id')
         .eq('instagram_account_id', accountId)
         .maybeSingle();
 
-    if (!integration || !integration.workspace_id) {
-        console.log(`[findOwner] No integration found for account ${accountId}`);
-        return null;
+    if (integration?.workspace_id) {
+        // Retrieve user_id from the linked ai_settings workspace
+        const { data: workspace } = await supabaseAdmin.from('ai_settings')
+            .select('user_id')
+            .eq('id', integration.workspace_id)
+            .maybeSingle();
+
+        if (workspace?.user_id) {
+            console.log(`[findOwner] ✅ Matched via instagram_integrations — workspace: ${integration.workspace_id}`);
+            return { userId: workspace.user_id, workspaceId: integration.workspace_id };
+        }
     }
 
-    // 2. Retrieve user_id from the linked ai_settings workspace
-    const { data: workspace } = await supabaseAdmin.from('ai_settings')
-        .select('user_id')
-        .eq('id', integration.workspace_id)
+    // 2. LEGACY FALLBACK: Check user_connections (old connection method)
+    const { data: legacyConn } = await supabaseAdmin.from('user_connections')
+        .select('user_id, metadata')
+        .in('provider', ['INSTAGRAM', 'instagram_api_login'])
+        .or(`metadata->>instagram_account_id.eq.${accountId},metadata->>page_id.eq.${accountId}`)
+        .limit(1)
         .maybeSingle();
 
-    if (workspace && workspace.user_id) {
-        return { userId: workspace.user_id, workspaceId: integration.workspace_id };
+    if (legacyConn?.user_id) {
+        console.log(`[findOwner] ✅ Matched via user_connections (legacy) — userId: ${legacyConn.user_id}`);
+        return { userId: legacyConn.user_id, workspaceId: null };
     }
 
-    console.log(`[findOwner] Integration found but no valid ai_settings workspace for account ${accountId}`);
+    // 3. LAST RESORT: Match by the recipient_id being this account's known IG page ID stored in ai_settings
+    const { data: settingsByPage } = await supabaseAdmin.from('ai_settings')
+        .select('id, user_id')
+        .or(`contact_info.ilike.%${accountId}%`)
+        .limit(1)
+        .maybeSingle();
+
+    if (settingsByPage?.user_id) {
+        console.log(`[findOwner] ✅ Matched via ai_settings contact_info heuristic — userId: ${settingsByPage.user_id}`);
+        return { userId: settingsByPage.user_id, workspaceId: settingsByPage.id || null };
+    }
+
+    console.log(`[findOwner] ❌ No owner found for account ${accountId}`);
     return null;
 }
 
@@ -793,16 +819,20 @@ async function checkAutopilot(supabaseAdmin: any, ownerId: string, externalChatI
 
 async function sendCommentReply(ownerId: string, commentId: string, message: string, supabaseAdmin: any, workspaceId?: string) {
     let token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
-    let url = `https://graph.facebook.com/v21.0/${commentId}/replies?access_token=${token}`;
+    let isNewAPI = false;
 
-    // Get the workspace-specific token from DB
-    const { data: connection } = await supabaseAdmin.from('instagram_integrations')
-        .select('access_token')
-        .eq('workspace_id', workspaceId || '')
-        .limit(1).maybeSingle();
+    // Get the workspace-specific token from DB (fix: proper null handling)
+    let commentConnQuery = supabaseAdmin.from('instagram_integrations').select('access_token');
+    if (workspaceId) {
+        commentConnQuery = commentConnQuery.eq('workspace_id', workspaceId);
+    } else {
+        commentConnQuery = commentConnQuery.is('workspace_id', null);
+    }
+    const { data: connection } = await commentConnQuery.limit(1).maybeSingle();
 
     if (connection?.access_token) {
         token = connection.access_token;
+        isNewAPI = true;
         console.log(`[sendCommentReply] Using workspace token for ${workspaceId}`);
     } else {
         const { data: oldConn } = await supabaseAdmin.from('user_connections')
@@ -822,7 +852,10 @@ async function sendCommentReply(ownerId: string, commentId: string, message: str
         return;
     }
 
-    url = `https://graph.facebook.com/v21.0/${commentId}/replies?access_token=${token}`;
+    // Dynamic host selection (Bug 3 fix)
+    const baseUrlComment = isNewAPI ? 'https://graph.instagram.com' : 'https://graph.facebook.com';
+    const url = `${baseUrlComment}/v21.0/${commentId}/replies?access_token=${token}`;
+    console.log(`💬 [sendCommentReply] Sending via ${baseUrlComment}`);
 
     try {
         const response = await fetch(url, {
