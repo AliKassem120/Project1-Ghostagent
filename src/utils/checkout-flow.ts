@@ -48,6 +48,20 @@ export async function getCheckoutSession(
     }
 
     const { data } = await query.maybeSingle();
+
+    // EXPIRE STALE SESSIONS (older than 2 hours)
+    if (data && data.updated_at) {
+        const updatedAt = new Date(data.updated_at).getTime();
+        const now = Date.now();
+        const hoursDiff = (now - updatedAt) / (1000 * 60 * 60);
+
+        if (hoursDiff > 2) {
+            console.log(`🗑️ [Checkout] Expiring stale session for ${senderId} (older than 2 hours)`);
+            await supabase.from('order_sessions').delete().eq('id', data.id);
+            return null;
+        }
+    }
+
     return data || null;
 }
 
