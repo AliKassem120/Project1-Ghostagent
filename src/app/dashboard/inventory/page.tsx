@@ -29,6 +29,7 @@ type Product = {
     price: number;
     stock: number;
     status: 'In Stock' | 'Out of Stock';
+    isCsv?: boolean;
 };
 
 export default function InventoryPage() {
@@ -45,6 +46,7 @@ export default function InventoryPage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploading, setUploading] = useState(false);
     const [uploadedFile, setUploadedFile] = useState<{ name: string; rowCount: number } | null>(null);
+    const [uploadedRows, setUploadedRows] = useState<any[]>([]);
 
     // Get user ID on mount
     useEffect(() => {
@@ -74,13 +76,30 @@ export default function InventoryPage() {
     );
 
     // Transform database rows to UI products
-    const products: Product[] = inventoryData.map(item => ({
-        id: item.id,
-        name: item.item_name,
-        price: item.price,
-        stock: item.stock_level,
-        status: item.stock_level > 0 ? 'In Stock' : 'Out of Stock'
-    }));
+    const products: Product[] = [
+        ...inventoryData.map(item => ({
+            id: item.id,
+            name: item.item_name,
+            price: item.price,
+            stock: item.stock_level,
+            status: (item.stock_level > 0 ? 'In Stock' : 'Out of Stock') as Product['status']
+        })),
+        ...uploadedRows.map((row, index) => {
+            // Best-effort mapping of standard CSV columns
+            const name = row.name || row.title || row.product || row.item || row.item_name || `CSV Item ${index + 1}`;
+            const priceStr = String(row.price || row.cost || row.value || '0').replace(/[^0-9.]/g, '');
+            const stockStr = String(row.stock || row.qty || row.quantity || row.stock_level || '1').replace(/[^0-9]/g, '');
+            const stock = parseInt(stockStr, 10) || 0;
+            return {
+                id: `csv-${index}`,
+                name,
+                price: parseFloat(priceStr) || 0,
+                stock,
+                status: (stock > 0 ? 'In Stock' : 'Out of Stock') as Product['status'],
+                isCsv: true
+            };
+        })
+    ];
 
     // Filtered products
     const filteredProducts = useMemo(() => {
@@ -215,11 +234,14 @@ export default function InventoryPage() {
                 try {
                     const rows = JSON.parse(data.content);
                     setUploadedFile({ name: data.file_name, rowCount: rows.length });
+                    setUploadedRows(rows);
                 } catch {
                     setUploadedFile({ name: data.file_name, rowCount: 0 });
+                    setUploadedRows([]);
                 }
             } else {
                 setUploadedFile(null); // Reset if switching to empty ws
+                setUploadedRows([]);
             }
         };
         fetchCatalogInfo();
@@ -274,6 +296,7 @@ export default function InventoryPage() {
                         toast.error('Failed to save catalog. Please try again.');
                     } else {
                         setUploadedFile({ name: file.name, rowCount: rows.length });
+                        setUploadedRows(rows);
                         toast.success('Catalog Uploaded', { description: `"${file.name}" with ${rows.length} products loaded.` });
                     }
 
@@ -307,6 +330,7 @@ export default function InventoryPage() {
 
         if (!error) {
             setUploadedFile(null);
+            setUploadedRows([]);
             toast.info('Product catalog removed');
         }
     };
@@ -520,14 +544,19 @@ export default function InventoryPage() {
                                             <Package className="w-5 h-5 text-primary/70" />
                                         </div>
                                         <div className="flex-1">
-                                            {isEditing ? (
+                                            {isEditing && !item.isCsv ? (
                                                 <input
                                                     className="input-premium py-1 px-3 w-full text-base font-bold mb-1"
                                                     value={editValues.name}
                                                     onChange={e => setEditValues({ ...editValues, name: e.target.value })}
                                                 />
                                             ) : (
-                                                <h3 className="font-bold text-foreground text-base">{item.name}</h3>
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className="font-bold text-foreground text-base truncate">{item.name}</h3>
+                                                    {item.isCsv && (
+                                                        <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-400 shrink-0">CSV</span>
+                                                    )}
+                                                </div>
                                             )}
                                             <span className={clsx(
                                                 "text-[10px] font-bold uppercase tracking-wider",
@@ -537,7 +566,7 @@ export default function InventoryPage() {
                                             </span>
                                         </div>
                                     </div>
-                                    {isEditing ? (
+                                    {isEditing && !item.isCsv ? (
                                         <div className="flex items-center gap-1 shrink-0 ml-2">
                                             <button onClick={handleSaveEdit} className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-all">
                                                 <Save className="w-4 h-4" />
@@ -547,17 +576,19 @@ export default function InventoryPage() {
                                             </button>
                                         </div>
                                     ) : (
-                                        <div className="flex items-center gap-1 shrink-0 ml-2">
-                                            <button onClick={() => handleEditClick(item)} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-all">
-                                                <Edit2 className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => openDeleteModal(item)}
-                                                className="p-2 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
+                                        !item.isCsv && (
+                                            <div className="flex items-center gap-1 shrink-0 ml-2">
+                                                <button onClick={() => handleEditClick(item)} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-all">
+                                                    <Edit2 className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => openDeleteModal(item)}
+                                                    className="p-2 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        )
                                     )}
                                 </div>
                                 <div className="grid grid-cols-2 gap-4 pt-3 border-t border-border">
@@ -618,7 +649,7 @@ export default function InventoryPage() {
                                                 <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                                                     <Package className="w-4 h-4 text-primary/60" />
                                                 </div>
-                                                {isEditing ? (
+                                                {isEditing && !item.isCsv ? (
                                                     <input
                                                         className="input-premium py-1 px-3 w-40 text-sm font-semibold"
                                                         value={editValues.name}
@@ -626,7 +657,12 @@ export default function InventoryPage() {
                                                         autoFocus
                                                     />
                                                 ) : (
-                                                    <span className="font-semibold text-foreground text-sm">{item.name}</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-semibold text-foreground text-sm truncate max-w-[200px]">{item.name}</span>
+                                                        {item.isCsv && (
+                                                            <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-400 shrink-0">CSV</span>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
                                         </td>
@@ -667,7 +703,7 @@ export default function InventoryPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            {isEditing ? (
+                                            {isEditing && !item.isCsv ? (
                                                 <div className="flex items-center justify-end gap-1.5">
                                                     <button onClick={handleSaveEdit} className="text-emerald-400/80 hover:text-emerald-400 p-1.5 hover:bg-emerald-500/10 rounded-lg transition-all" title="Save">
                                                         <Save className="w-4 h-4" />
@@ -677,17 +713,23 @@ export default function InventoryPage() {
                                                     </button>
                                                 </div>
                                             ) : (
-                                                <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button onClick={() => handleEditClick(item)} className="text-muted-foreground hover:text-primary/80 transition-all p-2 hover:bg-primary/10 rounded-lg" title="Edit">
-                                                        <Edit2 className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => openDeleteModal(item)}
-                                                        className="text-muted-foreground hover:text-red-400 transition-all p-2 hover:bg-red-500/10 rounded-lg" title="Delete"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
+                                                !item.isCsv ? (
+                                                    <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button onClick={() => handleEditClick(item)} className="text-muted-foreground hover:text-primary/80 transition-all p-2 hover:bg-primary/10 rounded-lg" title="Edit">
+                                                            <Edit2 className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => openDeleteModal(item)}
+                                                            className="text-muted-foreground hover:text-red-400 transition-all p-2 hover:bg-red-500/10 rounded-lg" title="Delete"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest pr-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        Managed in file
+                                                    </div>
+                                                )
                                             )}
                                         </td>
                                     </tr>
