@@ -97,27 +97,38 @@ export async function createCheckoutSession(
     return data;
 }
 
-// ─── Use Groq to extract name, phone, address from ONE message ───────────
+// ─── Use Groq to extract name, phone, address/email/date from ONE message ───────────
 export async function extractAllCheckoutFields(
-    customerMessage: string
+    customerMessage: string,
+    businessType: string = 'ecommerce'
 ): Promise<ExtractedInfo> {
     try {
+        let field3Instruction = "3. Delivery address (street/area/city)";
+        let field3Example = '- "Ali Kassem Haret Hreik Beirut 78820707" → {"name": "Ali Kassem", "phone": "78820707", "address": "Haret Hreik, Beirut"}';
+
+        if (businessType === 'appointments') {
+            field3Instruction = "3. Requested Date and Time (map this to the 'address' key in the JSON output)";
+            field3Example = '- "Ali Kassem 78820707 tomorrow at 5pm" → {"name": "Ali Kassem", "phone": "78820707", "address": "tomorrow at 5pm"}';
+        } else if (['real_estate', 'digital', 'events'].includes(businessType)) {
+            field3Instruction = "3. Email address (map this to the 'address' key in the JSON output)";
+            field3Example = '- "Ali Kassem 78820707 ali@example.com" → {"name": "Ali Kassem", "phone": "78820707", "address": "ali@example.com"}';
+        }
+
         const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
         const { text } = await generateText({
             model: groq('llama-3.1-8b-instant'),
             system: `Extract the following from the customer's message:
 1. Full name
 2. Phone number (digits, include country code if present)
-3. Delivery address (street/area/city)
+${field3Instruction}
 
 Return ONLY valid JSON — no markdown, no explanation:
 {"name": "...", "phone": "...", "address": "..."}
 
 If any field is missing or unclear, use null for that field.
 Examples:
-- "Ali Kassem, 78820707, Aramoun Aley" → {"name": "Ali Kassem", "phone": "78820707", "address": "Aramoun, Aley"}
 - "My name is Sara Haddad, phone 03123456, I live in Hamra Beirut" → {"name": "Sara Haddad", "phone": "03123456", "address": "Hamra, Beirut"}
-- "Ali Kassem Haret Hreik Beirut 78820707" → {"name": "Ali Kassem", "phone": "78820707", "address": "Haret Hreik, Beirut"}`,
+${field3Example}`,
             messages: [{ role: 'user', content: customerMessage }],
         });
 
@@ -174,19 +185,30 @@ export function detectsPurchaseIntent(message: string): boolean {
 }
 
 // ─── Build checkout system prompt injection ───────────────────────────────
-export function buildCheckoutPromptSection(session: CheckoutSession): string {
-    const item = session.item_requested || 'an item';
+export function buildCheckoutPromptSection(session: CheckoutSession, businessType: string = 'ecommerce'): string {
+    const item = session.item_requested || 'an item or service';
+
+    let field3 = "DELIVERY ADDRESS";
+    let exampleMessage = '"To register your order, I just need: your full name, phone number, and delivery address 📦"';
+
+    if (businessType === 'appointments') {
+        field3 = "PREFERRED DATE AND TIME";
+        exampleMessage = '"To book this for you, I just need: your full name, phone number, and your preferred date and time 📅"';
+    } else if (['real_estate', 'digital', 'events'].includes(businessType)) {
+        field3 = "EMAIL ADDRESS";
+        exampleMessage = '"To send the details over, I just need: your full name, phone number, and email address 📧"';
+    }
 
     return `
 ═══════════════════════════════════════
 🛒 ACTIVE CHECKOUT — COLLECT ORDER INFO
 ═══════════════════════════════════════
-The customer has confirmed they want to order: "${item}"
+The customer has confirmed they want: "${item}"
 
 ⚠️ YOUR ONLY JOB RIGHT NOW:
-Ask for their FULL NAME, PHONE NUMBER, and DELIVERY ADDRESS — all in ONE single message.
+Ask for their FULL NAME, PHONE NUMBER, and ${field3} — all in ONE single message.
 Be natural and brief. Example:
-"To register your order, I just need: your full name, phone number, and delivery address 📦"
+${exampleMessage}
 
 Do NOT ask for them one at a time. Ask for all 3 in one go.
 Do NOT discuss anything else until you have this info.`;

@@ -168,7 +168,7 @@ ${olderText}`;
         await new Promise(r => setTimeout(r, 3000));
 
         const result = await generateText({
-            model: groq('gemma2-9b-it'),  // 15K TPM on free tier (vs 6K for llama-3.1-8b)
+            model: groq('llama-3.1-8b-instant'), // Switched from deprecated gemma2-9b-it to the standard 8b model
             system: `You are a conversation summarizer. Output ONLY bullet points (using "-" prefix). 
 Be concise but capture all important details: customer requests, products discussed, 
 prices mentioned, delivery details, and any commitments made. Max 10 bullet points.`,

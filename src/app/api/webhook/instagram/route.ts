@@ -460,23 +460,27 @@ async function processDmBuffer({
         // 3. CHECK FOR ACTIVE CHECKOUT SESSION
         let checkoutCtx: string | undefined;
         let checkoutSession: any = null;
+        let businessTypeStr = 'ecommerce';
+
         try {
             checkoutSession = await getCheckoutSession(supabaseAdmin, ownerId, senderId, effectiveWorkspaceId || null);
+
+            const { data: wsData } = await supabaseAdmin
+                .from('ai_settings')
+                .select('business_type')
+                .eq(effectiveWorkspaceId ? 'id' : 'user_id', effectiveWorkspaceId || ownerId)
+                .maybeSingle();
+
+            businessTypeStr = wsData?.business_type || 'ecommerce';
+
             if (!checkoutSession && detectsPurchaseIntent(batchedMessage)) {
-                const { data: wsData } = await supabaseAdmin
-                    .from('ai_settings')
-                    .select('business_type')
-                    .eq(effectiveWorkspaceId ? 'id' : 'user_id', effectiveWorkspaceId || ownerId)
-                    .maybeSingle();
-                if (wsData?.business_type === 'ecommerce') {
-                    const itemMatch = batchedMessage.match(/(?:buy|order|purchase|get|take|want)\s+(?:a\s+|the\s+|an\s+)?(.+)/i);
-                    const item = itemMatch?.[1]?.trim() || 'an item';
-                    checkoutSession = await createCheckoutSession(supabaseAdmin, ownerId, effectiveWorkspaceId || null, senderId, item);
-                    console.log(`🛒 [Checkout] New session created for "${item}"`);
-                }
+                const itemMatch = batchedMessage.match(/(?:buy|order|purchase|get|take|want|book|schedule|reserve)\s+(?:a\s+|the\s+|an\s+)?(.*)/i);
+                const item = itemMatch?.[1]?.trim() || 'an item or service';
+                checkoutSession = await createCheckoutSession(supabaseAdmin, ownerId, effectiveWorkspaceId || null, senderId, item);
+                console.log(`🛒 [Checkout] New session created for "${item}" (${businessTypeStr})`);
             }
             if (checkoutSession) {
-                checkoutCtx = buildCheckoutPromptSection(checkoutSession);
+                checkoutCtx = buildCheckoutPromptSection(checkoutSession, businessTypeStr);
             }
         } catch (checkoutErr) {
             console.warn('⚠️ [Checkout] Session lookup failed — proceeding without checkout ctx:', checkoutErr);
@@ -541,7 +545,7 @@ async function processDmBuffer({
         void (async () => {
             try {
                 if (!checkoutSession) return;
-                const info = await extractAllCheckoutFields(batchedMessage);
+                const info = await extractAllCheckoutFields(batchedMessage, businessTypeStr);
                 console.log(`🛒 [Checkout] Extracted — name: "${info.name}", phone: "${info.phone}", address: "${info.address}"`);
                 if (info.name && info.phone && info.address) {
                     const handle = await fetchUserProfile(senderId, supabaseAdmin, effectiveWorkspaceId ?? undefined, ownerId) || senderId;
