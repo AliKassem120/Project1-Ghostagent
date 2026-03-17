@@ -374,7 +374,7 @@ export async function generateGhostReply(
 
         // Choose Model: Use Vision if attachment, Big Brain (70B) for transactions, else use fast/cheap 8B
         let selectedModel = 'llama-3.1-8b-instant';
-        if (attachmentUrl) selectedModel = 'llama-3.2-90b-vision-preview';
+        if (attachmentUrl) selectedModel = 'meta-llama/llama-4-scout-17b-16e-instruct';
         else if (isPurchaseIntent || hasActiveToolContext || checkoutContext) selectedModel = 'llama-3.3-70b-versatile';
 
         console.log(`🚀 [Ghost Brain] Selected Model: ${selectedModel} (${attachmentUrl ? 'Vision' : isPurchaseIntent ? 'Purchase Intent' : 'General Chat'})`);

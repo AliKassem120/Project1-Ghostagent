@@ -98,10 +98,35 @@ export async function upsertDmBuffer({
             });
 
         if (error) {
-            console.error('❌ [Buffer] Failed to insert dm_buffer row:', error);
-            throw error;
+            // Handle race condition: another webhook fired at the exact same time
+            // and inserted first. Retry as an update (append) instead.
+            if (error.code === '23505') {
+                console.log(`🔄 [Buffer] Race condition caught for sender ${senderId}. Retrying as update...`);
+                const { data: raceRow } = await supabase
+                    .from('dm_buffer')
+                    .select('id, buffered_text')
+                    .eq('owner_id', ownerId)
+                    .eq('sender_id', senderId)
+                    .eq('channel', channel)
+                    .maybeSingle();
+
+                if (raceRow) {
+                    const combined = raceRow.buffered_text
+                        ? `${raceRow.buffered_text}\n${messageText}`
+                        : messageText;
+                    await supabase
+                        .from('dm_buffer')
+                        .update({ buffered_text: combined, reply_at: replyAt, status: 'waiting', lock_expires_at: null, updated_at: now })
+                        .eq('id', raceRow.id);
+                    console.log(`📨 [Buffer] Race resolved — appended to existing buffer for sender ${senderId}.`);
+                }
+            } else {
+                console.error('❌ [Buffer] Failed to insert dm_buffer row:', error);
+                throw error;
+            }
+        } else {
+            console.log(`📨 [Buffer] Created new buffer for sender ${senderId}. reply_at: ${replyAt}`);
         }
-        console.log(`📨 [Buffer] Created new buffer for sender ${senderId}. reply_at: ${replyAt}`);
     }
 
     return replyAt;

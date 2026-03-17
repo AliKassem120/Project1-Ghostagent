@@ -10,6 +10,8 @@ import {
 } from '@/utils/checkout-flow';
 import crypto from 'crypto';
 import { checkUserLimit } from '@/lib/billing';
+import Groq from 'groq-sdk';
+import { toFile } from 'groq-sdk';
 
 // Extend Vercel function timeout to 60 seconds for AI processing
 export const maxDuration = 60;
@@ -162,9 +164,25 @@ async function processWebhookEvent(body: any) {
                     const attachments = event.message?.attachments;
 
                     if (attachments && attachments.length > 0) {
-                        const firstMedia = attachments.find((a: any) => a.type === 'image' || a.type === 'video' || a.type === 'share');
+                        const firstMedia = attachments.find((a: any) => a.type === 'image' || a.type === 'video' || a.type === 'share' || a.type === 'audio');
                         if (firstMedia && firstMedia.payload?.url) {
-                            messageText += `\n[ATTACHMENT:${firstMedia.payload.url}]`;
+                            if (firstMedia.type === 'audio') {
+                                console.log(`🎵 [VoiceNote] Received audio attachment from ${senderId}`);
+                                try {
+                                    const transcript = await transcribeVoiceNote(firstMedia.payload.url);
+                                    if (transcript) {
+                                        messageText += `\n[VOICE NOTE TRANSCRIPT: "${transcript.trim()}"]`;
+                                        console.log(`🎵 [VoiceNote] Success: ${transcript}`);
+                                    } else {
+                                        messageText += `\n[VOICE NOTE: (untranscribable)]`;
+                                    }
+                                } catch (e) {
+                                    console.error('❌ [VoiceNote] Transcription failed:', e);
+                                    messageText += `\n[VOICE NOTE: (transcription failed)]`;
+                                }
+                            } else {
+                                messageText += `\n[ATTACHMENT:${firstMedia.payload.url}]`;
+                            }
                         } else if (firstMedia?.type === 'share' && firstMedia.payload?.share?.link) {
                             messageText += `\n[ATTACHMENT:${firstMedia.payload.share.link}]`;
                         }
@@ -1046,5 +1064,35 @@ async function checkIfSenderIsAnotherBot(supabaseAdmin: any, senderAccountId: st
     } catch {
         // Safe fail open to not break messaging on DB errors
         return false;
+    }
+}
+
+/**
+ * Downloads an Instagram audio attachment and transcribes it using Groq's Whisper API.
+ * Uses whisper-large-v3 to process the voice note into text context for the Ghost AI.
+ */
+async function transcribeVoiceNote(url: string): Promise<string | null> {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP error fetching audio: ${response.status}`);
+
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        // Convert to a File-like object that the SDK accepts
+        const file = await toFile(buffer, 'voicenote.m4a', { type: 'audio/mp4' });
+
+        const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
+        const transcription = await groqClient.audio.transcriptions.create({
+            file: file,
+            model: 'whisper-large-v3', // Highest accuracy Whisper model
+            response_format: 'text',
+        });
+
+        // When response_format is 'text', the SDK returns the raw string
+        return typeof transcription === 'string' ? transcription : (transcription as any).text || null;
+    } catch (error) {
+        console.error("Transcribe Voice Note error:", error);
+        return null;
     }
 }
