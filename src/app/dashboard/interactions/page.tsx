@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Edit2, Share, Loader2, MessageCircle, User, Instagram, Search, Send, Sparkles, Ghost, Menu, ArrowLeft, PlayCircle, PauseCircle, Phone, Bot } from 'lucide-react';
+import { Check, Edit2, Share, Loader2, MessageCircle, User, Instagram, Search, Send, Sparkles, Ghost, Menu, ArrowLeft, PlayCircle, PauseCircle, Phone, Bot, Trash2 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import clsx from 'clsx';
 import { useToast } from '@/contexts/ToastContext';
@@ -372,7 +372,8 @@ export default function InteractionsPage() {
                 text = text.replace(/^Received: "(.*)" from .*$/, '$1').replace(/"/g, '').trim();
             } else if (log.event_type === 'INCOMING_MESSAGE') {
                 // Handling for standard meta messenger webhooks if they use this type
-                senderName = meta.username || 'User';
+                const rawName = meta.username || 'User';
+                senderName = rawName.startsWith('User ') ? 'User' : rawName;
                 text = text.replace(/^.*: "(.*)"$/, '$1').replace(/"/g, '').trim();
             } else if (log.event_type === 'INCOMING_COMMENT') {
                 senderName = meta.commenter_name ? `@${meta.commenter_name}` : 'Instagram User';
@@ -411,8 +412,8 @@ export default function InteractionsPage() {
             // Update Username Logic (Prioritize Customer Name)
             // If current name is generic ('User', 'You', 'Ghost AI'), try to update it
             const currentName = threads[chatId].username;
-            const isGenericName = currentName === 'User' || currentName === 'You' || currentName === 'Ghost AI';
-            const isNewSenderGeneric = senderName === 'User' || senderName === 'You' || senderName === 'Ghost AI';
+            const isGenericName = currentName === 'User' || currentName === 'You' || currentName === 'Ghost AI' || currentName.startsWith('User ');
+            const isNewSenderGeneric = senderName === 'User' || senderName === 'You' || senderName === 'Ghost AI' || senderName.startsWith('User ');
 
             if (isGenericName && !isNewSenderGeneric) {
                 threads[chatId].username = senderName;
@@ -566,6 +567,31 @@ export default function InteractionsPage() {
                                 ) : (
                                     <><PauseCircle className="w-3 h-3" /> Mute AI</>
                                 )}
+                            </button>
+
+                            {/* Delete Chat Button */}
+                            <button
+                                onClick={async () => {
+                                    if (!confirm('Delete this entire chat thread? This cannot be undone.')) return;
+                                    const chatId = activeChat.chat_id;
+                                    // Delete all activity_log rows for this chat_id in the active workspace
+                                    const { error: delErr } = await supabase
+                                        .from('activity_log')
+                                        .delete()
+                                        .eq('workspace_id', activeWorkspaceId)
+                                        .eq('metadata->>chat_id', chatId);
+                                    if (delErr) {
+                                        error('Failed to delete chat');
+                                        console.error(delErr);
+                                    } else {
+                                        success('Chat deleted');
+                                        setLogs(prev => prev.filter(l => l.metadata?.chat_id !== chatId));
+                                        setSelectedChatId(null);
+                                    }
+                                }}
+                                className="px-3 py-1.5 text-xs rounded-lg border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20 flex items-center gap-2 transition-all font-bold"
+                            >
+                                <Trash2 className="w-3 h-3" /> Delete
                             </button>
                         </div>
 
