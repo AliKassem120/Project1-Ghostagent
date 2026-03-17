@@ -237,6 +237,18 @@ async function processWebhookEvent(body: any) {
                     }
 
                     // ═══════════════════════════════════════════════════════════
+                    // 🛡️ BOT LOOP SAFEGUARD
+                    // If the sender is another connected page (e.g. Workspace 1 
+                    // testing Workspace 2), we intentionally skip buffering to 
+                    // prevent infinite AI-to-AI conversational loops.
+                    // ═══════════════════════════════════════════════════════════
+                    const isSenderBot = await checkIfSenderIsAnotherBot(supabaseAdmin, senderId);
+                    if (isSenderBot) {
+                        console.log(`🛑 [Bot Loop Safeguard] Sender ${senderId} is another AI instance. Skipping buffering/auto-reply.`);
+                        continue;
+                    }
+
+                    // ═══════════════════════════════════════════════════════════
                     // 📦 UPSERT DM BUFFER — no sleeping, no racing
                     // Each DM upserts one row per sender and resets reply_at.
                     // The setTimeout below fires after the debounce window.
@@ -354,6 +366,13 @@ async function processWebhookEvent(body: any) {
                             timestamp: new Date().toISOString(),
                             metadata: { chat_id: commenterId, platform: 'instagram', type: 'billing_limit' }
                         });
+                        continue;
+                    }
+
+                    // 🛡️ BOT LOOP SAFEGUARD
+                    const isSenderBot = await checkIfSenderIsAnotherBot(supabaseAdmin, commenterId);
+                    if (isSenderBot) {
+                        console.log(`🛑 [Bot Loop Safeguard] Commenter ${commenterId} is another AI instance. Skipping auto-reply.`);
                         continue;
                     }
 
@@ -991,5 +1010,41 @@ ${settings?.system_instructions ? `BUSINESS INSTRUCTIONS: ${settings.system_inst
     } catch (error) {
         console.error('Ghost Brain (Comment) Error:', error);
         return "Thanks for your comment! DM us for more info 💬";
+    }
+}
+// ═══════════════════════════════════════
+// 🛡️ SAFEGURADS
+// ═══════════════════════════════════════
+
+/**
+ * Checks if the given sender ID belongs to an Instagram account 
+ * that is currently connected to ANY Ghost Agent workspace. 
+ * Prevents loops where Bot A talks to Bot B forever.
+ */
+async function checkIfSenderIsAnotherBot(supabaseAdmin: any, senderAccountId: string): Promise<boolean> {
+    try {
+        // Try new integrations table
+        const { data: newConn } = await supabaseAdmin.from('instagram_integrations')
+            .select('id')
+            .eq('instagram_account_id', senderAccountId)
+            .limit(1)
+            .maybeSingle();
+
+        if (newConn) return true;
+
+        // Try old user connections
+        const { data: oldConn } = await supabaseAdmin.from('user_connections')
+            .select('id')
+            .in('provider', ['INSTAGRAM', 'instagram_api_login'])
+            .or(`metadata->>instagram_account_id.eq.${senderAccountId},metadata->>page_id.eq.${senderAccountId}`)
+            .limit(1)
+            .maybeSingle();
+
+        if (oldConn) return true;
+
+        return false;
+    } catch {
+        // Safe fail open to not break messaging on DB errors
+        return false;
     }
 }
