@@ -264,11 +264,13 @@ export default function InteractionsPage() {
             if (!logs.length) return;
 
             // Find unknown users from logs who don't have a fetched profile yet
-            const unknowns = logs.filter(l =>
-                (l.event_type === 'INCOMING_DM' || l.event_type === 'DRAFT_REPLY') &&
-                (!l.metadata?.sender?.attendee_name && !l.metadata?.username) &&
-                !fetchedProfiles[l.metadata?.chat_id]
-            );
+            // Includes logic to detect previously failed fetch attempts like 'User 0461'
+            const unknowns = logs.filter(l => {
+                const isMessage = ['INCOMING_MESSAGE', 'INCOMING_DM', 'DRAFT_REPLY'].includes(l.event_type);
+                const hasBadName = !l.metadata?.sender?.attendee_name &&
+                    (!l.metadata?.username || String(l.metadata?.username).startsWith('User '));
+                return isMessage && hasBadName && !fetchedProfiles[l.metadata?.chat_id];
+            });
 
             // Deduplicate chat IDs
             const chatIds = Array.from(new Set(unknowns.map(l => l.metadata?.chat_id))).filter(Boolean) as string[];
@@ -343,6 +345,10 @@ export default function InteractionsPage() {
         logs.forEach(log => {
             const meta = log.metadata || {};
             const chatId = meta.chat_id || 'unknown';
+
+            // 🛑 Strict Event Filtering: Only process actual conversations
+            const allowedEvents = ['INCOMING_DM', 'INCOMING_MESSAGE', 'INCOMING_COMMENT', 'AI_REPLY', 'COMMENT_REPLY', 'DRAFT_REPLY', 'DRAFT_COMMENT_REPLY', 'MANUAL_REPLY'];
+            if (!allowedEvents.includes(log.event_type)) return;
 
             if (log.event_type === 'INCOMING_DM' && log.description.includes('ghostagent.qzz.io')) return;
 
