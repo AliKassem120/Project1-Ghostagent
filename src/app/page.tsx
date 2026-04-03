@@ -343,12 +343,17 @@ export default function Home() {
           >
             <div className="flex -space-x-3">
               {[
-                'https://i.pravatar.cc/150?img=1',
-                'https://i.pravatar.cc/150?img=2',
-                'https://i.pravatar.cc/150?img=3',
-                'https://i.pravatar.cc/150?img=4'
-              ].map((url, i) => (
-                <img key={i} src={url} alt="User Avatar" className="w-10 h-10 rounded-full border-2 border-background object-cover grayscale hover:grayscale-0 transition-all" />
+                { initials: 'RM', bg: 'from-violet-500 to-purple-600' },
+                { initials: 'SA', bg: 'from-rose-500 to-pink-600' },
+                { initials: 'KJ', bg: 'from-emerald-500 to-teal-600' },
+                { initials: 'NA', bg: 'from-amber-500 to-orange-600' },
+              ].map((av, i) => (
+                <div
+                  key={i}
+                  className={`w-10 h-10 rounded-full border-2 border-background bg-gradient-to-br ${av.bg} flex items-center justify-center text-[11px] font-bold text-white shrink-0 shadow-sm`}
+                >
+                  {av.initials}
+                </div>
               ))}
             </div>
             <div className="flex flex-col">
@@ -697,7 +702,7 @@ export default function Home() {
               { q: 'Does Ghost Agent reply to comments too?', a: 'Yes! Ghost Agent can be configured to automatically reply to story replies, post comments, and direct messages, smoothly transitioning public comments into private sales conversations.' },
               { q: 'Will my account get banned for using a bot?', a: 'No. Ghost Agent uses the official Instagram and Facebook Graph APIs. We are fully compliant with Meta’s terms of service and rate limits.' },
               { q: 'Can it speak my local dialect?', a: 'Ghost Agent powered by advanced LLMs is natively multilingual. It understands and responds fluently in Lebanese Franco, Gulf Arabic, English, French, Spanish, and many more, matching your customer’s tone.' },
-              { q: 'How does it know my inventory?', a: 'During setup, you can connect your Shopify, WooCommerce, or manually upload a simple CSV. Ghost Agent will sync stock levels in real-time and never sell items you don’t have.' },
+              { q: 'How does it know my inventory?', a: 'During setup, you add your products directly inside the GhostAgent dashboard — manually or via CSV. The AI reads your live product list and will never promote an item that is out of stock.' },
               { q: 'Can I jump in and reply manually?', a: 'Absolutely. The AI automatically pauses if it detects you typing or sending a manual message, handing control securely back to you or your human agents.' },
             ].map((faq, idx) => (
               <motion.div
