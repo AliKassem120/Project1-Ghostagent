@@ -38,9 +38,19 @@ export default function RegisterPage() {
             return;
         }
 
+        // Set trial_ends_at = 14 days from now for all new free accounts
+        if (data?.user?.id) {
+            const trialEnd = new Date();
+            trialEnd.setDate(trialEnd.getDate() + 14);
+            await supabase.from('users').upsert({
+                id: data.user.id,
+                plan_tier: 'free_trial',
+                trial_ends_at: trialEnd.toISOString(),
+            }, { onConflict: 'id' });
+        }
+
         if (selectedPlan === 'pro' && data?.user?.id) {
             toast.success('Registration successful! Redirecting to checkout...');
-            // Pass minimal data to checkout page securely via query param for this mock flow
             router.push(`/checkout?user_id=${data.user.id}&amount=49`);
             return;
         }

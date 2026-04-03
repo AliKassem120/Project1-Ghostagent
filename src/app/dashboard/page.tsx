@@ -569,10 +569,18 @@ export default function DashboardPage() {
                                 </span>
                             </div>
                             <div className="w-full h-px bg-surface-2" />
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs text-muted-foreground">Inventory</span>
-                                <span className="text-xs text-muted-foreground font-medium">{stats.stock} items in stock</span>
-                            </div>
+                            {/* Inventory stat — only shown for product-based businesses */}
+                            {(activeWorkspace?.business_type === 'ecommerce' || activeWorkspace?.business_type === 'food_and_beverage') ? (
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs text-muted-foreground">Inventory</span>
+                                    <span className="text-xs text-muted-foreground font-medium">{stats.stock} items in stock</span>
+                                </div>
+                            ) : (
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs text-muted-foreground">AI Agent</span>
+                                    <span className="text-xs font-medium text-emerald-400">Ready</span>
+                                </div>
+                            )}
 
                             {/* Automation Rate Bar */}
                             <div className="pt-2">

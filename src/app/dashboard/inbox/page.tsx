@@ -204,7 +204,7 @@ export default function InteractionsPage() {
         if (!userId) return;
 
         const channel = supabase
-            .channel(`interactions-sync-${userId}`)
+            .channel(`inbox-sync-${userId}`)
             .on(
                 'postgres_changes',
                 {

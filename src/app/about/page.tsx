@@ -6,6 +6,7 @@ import Footer from '@/components/Footer';
 import GhostLogo from '@/components/GhostLogo';
 import StarBackground from '@/components/StarBackground';
 import { Zap, Globe, ShieldCheck, Clock, MessageCircle, HeadphonesIcon } from 'lucide-react';
+import Head from 'next/head';
 
 const fadeUp = {
     initial: { opacity: 0, y: 30 },
@@ -16,6 +17,10 @@ const fadeUp = {
 export default function AboutUs() {
     return (
         <main className="min-h-[100dvh] text-foreground overflow-x-clip relative selection:bg-primary/30">
+            <Head>
+                <title>About GhostAgent — AI Sales Automation for Instagram Stores</title>
+                <meta name="description" content="GhostAgent is built for Instagram merchants who can't afford to miss a DM. Learn how we automate sales conversations in Arabic, English, and more." />
+            </Head>
             {/* Background */}
             <div className="fixed inset-0 bg-background">
                 <div

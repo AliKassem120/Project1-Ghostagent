@@ -6,6 +6,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import StarBackground from '@/components/StarBackground';
 import { Mail, Send, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import Head from 'next/head';
 
 export default function Contact() {
     const [submitted, setSubmitted] = useState(false);
@@ -54,6 +55,10 @@ export default function Contact() {
 
     return (
         <main className="min-h-[100dvh] text-foreground overflow-x-clip relative selection:bg-primary/30">
+            <Head>
+                <title>Contact GhostAgent — Get Help With Your AI Sales Agent</title>
+                <meta name="description" content="Have a question about GhostAgent? Reach out to our team and we'll get back to you within 24 hours." />
+            </Head>
             {/* Background */}
             <div className="fixed inset-0 bg-background">
                 <div

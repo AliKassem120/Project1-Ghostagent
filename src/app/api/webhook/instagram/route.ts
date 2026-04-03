@@ -222,6 +222,14 @@ async function processWebhookEvent(body: any) {
                                 ws = data;
                             }
 
+                            // 🔒 WhatsApp alerts are an Empire-only feature
+                            const { data: ownerUser } = await supabaseAdmin.from('users').select('plan_tier').eq('id', ownerId).single();
+                            const planTier = ownerUser?.plan_tier?.toLowerCase() || 'free_trial';
+                            if (planTier !== 'empire') {
+                                console.log(`🚨 [Alert] Skipping: WhatsApp alerts require Empire plan (current: ${planTier}).`);
+                                return;
+                            }
+
                             console.log(`🚨 [Alert] ai_settings found. emergency_whatsapp: "${ws?.emergency_whatsapp || 'NOT SET'}"`);
 
                             if (!ws?.emergency_whatsapp) {
