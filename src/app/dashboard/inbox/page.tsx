@@ -716,14 +716,31 @@ export default function InteractionsPage() {
                         <motion.div
                             animate={{ y: [0, -15, 0] }}
                             transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-                            className="relative mb-8"
+                            className="relative mb-6"
                         >
-                            <Ghost className="w-24 h-24 relative z-10 text-primary/40 drop-shadow-[0_0_15px_rgba(139,92,246,0.3)]" />
+                            <Ghost className="w-20 h-20 relative z-10 text-primary/40 drop-shadow-[0_0_15px_rgba(139,92,246,0.3)]" />
                             {/* Inner glow on ghost */}
                             <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
                         </motion.div>
-                        <h2 className="text-2xl font-bold mb-3 tracking-tight text-muted-foreground">Agent Monitor</h2>
-                        <p className="text-sm font-medium text-muted-foreground">Select a conversation to view</p>
+                        {conversations.length === 0 ? (
+                            <div className="text-center z-10">
+                                <h2 className="text-xl font-bold mb-2 tracking-tight text-foreground">Inbox Empty</h2>
+                                <p className="text-sm font-medium text-muted-foreground mb-6 max-w-sm">
+                                    When customers DM or comment on your Instagram, GhostAgent manages those conversations here.
+                                </p>
+                                <a
+                                    href="/dashboard/settings?tab=connections"
+                                    className="bg-primary hover:opacity-90 text-primary-foreground text-sm font-semibold py-2.5 px-6 rounded-xl transition-all inline-block pointer-events-auto"
+                                >
+                                    Connect Instagram to Start
+                                </a>
+                            </div>
+                        ) : (
+                            <div className="text-center z-10">
+                                <h2 className="text-xl font-bold mb-2 tracking-tight text-foreground">Agent Monitor</h2>
+                                <p className="text-sm font-medium text-muted-foreground">Select a conversation to view details</p>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

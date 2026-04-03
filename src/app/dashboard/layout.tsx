@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LayoutDashboard, MessageSquareText, Package, Settings, LogOut, CreditCard, Zap, ChevronRight, BookOpen, Calendar, Clock, UtensilsCrossed, Map, Home, Users, PartyPopper, Ticket, Download, HeadphonesIcon, Loader2, Briefcase, Building2, Check, Plus } from 'lucide-react';
+import { LayoutDashboard, Inbox, Package, Settings, LogOut, CreditCard, Zap, ChevronRight, BookOpen, Calendar, Clock, UtensilsCrossed, Map, Home, Users, PartyPopper, Ticket, Download, HeadphonesIcon, Loader2, Briefcase, Building2, Check, Plus } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 import { useState, useEffect } from 'react';
@@ -40,10 +40,13 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     useEffect(() => setMounted(true), []);
 
     // Base menu items that all users see
-    const baseItems = [
+    const topItems = [
         { icon: LayoutDashboard, label: 'Overview', href: '/dashboard' },
+        { icon: Inbox, label: 'Inbox', href: '/dashboard/inbox' },
+    ];
+
+    const bottomItems = [
         { icon: Settings, label: 'AI Settings', href: '/dashboard/settings' },
-        { icon: MessageSquareText, label: 'Chat Logs', href: '/dashboard/interactions' },
         { icon: CreditCard, label: 'Billing', href: '/dashboard/billing' },
     ];
 
@@ -67,31 +70,31 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             break;
         case 'food_and_beverage':
             dynamicItems = [
-                { icon: UtensilsCrossed, label: 'Menu Items', href: '/dashboard/menu' },
+                { icon: UtensilsCrossed, label: 'Menu', href: '/dashboard/menu' },
                 { icon: Map, label: 'Delivery Zones', href: '/dashboard/delivery' },
             ];
             break;
         case 'real_estate':
             dynamicItems = [
                 { icon: Home, label: 'Listings', href: '/dashboard/listings' },
-                { icon: Users, label: 'Lead CRM', href: '/dashboard/crm' },
+                { icon: Users, label: 'CRM', href: '/dashboard/crm' },
             ];
             break;
         case 'events_ticketing':
             dynamicItems = [
-                { icon: PartyPopper, label: 'Manage Events', href: '/dashboard/events' },
+                { icon: PartyPopper, label: 'Events', href: '/dashboard/events' },
                 { icon: Ticket, label: 'Guestlists', href: '/dashboard/guestlists' },
             ];
             break;
         case 'digital_services':
             dynamicItems = [
-                { icon: Download, label: 'Digital Downloads', href: '/dashboard/downloads' },
-                { icon: HeadphonesIcon, label: 'Support Tickets', href: '/dashboard/support' },
+                { icon: Download, label: 'Downloads', href: '/dashboard/downloads' },
+                { icon: HeadphonesIcon, label: 'Support', href: '/dashboard/support' },
             ];
             break;
     }
 
-    const navItems = [...baseItems, ...dynamicItems];
+    const navItems = [...topItems, ...dynamicItems, ...bottomItems];
 
     const handleLogout = async () => {
         const { error } = await supabase.auth.signOut();

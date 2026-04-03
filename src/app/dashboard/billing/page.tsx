@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Check, Crown, Zap, CreditCard, Calendar, AlertCircle, X, TrendingUp, MessageSquare, DollarSign, Shield, Sparkles, ArrowRight } from 'lucide-react';
+import { PLANS } from '@/lib/plans';
 import { clsx } from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
@@ -61,38 +62,16 @@ export default function BillingPage() {
         fetchData();
     }, []);
 
-    const plans = [
-        {
-            name: 'Starter',
-            price: 0,
-            description: 'For getting started',
-            icon: Zap,
-            color: 'text-blue-400',
-            bg: 'bg-blue-500/10',
-            features: ['50 Auto-Replies / month', 'Basic Analytics', 'Community Support', '1 Instagram Account'],
-            highlight: false,
-        },
-        {
-            name: 'Pro Agent',
-            price: 49,
-            description: 'Most popular for growing stores',
-            icon: Crown,
-            color: 'text-primary',
-            bg: 'bg-primary/10',
-            features: ['Unlimited Replies', 'Inventory Sync', 'Advanced Analytics', 'Priority Support', 'WhatsApp Alerts'],
-            highlight: true,
-        },
-        {
-            name: 'Empire',
-            price: 199,
-            description: 'For enterprise-scale operations',
-            icon: Shield,
-            color: 'text-amber-400',
-            bg: 'bg-amber-500/10',
-            features: ['Everything in Pro', 'Multiple Accounts', 'Custom AI Model', 'API Access', 'Dedicated Manager', 'SLA Guaranteed'],
-            highlight: false,
-        }
-    ];
+    const plans = PLANS.map(p => ({
+        name: p.name,
+        price: p.price,
+        description: p.description,
+        icon: p.icon,
+        color: p.color,
+        bg: p.bg,
+        features: p.features,
+        highlight: p.highlight,
+    }));
 
     const handlePlanChange = async (planName: string, planPrice: number) => {
         setIsUpdating(true);

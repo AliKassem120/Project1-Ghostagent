@@ -9,6 +9,7 @@ import { BusinessCategory } from '@/components/BusinessTypeSelector';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type PlanTier = 'free_trial' | 'starter' | 'pro' | 'empire';
+export type WorkspaceStatus = 'needs_setup' | 'connected' | 'live';
 
 export interface Workspace {
     id: string;
@@ -28,6 +29,7 @@ interface WorkspaceContextType {
     workspaceLimit: number;
     canAddWorkspace: boolean;
     upgradeMessage: string | null;
+    workspaceStatus: WorkspaceStatus;
     isLoading: boolean;
     setActiveWorkspace: (id: string) => void;
     addWorkspace: (workspace: Workspace) => void;
@@ -175,6 +177,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     const canAddWorkspace = workspaces.length < workspaceLimit;
     const upgradeMessage = getUpgradeMessage(planTier, workspaces.length);
 
+    // Compute workspace connection status
+    const workspaceStatus: WorkspaceStatus = (() => {
+        if (!activeWorkspace) return 'needs_setup';
+        const hasInstagram = !!(activeWorkspace.instagram_username && activeWorkspace.instagram_account_id);
+        if (!hasInstagram) return 'needs_setup';
+        return 'connected'; // Dashboard combines with autopilot for 'live' display
+    })();
+
     return (
         <WorkspaceContext.Provider value={{
             workspaces,
@@ -184,6 +194,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             workspaceLimit,
             canAddWorkspace,
             upgradeMessage,
+            workspaceStatus,
             isLoading,
             setActiveWorkspace,
             addWorkspace,

@@ -763,9 +763,17 @@ export default function InventoryPage() {
                         <h3 className="text-foreground text-lg font-bold tracking-tight mb-2 relative z-10">
                             {searchQuery ? 'No products match your search' : 'No products yet'}
                         </h3>
-                        <p className="text-muted-foreground text-sm relative z-10">
-                            {searchQuery ? 'Try a different search term' : 'Click "Add Product" to start building your catalog'}
+                        <p className="text-muted-foreground text-sm relative z-10 max-w-sm">
+                            {searchQuery ? 'Try a different search term' : 'GhostAgent needs to know what you sell. Add your first product so it can answer customer questions.'}
                         </p>
+                        {!searchQuery && (
+                            <button
+                                onClick={handleAddClick}
+                                className="mt-6 bg-primary hover:opacity-90 text-primary-foreground text-sm font-semibold py-2.5 px-6 rounded-xl transition-all relative z-10"
+                            >
+                                Add First Product
+                            </button>
+                        )}
                     </motion.div>
                 )}
             </div>

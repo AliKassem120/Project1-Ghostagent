@@ -6,6 +6,7 @@ import { MessageSquare, DollarSign, Package, Clock, Zap, MessageCircle, Sparkles
 import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from '@/components/CountUp';
 import GhostModal from '@/components/GhostModal';
+import SetupChecklist from '@/components/SetupChecklist';
 import { useAutopilot } from '@/context/AutopilotContext';
 import { useRealtime, useRealtimeCount } from '@/hooks/useRealtime';
 import clsx from 'clsx';
@@ -155,7 +156,7 @@ export default function DashboardPage() {
     const supabase = createClient();
     const { user } = useAuth();
     const userId = user?.id;
-    const { activeWorkspaceId, activeWorkspace, workspaces } = useWorkspace();
+    const { activeWorkspaceId, activeWorkspace, workspaces, workspaceStatus } = useWorkspace();
     const [clearModalOpen, setClearModalOpen] = useState(false);
     const [sendingDrafts, setSendingDrafts] = useState<string[]>([]);
     const [instagramStatus, setInstagramStatus] = useState<{ connected: boolean }>({ connected: false });
@@ -395,24 +396,42 @@ export default function DashboardPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-1 border border-border">
-                        <Instagram className="w-4 h-4 text-pink-400" />
-                        <span className="text-xs text-muted-foreground">{isConnected ? 'Connected' : 'Disconnected'}</span>
-                        <span className={clsx("w-2 h-2 rounded-full", isConnected ? "bg-emerald-400 animate-pulse" : "bg-red-500")} />
-                    </div>
-                    <div className={clsx(
-                        "flex items-center gap-2 px-4 py-2 rounded-xl border",
-                        autopilot
-                            ? "bg-primary/5 border-primary/20 text-primary"
-                            : "bg-amber-500/5 border-amber-500/20 text-amber-400"
-                    )}>
-                        <Zap className="w-4 h-4" />
-                        <span className="text-xs font-medium">
-                            {autopilot ? 'Autopilot ON' : 'Manual Mode'}
-                        </span>
-                    </div>
+                    {workspaceStatus === 'needs_setup' && (
+                        <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500">
+                            <AlertTriangle className="w-4 h-4" />
+                            <span className="text-xs font-semibold">Setup Required</span>
+                        </div>
+                    )}
+                    {workspaceStatus === 'connected' && (
+                        <>
+                            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-1 border border-border">
+                                <Instagram className="w-4 h-4 text-emerald-400" />
+                                <span className="text-xs text-muted-foreground">Connected</span>
+                            </div>
+                            <div className={clsx(
+                                "flex items-center gap-2 px-4 py-2 rounded-xl border",
+                                autopilot
+                                    ? "bg-primary/5 border-primary/20 text-primary"
+                                    : "bg-surface-2 border-border text-muted-foreground"
+                            )}>
+                                <Zap className="w-4 h-4" />
+                                <span className="text-xs font-medium">
+                                    {autopilot ? 'Agent Active' : 'Agent Paused'}
+                                </span>
+                            </div>
+                        </>
+                    )}
                 </div>
             </motion.div>
+
+            {/* ═══════════════════════════════════════════════════ */}
+            {/* ACTIVATION CHECKLIST                               */}
+            {/* ═══════════════════════════════════════════════════ */}
+            <SetupChecklist
+                hasInstagram={!!(activeWorkspace?.instagram_username && activeWorkspace?.instagram_account_id)}
+                hasInventory={inventoryItems.length > 0}
+                hasAiSettings={true} // Will implement real check later if needed, assuming true for now as a baseline
+            />
 
             {/* ═══════════════════════════════════════════════════ */}
             {/* METRICS ROW — 4 Key Metrics                        */}

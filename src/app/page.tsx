@@ -208,17 +208,10 @@ function StepCard({
    ════════════════════════════════════════════════════ */
 export default function Home() {
   const [showVideo, setShowVideo] = useState(false);
-  const [liveConversations, setLiveConversations] = useState(847);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    // Dynamic starting number so it changes on refresh
-    setLiveConversations(Math.floor(Math.random() * 200) + 300);
-    const interval = setInterval(() => {
-      setLiveConversations((prev) => prev + Math.floor(Math.random() * 3) + 1);
-    }, 4500);
-    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -309,7 +302,7 @@ export default function Home() {
             </h1>
 
             <p className="text-base md:text-[1.15rem] text-muted-foreground max-w-lg mx-auto lg:mx-0 leading-relaxed font-medium">
-              Ghost Agent handles your Instagram DMs in any language, syncs inventory, and closes sales 24/7 — so you never miss a customer again.
+              GhostAgent replies to Instagram DMs and comments in Arabic, English, or any language — 24/7. It answers product questions, captures orders, and hands off to you when needed.
             </p>
           </motion.div>
 
@@ -321,11 +314,11 @@ export default function Home() {
             className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start"
           >
             <Link
-              href="/login"
+              href="/register"
               className="relative overflow-x-clip px-8 py-4 bg-primary text-primary-foreground font-bold rounded-full hover:scale-[1.03] transition-transform flex items-center justify-center gap-2 group shadow-[0_0_25px_rgba(139,92,246,0.3)] hover:shadow-[0_0_40px_rgba(139,92,246,0.5)]"
             >
               <span className="relative z-10 flex items-center gap-2">
-                Start Free Trial
+                Get Started Free
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </span>
               <div
@@ -364,7 +357,7 @@ export default function Home() {
                   <Star key={star} className="w-3.5 h-3.5 fill-current" />
                 ))}
               </div>
-              <p className="text-xs text-muted-foreground font-medium">Over <span className="text-foreground font-bold">50+ stores</span> automated</p>
+              <p className="text-xs text-muted-foreground font-medium">Replies in <span className="text-foreground font-bold">Arabic & English</span> — 24/7</p>
             </div>
           </motion.div>
         </div>
@@ -464,7 +457,7 @@ export default function Home() {
               <div className="mt-6 p-4 rounded-2xl bg-surface-2 border border-border">
                 <div className="flex items-center gap-3 text-sm font-semibold">
                   <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
-                  <span className="text-muted-foreground">Live: <span className="text-foreground">{liveConversations.toLocaleString()}</span> conversations handled today</span>
+                  <span className="text-muted-foreground">Average response time: <span className="text-foreground">&lt; 1 second</span></span>
                 </div>
               </div>
             </motion.div>
@@ -616,27 +609,7 @@ export default function Home() {
             </p>
           </motion.div>
 
-          {/* Stats Banner */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-20">
-            {[
-              { value: '50+', label: 'Stores' },
-              { value: '25,000+', label: 'Messages Handled' },
-              { value: '99.9%', label: 'Uptime' },
-              { value: '< 2s', label: 'Avg. Response' },
-            ].map((stat, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="glass-frosted rounded-2xl p-6 md:p-8 text-center"
-              >
-                <div className="text-3xl md:text-4xl font-extrabold text-foreground tracking-tighter mb-2">{stat.value}</div>
-                <div className="text-sm font-semibold text-muted-foreground uppercase tracking-widest">{stat.label}</div>
-              </motion.div>
-            ))}
-          </div>
+          {/* Stats Banner Removed */}
 
           {/* Testimonial Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">

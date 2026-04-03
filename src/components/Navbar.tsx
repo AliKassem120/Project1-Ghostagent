@@ -116,10 +116,10 @@ export default function Navbar() {
                         Login
                     </Link>
                     <Link
-                        href="/login"
+                        href="/register"
                         className="hidden md:block px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-all shadow-[0_0_20px_rgba(139,92,246,0.2)] hover:shadow-[0_0_30px_rgba(139,92,246,0.35)]"
                     >
-                        Start Free Trial
+                        Get Started Free
                     </Link>
 
                     {/* Mobile Hamburger */}
@@ -189,11 +189,11 @@ export default function Navbar() {
                                         </Link>
                                     </div>
                                     <Link
-                                        href="/login"
+                                        href="/register"
                                         onClick={() => setIsOpen(false)}
                                         className="inline-flex items-center justify-center w-full px-6 py-4 mt-2 rounded-xl bg-indigo-600 text-white font-semibold text-center hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/30"
                                     >
-                                        Start Free Trial
+                                        Get Started Free
                                     </Link>
                                 </div>
                             </div>

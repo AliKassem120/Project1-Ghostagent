@@ -75,7 +75,7 @@ export default function RegisterPage() {
 
                     <div className="text-center mb-10">
                         <h1 className="text-3xl font-bold mb-2 text-foreground tracking-tight">Create Account</h1>
-                        <p className="text-muted-foreground font-medium">Join the elite network of GhostAgents.</p>
+                        <p className="text-muted-foreground font-medium">Start selling on Instagram with AI.</p>
                     </div>
 
                     <form onSubmit={handleRegister} className="space-y-4">
@@ -135,8 +135,8 @@ export default function RegisterPage() {
                                         : 'bg-surface-2 border-border hover:bg-surface-3 shadow-sm'
                                         }`}
                                 >
-                                    <div className={`font-bold mb-1 ${selectedPlan === 'free_trial' ? 'text-primary' : 'text-foreground'}`}>Free Trial</div>
-                                    <div className="text-xs text-muted-foreground font-medium">14 Days</div>
+                                    <div className={`font-bold mb-1 ${selectedPlan === 'free_trial' ? 'text-primary' : 'text-foreground'}`}>Starter</div>
+                                    <div className="text-xs text-muted-foreground font-medium">$0/mo</div>
                                 </button>
                                 <button
                                     type="button"

@@ -38,7 +38,7 @@ export default function PricingPlans() {
                             <span className="text-muted-foreground text-sm ml-1 font-medium">/month</span>
                         </div>
                         <ul className="space-y-4 mb-8 flex-1">
-                            {['50 Auto-Replies / day', 'Basic Analytics', 'Community Support', '1 Instagram Account'].map((feature) => (
+                            {['50 Auto-Replies / month', 'Basic Analytics', 'Community Support', '1 Instagram Account'].map((feature) => (
                                 <li key={feature} className="flex items-start gap-3 text-sm text-foreground/80 font-medium">
                                     <Check className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
                                     {feature}
@@ -49,7 +49,7 @@ export default function PricingPlans() {
                             href="/login"
                             className="block w-full py-3.5 rounded-xl border border-border bg-surface-2 text-center font-bold text-foreground hover:bg-surface-3 transition-colors mt-auto"
                         >
-                            Start Free Trial
+                            Get Started Free
                         </Link>
                     </motion.div>
 

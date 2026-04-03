@@ -277,9 +277,15 @@ export default function OrdersPage() {
                     <div className="flex flex-col items-center justify-center py-16 text-center px-6">
                         <ShoppingBag className="w-10 h-10 text-muted-foreground/30 mb-3" />
                         <p className="text-sm font-medium text-foreground">No order leads yet</p>
-                        <p className="text-xs text-muted-foreground mt-1 max-w-xs">
-                            When a customer DMs your Instagram saying they want to buy something, Ghost Agent will log it here automatically.
+                        <p className="text-xs text-muted-foreground mt-2 max-w-sm leading-relaxed mb-6">
+                            When a customer DMs your Instagram saying they want to buy something, GhostAgent captures their details here automatically.
                         </p>
+                        <a
+                            href="/dashboard/settings?tab=connection"
+                            className="bg-primary hover:opacity-90 text-primary-foreground text-sm font-semibold py-2.5 px-6 rounded-xl transition-all"
+                        >
+                            Connect Instagram to Start
+                        </a>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
