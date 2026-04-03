@@ -907,6 +907,68 @@ export default function SettingsPage() {
                 </motion.div>
             )}
 
+            {/* Advanced Tab Content */}
+            {activeTab === 'advanced' && (
+                <>
+                    {/* Plan & Usage */}
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6">
+                        <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
+                            <div className="p-2.5 rounded-xl bg-violet-500/10">
+                                <Sparkles className="w-5 h-5 text-violet-400" />
+                            </div>
+                            <div>
+                                <h2 className="text-sm font-semibold text-foreground">Plan & Usage</h2>
+                                <p className="text-[11px] text-muted-foreground">Your current plan limits and usage this month</p>
+                            </div>
+                        </div>
+                        <div className="grid md:grid-cols-3 gap-4">
+                            <div className="bg-surface-2 rounded-xl p-4">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Active Plan</p>
+                                <p className="text-lg font-black text-foreground capitalize">{planTier === 'free_trial' ? 'Starter (Trial)' : planTier === 'pro' ? 'Pro Agent' : planTier === 'empire' ? 'Empire' : planTier}</p>
+                            </div>
+                            <div className="bg-surface-2 rounded-xl p-4">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Reply Limit</p>
+                                <p className="text-lg font-black text-foreground">{planTier === 'empire' ? 'Unlimited' : planTier === 'pro' ? '1,000 / month' : '50 / month'}</p>
+                            </div>
+                            <div className="bg-surface-2 rounded-xl p-4">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Workspaces</p>
+                                <p className="text-lg font-black text-foreground">{workspaces.length} / {planTier === 'empire' ? '5' : '1'}</p>
+                            </div>
+                        </div>
+                        <div className="mt-4 pt-4 border-t border-border">
+                            <a href="/dashboard/billing" className="text-xs text-primary font-bold hover:underline">Manage Billing & Upgrade Plan →</a>
+                        </div>
+                    </motion.div>
+
+                    {/* Workspace Info */}
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6">
+                        <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
+                            <div className="p-2.5 rounded-xl bg-indigo-500/10">
+                                <Building2 className="w-5 h-5 text-indigo-400" />
+                            </div>
+                            <div>
+                                <h2 className="text-sm font-semibold text-foreground">Workspace Info</h2>
+                                <p className="text-[11px] text-muted-foreground">Technical details of this workspace</p>
+                            </div>
+                        </div>
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between py-2 border-b border-border/50">
+                                <span className="text-xs text-muted-foreground font-medium">Workspace ID</span>
+                                <span className="text-xs font-mono text-foreground bg-surface-2 px-2 py-1 rounded-lg">{activeWorkspaceId || '—'}</span>
+                            </div>
+                            <div className="flex items-center justify-between py-2 border-b border-border/50">
+                                <span className="text-xs text-muted-foreground font-medium">Business Type</span>
+                                <span className="text-xs font-semibold text-foreground capitalize">{settings.businessType?.replace('_', ' ') || '—'}</span>
+                            </div>
+                            <div className="flex items-center justify-between py-2">
+                                <span className="text-xs text-muted-foreground font-medium">Instagram Connected</span>
+                                <span className={`text-xs font-bold ${instagramStatus.connected ? 'text-emerald-400' : 'text-red-400'}`}>{instagramStatus.connected ? 'Yes' : 'No'}</span>
+                            </div>
+                        </div>
+                    </motion.div>
+                </>
+            )}
+
             {/* Danger Zone */}
             {activeTab === 'advanced' && workspaces.length > 1 && (
                 <motion.div

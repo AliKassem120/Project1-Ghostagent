@@ -136,7 +136,12 @@ export default function RegisterPage() {
                                         }`}
                                 >
                                     <div className={`font-bold mb-1 ${selectedPlan === 'free_trial' ? 'text-primary' : 'text-foreground'}`}>Starter</div>
-                                    <div className="text-xs text-muted-foreground font-medium">$0/mo</div>
+                                    <div className="text-xs text-muted-foreground font-medium mb-2">$0 / month</div>
+                                    <ul className="text-[11px] text-muted-foreground space-y-1">
+                                        <li>✓ 50 AI Replies / month</li>
+                                        <li>✓ 1 Instagram Account</li>
+                                        <li>✓ Arabic & English</li>
+                                    </ul>
                                 </button>
                                 <button
                                     type="button"
@@ -147,7 +152,12 @@ export default function RegisterPage() {
                                         }`}
                                 >
                                     <div className={`font-bold mb-1 ${selectedPlan === 'pro' ? 'text-primary' : 'text-foreground'}`}>Pro Agent</div>
-                                    <div className="text-xs text-muted-foreground font-medium">$49/mo</div>
+                                    <div className="text-xs text-muted-foreground font-medium mb-2">$49 / month</div>
+                                    <ul className="text-[11px] text-muted-foreground space-y-1">
+                                        <li>✓ 1,000 AI Replies / month</li>
+                                        <li>✓ Inventory Sync</li>
+                                        <li>✓ Sales Analytics</li>
+                                    </ul>
                                 </button>
                             </div>
                         </div>

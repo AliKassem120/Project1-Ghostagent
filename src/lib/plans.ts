@@ -14,6 +14,7 @@ export interface PlanDefinition {
     highlight: boolean;
     cta: string;
     ctaLink: string;
+    dmLimit: number | null; // null = unlimited
 }
 
 export const PLANS: PlanDefinition[] = [
@@ -21,57 +22,67 @@ export const PLANS: PlanDefinition[] = [
         name: 'Starter',
         tier: 'starter',
         price: 0,
-        description: 'For getting started',
+        description: 'Test the waters — zero risk',
         icon: Zap,
         color: 'text-blue-400',
         bg: 'bg-blue-500/10',
+        dmLimit: 50,
         features: [
-            '50 Auto-Replies / month',
+            '50 AI Replies / month',
+            '1 Instagram Account',
+            'Arabic & English Support',
             'Basic Analytics',
             'Community Support',
-            '1 Instagram Account',
         ],
         highlight: false,
         cta: 'Get Started Free',
-        ctaLink: '/login',
+        ctaLink: '/register',
     },
     {
         name: 'Pro Agent',
         tier: 'pro',
         price: 49,
-        description: 'Most popular for growing stores',
+        description: 'For stores with real DM volume',
         icon: Crown,
         color: 'text-primary',
         bg: 'bg-primary/10',
+        dmLimit: 1000,
         features: [
-            'Unlimited Replies',
-            'Inventory Sync',
-            'Sales Analytics',
-            'Multilingual AI',
-            'Priority Support',
+            '1,000 AI Replies / month',
+            '1 Instagram Account',
+            'Inventory & Product Sync',
+            'Sales Analytics & Insights',
+            'Full Multilingual Support',
+            'Human Takeover (Mute AI)',
+            'Order Lead Capture',
+            'Priority Email Support',
         ],
         highlight: true,
         cta: 'Get Pro',
-        ctaLink: '/login',
+        ctaLink: '/register',
     },
     {
         name: 'Empire',
         tier: 'empire',
         price: 199,
-        description: 'For enterprise-scale operations',
+        description: 'For agencies & multi-brand operators',
         icon: Shield,
         color: 'text-amber-400',
         bg: 'bg-amber-500/10',
+        dmLimit: null, // unlimited
         features: [
-            'Everything in Pro',
-            'Multiple Accounts',
-            'Custom AI Model',
-            'API Access',
-            'Dedicated Account Mgr',
+            'Unlimited AI Replies',
+            'Up to 5 Instagram Accounts',
+            'WhatsApp Business Integration',
+            'Custom AI Persona & Training',
+            'Advanced Sales Analytics',
+            'Comment Auto-Reply',
+            'Priority Onboarding Support',
+            'Early Access to New Features',
         ],
         highlight: false,
-        cta: 'Contact Sales',
-        ctaLink: '/contact',
+        cta: 'Get Empire',
+        ctaLink: '/register',
     },
 ];
 
@@ -93,6 +104,5 @@ export function tierFromName(name: string): PlanTier {
 /** Get the reply limit for a given tier (null = unlimited) */
 export function getReplyLimit(tier: string): number | null {
     const plan = getPlanByTier(tier);
-    if (plan.tier === 'starter') return 50;
-    return null; // Pro and Empire are unlimited
+    return plan.dmLimit;
 }
