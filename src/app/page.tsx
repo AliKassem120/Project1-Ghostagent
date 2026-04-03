@@ -31,7 +31,7 @@ const chatMessages = [
   { type: 'user', text: 'Hi! How does Ghost Agent actually work?', delay: 0.5 },
   { type: 'bot', text: 'Hey! 👋 We connect to your Instagram to automatically answer DMs and comments 24/7. It learns your inventory and replies in any language. Want to see pricing?', delay: 3.0 },
   { type: 'user', text: 'Yeah, how much is the Pro plan?', delay: 5.5 },
-  { type: 'bot', text: 'Pro is $49/mo and gives you unlimited AI replies, live inventory sync, and sales analytics. Should I send you the setup link? 🚀', delay: 8.5 },
+  { type: 'bot', text: 'Pro is $49/mo — up to 1,000 AI replies/month, inventory sync, and sales analytics. Should I send you the setup link? 🚀', delay: 8.5 },
   { type: 'user', text: "Let's do it!", delay: 11.5 },
   { type: 'bot', text: 'Awesome! ✅ I just sent you a DM with the onboarding link. Welcome aboard!', delay: 13.5 },
 ];
@@ -341,16 +341,16 @@ export default function Home() {
             transition={{ delay: 1.2 }}
             className="flex items-center gap-5 justify-center lg:justify-start pt-6"
           >
-            <div className="flex -space-x-3">
+            <div className="flex -space-x-2">
               {[
-                { initials: 'RM', bg: 'from-violet-500 to-purple-600' },
-                { initials: 'SA', bg: 'from-rose-500 to-pink-600' },
-                { initials: 'KJ', bg: 'from-emerald-500 to-teal-600' },
-                { initials: 'NA', bg: 'from-amber-500 to-orange-600' },
+                { initials: 'R', bg: 'bg-violet-500/80' },
+                { initials: 'S', bg: 'bg-rose-500/80' },
+                { initials: 'K', bg: 'bg-emerald-500/80' },
+                { initials: 'N', bg: 'bg-sky-500/80' },
               ].map((av, i) => (
                 <div
                   key={i}
-                  className={`w-10 h-10 rounded-full border-2 border-background bg-gradient-to-br ${av.bg} flex items-center justify-center text-[11px] font-bold text-white shrink-0 shadow-sm`}
+                  className={`w-7 h-7 rounded-full border-2 border-background ${av.bg} flex items-center justify-center text-[10px] font-semibold text-white shrink-0`}
                 >
                   {av.initials}
                 </div>

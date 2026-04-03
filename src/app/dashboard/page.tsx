@@ -179,6 +179,20 @@ export default function DashboardPage() {
         checkInstagramStatus();
     }, [activeWorkspaceId]);
 
+    // Check if AI settings have been configured (business_name or system_instructions set)
+    const [hasAiSettings, setHasAiSettings] = useState(false);
+    useEffect(() => {
+        if (!activeWorkspaceId) return;
+        supabase
+            .from('ai_settings')
+            .select('business_name, system_instructions')
+            .eq('id', activeWorkspaceId)
+            .maybeSingle()
+            .then(({ data }) => {
+                setHasAiSettings(!!(data?.business_name || data?.system_instructions));
+            });
+    }, [activeWorkspaceId]);
+
     // Also show connected if the activeWorkspace has instagram info from WorkspaceContext
     const isConnected = instagramStatus.connected || !!activeWorkspace?.instagram_username;
 
@@ -430,7 +444,8 @@ export default function DashboardPage() {
             <SetupChecklist
                 hasInstagram={!!(activeWorkspace?.instagram_username && activeWorkspace?.instagram_account_id)}
                 hasInventory={inventoryItems.length > 0}
-                hasAiSettings={true} // Will implement real check later if needed, assuming true for now as a baseline
+                hasAiSettings={hasAiSettings}
+                businessType={activeWorkspace?.business_type}
             />
 
             {/* ═══════════════════════════════════════════════════ */}

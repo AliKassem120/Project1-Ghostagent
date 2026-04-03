@@ -2,6 +2,18 @@ import { motion } from 'framer-motion';
 import { CheckCircle2, Circle, ArrowRight, Instagram, Package, Bot, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 
+type BusinessCategory =
+    | 'ecommerce'
+    | 'appointments'
+    | 'real_estate'
+    | 'food_and_beverage'
+    | 'events_ticketing'
+    | 'digital_services'
+    | string;
+
+// Only these types need inventory
+const INVENTORY_BUSINESS_TYPES: BusinessCategory[] = ['ecommerce', 'food_and_beverage'];
+
 interface SetupStep {
     id: string;
     title: string;
@@ -14,33 +26,38 @@ interface SetupStep {
 export default function SetupChecklist({
     hasInstagram,
     hasInventory,
-    hasAiSettings
+    hasAiSettings,
+    businessType,
 }: {
     hasInstagram: boolean;
     hasInventory: boolean;
     hasAiSettings: boolean;
+    businessType?: BusinessCategory;
 }) {
+    const needsInventory = !businessType || INVENTORY_BUSINESS_TYPES.includes(businessType);
+
     const steps: SetupStep[] = [
         {
             id: 'instagram',
             title: 'Connect Instagram',
-            description: 'Link your professional account so GhostAgent can read DMs',
+            description: 'Link your business account so GhostAgent can read DMs and comments',
             icon: Instagram,
             href: '/dashboard/settings?tab=connection',
             isComplete: hasInstagram,
         },
-        {
+        // Inventory step is only shown for product-based businesses
+        ...(needsInventory ? [{
             id: 'inventory',
             title: 'Add a product',
-            description: 'GhostAgent needs to know what to sell',
+            description: 'GhostAgent needs to know what to sell so the AI never makes things up',
             icon: Package,
             href: '/dashboard/inventory',
             isComplete: hasInventory,
-        },
+        }] : []),
         {
             id: 'ai',
             title: 'Configure AI Voice',
-            description: 'Tell it how to sound when talking to customers',
+            description: 'Tell it how to sound — tone, language, and any custom rules',
             icon: Bot,
             href: '/dashboard/settings',
             isComplete: hasAiSettings,
@@ -48,16 +65,19 @@ export default function SetupChecklist({
         {
             id: 'test',
             title: 'Send a test DM',
-            description: 'Message your store from a personal account to see it work',
+            description: 'Message your Instagram from another account and watch the agent reply',
             icon: MessageSquare,
             href: '#',
-            isComplete: false, // We don't strictly track this yet, acts as final mental step
+            isComplete: false,
         }
     ];
 
+    const totalTracked = steps.filter(s => s.id !== 'test').length;
     const completedCount = steps.filter(s => s.isComplete).length;
-    const allComplete = hasInstagram && hasInventory && hasAiSettings;
+    const pct = totalTracked > 0 ? Math.round((completedCount / totalTracked) * 100) : 0;
 
+    // Hide if all tracked steps are complete
+    const allComplete = steps.filter(s => s.id !== 'test').every(s => s.isComplete);
     if (allComplete) return null;
 
     return (
@@ -69,15 +89,15 @@ export default function SetupChecklist({
             <div className="p-5 border-b border-border bg-surface-2/50 flex items-center justify-between">
                 <div>
                     <h2 className="text-lg font-bold text-foreground tracking-tight">Onboarding Checklist</h2>
-                    <p className="text-sm text-muted-foreground mt-0.5">Let&apos;s get GhostAgent ready to sell.</p>
+                    <p className="text-sm text-muted-foreground mt-0.5">Complete these steps to activate your AI agent.</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <div className="text-sm font-semibold text-primary">{Math.round((completedCount / 3) * 100)}% Complete</div>
+                    <div className="text-sm font-semibold text-primary">{pct}% Complete</div>
                     <div className="w-24 h-2 bg-surface-3 rounded-full overflow-hidden">
                         <motion.div
                             className="h-full bg-primary"
                             initial={{ width: 0 }}
-                            animate={{ width: `${(completedCount / 3) * 100}%` }}
+                            animate={{ width: `${pct}%` }}
                             transition={{ duration: 0.5 }}
                         />
                     </div>
@@ -92,8 +112,7 @@ export default function SetupChecklist({
                         <Link
                             key={step.id}
                             href={step.href}
-                            className={`flex items-center gap-4 p-5 transition-colors hover:bg-surface-2/50 ${isNextOpenStep ? 'bg-primary/5' : ''
-                                }`}
+                            className={`flex items-center gap-4 p-5 transition-colors hover:bg-surface-2/50 ${isNextOpenStep ? 'bg-primary/5' : ''}`}
                         >
                             <div className="shrink-0 pt-0.5">
                                 {step.isComplete ? (
