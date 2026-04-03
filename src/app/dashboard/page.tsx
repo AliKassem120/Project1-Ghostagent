@@ -585,7 +585,7 @@ export default function DashboardPage() {
                             </div>
                             <div className="w-full h-px bg-surface-2" />
                             {/* Inventory stat — only shown for product-based businesses */}
-                            {(activeWorkspace?.business_type === 'ecommerce' || activeWorkspace?.business_type === 'food_and_beverage') ? (
+                            {activeWorkspace?.business_type === 'ecommerce' ? (
                                 <div className="flex items-center justify-between">
                                     <span className="text-xs text-muted-foreground">Inventory</span>
                                     <span className="text-xs text-muted-foreground font-medium">{stats.stock} items in stock</span>

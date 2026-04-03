@@ -12,7 +12,7 @@ type BusinessCategory =
     | string;
 
 // Only these types need inventory
-const INVENTORY_BUSINESS_TYPES: BusinessCategory[] = ['ecommerce', 'food_and_beverage'];
+const INVENTORY_BUSINESS_TYPES: BusinessCategory[] = ['ecommerce'];
 
 interface SetupStep {
     id: string;
