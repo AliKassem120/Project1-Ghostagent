@@ -66,20 +66,21 @@ export default function RegisterPage() {
     };
 
     return (
-        <div className="min-h-[100dvh] flex items-center justify-center p-6 relative overflow-x-clip">
+        <div className="min-h-[100dvh] flex flex-col items-center justify-center p-6 relative overflow-x-clip">
             <StarBackground />
 
-            <div className="absolute top-6 left-6 z-20">
-                <Link href="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors font-medium">
-                    <ArrowLeft className="w-4 h-4" /> Back to Home
-                </Link>
-            </div>
+            <div className="w-full max-w-md relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-700 mt-8 mb-8">
+                {/* Back to Home positioned above the card */}
+                <div className="mb-6 flex">
+                    <Link href="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm font-medium bg-surface-1/50 backdrop-blur-md px-4 py-2 rounded-full border border-border/50">
+                        <ArrowLeft className="w-4 h-4" /> Back to Home
+                    </Link>
+                </div>
 
-            <div className="w-full max-w-md relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
-                <div className="bg-surface-1 p-8 md:p-12 rounded-3xl border border-border shadow-2xl">
-                    <div className="flex justify-center mb-8">
+                <div className="bg-surface-1 p-6 sm:p-8 md:p-12 rounded-3xl border border-border shadow-2xl">
+                    <div className="flex justify-center mb-6">
                         <div className="p-4 bg-primary/10 rounded-2xl shadow-[0_0_40px_rgba(192,132,252,0.1)]">
-                            <GhostLogo className="w-12 h-12 text-primary" />
+                            <GhostLogo className="w-10 h-10 text-primary" />
                         </div>
                     </div>
 
@@ -136,7 +137,7 @@ export default function RegisterPage() {
 
                         <div className="space-y-3 pt-2">
                             <label className="text-sm font-bold text-muted-foreground ml-1">Select Plan</label>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <button
                                     type="button"
                                     onClick={() => setSelectedPlan('free_trial')}
