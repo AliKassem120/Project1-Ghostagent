@@ -560,41 +560,18 @@ export default function SettingsPage() {
                         </span>
                     </div>
 
-                    <div className="space-y-4">
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">WA Business Account ID</label>
-                            <input type="text" value={settings.waBusinessAccountId}
-                                onChange={e => setSettings({ ...settings, waBusinessAccountId: e.target.value })}
-                                className="input-premium w-full" placeholder="123456789012345" disabled={!isEmpire} />
+                    <div className="flex flex-col items-center justify-center py-8 text-center relative z-10">
+                        <div className="p-3 bg-surface-2 border border-border rounded-2xl mb-4">
+                            <Wifi className="w-6 h-6 text-muted-foreground" />
                         </div>
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Phone Number ID</label>
-                            <input type="text" value={settings.waPhoneNumberId}
-                                onChange={e => setSettings({ ...settings, waPhoneNumberId: e.target.value })}
-                                className="input-premium w-full" placeholder="Phone Number ID from Meta dashboard" disabled={!isEmpire} />
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Access Token</label>
-                            <input type="password" value={settings.waAccessToken}
-                                onChange={e => setSettings({ ...settings, waAccessToken: e.target.value })}
-                                className="input-premium w-full" placeholder="Permanent system user token" disabled={!isEmpire} />
-                            <p className="text-[10px] text-muted-foreground ml-1">Stored encrypted. Only used to send WhatsApp replies from your number.</p>
+                        <h3 className="text-base font-bold text-foreground mb-1">WhatsApp Integration Under Development</h3>
+                        <p className="text-sm text-muted-foreground max-w-sm mb-4">
+                            We are currently waiting on Meta's app review process to finalize our WhatsApp Business API integration.
+                        </p>
+                        <div className="px-3 py-1 bg-surface-2 border border-border rounded-full">
+                            <span className="text-xs font-mono font-medium text-muted-foreground">Coming Soon</span>
                         </div>
                     </div>
-
-                    {/* Paywall overlay for non-Empire */}
-                    {!isEmpire && (
-                        <div className="absolute inset-0 bg-background/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center gap-3 z-10">
-                            <div className="p-3 rounded-full bg-surface-2 border border-border">
-                                <Lock className="w-5 h-5 text-muted-foreground" />
-                            </div>
-                            <div className="text-center px-6">
-                                <p className="text-sm font-bold text-muted-foreground">Empire Feature</p>
-                                <p className="text-[11px] text-muted-foreground mt-1">Connect a WhatsApp Business number and let Ghost Agent reply to customers on WhatsApp too.</p>
-                            </div>
-                            <a href="/dashboard/billing" className="text-[11px] font-bold text-primary hover:underline">Upgrade to Empire →</a>
-                        </div>
-                    )}
                 </motion.div>
             )}
 
