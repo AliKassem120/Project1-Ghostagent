@@ -42,7 +42,7 @@ export default function SetupChecklist({
             title: 'Connect Instagram',
             description: 'Link your business account so GhostAgent can read DMs and comments',
             icon: Instagram,
-            href: '/dashboard/settings?tab=connection',
+            href: '/dashboard/settings?tab=connections',
             isComplete: hasInstagram,
         },
         // Inventory step is only shown for product-based businesses

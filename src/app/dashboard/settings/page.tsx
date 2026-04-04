@@ -36,7 +36,11 @@ export default function SettingsPage() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const pathname = usePathname();
-    const activeTab = (searchParams.get('tab') as SettingsTab) || 'business';
+    const rawTab = searchParams.get('tab') as string;
+    const VALID_TABS = ['business', 'personality', 'connections', 'advanced'];
+    const activeTab: SettingsTab = VALID_TABS.includes(rawTab || '') 
+        ? (rawTab as SettingsTab) 
+        : 'business';
 
     const setTab = (tab: SettingsTab) => {
         const params = new URLSearchParams(searchParams.toString());
