@@ -142,15 +142,15 @@ export function buildSystemPrompt(ctx: PromptContext): string {
     } else if (business.language === 'Lebanese Franco') {
         langLock = `STRICT LANGUAGE RULE: LEBANESE ARABIZI (Franco) ONLY. 
 - Keep it very short, natural, and casual.
-- Use standard Lebanese commerce terms: 'Hi hbb', 'Mawjoud' (Available), 'Khales' (Sold out), 'Tekram/Tekrame', 'tfadal/tfadale'.
-- When greeted (e.g., 'kifak'), reply with 'Hala hbb tfadal'. DO NOT use Formal Arabic (Fusha).
+- Use standard Lebanese commerce terms: 'Hi', 'Mawjoud' (Available), 'Khales' (Sold out), 'Tekram', 'tfadal'. Do NOT overuse the word 'hbb'.
+- When greeted (e.g., 'kifak'), reply with 'Hala tfadal'. DO NOT use Formal Arabic (Fusha).
 - Mixing English words is encouraged (e.g., 'Yes hbb mawjoud', 'Delivery 3$ b Beirut').`;
     } else {
         if (business.use_local_slang) {
             langLock = `STRICT LANGUAGE RULE: MIRROR THE USER EXACTLY. 
 - If user speaks English (e.g. "How much is this?"), YOU MUST REPLY IN 100% ENGLISH. No 'hbb', no 'Mawjoud'.
-- If Lebanese Arabizi (e.g., 'fi aswad?'), reply in Lebanese Arabizi ('Mawjoud hbb'). 
-- If user says 'kifak' or 'marhaba', say 'Hala hbb tfadal'.
+- If Lebanese Arabizi (e.g., 'fi aswad?'), reply in Lebanese Arabizi ('Mawjoud'). Do NOT overuse 'hbb'.
+- If user says 'kifak' or 'marhaba', say 'Hala tfadal'.
 - If user mixes English and Arabizi (e.g., 'Hello fi aswad?'), reply naturally with a Lebanese mix.
 - If Arabic script ('في منو؟'), reply in Lebanese Arabic script ('موجود حبيبتي').
 - NEVER reply in Formal/Standard Arabic (Fusha). Always use colloquial Lebanese.`;
@@ -184,7 +184,7 @@ Bot: "4$"
 
 [Exchange 2 — Out of stock, redirect to page]
 User: "Hi hy b3d fi mna aswad please"                    // "Hi, do you still have it in black please?"
-Bot: "Sold out hbb"                                        // "Sold out, sweetheart"
+Bot: "Sold out"                                        // "Sold out"
 User: "Tb fi shi aswad arib la ha set ? Aswd size small or meduim" // "Do you have something similar in black? Small or medium?"
 Bot: "Foti 3l page fe set mnzlinon jdeed"                  // "Check the page, we got a new set just released"
 
@@ -192,7 +192,7 @@ Bot: "Foti 3l page fe set mnzlinon jdeed"                  // "Check the page, w
 User: "W bade es2alik fe she mandil oton kwaite aswad?"  // "I want to ask, do you have Kuwaiti cotton headscarves in black?"
 Bot: "Mawjoud! 15$"                                     // "Available! $15"
 User: "Ok bade wahed, kif btlbo?"                       // "Ok I want one, how do I order?"
-Bot: "Tekrame! Wen el delivery w shu ra2mek?"           // "You got it! Where is the delivery and what's your number?"
+Bot: "Tekram! Address pls w shu ra2mak?"                // "You got it! Address pls and what's your number?"
 
 [Exchange 4 — Delivery time estimate]
 User: "Ade bado la yosal order"   // "How long will the order take to arrive?"
@@ -225,7 +225,7 @@ Bot: "Where are you located?"
 User: "Main street"
 Bot: "It will arrive tomorrow."`;
 
-    const takramStr = isLebanese ? "Takram hbb!" : "You're welcome!";
+    const takramStr = isLebanese ? "Tekram!" : "You're welcome!";
 
     return `You are the sales manager for ${name}. ${persona}
 

@@ -113,8 +113,8 @@ export async function generateGhostReply(
                     workspace_type: z.literal('ecommerce'),
                     item_name: z.string().describe("Product name & variant confirmed by customer (e.g. 'Hijab – Black, One Size')."),
                     item_variant: z.string().optional().describe("Product variant, size, or color if not already in item_name."),
-                    payment_method: z.string().describe("Payment method (e.g., Cash on Delivery)."),
-                    customer_name: z.string().describe("Full name of the customer."),
+                    payment_method: z.string().optional().describe("Payment method (e.g., Cash on Delivery)."),
+                    customer_name: z.string().optional().describe("Full name of the customer."),
                     customer_phone: z.string().describe("Customer phone number."),
                     delivery_address: z.string().describe("Full delivery address including area/neighborhood."),
                 });
