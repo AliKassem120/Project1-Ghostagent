@@ -88,24 +88,56 @@ export default function AboutUs() {
                         whileInView={{ opacity: 1, x: 0 }}
                         viewport={{ once: true }}
                         transition={{ duration: 0.7 }}
-                        className="relative h-80 rounded-3xl bg-surface-1 border border-border overflow-hidden flex items-center justify-center p-8 shadow-sm"
+                        className="relative h-80 rounded-3xl bg-surface-1 border border-border overflow-hidden flex flex-col p-6 shadow-sm"
                     >
                         <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-blue-500/5 dark:from-primary/15 dark:to-blue-500/10" />
-                        <div className="flex flex-col items-center justify-center space-y-4 z-10 w-full">
-                            <div className="flex justify-between w-full px-12 md:px-24 text-muted-foreground/30">
-                                <MessageCircle className="w-12 h-12" />
-                                <Globe className="w-12 h-12" />
-                                <ShieldCheck className="w-12 h-12" />
+                        
+                        {/* Mock header */}
+                        <div className="flex items-center gap-3 mb-4 relative z-10 pb-4 border-b border-border/50">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-blue-500/20 flex items-center justify-center shrink-0 border border-primary/20">
+                                <GhostLogo className="w-5 h-5 text-primary" />
                             </div>
-                            <div className="text-[100px] md:text-[120px] font-black text-foreground/[0.03] select-none leading-none tracking-tighter">
-                                24/7
+                            <div>
+                                <h3 className="font-bold text-sm text-foreground">GhostAgent Live</h3>
+                                <div className="text-[10px] text-emerald-500 dark:text-emerald-400 font-bold flex items-center gap-1.5 uppercase tracking-wider mt-0.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" /> Active 24/7
+                                </div>
                             </div>
                         </div>
-                        <motion.div
-                            className="absolute inset-0 bg-gradient-to-t from-primary/10 to-transparent"
-                            animate={{ opacity: [0.3, 0.6, 0.3] }}
-                            transition={{ duration: 4, repeat: Infinity }}
-                        />
+
+                        {/* Mock messages */}
+                        <div className="flex-1 overflow-hidden relative z-10 space-y-3 flex flex-col justify-end pt-2">
+                            <motion.div
+                                initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                                whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                                viewport={{ once: true }}
+                                transition={{ delay: 0.5, duration: 0.3 }}
+                                className="self-end max-w-[85%] bg-surface-2 text-foreground text-[12px] px-3.5 py-2.5 rounded-2xl rounded-tr-none shadow-sm border border-border font-medium"
+                            >
+                                Hi! Is the Vintage Leather Jacket still in stock in medium?
+                            </motion.div>
+                            
+                            <motion.div
+                                initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                                whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                                viewport={{ once: true }}
+                                transition={{ delay: 1.2, duration: 0.3 }}
+                                className="self-start max-w-[85%] bg-gradient-to-br from-primary/20 to-primary/5 text-primary-100 dark:text-primary-foreground text-primary text-[12px] px-3.5 py-2.5 rounded-2xl rounded-tl-none border border-primary/20 shadow-[0_0_15px_rgba(139,92,246,0.1)] relative font-medium"
+                            >
+                                <span className="absolute -left-1.5 -top-1.5 text-xs">⚡</span>
+                                Yes! We have exactly 2 left in size Medium. Would you like me to reserve one for you for $120?
+                            </motion.div>
+
+                            <motion.div
+                                initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                                whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                                viewport={{ once: true }}
+                                transition={{ delay: 2.0, duration: 0.3 }}
+                                className="self-end max-w-[85%] bg-surface-2 text-foreground text-[12px] px-3.5 py-2.5 rounded-2xl rounded-tr-none shadow-sm border border-border font-medium"
+                            >
+                                Yes please! How do I pay?
+                            </motion.div>
+                        </div>
                     </motion.div>
                 </div>
             </section>
