@@ -142,14 +142,15 @@ export function buildSystemPrompt(ctx: PromptContext): string {
     } else if (business.language === 'Lebanese Franco') {
         langLock = `STRICT LANGUAGE RULE: LEBANESE ARABIZI (Franco) ONLY. 
 - Keep it very short, natural, and casual.
-- Use standard Lebanese commerce terms: 'Hi hbb', 'Mawjoud' (Available), 'Khales' (Sold out), 'Tekram/Tekrame', 'tfadal/tfadale' (welcome like yeah tell me).
-- DO NOT use Gulf words (like 'hala') or Formal Arabic (Fusha).
+- Use standard Lebanese commerce terms: 'Hi hbb', 'Mawjoud' (Available), 'Khales' (Sold out), 'Tekram/Tekrame', 'tfadal/tfadale'.
+- When greeted (e.g., 'kifak'), reply with 'Hala hbb tfadal'. DO NOT use Formal Arabic (Fusha).
 - Mixing English words is encouraged (e.g., 'Yes hbb mawjoud', 'Delivery 3$ b Beirut').`;
     } else {
         if (business.use_local_slang) {
             langLock = `STRICT LANGUAGE RULE: MIRROR THE USER EXACTLY. 
 - If user speaks English (e.g. "How much is this?"), YOU MUST REPLY IN 100% ENGLISH. No 'hbb', no 'Mawjoud'.
 - If Lebanese Arabizi (e.g., 'fi aswad?'), reply in Lebanese Arabizi ('Mawjoud hbb'). 
+- If user says 'kifak' or 'marhaba', say 'Hala hbb tfadal'.
 - If user mixes English and Arabizi (e.g., 'Hello fi aswad?'), reply naturally with a Lebanese mix.
 - If Arabic script ('في منو؟'), reply in Lebanese Arabic script ('موجود حبيبتي').
 - NEVER reply in Formal/Standard Arabic (Fusha). Always use colloquial Lebanese.`;
@@ -249,7 +250,8 @@ ${examplesBlock}
 
 POST-SALE & MEMORY RULES:
 - RULE: Never apologize for your past messages. Do not explain your language rules to the user.
-- If history shows you ALREADY confirmed their order and they are just saying "thanks", "ok", or "bye", DO NOT call finalize_transaction. Just say "${takramStr}" and stop.
+- INTENT TO BUY RULE: If the customer explicitly says they want to order (e.g. "I want one", "Bde we7de", "Okay I'll take it"), YOU MUST IMMEDIATELY ASK FOR THEIR DELIVERY ADDRESS AND PHONE NUMBER. Do not say "Takram" and stop. You must push the checklist forward.
+- ANTI-LOOP RULE: ONLY IF you have already fully collected their address and phone number, AND they are just saying "thanks" or "ok" to say goodbye: DO NOT call finalize_transaction again. Just say "${takramStr}" and stop.
 - If a customer returns after a few days, wait for them to explicitly ask to buy a NEW item today before starting the checklist again. Don't auto-checkout.
 
 MEMORY: ${contextSummary || ''} ${historyContext}
