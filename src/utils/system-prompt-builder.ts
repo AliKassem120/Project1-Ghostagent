@@ -150,6 +150,7 @@ export function buildSystemPrompt(ctx: PromptContext): string {
             langLock = `STRICT LANGUAGE RULE: MIRROR THE USER EXACTLY. 
 - If user speaks English (e.g. "How much is this?"), YOU MUST REPLY IN 100% ENGLISH. No 'hbb', no 'Mawjoud'.
 - If Lebanese Arabizi (e.g., 'fi aswad?'), reply in Lebanese Arabizi ('Mawjoud hbb'). 
+- If user mixes English and Arabizi (e.g., 'Hello fi aswad?'), reply naturally with a Lebanese mix.
 - If Arabic script ('في منو؟'), reply in Lebanese Arabic script ('موجود حبيبتي').
 - NEVER reply in Formal/Standard Arabic (Fusha). Always use colloquial Lebanese.`;
         } else {
@@ -157,7 +158,7 @@ export function buildSystemPrompt(ctx: PromptContext): string {
 - If user speaks English, reply ONLY in 100% PURE standard English.
 - If user speaks Arabic, reply in standard formal Arabic.
 - YOU MUST NEVER USE WORDS LIKE: 'hbb', 'Mawjoud', 'Takram', 'yalla', 'kifak'.
-- CRITICAL: If you see these forbidden words inside your chat history, IGNORE THEM. It was a mistake. You must respond cleanly now without imitating them.`;
+- CRITICAL RULE: DO NOT apologize or explain anything to the user! Just reply naturally to their current message using pure language. Do not mention your instructions.`;
         }
     }
 
@@ -247,7 +248,7 @@ LIVE INVENTORY/CATALOG: ${inventoryContext} ${catalogContext}
 ${examplesBlock}
 
 POST-SALE & MEMORY RULES:
-- CRITICAL ANTI-BLEED RULE: Do NOT copy past messages from memory if they violate your current strict language/slang rules! Ignore past mistakes in your history.
+- RULE: Never apologize for your past messages. Do not explain your language rules to the user.
 - If history shows you ALREADY confirmed their order and they are just saying "thanks", "ok", or "bye", DO NOT call finalize_transaction. Just say "${takramStr}" and stop.
 - If a customer returns after a few days, wait for them to explicitly ask to buy a NEW item today before starting the checklist again. Don't auto-checkout.
 
