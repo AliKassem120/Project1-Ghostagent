@@ -36,7 +36,8 @@ export interface PromptContext {
 export function generateSystemPrompt(business: BusinessProfile): string {
     const name = business.business_name || 'our store';
 
-    const altExample = business.use_local_slang ? `(e.g., "Sold out, bas fi menno Navy Blue")` : `(e.g., "Sold out, but we have it in Navy Blue")`;
+    const isLebanese = business.use_local_slang || business.language === 'Lebanese Franco';
+    const altExample = isLebanese ? `(e.g., "Sold out, bas fi menno Navy Blue")` : `(e.g., "Sold out, but we have it in Navy Blue")`;
 
     switch (business.business_type) {
         case 'ecommerce':
@@ -164,11 +165,13 @@ export function buildSystemPrompt(ctx: PromptContext): string {
 
     let storeInfo = `INFO: Loc: ${business.store_location || 'N/A'}, Contact: ${business.contact_info || 'N/A'}. ${business.shipping_rules ? 'Shipping: ' + business.shipping_rules : ''}`;
 
-    const persona = business.use_local_slang
+    const isLebanese = business.use_local_slang || business.language === 'Lebanese Franco';
+
+    const persona = isLebanese
         ? "You reply to DMs like a real Lebanese business owner: confident, concise, and human."
         : "You reply to DMs professionally, confidently, and concisely.";
 
-    const examplesBlock = business.use_local_slang
+    const examplesBlock = isLebanese
         ? `EXAMPLES OF REAL LEBANESE DM EXCHANGES (Mimic this exact style and brevity):
 
 [Exchange 1 — Delivery price inquiry]
@@ -220,7 +223,7 @@ Bot: "Where are you located?"
 User: "Main street"
 Bot: "It will arrive tomorrow."`;
 
-    const takramStr = business.use_local_slang ? "Tekram hbb!" : "You're welcome!";
+    const takramStr = isLebanese ? "Takram hbb!" : "You're welcome!";
 
     return `You are the sales manager for ${name}. ${persona}
 
