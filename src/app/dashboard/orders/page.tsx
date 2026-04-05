@@ -130,7 +130,7 @@ function formatDate(iso: string) {
 
 export default function OrdersPage() {
     const supabase = createClient();
-    const { activeWorkspaceId } = useWorkspace();
+    const { activeWorkspaceId, activeWorkspace } = useWorkspace();
     const [orders, setOrders] = useState<OrderLead[]>([]);
     const [loading, setLoading] = useState(true);
     const [updating, setUpdating] = useState<string | null>(null);
@@ -280,12 +280,19 @@ export default function OrdersPage() {
                         <p className="text-xs text-muted-foreground mt-2 max-w-sm leading-relaxed mb-6">
                             When a customer DMs your Instagram saying they want to buy something, GhostAgent captures their details here automatically.
                         </p>
-                        <a
-                            href="/dashboard/settings?tab=connection"
-                            className="bg-primary hover:opacity-90 text-primary-foreground text-sm font-semibold py-2.5 px-6 rounded-xl transition-all"
-                        >
-                            Connect Instagram to Start
-                        </a>
+                        {activeWorkspace?.instagram_account_id ? (
+                            <span className="flex items-center justify-center gap-2 text-emerald-500 text-sm font-semibold bg-emerald-500/10 px-5 py-2.5 rounded-xl border border-emerald-500/20">
+                                <CheckCircle2 className="w-4 h-4" />
+                                Monitoring DMs for Orders...
+                            </span>
+                        ) : (
+                            <a
+                                href="/dashboard/settings?tab=connection"
+                                className="bg-primary hover:opacity-90 text-primary-foreground text-sm font-semibold py-2.5 px-6 rounded-xl transition-all"
+                            >
+                                Connect Instagram to Start
+                            </a>
+                        )}
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
