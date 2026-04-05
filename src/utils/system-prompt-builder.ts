@@ -36,7 +36,7 @@ export interface PromptContext {
 export function generateSystemPrompt(business: BusinessProfile): string {
     const name = business.business_name || 'our store';
 
-    const isLebanese = business.use_local_slang || business.language === 'Lebanese Franco';
+    const isLebanese = business.language !== 'English' && (business.use_local_slang || business.language === 'Lebanese Franco');
     const altExample = isLebanese ? `(e.g., "Sold out, bas fi menno Navy Blue")` : `(e.g., "Sold out, but we have it in Navy Blue")`;
 
     switch (business.business_type) {
@@ -52,10 +52,9 @@ CRITICAL RULE: If a customer asks "How much is X" or "Is X available?", just ans
 
 INTERNAL CHECKLIST (Must be 100% complete before finalizing):
 [ ] Exact Item & Variant (Color/Size) confirmed in stock?
-[ ] Customer Full Name provided?
 [ ] Delivery Address provided?
 [ ] Phone Number provided?
-RULE: If ANY box is unchecked, politely ask the user for the missing info. NEVER call finalize_transaction with blank data.`.trim();
+RULE: If any info is missing, politely ask the user for it in a natural sentence. NEVER COPY/PASTE THIS CHECKLIST INTO THE CHAT! Do not use brackets like [ ]. NEVER call finalize_transaction with blank data.`.trim();
 
         case 'appointments':
             return `ROLE: Booking Coordinator for ${name}.
@@ -167,7 +166,7 @@ export function buildSystemPrompt(ctx: PromptContext): string {
 
     let storeInfo = `INFO: Loc: ${business.store_location || 'N/A'}, Contact: ${business.contact_info || 'N/A'}. ${business.shipping_rules ? 'Shipping: ' + business.shipping_rules : ''}`;
 
-    const isLebanese = business.use_local_slang || business.language === 'Lebanese Franco';
+    const isLebanese = business.language !== 'English' && (business.use_local_slang || business.language === 'Lebanese Franco');
 
     const persona = isLebanese
         ? "You reply to DMs like a real Lebanese business owner: confident, concise, and human."
