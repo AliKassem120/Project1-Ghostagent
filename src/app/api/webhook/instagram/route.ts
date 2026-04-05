@@ -541,12 +541,7 @@ async function processDmBuffer({
             return;
         }
 
-        // 5. Watermark Application (Starter tier)
-        const { data: ownerUser } = await supabaseAdmin.from('users').select('plan_tier').eq('id', ownerId).single();
-        const planTier = ownerUser?.plan_tier?.toLowerCase() || 'free_trial';
-        if (planTier === 'starter' || planTier === 'free_trial') {
-            aiResponse += "\n\n— ⚡ Powered by GhostAgent";
-        }
+        // 5. Watermark Application (Removed by user request)
 
         // 6. Autopilot check
         const isAutopilot = await checkAutopilot(supabaseAdmin, ownerId, senderId, effectiveWorkspaceId ?? undefined);

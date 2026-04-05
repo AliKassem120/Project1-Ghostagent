@@ -60,7 +60,7 @@ function getUpgradeMessage(plan: PlanTier, count: number): string | null {
     const limit = WORKSPACE_LIMITS[plan];
     if (count < limit) return null;
     
-    if (plan === 'starter' || plan === 'free_trial') return 'Upgrade to Pro to add more accounts';
+    if (plan === 'starter' || plan === 'free_trial') return 'Upgrade to Pro to unlock features';
     if (plan === 'pro') return 'Multi-account is an Empire-level move. Time to conquer 👑';
     if (plan === 'empire') return '5 Brands Max. You already own the world 🌍';
     
