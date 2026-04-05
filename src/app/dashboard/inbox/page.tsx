@@ -45,7 +45,7 @@ export default function InteractionsPage() {
     const [userId, setUserId] = useState<string | null>(null);
     const [draftSending, setDraftSending] = useState<string | null>(null); // Track which draft is being sent
     const [fetchedProfiles, setFetchedProfiles] = useState<Record<string, string>>({}); // Cache for fetched names
-    const { activeWorkspaceId } = useWorkspace(); // Get active workspace
+    const { activeWorkspaceId, activeWorkspace, planTier } = useWorkspace(); // Get active workspace
     const supabase = createClient();
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -97,6 +97,10 @@ export default function InteractionsPage() {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
+            if (!activeWorkspaceId) {
+                error('No active workspace selected');
+                return;
+            }
 
             const newStatus = !currentStatus;
 
@@ -112,7 +116,17 @@ export default function InteractionsPage() {
 
             if (upsertError) {
                 console.error("Supabase upsert error:", upsertError);
-                throw upsertError;
+                // If conflict key fails (e.g. constraint name mismatch), try without onConflict
+                const { error: fallbackError } = await supabase.from('conversation_states').upsert({
+                    user_id: user.id,
+                    workspace_id: activeWorkspaceId,
+                    external_chat_id: chatId,
+                    platform: 'INSTAGRAM',
+                    is_muted: newStatus,
+                    muted_until: newStatus ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null,
+                    last_interaction_at: new Date().toISOString()
+                });
+                if (fallbackError) throw fallbackError;
             }
 
             const newMuted = new Set(mutedChats);
@@ -554,15 +568,25 @@ export default function InteractionsPage() {
 
                             {/* Manual Toggle Button */}
                             <button
-                                onClick={() => toggleMute(activeChat.chat_id, isMuted)}
+                                onClick={() => {
+                                    if (planTier === 'starter' || planTier === 'free_trial') {
+                                        error('Upgrade to Pro to mute individual chats.');
+                                        return;
+                                    }
+                                    toggleMute(activeChat.chat_id, isMuted);
+                                }}
                                 className={clsx(
                                     "px-3 py-1.5 text-xs rounded-lg border flex items-center gap-2 transition-all font-bold",
-                                    isMuted
+                                    planTier === 'starter' || planTier === 'free_trial' 
+                                        ? "bg-surface-2 text-muted-foreground border-border opacity-70 cursor-not-allowed"
+                                        : isMuted
                                         ? "bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20"
                                         : "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
                                 )}
                             >
-                                {isMuted ? (
+                                {planTier === 'starter' || planTier === 'free_trial' ? (
+                                    <><PauseCircle className="w-3 h-3" /> Mute AI (Pro)</>
+                                ) : isMuted ? (
                                     <><PlayCircle className="w-3 h-3" /> Resume AI</>
                                 ) : (
                                     <><PauseCircle className="w-3 h-3" /> Mute AI</>
@@ -728,12 +752,14 @@ export default function InteractionsPage() {
                                 <p className="text-sm font-medium text-muted-foreground mb-6 max-w-sm">
                                     When customers DM or comment on your Instagram, GhostAgent manages those conversations here.
                                 </p>
-                                <a
-                                    href="/dashboard/settings?tab=connections"
-                                    className="bg-primary hover:opacity-90 text-primary-foreground text-sm font-semibold py-2.5 px-6 rounded-xl transition-all inline-block pointer-events-auto"
-                                >
-                                    Connect Instagram to Start
-                                </a>
+                                {!activeWorkspace?.instagram_account_id && (
+                                    <a
+                                        href="/dashboard/settings?tab=connections"
+                                        className="bg-primary hover:opacity-90 text-primary-foreground text-sm font-semibold py-2.5 px-6 rounded-xl transition-all inline-block pointer-events-auto"
+                                    >
+                                        Connect Instagram to Start
+                                    </a>
+                                )}
                             </div>
                         ) : (
                             <div className="text-center z-10">

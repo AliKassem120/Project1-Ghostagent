@@ -25,11 +25,11 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     const pathname = usePathname();
     const router = useRouter();
     const { autopilot, setAutopilot, isLoading } = useAutopilot();
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const { workspaces, activeWorkspace, activeWorkspaceId, setActiveWorkspace, canAddWorkspace, upgradeMessage, planTier } = useWorkspace();
-    const userEmail = user?.email || null;
-    const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || userEmail?.split('@')[0] || 'User';
-    const userInitial = userName.charAt(0).toUpperCase();
+    const userEmail = user?.email ?? null;
+    const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || userEmail?.split('@')[0] || null;
+    const userInitial = userName ? userName.charAt(0).toUpperCase() : '?';
     const isGoogleUser = user?.app_metadata?.provider === 'google';
     const [isAccountOpen, setIsAccountOpen] = useState(false);
     const [isWorkspaceSwitcherOpen, setIsWorkspaceSwitcherOpen] = useState(false);
@@ -97,12 +97,10 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     const navItems = [...topItems, ...dynamicItems, ...bottomItems];
 
     const handleLogout = async () => {
-        const { error } = await supabase.auth.signOut();
-        if (error) {
-            console.error('Error logging out:', error.message);
-        }
-        router.push('/');
-        router.refresh();
+        const { createClient } = await import('@/utils/supabase/client');
+        const client = createClient();
+        await client.auth.signOut();
+        // AuthContext's onAuthStateChange will handle redirect to '/'
     };
 
     return (
@@ -284,12 +282,23 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                         className="flex items-center gap-3 mb-3 w-full rounded-xl p-2 -mx-2 hover:bg-surface-2 transition-colors group text-left"
                     >
                         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/30 to-violet-600/30 flex items-center justify-center text-foreground font-semibold text-sm border border-border shrink-0">
-                            {userInitial}
+                            {authLoading || !userName ? (
+                                <div className="w-4 h-4 rounded-full bg-muted-foreground/20 animate-pulse" />
+                            ) : userInitial}
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-muted-foreground truncate">{userName}</p>
-                            {userEmail && (
-                                <p className="text-[10px] text-muted-foreground truncate">{userEmail}</p>
+                            {authLoading || !userName ? (
+                                <>
+                                    <div className="h-2.5 w-24 rounded-full bg-muted-foreground/20 animate-pulse mb-1.5" />
+                                    <div className="h-2 w-32 rounded-full bg-muted-foreground/10 animate-pulse" />
+                                </>
+                            ) : (
+                                <>
+                                    <p className="text-xs font-medium text-muted-foreground truncate">{userName}</p>
+                                    {userEmail && (
+                                        <p className="text-[10px] text-muted-foreground truncate">{userEmail}</p>
+                                    )}
+                                </>
                             )}
                         </div>
                         <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-muted-foreground transition-colors shrink-0" />

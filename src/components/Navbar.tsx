@@ -1,38 +1,53 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Sun, Moon, Zap, Tag, Info, Mail, User } from 'lucide-react';
 import GhostLogo from '@/components/GhostLogo';
 import { useTheme } from 'next-themes';
 
 export default function Navbar() {
     const [isOpen, setIsOpen] = useState(false);
     const [activeSection, setActiveSection] = useState('');
+    const [scrolled, setScrolled] = useState(false);
     const pathname = usePathname();
     const { theme, setTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
+    const navRef = useRef<HTMLDivElement>(null);
 
+    useEffect(() => { setMounted(true); }, []);
+
+    // Close on outside click
     useEffect(() => {
-        setMounted(true);
+        const handleClick = (e: MouseEvent) => {
+            if (navRef.current && !navRef.current.contains(e.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+    }, []);
+
+    // Scroll shadow
+    useEffect(() => {
+        const onScroll = () => setScrolled(window.scrollY > 10);
+        window.addEventListener('scroll', onScroll);
+        return () => window.removeEventListener('scroll', onScroll);
     }, []);
 
     const links = [
-        { name: 'Features', href: '/#features', section: 'features', icon: Zap },
-        { name: 'Pricing', href: '/#pricing', section: 'pricing', icon: Tag },
-        { name: 'About', href: '/about', section: null, icon: Info },
-        { name: 'Contact', href: '/contact', section: null, icon: Mail },
+        { name: 'Features', href: '/#features', section: 'features' },
+        { name: 'Pricing', href: '/#pricing', section: 'pricing' },
+        { name: 'About', href: '/about', section: null },
+        { name: 'Contact', href: '/contact', section: null },
     ];
 
     useEffect(() => {
         if (pathname !== '/') return;
-
         const handleScroll = () => {
             const sections = ['features', 'pricing'];
             const scrollPosition = window.scrollY + 100;
-
             for (const sectionId of sections) {
                 const element = document.getElementById(sectionId);
                 if (element) {
@@ -45,42 +60,43 @@ export default function Navbar() {
             }
             setActiveSection('');
         };
-
         window.addEventListener('scroll', handleScroll);
         handleScroll();
         return () => window.removeEventListener('scroll', handleScroll);
     }, [pathname]);
 
-    const handleClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
         if (pathname === '/' && href.startsWith('/#')) {
             e.preventDefault();
             const element = document.getElementById(href.slice(2));
-            if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-            setIsOpen(false);
+            if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
+        setIsOpen(false);
     };
 
-    const toggleTheme = () => {
-        setTheme(theme === 'dark' ? 'light' : 'dark');
-    };
+    // 3-line hamburger icon (not an X icon from lucide, matches the screenshot style)
+    const HamburgerIcon = () => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+    );
 
     return (
-        <nav className="fixed top-0 left-0 right-0 z-50 px-4 md:px-6 py-4">
-            <div className="max-w-7xl mx-auto flex items-center justify-between rounded-2xl px-5 md:px-6 py-3 border border-border bg-surface-0/80 backdrop-blur-xl shadow-lg relative overflow-hidden">
+        <nav ref={navRef} className="fixed top-0 left-0 right-0 z-50">
+            {/* ── Top Bar ── */}
+            <div className={`flex items-center justify-between px-5 md:px-10 py-4 bg-background/95 backdrop-blur-xl border-b border-border transition-shadow duration-200 ${scrolled ? 'shadow-md' : ''}`}>
                 {/* Logo */}
-                <Link href="/" className="text-xl font-semibold tracking-tight flex items-center gap-2.5 relative z-10">
+                <Link href="/" onClick={() => setIsOpen(false)} className="flex items-center gap-2.5">
                     <div className="p-1.5 rounded-xl bg-foreground/5">
                         <GhostLogo className="w-7 h-7" />
                     </div>
-                    <span className="font-semibold text-lg text-foreground">
-                        GhostAgent
-                    </span>
+                    <span className="font-bold text-lg text-foreground tracking-tight">GhostAgent</span>
                 </Link>
 
-                {/* Desktop Links */}
-                <div className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2 z-10">
+                {/* Desktop Links (centered) */}
+                <div className="hidden md:flex items-center gap-8">
                     {links.map((item) => {
                         const isActive =
                             (item.section && activeSection === item.section) ||
@@ -89,9 +105,8 @@ export default function Navbar() {
                             <Link
                                 key={item.name}
                                 href={item.href}
-                                onClick={(e) => handleClick(e, item.href)}
-                                className={`text-sm font-medium transition-all duration-200 ${isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-                                    }`}
+                                onClick={(e) => handleNavClick(e, item.href)}
+                                className={`text-sm font-semibold transition-colors duration-200 ${isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                             >
                                 {item.name}
                             </Link>
@@ -99,106 +114,87 @@ export default function Navbar() {
                     })}
                 </div>
 
-                {/* Right Side */}
-                <div className="flex items-center gap-2 md:gap-4 z-10">
-                    <button
-                        onClick={toggleTheme}
-                        className="p-2 text-muted-foreground hover:text-foreground hover:bg-foreground/5 rounded-full transition-colors"
-                        aria-label="Toggle theme"
-                    >
-                        {mounted && theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-                    </button>
-
-                    <Link
-                        href="/login"
-                        className="hidden md:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors ml-2"
-                    >
-                        Login
+                {/* Desktop Right */}
+                <div className="hidden md:flex items-center gap-3">
+                    {mounted && (
+                        <button
+                            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-foreground/5 rounded-full transition-colors"
+                        >
+                            {theme === 'dark' ? (
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                            ) : (
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                            )}
+                        </button>
+                    )}
+                    <Link href="/login" className="text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors">
+                        Log In
                     </Link>
                     <Link
                         href="/register"
-                        className="hidden md:block px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-all shadow-[0_0_20px_rgba(139,92,246,0.2)] hover:shadow-[0_0_30px_rgba(139,92,246,0.35)]"
+                        className="px-5 py-2.5 rounded-full text-sm font-bold text-white transition-all shadow-[0_0_20px_rgba(139,92,246,0.25)] hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:scale-[1.03]"
+                        style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 100%)' }}
                     >
                         Get Started Free
                     </Link>
-
-                    {/* Mobile Hamburger */}
-                    <button
-                        onClick={() => setIsOpen(true)}
-                        className="md:hidden p-2 text-muted-foreground hover:text-foreground"
-                    >
-                        <Menu className="w-6 h-6" />
-                    </button>
                 </div>
+
+                {/* Mobile: Hamburger */}
+                <button
+                    onClick={() => setIsOpen(!isOpen)}
+                    className="md:hidden p-1 text-foreground"
+                    aria-label="Toggle menu"
+                >
+                    <HamburgerIcon />
+                </button>
             </div>
 
-            {/* Mobile Drawer */}
+            {/* ── Mobile Dropdown (drops straight down from the nav bar) ── */}
             <AnimatePresence>
                 {isOpen && (
-                    <>
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setIsOpen(false)}
-                            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
-                        />
-                        <motion.div
-                            initial={{ x: '100%' }}
-                            animate={{ x: 0 }}
-                            exit={{ x: '100%' }}
-                            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                            className="fixed right-0 top-0 bottom-0 w-3/4 max-w-sm bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-l border-slate-200 dark:border-slate-800 z-50 p-6 md:hidden shadow-2xl flex flex-col"
-                        >
-                            <div className="flex justify-between items-center mb-10">
-                                <span className="font-bold text-xl text-slate-900 dark:text-white tracking-tight">Menu</span>
-                                <button
-                                    onClick={() => setIsOpen(false)}
-                                    className="p-2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-full transition-colors"
+                    <motion.div
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        transition={{ duration: 0.18, ease: 'easeOut' }}
+                        className="md:hidden bg-background border-b border-border shadow-xl"
+                    >
+                        {/* Nav links — centered, bold, spaced like Chatrace screenshot */}
+                        <div className="flex flex-col items-center py-6 gap-1">
+                            {links.map((item) => (
+                                <Link
+                                    key={item.name}
+                                    href={item.href}
+                                    onClick={(e) => handleNavClick(e, item.href)}
+                                    className="w-full text-center py-4 text-base font-bold uppercase tracking-widest text-foreground hover:text-primary transition-colors"
                                 >
-                                    <X className="w-5 h-5" />
-                                </button>
-                            </div>
+                                    {item.name}
+                                </Link>
+                            ))}
 
-                            <div className="flex flex-col space-y-4 flex-1">
-                                {links.map((item) => (
-                                    <div key={item.name} className="group/item overflow-hidden">
-                                        <Link
-                                            href={item.href}
-                                            onClick={(e) => {
-                                                handleClick(e, item.href);
-                                                setIsOpen(false);
-                                            }}
-                                            className="flex items-center gap-4 py-2 text-lg font-medium text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all duration-200 hover:translate-x-2"
-                                        >
-                                            <item.icon className="w-5 h-5 text-indigo-500 shrink-0" />
-                                            {item.name}
-                                        </Link>
-                                    </div>
-                                ))}
+                            {/* Log In */}
+                            <Link
+                                href="/login"
+                                onClick={() => setIsOpen(false)}
+                                className="w-full text-center py-4 text-base font-bold uppercase tracking-widest text-foreground hover:text-primary transition-colors"
+                            >
+                                Log In
+                            </Link>
 
-                                <div className="pt-6 mt-2 border-t border-slate-100 dark:border-slate-800 space-y-4">
-                                    <div className="group/item overflow-hidden">
-                                        <Link
-                                            href="/login"
-                                            onClick={() => setIsOpen(false)}
-                                            className="flex items-center gap-4 py-2 text-lg font-medium text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all duration-200 hover:translate-x-2"
-                                        >
-                                            <User className="w-5 h-5 text-indigo-500 shrink-0" />
-                                            Login
-                                        </Link>
-                                    </div>
-                                    <Link
-                                        href="/register"
-                                        onClick={() => setIsOpen(false)}
-                                        className="inline-flex items-center justify-center w-full px-6 py-4 mt-2 rounded-xl bg-indigo-600 text-white font-semibold text-center hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/30"
-                                    >
-                                        Get Started Free
-                                    </Link>
-                                </div>
+                            {/* CTA Button */}
+                            <div className="pt-4 pb-2 px-8 w-full">
+                                <Link
+                                    href="/register"
+                                    onClick={() => setIsOpen(false)}
+                                    className="block text-center w-full py-4 rounded-full text-sm font-extrabold text-white uppercase tracking-widest shadow-lg hover:scale-[1.02] transition-all active:scale-95"
+                                    style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 100%)' }}
+                                >
+                                    Get Started Free
+                                </Link>
                             </div>
-                        </motion.div>
-                    </>
+                        </div>
+                    </motion.div>
                 )}
             </AnimatePresence>
         </nav>

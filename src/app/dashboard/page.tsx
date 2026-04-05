@@ -193,6 +193,20 @@ export default function DashboardPage() {
             });
     }, [activeWorkspaceId]);
 
+    // Check if a CSV catalog has been uploaded (counts as having inventory for the checklist)
+    const [hasCatalog, setHasCatalog] = useState(false);
+    useEffect(() => {
+        if (!activeWorkspaceId || !userId) return;
+        supabase
+            .from('business_knowledge')
+            .select('id')
+            .eq('workspace_id', activeWorkspaceId)
+            .maybeSingle()
+            .then(({ data }) => {
+                setHasCatalog(!!data);
+            });
+    }, [activeWorkspaceId, userId]);
+
     // Also show connected if the activeWorkspace has instagram info from WorkspaceContext
     const isConnected = instagramStatus.connected || !!activeWorkspace?.instagram_username;
 
@@ -443,7 +457,7 @@ export default function DashboardPage() {
             {/* ═══════════════════════════════════════════════════ */}
             <SetupChecklist
                 hasInstagram={!!(activeWorkspace?.instagram_username && activeWorkspace?.instagram_account_id)}
-                hasInventory={inventoryItems.length > 0}
+                hasInventory={inventoryItems.length > 0 || hasCatalog}
                 hasAiSettings={hasAiSettings}
                 businessType={activeWorkspace?.business_type}
             />

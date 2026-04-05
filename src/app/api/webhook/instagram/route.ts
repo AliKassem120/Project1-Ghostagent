@@ -3,11 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { generateGhostReply } from '@/utils/ghost-brain';
 import { upsertDmBuffer, claimDmBuffer, clearDmBuffer, releaseDmBuffer, DEBOUNCE_SECONDS } from '@/utils/dm-debounce';
 import { containsAlertKeyword, triggerManagerAlert, ALERT_KEYWORDS } from '@/utils/whatsapp-alerts';
-import {
-    getCheckoutSession, createCheckoutSession,
-    completeCheckoutOrder, extractAllCheckoutFields, detectsPurchaseIntent,
-    buildCheckoutPromptSection
-} from '@/utils/checkout-flow';
+
 import crypto from 'crypto';
 import { checkUserLimit } from '@/lib/billing';
 import Groq from 'groq-sdk';
@@ -222,11 +218,11 @@ async function processWebhookEvent(body: any) {
                                 ws = data;
                             }
 
-                            // 🔒 WhatsApp alerts are an Empire-only feature
+                            // 🔒 WhatsApp alerts are a Pro & Empire feature
                             const { data: ownerUser } = await supabaseAdmin.from('users').select('plan_tier').eq('id', ownerId).single();
                             const planTier = ownerUser?.plan_tier?.toLowerCase() || 'free_trial';
-                            if (planTier !== 'empire') {
-                                console.log(`🚨 [Alert] Skipping: WhatsApp alerts require Empire plan (current: ${planTier}).`);
+                            if (planTier !== 'empire' && planTier !== 'pro' && planTier !== 'pro agent') {
+                                console.log(`🚨 [Alert] Skipping: WhatsApp alerts require Pro/Empire plan (current: ${planTier}).`);
                                 return;
                             }
 
@@ -345,6 +341,14 @@ async function processWebhookEvent(body: any) {
                         continue;
                     }
                     const { userId: ownerId, workspaceId: commentWorkspaceId } = commentOwnerResult;
+
+                    // ── GATE: Starter tier cannot auto-reply to comments ──
+                    const { data: ownerUser } = await supabaseAdmin.from('users').select('plan_tier').eq('id', ownerId).single();
+                    const planTier = ownerUser?.plan_tier?.toLowerCase() || 'free_trial';
+                    if (planTier === 'starter' || planTier === 'free_trial') {
+                        console.log('🛑 SKIPPING COMMENT: Starter tier does not support Comment Auto-Reply.');
+                        continue;
+                    }
 
                     // Check for duplicate replies
                     const { data: existingReply } = await supabaseAdmin
@@ -515,38 +519,7 @@ async function processDmBuffer({
             return;
         }
 
-        // 3. CHECK FOR ACTIVE CHECKOUT SESSION
-        let checkoutCtx: string | undefined;
-        let checkoutSession: any = null;
-        let businessTypeStr = 'ecommerce';
-
-        try {
-            checkoutSession = await getCheckoutSession(supabaseAdmin, ownerId, senderId, effectiveWorkspaceId || null);
-
-            const { data: wsData } = await supabaseAdmin
-                .from('ai_settings')
-                .select('business_type')
-                .eq(effectiveWorkspaceId ? 'id' : 'user_id', effectiveWorkspaceId || ownerId)
-                .maybeSingle();
-
-            businessTypeStr = wsData?.business_type || 'ecommerce';
-
-            if (!checkoutSession && detectsPurchaseIntent(batchedMessage)) {
-                const itemMatch = batchedMessage.match(/(?:buy|order|purchase|get|take|want|book|schedule|reserve)\s+(?:a\s+|the\s+|an\s+)?(.*)/i);
-                const item = itemMatch?.[1]?.trim() || 'an item or service';
-                checkoutSession = await createCheckoutSession(supabaseAdmin, ownerId, effectiveWorkspaceId || null, senderId, item);
-                console.log(`🛒 [Checkout] New session created for "${item}" (${businessTypeStr})`);
-            }
-            if (checkoutSession) {
-                checkoutCtx = buildCheckoutPromptSection(checkoutSession, businessTypeStr);
-            }
-        } catch (checkoutErr) {
-            console.warn('⚠️ [Checkout] Session lookup failed — proceeding without checkout ctx:', checkoutErr);
-            checkoutSession = null;
-            checkoutCtx = undefined;
-        }
-
-        // 4. Generate AI reply (with checkout context if active)
+        // 3. Generate AI reply (ghost-brain v4 owns checkout via finalize_transaction tool)
         let aiResponse: string | null;
         try {
             aiResponse = await generateGhostReply(
@@ -554,8 +527,7 @@ async function processDmBuffer({
                 batchedMessage,
                 supabaseAdmin,
                 senderId,
-                effectiveWorkspaceId ?? undefined,
-                checkoutCtx
+                effectiveWorkspaceId ?? undefined
             );
         } catch (ghostErr) {
             console.error('❌ [Ghost Brain] generateGhostReply threw:', ghostErr);
@@ -569,7 +541,14 @@ async function processDmBuffer({
             return;
         }
 
-        // 5. Autopilot check
+        // 5. Watermark Application (Starter tier)
+        const { data: ownerUser } = await supabaseAdmin.from('users').select('plan_tier').eq('id', ownerId).single();
+        const planTier = ownerUser?.plan_tier?.toLowerCase() || 'free_trial';
+        if (planTier === 'starter' || planTier === 'free_trial') {
+            aiResponse += "\n\n— ⚡ Powered by GhostAgent";
+        }
+
+        // 6. Autopilot check
         const isAutopilot = await checkAutopilot(supabaseAdmin, ownerId, senderId, effectiveWorkspaceId ?? undefined);
         if (!isAutopilot) {
             console.log('🛑 AUTOPILOT OFF: Saving draft reply.');
@@ -585,7 +564,7 @@ async function processDmBuffer({
             return;
         }
 
-        // 6. Send the reply
+        // 7. Send the reply
         console.log('🤖 AI Reply:', aiResponse);
         await sendReply(ownerId, senderId, aiResponse, supabaseAdmin, effectiveWorkspaceId || undefined);
 
@@ -599,25 +578,7 @@ async function processDmBuffer({
             metadata: { chat_id: senderId, platform: 'instagram' }
         });
 
-        // 8. 🛒 ADVANCE CHECKOUT (fire-and-forget — doesn't block)
-        void (async () => {
-            try {
-                if (!checkoutSession) return;
-                const info = await extractAllCheckoutFields(batchedMessage, businessTypeStr);
-                console.log(`🛒 [Checkout] Extracted — name: "${info.name}", phone: "${info.phone}", address: "${info.address}"`);
-                if (info.name && info.phone && info.address) {
-                    const handle = await fetchUserProfile(senderId, supabaseAdmin, effectiveWorkspaceId ?? undefined, ownerId) || senderId;
-                    await completeCheckoutOrder(supabaseAdmin, checkoutSession, info, handle);
-                    console.log('✅ [Checkout] Order complete and saved.');
-                } else {
-                    console.log('🛒 [Checkout] Not all fields found yet — waiting for next message.');
-                }
-            } catch (e) {
-                console.error('🛒 [Checkout] Advance error:', e);
-            }
-        })();
-
-        // 9. Clear the buffer
+        // 8. Clear the buffer
         await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
         console.log(`✅ [Buffer] Reply sent and buffer cleared for sender ${senderId}`);
 

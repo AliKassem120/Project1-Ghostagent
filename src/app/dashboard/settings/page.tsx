@@ -667,17 +667,19 @@ export default function SettingsPage() {
                             </div>
                         ))}
 
-                        <button
-                            onClick={handleConnectInstagram}
-                            disabled={connecting}
-                            className="w-full py-4 border border-dashed border-border hover:border-border-strong hover:bg-surface-2 rounded-xl flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground transition-all group press"
-                        >
-                            {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> :
-                                <div className="w-7 h-7 rounded-full bg-surface-3 flex items-center justify-center group-hover:bg-primary/20 group-hover:text-primary transition-colors">
-                                    <Plus className="w-4 h-4" />
-                                </div>}
-                            <span className="text-sm font-medium">Add Account</span>
-                        </button>
+                        {instagramStatus.accounts.length === 0 && (
+                            <button
+                                onClick={handleConnectInstagram}
+                                disabled={connecting}
+                                className="w-full py-4 border border-dashed border-border hover:border-border-strong hover:bg-surface-2 rounded-xl flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground transition-all group press"
+                            >
+                                {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> :
+                                    <div className="w-7 h-7 rounded-full bg-surface-3 flex items-center justify-center group-hover:bg-primary/20 group-hover:text-primary transition-colors">
+                                        <Plus className="w-4 h-4" />
+                                    </div>}
+                                <span className="text-sm font-medium">Add Account</span>
+                            </button>
+                        )}
                     </div>
                 </motion.div>
             )}

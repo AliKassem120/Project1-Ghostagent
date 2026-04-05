@@ -7,6 +7,7 @@ import { clsx } from 'clsx';
 import Papa from 'papaparse';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
+import { useAuth } from '@/contexts/AuthContext';
 import GhostModal from '@/components/GhostModal';
 import { useRealtime } from '@/hooks/useRealtime';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
@@ -35,8 +36,9 @@ type Product = {
 export default function InventoryPage() {
     const supabase = createClient();
     const toast = useToast();
-    const { activeWorkspaceId } = useWorkspace();
-    const [userId, setUserId] = useState<string | null>(null);
+    const { user } = useAuth();
+    const userId = user?.id;
+    const { activeWorkspaceId, planTier } = useWorkspace();
     const [isAdding, setIsAdding] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [newProduct, setNewProduct] = useState({ name: '', price: '', stock: '' });
@@ -49,13 +51,7 @@ export default function InventoryPage() {
     const [uploadedRows, setUploadedRows] = useState<any[]>([]);
 
     // Get user ID on mount
-    useEffect(() => {
-        const getUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) setUserId(user.id);
-        };
-        getUser();
-    }, []);
+    // Handled by useAuth()
 
     // 🔥 REALTIME: Subscribe to inventory changes
     const { data: inventoryData, loading } = useRealtime<InventoryRow>(
@@ -219,6 +215,33 @@ export default function InventoryPage() {
         }
     };
 
+    // Promotes a CSV item to a real inventory row, then removes it from the CSV list
+    const handleSaveCsvEdit = async () => {
+        if (!editingProductId || !userId || !activeWorkspaceId || !editValues.name.trim()) return;
+        try {
+            const stock = Number(editValues.stock) || 0;
+            const price = Number(editValues.price) || 0;
+
+            const { error } = await supabase.from('inventory').insert({
+                user_id: userId,
+                workspace_id: activeWorkspaceId,
+                item_name: editValues.name,
+                price,
+                stock_level: stock,
+            });
+            if (error) throw error;
+
+            // Remove the CSV row at the matching index so it doesn't show twice
+            const csvIndex = parseInt(editingProductId.replace('csv-', ''), 10);
+            setUploadedRows(prev => prev.filter((_, i) => i !== csvIndex));
+            toast.success('CSV item saved to inventory');
+            setEditingProductId(null);
+        } catch (error) {
+            console.error('Error promoting CSV item:', error);
+            toast.error('Failed to save item.');
+        }
+    };
+
     const openDeleteModal = (product: Product) => {
         setDeleteModal({ open: true, productId: product.id, productName: product.name });
     };
@@ -364,10 +387,11 @@ export default function InventoryPage() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.97 }}
                     onClick={handleAddClick}
-                    disabled={isAdding}
-                    className="w-full sm:w-auto px-6 py-3 bg-primary text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)] active:scale-95"
+                    disabled={isAdding || (planTier === 'starter' && products.filter(p => !p.isCsv).length >= 3)}
+                    className="w-full sm:w-auto px-6 py-3 bg-primary text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)] active:scale-95 text-sm"
                 >
-                    <Plus className="w-5 h-5" /> Add Product
+                    <Plus className="w-5 h-5" /> 
+                    {planTier === 'starter' && products.filter(p => !p.isCsv).length >= 3 ? 'Starter Limit Reached (3)' : 'Add Product'}
                 </motion.button>
             </motion.div>
 
@@ -410,7 +434,14 @@ export default function InventoryPage() {
 
                 {/* ═══ CSV UPLOAD ═══ */}
                 <div className="w-full md:w-[400px]">
-                    {uploadedFile ? (
+                    {planTier === 'starter' ? (
+                        <div className="border border-border rounded-xl p-3 text-center bg-surface-2 flex items-center justify-center gap-3 h-full min-h-[48px] opacity-70 cursor-not-allowed" title="Upgrade to Pro to upload CSVs">
+                            <Upload className="w-4 h-4 text-muted-foreground shrink-0" />
+                            <div className="text-muted-foreground font-medium text-sm">
+                                CSV Upload (Pro only)
+                            </div>
+                        </div>
+                    ) : uploadedFile ? (
                         <div className="border border-emerald-500/15 bg-emerald-500/[0.04] rounded-xl p-3 flex items-center justify-between h-full">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 rounded-xl bg-emerald-500/10 shrink-0">
@@ -570,9 +601,9 @@ export default function InventoryPage() {
                                             </span>
                                         </div>
                                     </div>
-                                    {isEditing && !item.isCsv ? (
+                                    {isEditing ? (
                                         <div className="flex items-center gap-1 shrink-0 ml-2">
-                                            <button onClick={handleSaveEdit} className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-all">
+                                            <button onClick={item.isCsv ? handleSaveCsvEdit : handleSaveEdit} className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-all">
                                                 <Save className="w-4 h-4" />
                                             </button>
                                             <button onClick={handleCancelEdit} className="p-2 text-muted-foreground hover:bg-surface-2 rounded-xl transition-all">
@@ -580,19 +611,19 @@ export default function InventoryPage() {
                                             </button>
                                         </div>
                                     ) : (
-                                        !item.isCsv && (
-                                            <div className="flex items-center gap-1 shrink-0 ml-2">
-                                                <button onClick={() => handleEditClick(item)} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-all">
-                                                    <Edit2 className="w-4 h-4" />
-                                                </button>
+                                        <div className="flex items-center gap-1 shrink-0 ml-2">
+                                            <button onClick={() => handleEditClick(item)} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-all">
+                                                <Edit2 className="w-4 h-4" />
+                                            </button>
+                                            {!item.isCsv && (
                                                 <button
                                                     onClick={() => openDeleteModal(item)}
                                                     className="p-2 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
-                                            </div>
-                                        )
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                                 <div className="grid grid-cols-2 gap-4 pt-3 border-t border-border">
@@ -707,9 +738,9 @@ export default function InventoryPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            {isEditing && !item.isCsv ? (
+                                            {isEditing ? (
                                                 <div className="flex items-center justify-end gap-1.5">
-                                                    <button onClick={handleSaveEdit} className="text-emerald-400/80 hover:text-emerald-400 p-1.5 hover:bg-emerald-500/10 rounded-lg transition-all" title="Save">
+                                                    <button onClick={item.isCsv ? handleSaveCsvEdit : handleSaveEdit} className="text-emerald-400/80 hover:text-emerald-400 p-1.5 hover:bg-emerald-500/10 rounded-lg transition-all" title="Save">
                                                         <Save className="w-4 h-4" />
                                                     </button>
                                                     <button onClick={handleCancelEdit} className="text-muted-foreground hover:text-muted-foreground p-1.5 hover:bg-surface-2 rounded-lg transition-all" title="Cancel">
@@ -717,23 +748,17 @@ export default function InventoryPage() {
                                                     </button>
                                                 </div>
                                             ) : (
-                                                !item.isCsv ? (
-                                                    <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button onClick={() => handleEditClick(item)} className="text-muted-foreground hover:text-primary/80 transition-all p-2 hover:bg-primary/10 rounded-lg" title="Edit">
-                                                            <Edit2 className="w-4 h-4" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => openDeleteModal(item)}
-                                                            className="text-muted-foreground hover:text-red-400 transition-all p-2 hover:bg-red-500/10 rounded-lg" title="Delete"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest pr-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        Managed in file
-                                                    </div>
-                                                )
+                                                <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => handleEditClick(item)} className="text-muted-foreground hover:text-primary/80 transition-all p-2 hover:bg-primary/10 rounded-lg" title="Edit">
+                                                        <Edit2 className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => openDeleteModal(item)}
+                                                        className="text-muted-foreground hover:text-red-400 transition-all p-2 hover:bg-red-500/10 rounded-lg" title="Delete"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
                                             )}
                                         </td>
                                     </tr>

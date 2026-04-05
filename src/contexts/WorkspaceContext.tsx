@@ -52,15 +52,14 @@ function normalisePlan(raw: string | null | undefined): PlanTier {
 const WORKSPACE_LIMITS: Record<PlanTier, number> = {
     free_trial: 1,
     starter: 1,
-    pro: 2,
+    pro: 1, // Only Empire gets multi-account
     empire: 5,
 };
 
 function getUpgradeMessage(plan: PlanTier, count: number): string | null {
     const limit = WORKSPACE_LIMITS[plan];
     if (count < limit) return null;
-    if (plan === 'free_trial' || plan === 'starter') return 'Upgrade to Pro to add more accounts';
-    if (plan === 'pro') return 'Upgrade to Empire to add more accounts';
+    if (plan !== 'empire') return 'Multi-account is an Empire-level move. Time to conquer 👑';
     return null; // empire at limit — just disable silently
 }
 
