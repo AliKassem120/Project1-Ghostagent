@@ -201,8 +201,12 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                                                 </button>
                                             ) : (
                                                 <div className="px-3 py-2">
-                                                    <p className="text-[9px] text-muted-foreground">{upgradeMessage}</p>
-                                                    <Link href="/dashboard/billing" onClick={() => setIsWorkspaceSwitcherOpen(false)} className="text-[10px] text-primary font-semibold hover:underline">Upgrade plan →</Link>
+                                                    <p className="text-[9px] text-muted-foreground mb-1">{upgradeMessage}</p>
+                                                    {planTier !== 'empire' && (
+                                                        <Link href="/dashboard/billing" onClick={() => setIsWorkspaceSwitcherOpen(false)} className="text-[10px] text-primary font-bold hover:underline">
+                                                            Upgrade plan →
+                                                        </Link>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>

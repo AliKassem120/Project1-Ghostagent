@@ -59,8 +59,12 @@ const WORKSPACE_LIMITS: Record<PlanTier, number> = {
 function getUpgradeMessage(plan: PlanTier, count: number): string | null {
     const limit = WORKSPACE_LIMITS[plan];
     if (count < limit) return null;
-    if (plan !== 'empire') return 'Multi-account is an Empire-level move. Time to conquer 👑';
-    return null; // empire at limit — just disable silently
+    
+    if (plan === 'starter' || plan === 'free_trial') return 'Upgrade to Pro to add more accounts';
+    if (plan === 'pro') return 'Multi-account is an Empire-level move. Time to conquer 👑';
+    if (plan === 'empire') return '5 Brands Max. You already own the world 🌍';
+    
+    return null;
 }
 
 // ─── Context ─────────────────────────────────────────────────────────────────
