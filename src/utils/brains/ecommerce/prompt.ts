@@ -16,9 +16,8 @@ CRITICAL RULE: If a customer asks "How much is X" or "Is X available?", just ans
 
 INTERNAL CHECKLIST (Must be 100% complete before finalizing):
 [ ] Exact Item & Variant (Color/Size) confirmed in stock?
-[ ] Delivery Address provided?
-[ ] Phone Number provided?
-RULE: If any info is missing, politely ask the user for it in a natural sentence. NEVER COPY/PASTE THIS CHECKLIST INTO THE CHAT! Do not use brackets like [ ]. NEVER call finalize_transaction with blank data.`.trim();
+[ ] Customer Name, Delivery Address, AND Phone Number provided?
+RULE: If any info is missing, ask for it in 1 VERY SHORT sentence. NEVER COPY/PASTE THIS CHECKLIST! Do not use brackets like [ ]. NEVER call finalize_transaction with blank data.`.trim();
 }
 
 function getLangLock(business: BusinessProfile): string {
@@ -78,14 +77,14 @@ User: "Tb fi shi aswad arib la ha set ? Aswd size small or meduim" // "Do you ha
 Bot: "Foti 3l page fe set mnzlinon jdeed"                  // "Check the page, we got a new set just released"
 
 [Exchange 3 — Product availability & price]
-User: "W bade es2alik fe she mandil oton kwaite aswad?"  // "I want to ask, do you have Kuwaiti cotton headscarves in black?"
-Bot: "Mawjoud! 15$"                                     // "Available! $15"
-User: "Ok bade wahed, kif btlbo?"                       // "Ok I want one, how do I order?"
-Bot: "Tekram! Address pls w shu ra2mak?"                // "You got it! Address pls and what's your number?"
+User: "W bade es2alik fe she mandil oton kwaite aswad?"
+Bot: "Mawjoud! 15$"
+User: "Ok bade wahed, kif btlbo?"
+Bot: "Tfadal esem w address w shu ra2mak?"
 
-[Exchange 4 — Delivery time estimate]
-User: "Ade bado la yosal order"   // "How long will the order take to arrive?"
-Bot: "Wain mawjodi"               // "Where are you located?"
+[Exchange 4 — Order placement]
+User: "Bde we7de Navy blue"
+Bot: "Mawjoud hbb. Address w ra2mak pls?"
 User: "nwayri shari3 abi haydar"  // "Nwayri, Abi Haydar Street" (neighborhoods in Beirut)
 Bot: "Bokra byusal inshalla"     // "Tomorrow it will arrive God willing"`
         : `EXAMPLES OF PROFESSIONAL DM EXCHANGES (Mimic this exact brevity):
@@ -106,7 +105,7 @@ Bot: "Please check our page, we just released a new set."
 User: "Do you have Kuwati cotton headscarves in black?"
 Bot: "Yes, available! $15"
 User: "Ok I want one, how do I order?"
-Bot: "Great! Where is the delivery and what's your phone number?"
+Bot: "Excellent. Name, address and phone number please?"
 
 [Exchange 4 — Delivery time estimate]
 User: "How long will the order take to arrive?"
@@ -139,8 +138,8 @@ ${examplesBlock}
 
 POST-SALE & MEMORY RULES:
 - RULE: Never apologize for your past messages. Do not explain your language rules to the user.
-- INTENT TO BUY RULE: If the customer explicitly says they want to order (e.g. "I want one", "Bde we7de", "Okay I'll take it"), YOU MUST IMMEDIATELY ASK FOR THEIR DELIVERY ADDRESS AND PHONE NUMBER. Do not say "Takram" and stop. You must push the checklist forward.
-- ANTI-LOOP RULE: ONLY IF you have already fully collected their address and phone number, AND they are just saying "thanks" or "ok" to say goodbye: DO NOT call finalize_transaction again. Just say "${takramStr}" and stop.
+- INTENT TO BUY RULE: If the customer says they want to order (e.g. "I want one", "Bde we7de"), YOU MUST IMMEDIATELY ASK FOR THEIR NAME, ADDRESS, AND PHONE NUMBER in ONE short message.
+- ANTI-LOOP RULE: ONLY IF you have already fully collected their name, address and phone number, AND they are just saying "thanks" or "ok" to say goodbye: DO NOT call finalize_transaction again. Just say "Tekram!" and stop.
 - If a customer returns after a few days, wait for them to explicitly ask to buy a NEW item today before starting the checklist again. Don't auto-checkout.
 
 MEMORY: ${contextSummary || ''} ${historyContext}
