@@ -108,16 +108,23 @@ export async function generateEcommerceGhostReply(
         const finalizeTransactionTool = {
             description: 'Save the confirmed order immediately into the database before replying.',
             parameters: z.object({
-                customer_name: z.string().optional().describe('Full name. IF MISSING, politely ask for it in chat. Do not guess.'),
-                customer_phone: z.string().optional().describe('Phone number. IF MISSING, politely ask for it. Do not guess.'),
+                customer_name: z.string().optional().describe('Full name. IF MISSING, politely ask for it. Also called "name".'),
+                customer_phone: z.string().optional().describe('Phone number. IF MISSING, politely ask for it. Also called "phone".'),
                 customer_email: z.string().email().optional().describe('Optional email address.'),
-                delivery_address: z.string().describe('The delivery address.'),
+                delivery_address: z.string().optional().describe('The delivery address. Also called "address".'),
+                name: z.string().optional().describe('Alias for customer_name.'),
+                phone: z.string().optional().describe('Alias for customer_phone.'),
+                address: z.string().optional().describe('Alias for delivery_address.'),
                 payment_method: z.string().optional().describe('Cash on delivery, card, etc.'),
                 item_requested: z.string().describe('What they ordered.'),
                 item_variant: z.string().optional().describe('Color, size, or specific model variant.')
             }),
             execute: async (a: any) => {
-                console.log('🛍️ [E-COMMERCE] Executing finalize_transaction:', a);
+                const name = a?.customer_name || a?.name || null;
+                const phone = a?.customer_phone || a?.phone || null;
+                const address = a?.delivery_address || a?.address || null;
+
+                console.log('🛍️ [E-COMMERCE] Executing finalize_transaction:', { ...a, customer_name: name, customer_phone: phone, delivery_address: address });
                 try {
                     let handle = 'Customer';
                     const itemRequested = a?.item_requested || 'Unknown item';
@@ -159,11 +166,11 @@ export async function generateEcommerceGhostReply(
                         instagram_handle: handle,
                         status: 'Pending',
                         created_at: new Date().toISOString(),
-                        customer_name: a?.customer_name || null,
-                        customer_phone: a?.customer_phone || null,
+                        customer_name: name,
+                        customer_phone: phone,
                         customer_email: a?.customer_email || null,
                         item_requested: itemRequested,
-                        customer_address: a?.delivery_address || null,
+                        customer_address: address,
                         payment_method: a?.payment_method || 'Cash on Delivery',
                         raw_message: JSON.stringify({ item_variant: a?.item_variant || undefined }),
                     };
