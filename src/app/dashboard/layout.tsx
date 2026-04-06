@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LayoutDashboard, Inbox, Package, Settings, LogOut, CreditCard, Zap, ChevronRight, BookOpen, Calendar, Clock, UtensilsCrossed, Map, Home, Users, PartyPopper, Ticket, Download, HeadphonesIcon, Loader2, Briefcase, Building2, Check, Plus } from 'lucide-react';
+import { LayoutDashboard, Inbox, Package, Settings, LogOut, CreditCard, Zap, ChevronRight, BookOpen, Calendar, Clock, Briefcase, Building2, Check, Plus, Loader2 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 import { useState, useEffect } from 'react';
@@ -68,30 +68,7 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                 { icon: Clock, label: 'Working Hours', href: '/dashboard/hours' },
             ];
             break;
-        case 'food_and_beverage':
-            dynamicItems = [
-                { icon: UtensilsCrossed, label: 'Menu', href: '/dashboard/menu' },
-                { icon: Map, label: 'Delivery Zones', href: '/dashboard/delivery' },
-            ];
-            break;
-        case 'real_estate':
-            dynamicItems = [
-                { icon: Home, label: 'Listings', href: '/dashboard/listings' },
-                { icon: Users, label: 'CRM', href: '/dashboard/crm' },
-            ];
-            break;
-        case 'events_ticketing':
-            dynamicItems = [
-                { icon: PartyPopper, label: 'Events', href: '/dashboard/events' },
-                { icon: Ticket, label: 'Guestlists', href: '/dashboard/guestlists' },
-            ];
-            break;
-        case 'digital_services':
-            dynamicItems = [
-                { icon: Download, label: 'Downloads', href: '/dashboard/downloads' },
-                { icon: HeadphonesIcon, label: 'Support', href: '/dashboard/support' },
-            ];
-            break;
+
     }
 
     const navItems = [...topItems, ...dynamicItems, ...bottomItems];

@@ -5,10 +5,6 @@ import Link from 'next/link';
 type BusinessCategory =
     | 'ecommerce'
     | 'appointments'
-    | 'real_estate'
-    | 'food_and_beverage'
-    | 'events_ticketing'
-    | 'digital_services'
     | string;
 
 // Only these types need inventory

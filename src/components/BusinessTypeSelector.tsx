@@ -12,11 +12,7 @@ import {
 
 export type BusinessCategory =
     | 'ecommerce'
-    | 'appointments'
-    | 'real_estate'
-    | 'food_and_beverage'
-    | 'events_ticketing'
-    | 'digital_services';
+    | 'appointments';
 
 interface BusinessTypeSelectorProps {
     value?: BusinessCategory;
@@ -36,31 +32,7 @@ const CATEGORIES = [
         label: 'Appointments',
         description: 'Services, bookings, calendar',
         icon: Calendar,
-    },
-    {
-        id: 'real_estate',
-        label: 'Real Estate',
-        description: 'Properties, budgets, viewings',
-        icon: Home,
-    },
-    {
-        id: 'food_and_beverage',
-        label: 'Food & Beverage',
-        description: 'Restaurants, menus, delivery',
-        icon: UtensilsCrossed,
-    },
-    {
-        id: 'events_ticketing',
-        label: 'Events & Ticketing',
-        description: 'Tickets, guest lists, venues',
-        icon: PartyPopper,
-    },
-    {
-        id: 'digital_services',
-        label: 'Digital Services',
-        description: 'Downloads, tech support, consulting',
-        icon: Laptop,
-    },
+    }
 ] as const;
 
 export default function BusinessTypeSelector({

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Building2, Loader2, Check, ShoppingBag, Calendar, Home, UtensilsCrossed, PartyPopper, Laptop } from 'lucide-react';
+import { X, Building2, Loader2, Check, ShoppingBag, Calendar } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
@@ -16,11 +16,7 @@ interface AddWorkspaceModalProps {
 
 const BUSINESS_TYPES: { id: BusinessCategory; label: string; icon: React.ElementType; desc: string }[] = [
     { id: 'ecommerce', label: 'E-commerce', icon: ShoppingBag, desc: 'Products, shipping, inventory' },
-    { id: 'appointments', label: 'Appointments', icon: Calendar, desc: 'Services, bookings, calendar' },
-    { id: 'real_estate', label: 'Real Estate', icon: Home, desc: 'Properties, viewings, leads' },
-    { id: 'food_and_beverage', label: 'Food & Beverage', icon: UtensilsCrossed, desc: 'Menus, delivery, orders' },
-    { id: 'events_ticketing', label: 'Events & Ticketing', icon: PartyPopper, desc: 'Tickets, guest lists, venues' },
-    { id: 'digital_services', label: 'Digital Services', icon: Laptop, desc: 'Downloads, support, consulting' },
+    { id: 'appointments', label: 'Appointments', icon: Calendar, desc: 'Services, bookings, calendar' }
 ];
 
 export default function AddWorkspaceModal({ isOpen, onClose }: AddWorkspaceModalProps) {
