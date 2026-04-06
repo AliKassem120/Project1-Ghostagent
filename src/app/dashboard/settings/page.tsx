@@ -708,6 +708,7 @@ export default function SettingsPage() {
                                         { value: "Auto-Detect", label: "🌍 Auto-Detect" },
                                         { value: "English", label: "🇬🇧 English Only" },
                                         { value: "Lebanese Franco", label: "🇱🇧 Lebanese Franco" },
+                                        { value: "Arabic", label: "🇱🇧 Arabic" },
                                     ]}
                                 />
                                 <p className="text-[10px] text-muted-foreground ml-1 mt-2">Auto-Detect is recommended. Ghost Agent mirrors any language the customer uses.</p>
