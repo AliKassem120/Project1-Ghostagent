@@ -176,9 +176,13 @@ export async function generateEcommerceGhostReply(
                     };
 
                     const { error } = await supabase.from('orders').insert(orderPayload);
-                    if (error) throw error;
+                    if (error) {
+                        console.error('❌ [E-COMMERCE] Supabase Insert Error:', error);
+                        throw error;
+                    }
 
-                    return "Order saved successfully! Tell the customer it's confirmed in 1 short sentence.";
+                    console.log('✅ [E-COMMERCE] Order saved successfully!');
+                    return `Order saved to database for ${itemRequested}. Reply to the user in Lebanese Franco that their order is confirmed.`;
                 } catch (err: any) {
                     console.error('❌ [E-COMMERCE] Failed to save transaction:', err);
                     return "Failed to save to database. Apologize to the user.";
@@ -226,37 +230,44 @@ export async function generateEcommerceGhostReply(
             console.log(`📊 [Usage] Tokens: ${promptTokens || 0} (In) / ${completionTokens || 0} (Out) — Total: ${totalTokens || 0}`);
         }
 
-        if (finalResult.toolCalls && finalResult.toolCalls.length > 0 && !finalResult.text) {
+        if (finalResult.toolCalls && finalResult.toolCalls.length > 0) {
             const executedResults = (finalResult as any).toolResults || [];
+            
+            // If the model called a tool but didn't provide text, or provided technical text
             if (executedResults.length > 0) {
-                console.log(`[E-COMMERCE] Tool used. Powering up for final answer...`);
+                console.log(`[E-COMMERCE] Tool result found. Generating final conversational reply...`);
                 const toolResultsMessages: any[] = [...messages];
+                
+                // Add the tool call message
                 toolResultsMessages.push({
                     role: 'assistant',
                     content: finalResult.toolCalls.map((tc: any) => ({
-                        type: 'tool-call', toolCallId: tc.toolCallId, toolName: tc.toolName, input: tc.input || tc.args
+                        type: 'tool-call', 
+                        toolCallId: tc.toolCallId, 
+                        toolName: tc.toolName, 
+                        args: tc.args
                     }))
                 });
+
+                // Add the tool result message
                 toolResultsMessages.push({
                     role: 'tool',
                     content: executedResults.map((tr: any) => ({
-                        type: 'tool-result', toolCallId: tr.toolCallId, toolName: tr.toolName, output: { type: 'json', value: tr.output || tr.result }
+                        type: 'tool-result', 
+                        toolCallId: tr.toolCallId, 
+                        toolName: tr.toolName, 
+                        result: tr.result
                     }))
                 });
 
-                finalResult = await generateText({
+                const secondPass = await generateText({
                     model: groq('llama-3.3-70b-versatile'),
                     system: systemPrompt,
                     messages: toolResultsMessages,
-                    tools: toolsMapping,
-                    toolChoice: 'auto',
                     temperature: 0.1,
                 });
 
-                if (finalResult.usage) {
-                    const { promptTokens, completionTokens, totalTokens } = finalResult.usage as any;
-                    console.log(`📊 [Usage - Pass 2] Tokens: ${promptTokens || 0} (In) / ${completionTokens || 0} (Out) — Total: ${totalTokens || 0}`);
-                }
+                return secondPass.text;
             }
         }
 
@@ -265,7 +276,9 @@ export async function generateEcommerceGhostReply(
             summarizeConversationIfNeeded(supabase, userId, chatId, fullHistory, workspaceId).catch(console.error);
         }
 
-        return finalResult.text;
+        const responseText = finalResult.text || '';
+        // CRITICAL: Filter out any raw tool names that might leak into the response text
+        return responseText.replace(/finalize_transaction/g, '').trim();
 
     } catch (error: any) {
         if (error?.statusCode === 429) return null;
