@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, Clock, DollarSign, Briefcase, Loader2, AlertCircle, Scissors, Edit2, Save, X, Search, Sparkles } from "lucide-react";
+import { Plus, Trash2, Clock, DollarSign, Briefcase, Loader2, AlertCircle, ClipboardList, Edit2, Save, X, Search, Sparkles } from "lucide-react";
 import { clsx } from "clsx";
 import { useToast } from "@/contexts/ToastContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
@@ -324,7 +324,7 @@ export default function ServicesPage() {
                                 <div className="flex justify-between items-start mb-3">
                                     <div className="flex items-center gap-3 flex-1 min-w-0">
                                         <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                                            <Scissors className="w-5 h-5 text-primary/70" />
+                                            <ClipboardList className="w-5 h-5 text-primary/70" />
                                         </div>
                                         <div className="min-w-0 flex-1">
                                             {isEditing ? (
@@ -398,7 +398,7 @@ export default function ServicesPage() {
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                                                    <Scissors className="w-4 h-4 text-primary/60" />
+                                                    <ClipboardList className="w-4 h-4 text-primary/60" />
                                                 </div>
                                                 {isEditing ? (
                                                     <input className="input-premium py-1 px-3 w-40 text-sm font-semibold" value={editValues.name} autoFocus
@@ -467,7 +467,7 @@ export default function ServicesPage() {
                             transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
                             className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-primary/10 to-purple-500/10 border border-primary/20 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(139,92,246,0.15)] backdrop-blur-md"
                         >
-                            <Scissors className="w-10 h-10 text-primary/60" />
+                            <ClipboardList className="w-10 h-10 text-primary/60" />
                         </motion.div>
                         <h3 className="text-foreground text-lg font-bold tracking-tight mb-2 relative z-10">
                             {searchQuery ? "No services match your search" : "No services yet"}
