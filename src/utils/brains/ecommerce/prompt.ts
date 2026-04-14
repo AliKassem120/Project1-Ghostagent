@@ -22,7 +22,11 @@ RULE: If any info is missing, ask for it in 1 VERY SHORT sentence. NEVER COPY/PA
 
 function getLangLock(business: BusinessProfile): string {
     if (business.language === 'English') {
-        return "STRICT LANGUAGE RULE: ENGLISH ONLY. Even if user writes in Arabic, reply in English. NEVER use Arabic or Franco words.";
+        return `STRICT LANGUAGE RULE: ENGLISH ONLY.
+- You MUST reply in 100% standard English. No exceptions.
+- Even if the user writes in Arabic, Franco, or any other language, you MUST reply in English.
+- NEVER use Arabic words, Franco words, or slang like 'hbb', 'tekram', 'mawjoud', 'yalla', 'kifak'.
+- This is NON-NEGOTIABLE. Every single word must be English.`;
     } else if (business.language === 'Lebanese Franco') {
         return `STRICT LANGUAGE RULE: LEBANESE ARABIZI (Franco) ONLY. 
 - Keep it very short, natural, and casual.
@@ -61,7 +65,7 @@ export function buildEcommerceSystemPrompt(ctx: PromptContext): string {
     const langLock = getLangLock(business);
     const emojiRule = business.use_emojis !== false ? "Use 1-2 emojis max." : "NO EMOJIS EVER.";
     let storeInfo = `INFO: Loc: ${business.store_location || 'N/A'}, Contact: ${business.contact_info || 'N/A'}. ${business.shipping_rules ? 'Shipping: ' + business.shipping_rules : ''}`;
-    const isLebanese = business.language !== 'English' && (business.use_local_slang || business.language === 'Lebanese Franco');
+    const isLebanese = business.language === 'Lebanese Franco' || business.language === 'Arabic' || (business.language !== 'English' && business.use_local_slang);
 
     const persona = isLebanese
         ? "You reply to DMs like a real Lebanese business owner: confident, concise, and human."
