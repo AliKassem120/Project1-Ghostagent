@@ -1,10 +1,31 @@
 import { createGroq } from '@ai-sdk/groq';
-import { generateText, tool } from 'ai';
+import { generateText } from 'ai';
 import { z } from 'zod';
 import { BusinessProfile } from '../types';
 import { buildAppointmentsSystemPrompt } from './prompt';
 import { getConversationMemory, summarizeConversationIfNeeded, trackConversationMessage } from '../../rolling-memory';
 import { checkCalendarAvailabilityTool } from './tools';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Detects if the bot is in an active booking collection phase
+// i.e. the bot already asked for name/phone and is waiting for them.
+// ─────────────────────────────────────────────────────────────────────────────
+function isInBookingFlow(historyMessages: any[]): boolean {
+    const last5 = historyMessages.slice(-5);
+    return last5.some((m: any) => {
+        const text = (m?.content || '').toLowerCase();
+        return (
+            text.includes('esm') ||
+            text.includes('ra2m') ||
+            text.includes('name') ||
+            text.includes('phone') ||
+            text.includes('maw3ed') ||
+            text.includes('maw3ad') ||
+            text.includes('se3a') ||
+            text.includes('yom')
+        );
+    });
+}
 
 export async function generateAppointmentsGhostReply(
     userId: string,
@@ -17,6 +38,7 @@ export async function generateAppointmentsGhostReply(
     console.log('📅 [APPOINTMENTS BRAIN] Generating reply for', userId, workspaceId ? `(workspace: ${workspaceId})` : '');
 
     try {
+        // ── 1. Load workspace settings ──────────────────────────────────────
         let settingsQuery = supabase
             .from('ai_settings')
             .select('business_name, business_type, tone, system_instructions, urgency_mode, handoff_keywords, language, store_location, contact_info, use_emojis, use_local_slang, shipping_rules, is_autopilot_enabled');
@@ -46,6 +68,7 @@ export async function generateAppointmentsGhostReply(
             shipping_rules: settings?.shipping_rules || null,
         };
 
+        // ── 2. Handoff keyword check ─────────────────────────────────────────
         if (Array.isArray(business.handoff_keywords) && business.handoff_keywords.some(
             (kw: string) => userMessage.toLowerCase().includes(kw.toLowerCase())
         )) {
@@ -53,10 +76,10 @@ export async function generateAppointmentsGhostReply(
             return null;
         }
 
+        // ── 3. Load conversation memory ──────────────────────────────────────
         let historyContext = '';
         let contextSummary: string | null = null;
         let fullHistory: any[] = [];
-        let hasGreetedRecently = false;
 
         if (chatId) {
             const { contextSummary: fetchedContextSummary, recentHistory, fullHistory: fetchedFullHistory } =
@@ -66,7 +89,11 @@ export async function generateAppointmentsGhostReply(
             fullHistory = fetchedFullHistory;
         }
 
-        // We fetch from inventory table even for appointments since services are stored there.
+        if (checkoutContext) {
+            historyContext += `\n[SYSTEM NOTE: The customer just attempted to book. Form content: ${checkoutContext}]`;
+        }
+
+        // ── 4. Load services & knowledge ────────────────────────────────────
         let inventoryContext = 'No services listed currently.';
         let catalogContext = '';
 
@@ -83,183 +110,206 @@ export async function generateAppointmentsGhostReply(
         if (workspaceId) knowledgeQuery = knowledgeQuery.eq('workspace_id', workspaceId);
         else knowledgeQuery = knowledgeQuery.eq('user_id', userId).is('workspace_id', null);
 
-        const { data: knowledgeData } = await knowledgeQuery.single();
+        const { data: knowledgeData } = await knowledgeQuery.maybeSingle();
         if (knowledgeData?.content) {
             try {
                 catalogContext = `SERVICE CATALOG:\n${JSON.stringify(JSON.parse(knowledgeData.content), null, 2)}`;
-            } catch (e) {
+            } catch {
                 catalogContext = `SERVICE KNOWLEDGE:\n${knowledgeData.content.substring(0, 1000)}`;
             }
         }
 
-        if (checkoutContext) {
-            historyContext += `\n[SYSTEM NOTE: The customer just attempted to book. Form content: ${checkoutContext}]`;
-        }
-
+        // ── 5. Build system prompt ───────────────────────────────────────────
         const systemPrompt = buildAppointmentsSystemPrompt({
             business,
             inventoryContext,
             catalogContext,
             historyContext,
             contextSummary,
-            hasGreetedRecently
+            hasGreetedRecently: false,
         });
 
-        // 📅 APPOINTMENTS TRANSACTION TOOL
-        const finalizeTransactionTool = {
-            description: 'Save the confirmed booking immediately into the database before replying.',
-            parameters: z.object({
-                customer_name: z.string().optional().describe('Full name. IF MISSING, politely ask for it in chat. Do not guess.'),
-                customer_phone: z.string().optional().describe('Phone number. IF MISSING, politely ask for it. Do not guess.'),
-                customer_email: z.string().email().optional().describe('Optional email address.'),
-                item_requested: z.string().describe('What service they booked.'),
-                preferred_datetime: z.string().describe('The agreed upon date and time for the booking.')
-            }),
-            execute: async (a: any) => {
-                console.log('📅 [APPOINTMENTS] Executing finalize_transaction:', a);
-                try {
-                    let handle = 'Customer';
-                    const itemRequested = a?.item_requested || 'Unknown service';
-                    const now = new Date();
-                    const fiveMinsAgo = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
-
-                    const queryArgs = [userId, itemRequested, fiveMinsAgo];
-                    let recentOrdersQuery = supabase
-                        .from('orders')
-                        .select('id')
-                        .eq('user_id', userId)
-                        .eq('item_requested', itemRequested)
-                        .gte('created_at', fiveMinsAgo);
-
-                    if (chatId) recentOrdersQuery = recentOrdersQuery.eq('instagram_user_id', chatId);
-                    if (workspaceId) recentOrdersQuery = recentOrdersQuery.eq('workspace_id', workspaceId);
-
-                    const { data: recentOrders } = await recentOrdersQuery;
-
-                    if (recentOrders && recentOrders.length > 0) {
-                        return "DUPLICATE PREVENTED: You already saved this exact booking a few minutes ago. DO NOT try to save it again. Just reply to the user naturally (e.g., 'Takram hbb!').";
-                    }
-
-                    const { data: lastMsg } = await supabase
-                        .from('activity_log')
-                        .select('metadata')
-                        .eq('user_id', userId)
-                        .filter('metadata->>chat_id', 'eq', chatId)
-                        .order('timestamp', { ascending: false })
-                        .limit(1)
-                        .maybeSingle();
-
-                    if (lastMsg?.metadata?.username) handle = lastMsg.metadata.username;
-
-                    const orderPayload: Record<string, any> = {
-                        user_id: userId,
-                        workspace_id: workspaceId || null,
-                        instagram_user_id: chatId || null,
-                        instagram_handle: handle,
-                        status: 'Pending',
-                        created_at: new Date().toISOString(),
-                        customer_name: a?.customer_name || null,
-                        customer_phone: a?.customer_phone || null,
-                        customer_email: a?.customer_email || null,
-                        item_requested: itemRequested,
-                        raw_message: JSON.stringify({ preferred_datetime: a?.preferred_datetime || undefined }),
-                    };
-
-                    const { error } = await supabase.from('orders').insert(orderPayload);
-                    if (error) throw error;
-
-                    return "Booking saved successfully! Tell the customer it's confirmed in 1 short sentence.";
-                } catch (err: any) {
-                    console.error('❌ [APPOINTMENTS] Failed to save transaction:', err);
-                    return "Failed to save to database. Apologize to the user.";
-                }
-            }
-        };
-
-        const toolsMapping: Record<string, any> = {};
-        
-        if (planTier !== 'starter' && planTier !== 'free_trial') {
-            toolsMapping['finalize_transaction'] = finalizeTransactionTool;
-            if (workspaceId) toolsMapping['check_calendar_availability'] = checkCalendarAvailabilityTool(workspaceId);
-        }
-
-        const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
-        const purchaseKeywords = ['buy', 'order', 'checkout', 'pay', 'purchase', 'book', 'schedule', 'viewing', 'ticket', 'delivery', 'bde otlob', 'bade'];
-        const isPurchaseIntent = purchaseKeywords.some(kw => userMessage.toLowerCase().includes(kw));
-        const hasActiveToolContext = historyContext.toLowerCase().includes('transaction') || historyContext.toLowerCase().includes('order');
-
-        const cleanMessage = userMessage.replace(/\\[ATTACHMENT:.*?\\]/g, '').trim() || 'What is this?';
-        const selectedModel = (isPurchaseIntent || hasActiveToolContext) ? 'llama-3.3-70b-versatile' : 'llama-3.1-8b-instant';
-
-        console.log(`🚀 [APPOINTMENTS] Selected Model: ${selectedModel}`);
-
+        // ── 6. Build conversation messages ───────────────────────────────────
         const messages: any[] = (fullHistory || [])
             .filter((h: any) => h.event_type === 'INCOMING_MESSAGE' || h.event_type === 'AI_REPLY')
             .map((h: any) => ({
                 role: h.event_type === 'INCOMING_MESSAGE' ? 'user' : 'assistant',
                 content: h.description.includes('"') ? h.description.split('"')[1] : h.description
-            })).slice(-10);
+            })).slice(-12);
 
+        const cleanMessage = userMessage.replace(/\[ATTACHMENT:.*?\]/g, '').trim() || 'Hello';
         messages.push({ role: 'user', content: cleanMessage });
 
-        let finalResult = await generateText({
-            model: groq(selectedModel),
-            system: systemPrompt,
-            messages: messages,
-            tools: toolsMapping,
-            toolChoice: 'auto',
-            temperature: 0.1,
-        });
+        // ── 7. Smart model selection ─────────────────────────────────────────
+        const bookingKeywords = ['maw3ed', 'maw3ad', 'mawed', 'book', 'appointment', 'schedule', 'bde', 'badi', 'reserve'];
+        const isBookingIntent = bookingKeywords.some(kw => userMessage.toLowerCase().includes(kw));
+        const botWasCollectingInfo = isInBookingFlow(messages.slice(0, -1));
+        const useSmartModel = isBookingIntent || botWasCollectingInfo;
+        const selectedModel = useSmartModel ? 'llama-3.3-70b-versatile' : 'llama-3.1-8b-instant';
 
-        if (finalResult.usage) {
-            const { promptTokens, completionTokens, totalTokens } = finalResult.usage as any;
-            console.log(`📊 [Usage] Tokens: ${promptTokens || 0} (In) / ${completionTokens || 0} (Out) — Total: ${totalTokens || 0}`);
-        }
+        console.log(`🚀 [APPOINTMENTS] Model: ${selectedModel} | Booking: ${isBookingIntent} | Collecting: ${botWasCollectingInfo}`);
 
-        if (finalResult.toolCalls && finalResult.toolCalls.length > 0 && !finalResult.text) {
-            const executedResults = (finalResult as any).toolResults || [];
-            if (executedResults.length > 0) {
-                console.log(`[APPOINTMENTS] Tool used. Powering up for final answer...`);
-                const toolResultsMessages: any[] = [...messages];
-                toolResultsMessages.push({
-                    role: 'assistant',
-                    content: finalResult.toolCalls.map((tc: any) => ({
-                        type: 'tool-call', toolCallId: tc.toolCallId, toolName: tc.toolName, input: tc.input || tc.args
-                    }))
-                });
-                toolResultsMessages.push({
-                    role: 'tool',
-                    content: executedResults.map((tr: any) => ({
-                        type: 'tool-result', toolCallId: tr.toolCallId, toolName: tr.toolName, output: { type: 'json', value: tr.output || tr.result }
-                    }))
-                });
+        // ── 8. Tool definitions ──────────────────────────────────────────────
+        const toolsMapping: Record<string, any> = {};
 
-                finalResult = await generateText({
-                    model: groq('llama-3.3-70b-versatile'),
-                    system: systemPrompt,
-                    messages: toolResultsMessages,
-                    tools: toolsMapping,
-                    toolChoice: 'auto',
-                    temperature: 0.1,
-                });
+        if (planTier !== 'free_trial') {
+            toolsMapping['finalize_transaction'] = {
+                description: 'Call this tool IMMEDIATELY after the customer provides their name, phone, and preferred time. Save the booking to the database.',
+                parameters: z.object({
+                    customer_name: z.string().optional().describe('Full name of the customer.'),
+                    customer_phone: z.string().optional().describe('Phone number of the customer.'),
+                    customer_email: z.string().email().optional().describe('Optional email address.'),
+                    service: z.string().describe('The service or appointment type being booked.'),
+                    preferred_datetime: z.string().optional().describe('The agreed date and time for the appointment.'),
+                }),
+                execute: async (a: any) => {
+                    const name = a?.customer_name || null;
+                    const phone = a?.customer_phone || null;
+                    const service = a?.service || 'Unknown service';
 
-                if (finalResult.usage) {
-                    const { promptTokens, completionTokens, totalTokens } = finalResult.usage as any;
-                    console.log(`📊 [Usage - Pass 2] Tokens: ${promptTokens || 0} (In) / ${completionTokens || 0} (Out) — Total: ${totalTokens || 0}`);
+                    console.log('📅 [APPOINTMENTS] Executing finalize_transaction:', { name, phone, service, datetime: a?.preferred_datetime });
+                    try {
+                        // Duplicate guard: prevent re-saving the same booking within 5 minutes
+                        const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+                        let recentOrdersQuery = supabase
+                            .from('orders').select('id')
+                            .eq('user_id', userId)
+                            .eq('item_requested', service)
+                            .gte('created_at', fiveMinsAgo);
+
+                        if (chatId) recentOrdersQuery = recentOrdersQuery.eq('instagram_user_id', chatId);
+                        if (workspaceId) recentOrdersQuery = recentOrdersQuery.eq('workspace_id', workspaceId);
+
+                        const { data: recentOrders } = await recentOrdersQuery;
+                        if (recentOrders && recentOrders.length > 0) {
+                            return 'DUPLICATE PREVENTED. Do not save again. Confirm the booking warmly.';
+                        }
+
+                        // Try to get the instagram handle from activity log
+                        let handle = 'Customer';
+                        if (chatId) {
+                            const { data: lastMsg } = await supabase
+                                .from('activity_log').select('metadata')
+                                .eq('user_id', userId)
+                                .filter('metadata->>chat_id', 'eq', chatId)
+                                .order('timestamp', { ascending: false })
+                                .limit(1).maybeSingle();
+                            if (lastMsg?.metadata?.username) handle = lastMsg.metadata.username;
+                        }
+
+                        const { error } = await supabase.from('orders').insert({
+                            user_id: userId,
+                            workspace_id: workspaceId || null,
+                            instagram_user_id: chatId || null,
+                            instagram_handle: handle,
+                            status: 'Pending',
+                            created_at: new Date().toISOString(),
+                            customer_name: name,
+                            customer_phone: phone,
+                            customer_email: a?.customer_email || null,
+                            item_requested: service,
+                            raw_message: JSON.stringify({ preferred_datetime: a?.preferred_datetime || null }),
+                        });
+
+                        if (error) {
+                            console.error('❌ [APPOINTMENTS] Supabase Insert Error:', JSON.stringify(error));
+                            throw error;
+                        }
+
+                        console.log('✅ [APPOINTMENTS] Booking saved successfully!');
+                        return `Booking saved for "${service}". Now reply to the customer in their language confirming the appointment is confirmed.`;
+                    } catch (err: any) {
+                        console.error('❌ [APPOINTMENTS] Failed to save booking:', err);
+                        return 'Database error. Apologize briefly and tell the customer to message again.';
+                    }
                 }
+            };
+
+            if (workspaceId) {
+                toolsMapping['check_calendar_availability'] = checkCalendarAvailabilityTool(workspaceId);
             }
         }
 
+        // ── 9. First AI pass ─────────────────────────────────────────────────
+        const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
+
+        let result = await generateText({
+            model: groq(selectedModel),
+            system: systemPrompt,
+            messages,
+            tools: toolsMapping,
+            toolChoice: 'auto',
+            temperature: 0.15,
+        });
+
+        if (result.usage) {
+            const { promptTokens, completionTokens, totalTokens } = result.usage as any;
+            console.log(`📊 [Usage P1] Tokens: ${promptTokens}in / ${completionTokens}out — Total: ${totalTokens}`);
+        }
+
+        // ── 10. Second pass: convert tool result into a conversational reply ─
+        const toolCalls = result.toolCalls || [];
+        const toolResults = (result as any).toolResults || [];
+
+        if (toolCalls.length > 0 && toolResults.length > 0) {
+            console.log('[APPOINTMENTS] Tool executed. Running second pass for conversational reply...');
+
+            const secondPassMessages: any[] = [
+                ...messages,
+                {
+                    role: 'assistant',
+                    content: toolCalls.map((tc: any) => ({
+                        type: 'tool-call',
+                        toolCallId: tc.toolCallId,
+                        toolName: tc.toolName,
+                        args: tc.args,
+                    })),
+                },
+                {
+                    role: 'tool',
+                    content: toolResults.map((tr: any) => ({
+                        type: 'tool-result',
+                        toolCallId: tr.toolCallId,
+                        toolName: tr.toolName,
+                        result: tr.result,
+                    })),
+                },
+            ];
+
+            const secondPass = await generateText({
+                model: groq('llama-3.3-70b-versatile'),
+                system: systemPrompt,
+                messages: secondPassMessages,
+                temperature: 0.15,
+            });
+
+            if (secondPass.usage) {
+                const { promptTokens, completionTokens, totalTokens } = secondPass.usage as any;
+                console.log(`📊 [Usage P2] Tokens: ${promptTokens}in / ${completionTokens}out — Total: ${totalTokens}`);
+            }
+
+            if (chatId && fullHistory.length > 0) {
+                trackConversationMessage(supabase, userId, chatId, workspaceId).catch(console.error);
+                summarizeConversationIfNeeded(supabase, userId, chatId, fullHistory, workspaceId).catch(console.error);
+            }
+
+            return secondPass.text?.replace(/finalize_transaction/g, '').trim() || null;
+        }
+
+        // ── 11. Return direct text reply ─────────────────────────────────────
         if (chatId && fullHistory.length > 0) {
             trackConversationMessage(supabase, userId, chatId, workspaceId).catch(console.error);
             summarizeConversationIfNeeded(supabase, userId, chatId, fullHistory, workspaceId).catch(console.error);
         }
 
-        return finalResult.text;
+        return (result.text || '').replace(/finalize_transaction/g, '').trim() || null;
 
     } catch (error: any) {
-        if (error?.statusCode === 429) return null;
-        console.error('APPOINTMENTS Error:', error);
+        if (error?.statusCode === 429) {
+            console.warn('⚠️ [APPOINTMENTS] Rate limited. Staying silent.');
+            return null;
+        }
+        console.error('❌ [APPOINTMENTS] Fatal error:', error);
         return null;
     }
 }

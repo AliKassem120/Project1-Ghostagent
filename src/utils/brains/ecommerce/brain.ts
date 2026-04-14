@@ -1,10 +1,31 @@
 import { createGroq } from '@ai-sdk/groq';
-import { generateText, tool } from 'ai';
+import { generateText } from 'ai';
 import { z } from 'zod';
 import { BusinessProfile } from '../types';
 import { buildEcommerceSystemPrompt } from './prompt';
 import { getConversationMemory, summarizeConversationIfNeeded, trackConversationMessage } from '../../rolling-memory';
 import { checkEcommerceInventoryTool } from './tools';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Detects if the current conversation is in an active checkout collection phase
+// i.e. the bot already asked for name/address/phone and is waiting for them.
+// ─────────────────────────────────────────────────────────────────────────────
+function isInCheckoutFlow(historyMessages: any[]): boolean {
+    const last5 = historyMessages.slice(-5);
+    return last5.some((m: any) => {
+        const text = (m?.content || '').toLowerCase();
+        return (
+            text.includes('esm') ||
+            text.includes('adress') ||
+            text.includes('ra2m') ||
+            text.includes('name') ||
+            text.includes('address') ||
+            text.includes('phone') ||
+            text.includes('delivery address') ||
+            text.includes('3nwen')
+        );
+    });
+}
 
 export async function generateEcommerceGhostReply(
     userId: string,
@@ -17,6 +38,7 @@ export async function generateEcommerceGhostReply(
     console.log('🛒 [E-COMMERCE BRAIN] Generating reply for', userId, workspaceId ? `(workspace: ${workspaceId})` : '');
 
     try {
+        // ── 1. Load workspace settings ──────────────────────────────────────
         let settingsQuery = supabase
             .from('ai_settings')
             .select('business_name, business_type, tone, system_instructions, urgency_mode, handoff_keywords, language, store_location, contact_info, use_emojis, use_local_slang, shipping_rules, is_autopilot_enabled');
@@ -46,6 +68,7 @@ export async function generateEcommerceGhostReply(
             shipping_rules: settings?.shipping_rules || null,
         };
 
+        // ── 2. Handoff keyword check ─────────────────────────────────────────
         if (Array.isArray(business.handoff_keywords) && business.handoff_keywords.some(
             (kw: string) => userMessage.toLowerCase().includes(kw.toLowerCase())
         )) {
@@ -53,10 +76,10 @@ export async function generateEcommerceGhostReply(
             return null;
         }
 
+        // ── 3. Load conversation memory ──────────────────────────────────────
         let historyContext = '';
         let contextSummary: string | null = null;
         let fullHistory: any[] = [];
-        let hasGreetedRecently = false;
 
         if (chatId) {
             const { contextSummary: fetchedContextSummary, recentHistory, fullHistory: fetchedFullHistory } =
@@ -66,6 +89,11 @@ export async function generateEcommerceGhostReply(
             fullHistory = fetchedFullHistory;
         }
 
+        if (checkoutContext) {
+            historyContext += `\n[SYSTEM NOTE: The customer just attempted to order. Form content: ${checkoutContext}]`;
+        }
+
+        // ── 4. Load inventory & knowledge ───────────────────────────────────
         let inventoryContext = 'No inventory items listed currently.';
         let catalogContext = '';
 
@@ -75,211 +103,225 @@ export async function generateEcommerceGhostReply(
 
         const { data: inventory } = await inventoryQuery.limit(50);
         if (inventory?.length) {
-            inventoryContext = inventory.map((i: any) => `- ${i.item_name}: ${i.stock_level > 0 ? 'In Stock' : 'Out of Stock'} ($${i.price})`).join('\n');
+            inventoryContext = inventory.map((i: any) =>
+                `- ${i.item_name}: ${i.stock_level > 0 ? 'In Stock' : 'Out of Stock'} ($${i.price})`
+            ).join('\n');
         }
 
         let knowledgeQuery = supabase.from('business_knowledge').select('content, file_name');
         if (workspaceId) knowledgeQuery = knowledgeQuery.eq('workspace_id', workspaceId);
         else knowledgeQuery = knowledgeQuery.eq('user_id', userId).is('workspace_id', null);
 
-        const { data: knowledgeData } = await knowledgeQuery.single();
+        const { data: knowledgeData } = await knowledgeQuery.maybeSingle();
         if (knowledgeData?.content) {
             try {
                 catalogContext = `PRODUCT CATALOG:\n${JSON.stringify(JSON.parse(knowledgeData.content), null, 2)}`;
-            } catch (e) {
+            } catch {
                 catalogContext = `PRODUCT KNOWLEDGE:\n${knowledgeData.content.substring(0, 1000)}`;
             }
         }
 
-        if (checkoutContext) {
-            historyContext += `\n[SYSTEM NOTE: The customer just attempted to order. Form content: ${checkoutContext}]`;
-        }
-
+        // ── 5. Build system prompt ───────────────────────────────────────────
         const systemPrompt = buildEcommerceSystemPrompt({
             business,
             inventoryContext,
             catalogContext,
             historyContext,
             contextSummary,
-            hasGreetedRecently
+            hasGreetedRecently: false,
         });
 
-        // 🛍️ ECOMMERCE TRANSACTION TOOL
-        const finalizeTransactionTool = {
-            description: 'Save the confirmed order immediately into the database before replying.',
-            parameters: z.object({
-                name: z.string().optional().describe('Full name of the customer.'),
-                phone: z.string().optional().describe('Phone number of the customer.'),
-                email: z.string().email().optional().describe('Optional email address.'),
-                address: z.string().optional().describe('The delivery address.'),
-                payment_method: z.string().optional().describe('Cash on delivery, card, etc.'),
-                item: z.string().describe('What they ordered.'),
-                variant: z.string().optional().describe('Color, size, or specific model variant.')
-            }),
-            execute: async (a: any) => {
-                const name = a?.name || null;
-                const phone = a?.phone || null;
-                const address = a?.address || null;
-                const item = a?.item || 'Unknown item';
-
-                console.log('🛍️ [E-COMMERCE] Executing finalize_transaction:', { name, phone, address, item });
-                try {
-                    let handle = 'Customer';
-                    const now = new Date();
-                    const fiveMinsAgo = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
-
-                    const queryArgs = [userId, item, fiveMinsAgo];
-                    let recentOrdersQuery = supabase
-                        .from('orders')
-                        .select('id')
-                        .eq('user_id', userId)
-                        .eq('item_requested', item)
-                        .gte('created_at', fiveMinsAgo);
-
-                    if (chatId) recentOrdersQuery = recentOrdersQuery.eq('instagram_user_id', chatId);
-                    if (workspaceId) recentOrdersQuery = recentOrdersQuery.eq('workspace_id', workspaceId);
-
-                    const { data: recentOrders } = await recentOrdersQuery;
-
-                    if (recentOrders && recentOrders.length > 0) {
-                        return "DUPLICATE PREVENTED: You already saved this exact order a few minutes ago. DO NOT try to save it again. Just reply to the user naturally (e.g., 'Takram hbb!').";
-                    }
-
-                    const { data: lastMsg } = await supabase
-                        .from('activity_log')
-                        .select('metadata')
-                        .eq('user_id', userId)
-                        .filter('metadata->>chat_id', 'eq', chatId)
-                        .order('timestamp', { ascending: false })
-                        .limit(1)
-                        .maybeSingle();
-
-                    if (lastMsg?.metadata?.username) handle = lastMsg.metadata.username;
-
-                    const orderPayload: Record<string, any> = {
-                        user_id: userId,
-                        workspace_id: workspaceId || null,
-                        instagram_user_id: chatId || null,
-                        instagram_handle: handle,
-                        status: 'Pending',
-                        created_at: new Date().toISOString(),
-                        customer_name: name,
-                        customer_phone: phone,
-                        customer_email: a?.email || null,
-                        item_requested: item,
-                        customer_address: address,
-                        payment_method: a?.payment_method || 'Cash on Delivery',
-                        raw_message: JSON.stringify({ item_variant: a?.variant || undefined }),
-                    };
-
-                    const { error } = await supabase.from('orders').insert(orderPayload);
-                    if (error) {
-                        console.error('❌ [E-COMMERCE] Supabase Insert Error:', error);
-                        throw error;
-                    }
-
-                    console.log('✅ [E-COMMERCE] Order saved successfully!');
-                    return `Order saved to database for ${item}. Reply to the user in Lebanese Franco that their order is confirmed.`;
-                } catch (err: any) {
-                    console.error('❌ [E-COMMERCE] Failed to save transaction:', err);
-                    return "Failed to save to database. Apologize to the user.";
-                }
-            }
-        };
-
-        const toolsMapping: Record<string, any> = {};
-        
-        if (planTier !== 'starter' && planTier !== 'free_trial') {
-            toolsMapping['finalize_transaction'] = finalizeTransactionTool;
-            if (workspaceId) toolsMapping['check_ecommerce_inventory'] = checkEcommerceInventoryTool(workspaceId);
-        }
-
-        const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
-        const purchaseKeywords = ['buy', 'order', 'checkout', 'pay', 'purchase', 'book', 'schedule', 'viewing', 'ticket', 'delivery', 'bde otlob', 'bade'];
-        const isPurchaseIntent = purchaseKeywords.some(kw => userMessage.toLowerCase().includes(kw));
-        const hasActiveToolContext = historyContext.toLowerCase().includes('transaction') || historyContext.toLowerCase().includes('order');
-
-        const cleanMessage = userMessage.replace(/\\[ATTACHMENT:.*?\\]/g, '').trim() || 'What is this?';
-        const selectedModel = (isPurchaseIntent || hasActiveToolContext) ? 'llama-3.3-70b-versatile' : 'llama-3.1-8b-instant';
-
-        console.log(`🚀 [E-COMMERCE] Selected Model: ${selectedModel}`);
-
+        // ── 6. Build conversation messages ───────────────────────────────────
         const messages: any[] = (fullHistory || [])
             .filter((h: any) => h.event_type === 'INCOMING_MESSAGE' || h.event_type === 'AI_REPLY')
             .map((h: any) => ({
                 role: h.event_type === 'INCOMING_MESSAGE' ? 'user' : 'assistant',
                 content: h.description.includes('"') ? h.description.split('"')[1] : h.description
-            })).slice(-10);
+            })).slice(-12);
 
+        const cleanMessage = userMessage.replace(/\[ATTACHMENT:.*?\]/g, '').trim() || 'Hello';
         messages.push({ role: 'user', content: cleanMessage });
 
-        let finalResult = await generateText({
-            model: groq(selectedModel),
-            system: systemPrompt,
-            messages: messages,
-            tools: toolsMapping,
-            toolChoice: 'auto',
-            temperature: 0.1,
-        });
+        // ── 7. Smart model selection ─────────────────────────────────────────
+        // Use the powerful model if: purchase intent in message, bot was recently
+        // collecting checkout info, or explicit purchase keywords are present.
+        const purchaseKeywords = ['buy', 'bde', 'bade', 'badi', 'order', 'checkout', 'pay', 'purchase', 'delivery', 'bde otlob', 'wehde', 'tlete', 'arba3'];
+        const isPurchaseIntent = purchaseKeywords.some(kw => userMessage.toLowerCase().includes(kw));
+        const botWasCollectingCheckout = isInCheckoutFlow(messages.slice(0, -1)); // check history before current msg
+        const useSmartModel = isPurchaseIntent || botWasCollectingCheckout;
+        const selectedModel = useSmartModel ? 'llama-3.3-70b-versatile' : 'llama-3.1-8b-instant';
 
-        if (finalResult.usage) {
-            const { promptTokens, completionTokens, totalTokens } = finalResult.usage as any;
-            console.log(`📊 [Usage] Tokens: ${promptTokens || 0} (In) / ${completionTokens || 0} (Out) — Total: ${totalTokens || 0}`);
-        }
+        console.log(`🚀 [E-COMMERCE] Model: ${selectedModel} | Purchase: ${isPurchaseIntent} | Checkout: ${botWasCollectingCheckout}`);
 
-        if (finalResult.toolCalls && finalResult.toolCalls.length > 0) {
-            const executedResults = (finalResult as any).toolResults || [];
-            
-            // If the model called a tool but didn't provide text, or provided technical text
-            if (executedResults.length > 0) {
-                console.log(`[E-COMMERCE] Tool result found. Generating final conversational reply...`);
-                const toolResultsMessages: any[] = [...messages];
-                
-                // Add the tool call message
-                toolResultsMessages.push({
-                    role: 'assistant',
-                    content: finalResult.toolCalls.map((tc: any) => ({
-                        type: 'tool-call', 
-                        toolCallId: tc.toolCallId, 
-                        toolName: tc.toolName, 
-                        args: tc.args
-                    }))
-                });
+        // ── 8. Tool definitions ──────────────────────────────────────────────
+        const toolsMapping: Record<string, any> = {};
 
-                // Add the tool result message
-                toolResultsMessages.push({
-                    role: 'tool',
-                    content: executedResults.map((tr: any) => ({
-                        type: 'tool-result', 
-                        toolCallId: tr.toolCallId, 
-                        toolName: tr.toolName, 
-                        result: tr.result
-                    }))
-                });
+        // finalize_transaction is available on all paid plans (pro, empire, starter)
+        // Only block on free_trial to prevent abuse
+        if (planTier !== 'free_trial') {
+            toolsMapping['finalize_transaction'] = {
+                description: 'Call this tool IMMEDIATELY after the customer provides their name, address, and phone. Save the order to the database.',
+                parameters: z.object({
+                    name: z.string().optional().describe('Full name of the customer.'),
+                    phone: z.string().optional().describe('Phone number of the customer.'),
+                    email: z.string().email().optional().describe('Optional email address.'),
+                    address: z.string().optional().describe('Delivery address.'),
+                    payment_method: z.string().optional().describe('Cash on delivery by default.'),
+                    item: z.string().describe('The item(s) they ordered.'),
+                    variant: z.string().optional().describe('Color, size, or model variant if specified.'),
+                }),
+                execute: async (a: any) => {
+                    const name = a?.name || null;
+                    const phone = a?.phone || null;
+                    const address = a?.address || null;
+                    const item = a?.item || 'Unknown item';
 
-                const secondPass = await generateText({
-                    model: groq('llama-3.3-70b-versatile'),
-                    system: systemPrompt,
-                    messages: toolResultsMessages,
-                    temperature: 0.1,
-                });
+                    console.log('🛍️ [E-COMMERCE] Executing finalize_transaction:', { name, phone, address, item });
+                    try {
+                        // Duplicate guard: prevent re-saving the same order within 5 minutes
+                        const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+                        let recentOrdersQuery = supabase
+                            .from('orders').select('id')
+                            .eq('user_id', userId)
+                            .eq('item_requested', item)
+                            .gte('created_at', fiveMinsAgo);
 
-                return secondPass.text;
+                        if (chatId) recentOrdersQuery = recentOrdersQuery.eq('instagram_user_id', chatId);
+                        if (workspaceId) recentOrdersQuery = recentOrdersQuery.eq('workspace_id', workspaceId);
+
+                        const { data: recentOrders } = await recentOrdersQuery;
+                        if (recentOrders && recentOrders.length > 0) {
+                            return 'DUPLICATE PREVENTED. Do not save again. Confirm the order warmly.';
+                        }
+
+                        // Try to get the instagram handle from activity log
+                        let handle = 'Customer';
+                        if (chatId) {
+                            const { data: lastMsg } = await supabase
+                                .from('activity_log').select('metadata')
+                                .eq('user_id', userId)
+                                .filter('metadata->>chat_id', 'eq', chatId)
+                                .order('timestamp', { ascending: false })
+                                .limit(1).maybeSingle();
+                            if (lastMsg?.metadata?.username) handle = lastMsg.metadata.username;
+                        }
+
+                        const { error } = await supabase.from('orders').insert({
+                            user_id: userId,
+                            workspace_id: workspaceId || null,
+                            instagram_user_id: chatId || null,
+                            instagram_handle: handle,
+                            status: 'Pending',
+                            created_at: new Date().toISOString(),
+                            customer_name: name,
+                            customer_phone: phone,
+                            customer_email: a?.email || null,
+                            item_requested: item,
+                            customer_address: address,
+                            payment_method: a?.payment_method || 'Cash on Delivery',
+                            raw_message: JSON.stringify({ item_variant: a?.variant || null }),
+                        });
+
+                        if (error) {
+                            console.error('❌ [E-COMMERCE] Supabase Insert Error:', JSON.stringify(error));
+                            throw error;
+                        }
+
+                        console.log('✅ [E-COMMERCE] Order saved successfully!');
+                        return `Order saved for "${item}". Now reply to the customer in their language confirming the order is registered and will be delivered soon.`;
+                    } catch (err: any) {
+                        console.error('❌ [E-COMMERCE] Failed to save transaction:', err);
+                        return 'Database error. Apologize briefly and tell the customer to message again.';
+                    }
+                }
+            };
+
+            if (workspaceId) {
+                toolsMapping['check_ecommerce_inventory'] = checkEcommerceInventoryTool(workspaceId);
             }
         }
 
+        // ── 9. First AI pass ─────────────────────────────────────────────────
+        const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
+
+        let result = await generateText({
+            model: groq(selectedModel),
+            system: systemPrompt,
+            messages,
+            tools: toolsMapping,
+            toolChoice: 'auto',
+            temperature: 0.15,
+        });
+
+        if (result.usage) {
+            const { promptTokens, completionTokens, totalTokens } = result.usage as any;
+            console.log(`📊 [Usage P1] Tokens: ${promptTokens}in / ${completionTokens}out — Total: ${totalTokens}`);
+        }
+
+        // ── 10. Second pass: convert tool result into a conversational reply ─
+        const toolCalls = result.toolCalls || [];
+        const toolResults = (result as any).toolResults || [];
+
+        if (toolCalls.length > 0 && toolResults.length > 0) {
+            console.log('[E-COMMERCE] Tool executed. Running second pass for conversational reply...');
+
+            const secondPassMessages: any[] = [
+                ...messages,
+                {
+                    role: 'assistant',
+                    content: toolCalls.map((tc: any) => ({
+                        type: 'tool-call',
+                        toolCallId: tc.toolCallId,
+                        toolName: tc.toolName,
+                        args: tc.args,
+                    })),
+                },
+                {
+                    role: 'tool',
+                    content: toolResults.map((tr: any) => ({
+                        type: 'tool-result',
+                        toolCallId: tr.toolCallId,
+                        toolName: tr.toolName,
+                        result: tr.result,
+                    })),
+                },
+            ];
+
+            const secondPass = await generateText({
+                model: groq('llama-3.3-70b-versatile'),
+                system: systemPrompt,
+                messages: secondPassMessages,
+                temperature: 0.15,
+            });
+
+            if (secondPass.usage) {
+                const { promptTokens, completionTokens, totalTokens } = secondPass.usage as any;
+                console.log(`📊 [Usage P2] Tokens: ${promptTokens}in / ${completionTokens}out — Total: ${totalTokens}`);
+            }
+
+            // Fire-and-forget memory tracking
+            if (chatId && fullHistory.length > 0) {
+                trackConversationMessage(supabase, userId, chatId, workspaceId).catch(console.error);
+                summarizeConversationIfNeeded(supabase, userId, chatId, fullHistory, workspaceId).catch(console.error);
+            }
+
+            return secondPass.text?.replace(/finalize_transaction/g, '').trim() || null;
+        }
+
+        // ── 11. Return direct text reply ─────────────────────────────────────
         if (chatId && fullHistory.length > 0) {
             trackConversationMessage(supabase, userId, chatId, workspaceId).catch(console.error);
             summarizeConversationIfNeeded(supabase, userId, chatId, fullHistory, workspaceId).catch(console.error);
         }
 
-        const responseText = finalResult.text || '';
-        // CRITICAL: Filter out any raw tool names that might leak into the response text
-        return responseText.replace(/finalize_transaction/g, '').trim();
+        return (result.text || '').replace(/finalize_transaction/g, '').trim() || null;
 
     } catch (error: any) {
-        if (error?.statusCode === 429) return null;
-        console.error('E-COMMERCE Error:', error);
+        if (error?.statusCode === 429) {
+            console.warn('⚠️ [E-COMMERCE] Rate limited. Staying silent.');
+            return null;
+        }
+        console.error('❌ [E-COMMERCE] Fatal error:', error);
         return null;
     }
 }
