@@ -7,6 +7,70 @@ import { getConversationMemory, summarizeConversationIfNeeded, trackConversation
 import { checkCalendarAvailabilityTool } from './tools';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Date/Time resolvers for appointment finalization
+// ─────────────────────────────────────────────────────────────────────────────
+function resolveAppointmentDate(input?: string): string {
+    if (!input) {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        return fmtDate(d);
+    }
+    const lower = input.toLowerCase().trim();
+    const now = new Date();
+
+    if (lower === 'today' || lower === 'lyom' || lower === 'lyawm') return fmtDate(now);
+    if (lower === 'tomorrow' || lower === 'bokra' || lower === 'bukra') {
+        const d = new Date(now); d.setDate(d.getDate() + 1); return fmtDate(d);
+    }
+
+    const dayMap: Record<string, number> = {
+        sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6,
+        l7ad: 0, tnen: 1, tleta: 2, arba3a: 3, khamis: 4, '5amis': 4, jom3a: 5, jum3a: 5, sabt: 6, sebt: 6,
+    };
+    if (dayMap[lower] !== undefined) {
+        const target = dayMap[lower];
+        let diff = target - now.getDay();
+        if (diff <= 0) diff += 7;
+        const d = new Date(now); d.setDate(d.getDate() + diff); return fmtDate(d);
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(input)) return input;
+    const d = new Date(now); d.setDate(d.getDate() + 1); return fmtDate(d);
+}
+
+function resolveAppointmentTime(input?: string): string {
+    if (!input) return '10:00';
+    const lower = input.toLowerCase().trim();
+
+    // Handle "3 PM", "10 AM", "3PM"
+    const ampmMatch = lower.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/);
+    if (ampmMatch) {
+        let hour = parseInt(ampmMatch[1]);
+        const min = ampmMatch[2] ? parseInt(ampmMatch[2]) : 0;
+        if (ampmMatch[3] === 'pm' && hour !== 12) hour += 12;
+        if (ampmMatch[3] === 'am' && hour === 12) hour = 0;
+        return `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+    }
+
+    // Handle "10:00", "14:30"
+    const timeMatch = lower.match(/^(\d{1,2}):(\d{2})$/);
+    if (timeMatch) return `${String(parseInt(timeMatch[1])).padStart(2, '0')}:${timeMatch[2]}`;
+
+    // Handle bare number "10", "3"
+    const bareNum = lower.match(/^(\d{1,2})$/);
+    if (bareNum) {
+        const h = parseInt(bareNum[1]);
+        return `${String(h > 12 ? h : h).padStart(2, '0')}:00`;
+    }
+
+    return '10:00';
+}
+
+function fmtDate(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Detects if the bot is in an active booking collection phase
 // i.e. the bot already asked for name/phone and is waiting for them.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -160,32 +224,33 @@ export async function generateAppointmentsGhostReply(
                     customer_phone: z.string().optional().describe('Phone number of the customer.'),
                     customer_email: z.string().email().optional().describe('Optional email address.'),
                     service: z.string().describe('The service or appointment type being booked.'),
-                    preferred_datetime: z.string().optional().describe('The agreed date and time for the appointment.'),
+                    preferred_date: z.string().optional().describe('The date (e.g. "2026-04-15", "tomorrow", "bokra").'),
+                    preferred_time: z.string().optional().describe('The time (e.g. "10:00", "3 PM", "10 AM").'),
                 }),
                 execute: async (a: any) => {
                     const name = a?.customer_name || null;
                     const phone = a?.customer_phone || null;
                     const service = a?.service || 'Unknown service';
 
-                    console.log('📅 [APPOINTMENTS] Executing finalize_transaction:', { name, phone, service, datetime: a?.preferred_datetime });
+                    console.log('📅 [APPOINTMENTS] Executing finalize_transaction:', { name, phone, service, date: a?.preferred_date, time: a?.preferred_time });
                     try {
-                        // Duplicate guard: prevent re-saving the same booking within 5 minutes
+                        // Duplicate guard
                         const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-                        let recentOrdersQuery = supabase
-                            .from('orders').select('id')
+                        let recentQuery = supabase
+                            .from('appointments').select('id')
                             .eq('user_id', userId)
-                            .eq('item_requested', service)
+                            .eq('service', service)
                             .gte('created_at', fiveMinsAgo);
 
-                        if (chatId) recentOrdersQuery = recentOrdersQuery.eq('instagram_user_id', chatId);
-                        if (workspaceId) recentOrdersQuery = recentOrdersQuery.eq('workspace_id', workspaceId);
+                        if (chatId) recentQuery = recentQuery.eq('instagram_user_id', chatId);
+                        if (workspaceId) recentQuery = recentQuery.eq('workspace_id', workspaceId);
 
-                        const { data: recentOrders } = await recentOrdersQuery;
-                        if (recentOrders && recentOrders.length > 0) {
+                        const { data: recentAppts } = await recentQuery;
+                        if (recentAppts && recentAppts.length > 0) {
                             return 'DUPLICATE PREVENTED. Do not save again. Confirm the booking warmly.';
                         }
 
-                        // Try to get the instagram handle from activity log
+                        // Get instagram handle
                         let handle = 'Customer';
                         if (chatId) {
                             const { data: lastMsg } = await supabase
@@ -197,7 +262,43 @@ export async function generateAppointmentsGhostReply(
                             if (lastMsg?.metadata?.username) handle = lastMsg.metadata.username;
                         }
 
-                        const { error } = await supabase.from('orders').insert({
+                        // Parse date and time
+                        const resolvedDate = resolveAppointmentDate(a?.preferred_date);
+                        const resolvedTime = resolveAppointmentTime(a?.preferred_time);
+
+                        // Get slot duration
+                        let slotDuration = 60;
+                        if (workspaceId) {
+                            const { data: sd } = await supabase
+                                .from('ai_settings').select('slot_duration_minutes')
+                                .eq('id', workspaceId).maybeSingle();
+                            if (sd?.slot_duration_minutes) slotDuration = sd.slot_duration_minutes;
+                        }
+
+                        // Save to appointments table (for calendar)
+                        const { error: apptError } = await supabase.from('appointments').insert({
+                            user_id: userId,
+                            workspace_id: workspaceId || null,
+                            customer_name: name,
+                            customer_phone: phone,
+                            customer_email: a?.customer_email || null,
+                            service: service,
+                            appointment_date: resolvedDate,
+                            start_time: resolvedTime,
+                            duration_minutes: slotDuration,
+                            status: 'confirmed',
+                            instagram_user_id: chatId || null,
+                            instagram_handle: handle,
+                            created_at: new Date().toISOString(),
+                        });
+
+                        if (apptError) {
+                            console.error('❌ [APPOINTMENTS] appointments insert error:', JSON.stringify(apptError));
+                            throw apptError;
+                        }
+
+                        // Also save to orders table (for orders page)
+                        await supabase.from('orders').insert({
                             user_id: userId,
                             workspace_id: workspaceId || null,
                             instagram_user_id: chatId || null,
@@ -208,16 +309,13 @@ export async function generateAppointmentsGhostReply(
                             customer_phone: phone,
                             customer_email: a?.customer_email || null,
                             item_requested: service,
-                            raw_message: JSON.stringify({ preferred_datetime: a?.preferred_datetime || null }),
+                            raw_message: JSON.stringify({ preferred_date: resolvedDate, preferred_time: resolvedTime }),
+                        }).then(({ error }: any) => {
+                            if (error) console.warn('⚠️ [APPOINTMENTS] orders mirror insert error:', error.message);
                         });
 
-                        if (error) {
-                            console.error('❌ [APPOINTMENTS] Supabase Insert Error:', JSON.stringify(error));
-                            throw error;
-                        }
-
                         console.log('✅ [APPOINTMENTS] Booking saved successfully!');
-                        return `Booking saved for "${service}". Now reply to the customer in their language confirming the appointment is confirmed.`;
+                        return `Booking saved for "${service}" on ${resolvedDate} at ${resolvedTime}. Confirm the appointment to the customer warmly.`;
                     } catch (err: any) {
                         console.error('❌ [APPOINTMENTS] Failed to save booking:', err);
                         return 'Database error. Apologize briefly and tell the customer to message again.';
