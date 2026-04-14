@@ -29,6 +29,7 @@ export async function updateWorkspaceSettingsAction(workspaceId: string, setting
             shipping_rules: settings.shippingRules || null,
             use_local_slang: settings.useLocalSlang,
             business_type: settings.businessType,
+            reply_delay_seconds: settings.replyDelay || 0,
             updated_at: new Date().toISOString(),
             ...(isEmpire ? {
                 whatsapp_business_account_id: settings.waBusinessAccountId || null,

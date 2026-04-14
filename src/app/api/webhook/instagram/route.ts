@@ -559,7 +559,14 @@ async function processDmBuffer({
             return;
         }
 
-        // 7. Send the reply
+        // 7. Reply Delay — makes the bot feel more human
+        const replyDelay = await getReplyDelay(supabaseAdmin, ownerId, effectiveWorkspaceId);
+        if (replyDelay > 0) {
+            console.log(`⏱️ [Delay] Waiting ${replyDelay}s before replying to ${senderId}...`);
+            await new Promise(resolve => setTimeout(resolve, replyDelay * 1000));
+        }
+
+        // 8. Send the reply
         console.log('🤖 AI Reply:', aiResponse);
         await sendReply(ownerId, senderId, aiResponse, supabaseAdmin, effectiveWorkspaceId || undefined);
 
@@ -833,6 +840,27 @@ async function checkAutopilot(supabaseAdmin: any, ownerId: string, externalChatI
 
     console.log(`🤖 Autopilot System for ${workspaceId || ownerId}: ON`);
     return true;
+}
+
+/**
+ * Fetch the configured reply delay (in seconds) from ai_settings.
+ * Returns 0 if not configured or on free trial.
+ */
+async function getReplyDelay(supabaseAdmin: any, ownerId: string, workspaceId?: string | null): Promise<number> {
+    try {
+        const { data } = await supabaseAdmin
+            .from('ai_settings')
+            .select('reply_delay_seconds')
+            .eq(workspaceId ? 'id' : 'user_id', workspaceId || ownerId)
+            .maybeSingle();
+
+        const delay = data?.reply_delay_seconds || 0;
+        // Cap at 15 minutes (900s) for safety
+        return Math.min(Math.max(0, delay), 900);
+    } catch (err) {
+        console.error('⚠️ [getReplyDelay] Failed to fetch delay:', err);
+        return 0;
+    }
 }
 
 async function sendCommentReply(ownerId: string, commentId: string, message: string, supabaseAdmin: any, workspaceId?: string) {

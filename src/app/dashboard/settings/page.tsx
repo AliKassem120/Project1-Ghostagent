@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Save, Bot, DollarSign, Bell, Globe, Sparkles, Upload, Building2, Loader2, Check, FileSpreadsheet, X, Instagram, Phone, Trash2, Plus, Lock, Wifi } from 'lucide-react';
+import { Save, Bot, DollarSign, Bell, Globe, Sparkles, Upload, Building2, Loader2, Check, FileSpreadsheet, X, Instagram, Phone, Trash2, Plus, Lock, Wifi, Timer } from 'lucide-react';
 import { clsx } from 'clsx';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
@@ -64,6 +64,7 @@ export default function SettingsPage() {
         contactInfo: '',
         shippingRules: '',
         businessType: 'ecommerce' as BusinessCategory,
+        replyDelay: 0,
         // WhatsApp Business (Empire)
         waBusinessAccountId: '',
         waPhoneNumberId: '',
@@ -157,6 +158,7 @@ export default function SettingsPage() {
                     contactInfo: data.contact_info || '',
                     shippingRules: data.shipping_rules || '',
                     businessType: (data.business_type || 'ecommerce') as BusinessCategory,
+                    replyDelay: data.reply_delay_seconds || 0,
                     waBusinessAccountId: data.whatsapp_business_account_id || '',
                     waPhoneNumberId: data.whatsapp_phone_number_id || '',
                     waAccessToken: data.whatsapp_access_token || '',
@@ -312,6 +314,7 @@ export default function SettingsPage() {
                     contact_info: settings.contactInfo,
                     shipping_rules: settings.shippingRules || null,
                     business_type: settings.businessType,
+                    reply_delay_seconds: settings.replyDelay || 0,
                     updated_at: new Date().toISOString(),
                 }, { onConflict: 'user_id' });
 
@@ -483,6 +486,44 @@ export default function SettingsPage() {
                                     />
                                 </div>
                             </div>
+                        </div>
+
+                        {/* Reply Delay */}
+                        <div className="space-y-1.5 md:col-span-2">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                                <Timer className="w-3 h-3" /> Reply Delay
+                                {planTier === 'free_trial' && (
+                                    <span className="ml-1 flex items-center gap-1 text-[9px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-full px-1.5 py-0.5">
+                                        <Lock className="w-2.5 h-2.5" /> Paid
+                                    </span>
+                                )}
+                            </label>
+                            <div className={clsx(
+                                "p-4 bg-surface-2 rounded-xl border border-border relative",
+                                planTier === 'free_trial' && 'opacity-50 pointer-events-none'
+                            )}>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="900"
+                                    step="30"
+                                    value={settings.replyDelay}
+                                    onChange={(e) => setSettings({ ...settings, replyDelay: parseInt(e.target.value) })}
+                                    className="w-full h-2 bg-surface-3 rounded-full appearance-none cursor-pointer accent-primary border border-border"
+                                    disabled={planTier === 'free_trial'}
+                                    style={{
+                                        background: `linear-gradient(to right, rgb(139 92 246) 0%, rgb(139 92 246) ${(settings.replyDelay / 900) * 100}%, var(--surface-3) ${(settings.replyDelay / 900) * 100}%, var(--surface-3) 100%)`
+                                    }}
+                                />
+                                <div className="flex justify-between items-center mt-2">
+                                    <span className="text-[10px] text-muted-foreground">Instant</span>
+                                    <span className="text-primary font-bold text-lg font-mono">
+                                        {settings.replyDelay === 0 ? 'Instant' : settings.replyDelay < 60 ? `${settings.replyDelay}s` : `${Math.floor(settings.replyDelay / 60)}m${settings.replyDelay % 60 > 0 ? ` ${settings.replyDelay % 60}s` : ''}`}
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground">15 min</span>
+                                </div>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground ml-1">Add a delay before the bot replies. Makes responses feel more human and natural.</p>
                         </div>
                     </div>
                 </motion.div>
