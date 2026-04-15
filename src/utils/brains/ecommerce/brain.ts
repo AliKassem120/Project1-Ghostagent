@@ -158,14 +158,14 @@ export async function generateEcommerceGhostReply(
 
         // finalize_transaction is available on all plans so users can test order saving during their trial
         toolsMapping['finalize_transaction'] = {
-                description: 'Call this tool IMMEDIATELY after the customer provides their name, address, and phone. Save the order to the database.',
+                description: 'Call this tool to save or update an order. If the customer already gave their info earlier in this conversation, reuse it. The system will automatically append to their existing recent order if one exists.',
                 parameters: z.object({
-                    name: z.string().optional().describe('Full name of the customer.'),
-                    phone: z.string().optional().describe('Phone number of the customer.'),
+                    name: z.string().optional().describe('Full name of the customer. Reuse from conversation if already provided.'),
+                    phone: z.string().optional().describe('Phone number. Reuse from conversation if already provided.'),
                     email: z.string().email().optional().describe('Optional email address.'),
-                    address: z.string().optional().describe('Delivery address.'),
+                    address: z.string().optional().describe('Delivery address. Reuse from conversation if already provided.'),
                     payment_method: z.string().optional().describe('Cash on delivery by default.'),
-                    item: z.string().describe('The item(s) they ordered.'),
+                    item: z.string().describe('The NEW item(s) being added to the order.'),
                     variant: z.string().optional().describe('Color, size, or model variant if specified.'),
                 }),
                 execute: async (a: any) => {
@@ -176,22 +176,6 @@ export async function generateEcommerceGhostReply(
 
                     console.log('🛍️ [E-COMMERCE] Executing finalize_transaction:', { name, phone, address, item });
                     try {
-                        // Duplicate guard: prevent re-saving the same order within 5 minutes
-                        const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-                        let recentOrdersQuery = supabase
-                            .from('orders').select('id')
-                            .eq('user_id', userId)
-                            .eq('item_requested', item)
-                            .gte('created_at', fiveMinsAgo);
-
-                        if (chatId) recentOrdersQuery = recentOrdersQuery.eq('instagram_user_id', chatId);
-                        if (workspaceId) recentOrdersQuery = recentOrdersQuery.eq('workspace_id', workspaceId);
-
-                        const { data: recentOrders } = await recentOrdersQuery;
-                        if (recentOrders && recentOrders.length > 0) {
-                            return 'DUPLICATE PREVENTED. Do not save again. Confirm the order warmly.';
-                        }
-
                         // Try to get the instagram handle from activity log
                         let handle = 'Customer';
                         if (chatId) {
@@ -204,6 +188,58 @@ export async function generateEcommerceGhostReply(
                             if (lastMsg?.metadata?.username) handle = lastMsg.metadata.username;
                         }
 
+                        // Check for a recent pending order from the SAME customer (within 30 minutes)
+                        const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+                        let recentOrderQuery = supabase
+                            .from('orders').select('id, item_requested, raw_message')
+                            .eq('user_id', userId)
+                            .eq('status', 'Pending')
+                            .gte('created_at', thirtyMinsAgo);
+
+                        if (chatId) recentOrderQuery = recentOrderQuery.eq('instagram_user_id', chatId);
+                        if (workspaceId) recentOrderQuery = recentOrderQuery.eq('workspace_id', workspaceId);
+
+                        const { data: recentOrders } = await recentOrderQuery.order('created_at', { ascending: false }).limit(1);
+
+                        // If a recent order exists from the same customer, APPEND the new item
+                        if (recentOrders && recentOrders.length > 0) {
+                            const existingOrder = recentOrders[0];
+                            const existingItems = existingOrder.item_requested || '';
+
+                            // Check if this exact item is already in the order (duplicate guard)
+                            if (existingItems.toLowerCase().includes(item.toLowerCase())) {
+                                return `DUPLICATE PREVENTED. "${item}" is already in this order. Confirm warmly.`;
+                            }
+
+                            const updatedItems = `${existingItems}, ${item}`;
+                            const existingRaw = existingOrder.raw_message ? JSON.parse(existingOrder.raw_message) : {};
+                            const updatedRaw = {
+                                ...existingRaw,
+                                item_variant: a?.variant ? `${existingRaw.item_variant || ''}, ${a.variant}`.replace(/^, /, '') : existingRaw.item_variant,
+                                payment_method: a?.payment_method || existingRaw.payment_method || 'Cash on Delivery',
+                            };
+
+                            const { error } = await supabase.from('orders')
+                                .update({
+                                    item_requested: updatedItems,
+                                    raw_message: JSON.stringify(updatedRaw),
+                                    // Also update customer info if it was missing before
+                                    ...(name && { customer_name: name }),
+                                    ...(phone && { customer_phone: phone }),
+                                    ...(address && { customer_address: address }),
+                                })
+                                .eq('id', existingOrder.id);
+
+                            if (error) {
+                                console.error('❌ [E-COMMERCE] Order update error:', JSON.stringify(error));
+                                throw error;
+                            }
+
+                            console.log(`✅ [E-COMMERCE] Item "${item}" appended to existing order ${existingOrder.id}`);
+                            return `"${item}" has been ADDED to their existing order. The order now contains: ${updatedItems}. Confirm warmly.`;
+                        }
+
+                        // No recent order exists — create a fresh one
                         const { error } = await supabase.from('orders').insert({
                             user_id: userId,
                             workspace_id: workspaceId || null,
