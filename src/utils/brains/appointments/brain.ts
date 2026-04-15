@@ -351,34 +351,18 @@ export async function generateAppointmentsGhostReply(
         if (toolCalls.length > 0 && toolResults.length > 0) {
             console.log('[APPOINTMENTS] Tool executed. Running second pass for conversational reply...');
 
-            // Only include tool calls that have a matching result (prevents Zod crash when a tool fails)
-            const matchedToolCalls = toolCalls.filter((tc: any) =>
-                toolResults.some((tr: any) => tr.toolCallId === tc.toolCallId)
-            );
-            const matchedToolResults = toolResults.filter((tr: any) =>
-                toolCalls.some((tc: any) => tc.toolCallId === tr.toolCallId)
-            );
+            // Build a plain-text summary of what the tools did
+            const toolSummary = toolResults.map((tr: any) => {
+                const resultText = tr.result != null ? String(tr.result) : 'Action completed.';
+                return `[Tool: ${tr.toolName}] Result: ${resultText}`;
+            }).join('\n');
 
+            console.log('[APPOINTMENTS] Tool summary for second pass:', toolSummary);
+
+            // Simple, bulletproof second pass — no fragile message reconstruction
             const secondPassMessages: any[] = [
                 ...messages,
-                {
-                    role: 'assistant',
-                    content: matchedToolCalls.map((tc: any) => ({
-                        type: 'tool-call',
-                        toolCallId: tc.toolCallId,
-                        toolName: tc.toolName,
-                        args: tc.args,
-                    })),
-                },
-                {
-                    role: 'tool',
-                    content: matchedToolResults.map((tr: any) => ({
-                        type: 'tool-result',
-                        toolCallId: tr.toolCallId,
-                        toolName: tr.toolName,
-                        result: typeof tr.result === 'string' ? tr.result : JSON.stringify(tr.result),
-                    })),
-                },
+                { role: 'user', content: `[SYSTEM: The following actions were just performed automatically:\n${toolSummary}\nNow reply to the customer naturally based on the tool results. Do NOT mention tools or system actions.]` },
             ];
 
             const secondPass = await generateText({
@@ -398,7 +382,7 @@ export async function generateAppointmentsGhostReply(
                 summarizeConversationIfNeeded(supabase, userId, chatId, fullHistory, workspaceId).catch(console.error);
             }
 
-            return secondPass.text?.replace(/finalize_transaction/g, '').trim() || null;
+            return secondPass.text?.replace(/finalize_transaction/g, '').replace(/check_calendar_availability/g, '').trim() || null;
         }
 
         // ── 11. Return direct text reply ─────────────────────────────────────
