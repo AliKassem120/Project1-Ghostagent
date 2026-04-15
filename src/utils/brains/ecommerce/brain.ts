@@ -216,8 +216,7 @@ export async function generateEcommerceGhostReply(
                             customer_email: a?.email || null,
                             item_requested: item,
                             customer_address: address,
-                            payment_method: a?.payment_method || 'Cash on Delivery',
-                            raw_message: JSON.stringify({ item_variant: a?.variant || null }),
+                            raw_message: JSON.stringify({ item_variant: a?.variant || null, payment_method: a?.payment_method || 'Cash on Delivery' }),
                         });
 
                         if (error) {
@@ -262,11 +261,19 @@ export async function generateEcommerceGhostReply(
         if (toolCalls.length > 0 && toolResults.length > 0) {
             console.log('[E-COMMERCE] Tool executed. Running second pass for conversational reply...');
 
+            // Only include tool calls that have a matching result (prevents Zod crash when a tool fails)
+            const matchedToolCalls = toolCalls.filter((tc: any) =>
+                toolResults.some((tr: any) => tr.toolCallId === tc.toolCallId)
+            );
+            const matchedToolResults = toolResults.filter((tr: any) =>
+                toolCalls.some((tc: any) => tc.toolCallId === tr.toolCallId)
+            );
+
             const secondPassMessages: any[] = [
                 ...messages,
                 {
                     role: 'assistant',
-                    content: toolCalls.map((tc: any) => ({
+                    content: matchedToolCalls.map((tc: any) => ({
                         type: 'tool-call',
                         toolCallId: tc.toolCallId,
                         toolName: tc.toolName,
@@ -275,11 +282,11 @@ export async function generateEcommerceGhostReply(
                 },
                 {
                     role: 'tool',
-                    content: toolResults.map((tr: any) => ({
+                    content: matchedToolResults.map((tr: any) => ({
                         type: 'tool-result',
                         toolCallId: tr.toolCallId,
                         toolName: tr.toolName,
-                        result: tr.result,
+                        result: typeof tr.result === 'string' ? tr.result : JSON.stringify(tr.result),
                     })),
                 },
             ];
