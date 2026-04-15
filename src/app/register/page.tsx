@@ -16,7 +16,7 @@ export default function RegisterPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [fullName, setFullName] = useState('');
-    const [selectedPlan, setSelectedPlan] = useState<'free_trial' | 'pro'>('free_trial');
+    const [isPendingVerification, setIsPendingVerification] = useState(false);
 
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -28,7 +28,8 @@ export default function RegisterPage() {
             options: {
                 data: {
                     full_name: fullName,
-                }
+                },
+                emailRedirectTo: `${window.location.origin}/auth/callback`,
             }
         });
 
@@ -44,25 +45,14 @@ export default function RegisterPage() {
             trialEnd.setDate(trialEnd.getDate() + 14);
             await supabase.from('users').upsert({
                 id: data.user.id,
-                plan_tier: 'free_trial',
+                plan_tier: 'free_trial', // Keep everyone on free_trial initially
                 trial_ends_at: trialEnd.toISOString(),
             }, { onConflict: 'id' });
         }
 
-        if (selectedPlan === 'pro' && data?.user?.id) {
-            toast.success('Registration successful! Redirecting to checkout...');
-            router.push(`/checkout?user_id=${data.user.id}&amount=49`);
-            return;
-        }
-
-        if (data?.session) {
-            toast.success('Registration successful! Redirecting to your dashboard...');
-            router.push('/dashboard');
-            return;
-        }
-
-        toast.success('Registration successful! Please check your email for verification.');
-        router.push('/login');
+        toast.success('Registration successful! Please check your email.');
+        setLoading(false);
+        setIsPendingVerification(true);
     };
 
     return (
@@ -84,10 +74,25 @@ export default function RegisterPage() {
                         </div>
                     </div>
 
-                    <div className="text-center mb-10">
-                        <h1 className="text-3xl font-bold mb-2 text-foreground tracking-tight">Create Account</h1>
-                        <p className="text-muted-foreground font-medium">Start selling on Instagram with AI.</p>
-                    </div>
+                    {isPendingVerification ? (
+                        <div className="text-center py-6">
+                            <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <Mail className="w-8 h-8 text-primary" />
+                            </div>
+                            <h1 className="text-2xl font-bold mb-4 text-foreground tracking-tight">Check your email</h1>
+                            <p className="text-muted-foreground font-medium mb-8">
+                                We sent a verification link to <span className="text-primary">{email}</span>. Please click the link to activate your account.
+                            </p>
+                            <div className="text-sm text-foreground/60 mb-2">
+                                Didn't receive it? Check your spam folder.
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="text-center mb-10">
+                                <h1 className="text-3xl font-bold mb-2 text-foreground tracking-tight">Create Account</h1>
+                                <p className="text-muted-foreground font-medium">Start selling on Instagram with AI.</p>
+                            </div>
 
                     <form onSubmit={handleRegister} className="space-y-4">
                         <div className="space-y-2">
@@ -135,44 +140,6 @@ export default function RegisterPage() {
                             </div>
                         </div>
 
-                        <div className="space-y-3 pt-2">
-                            <label className="text-sm font-bold text-muted-foreground ml-1">Select Plan</label>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setSelectedPlan('free_trial')}
-                                    className={`p-4 rounded-xl border text-left transition-all ${selectedPlan === 'free_trial'
-                                        ? 'bg-primary/10 border-primary shadow-sm'
-                                        : 'bg-surface-2 border-border hover:bg-surface-3 shadow-sm'
-                                        }`}
-                                >
-                                    <div className={`font-bold mb-1 ${selectedPlan === 'free_trial' ? 'text-primary' : 'text-foreground'}`}>Starter</div>
-                                    <div className="text-xs text-muted-foreground font-medium mb-2">$0 / month</div>
-                                    <ul className="text-[11px] text-muted-foreground space-y-1">
-                                        <li>✓ 50 AI Replies / month</li>
-                                        <li>✓ 1 Instagram Account</li>
-                                        <li>✓ Arabic & English</li>
-                                    </ul>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setSelectedPlan('pro')}
-                                    className={`p-4 rounded-xl border text-left transition-all ${selectedPlan === 'pro'
-                                        ? 'bg-primary/10 border-primary shadow-sm'
-                                        : 'bg-surface-2 border-border hover:bg-surface-3 shadow-sm'
-                                        }`}
-                                >
-                                    <div className={`font-bold mb-1 ${selectedPlan === 'pro' ? 'text-primary' : 'text-foreground'}`}>Pro Agent</div>
-                                    <div className="text-xs text-muted-foreground font-medium mb-2">$49 / month</div>
-                                    <ul className="text-[11px] text-muted-foreground space-y-1">
-                                        <li>✓ 1,000 AI Replies / month</li>
-                                        <li>✓ Inventory Sync</li>
-                                        <li>✓ Sales Analytics</li>
-                                    </ul>
-                                </button>
-                            </div>
-                        </div>
-
                         <button
                             type="submit"
                             disabled={loading}
@@ -185,6 +152,8 @@ export default function RegisterPage() {
                     <div className="mt-8 text-center text-sm text-muted-foreground font-medium">
                         Already have an account? <Link href="/login" className="text-primary hover:underline font-bold transition-colors">Sign In</Link>
                     </div>
+                    </>
+                    )}
                 </div>
             </div>
         </div>
