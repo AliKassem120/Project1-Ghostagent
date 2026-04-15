@@ -156,10 +156,8 @@ export async function generateEcommerceGhostReply(
         // ── 8. Tool definitions ──────────────────────────────────────────────
         const toolsMapping: Record<string, any> = {};
 
-        // finalize_transaction is available on all paid plans (pro, empire, starter)
-        // Only block on free_trial to prevent abuse
-        if (planTier !== 'free_trial') {
-            toolsMapping['finalize_transaction'] = {
+        // finalize_transaction is available on all plans so users can test order saving during their trial
+        toolsMapping['finalize_transaction'] = {
                 description: 'Call this tool IMMEDIATELY after the customer provides their name, address, and phone. Save the order to the database.',
                 parameters: z.object({
                     name: z.string().optional().describe('Full name of the customer.'),
@@ -239,7 +237,6 @@ export async function generateEcommerceGhostReply(
             if (workspaceId) {
                 toolsMapping['check_ecommerce_inventory'] = checkEcommerceInventoryTool(workspaceId);
             }
-        }
 
         // ── 9. First AI pass ─────────────────────────────────────────────────
         const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });

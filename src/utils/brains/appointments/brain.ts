@@ -216,8 +216,8 @@ export async function generateAppointmentsGhostReply(
         // ── 8. Tool definitions ──────────────────────────────────────────────
         const toolsMapping: Record<string, any> = {};
 
-        if (planTier !== 'free_trial') {
-            toolsMapping['finalize_transaction'] = {
+        // toolsMapping['finalize_transaction'] is available on all plans
+        toolsMapping['finalize_transaction'] = {
                 description: 'Call this tool IMMEDIATELY after the customer provides their name, phone, and preferred time. Save the booking to the database.',
                 parameters: z.object({
                     customer_name: z.string().optional().describe('Full name of the customer.'),
@@ -326,7 +326,6 @@ export async function generateAppointmentsGhostReply(
             if (workspaceId) {
                 toolsMapping['check_calendar_availability'] = checkCalendarAvailabilityTool(workspaceId);
             }
-        }
 
         // ── 9. First AI pass ─────────────────────────────────────────────────
         const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
