@@ -97,7 +97,17 @@ export function buildAppointmentsSystemPrompt(ctx: PromptContext): string {
 7. User: "hii maw3ede bokra se3a 2 meshe" -> Bot: "salam esmak pls la et2akad" -> User: "rami" -> Bot: "eh rami maw3edak sayev bokra se3a 2"
 8. User: "bde a3mel dafire lyoum fi majel" -> Bot: "ahla w sahla eh fi dawr se3a 5" -> User: "ade 7a2a" -> Bot: "15$" -> User: "ok sayev esme" -> Bot: "tekram name w ra2mak pls"
 9. User: "salam ade l jalse" -> Bot: "hala l jalse b 20$" -> User: "fi 3ared eza a5adet 3" -> Bot: "eh l tlete b 50$" -> User: "mni7a bde e5od maw3ed" -> Bot: "tekram aya yom b nesbak"
-10. User: "8alat l maw3ed" -> Bot: "be3tezer shu l 8alat" -> User: "bde ahke m3 mwazaf" -> Bot: "senye bas"`;
+10. User: "8alat l maw3ed" -> Bot: "be3tezer shu l 8alat" -> User: "bde ahke m3 mwazaf" -> Bot: "senye bas"
+11. User: "ana 3al tari2 fi 3aj2a ktir" -> Bot: "wala yhemak basita" -> User: "10min w busal" -> Bot: "tmm natrinak"
+12. User: "b3atle location pls" -> Bot: "[Link]" -> User: "fi parking" -> Bot: "eh akid fi parking balesh"
+13. User: "hii fiyye zid 8arad 3al maw3ed" -> Bot: "hala eh akid shu bdk" -> User: "bde a3mel cha3re kamen" -> Bot: "tmm zedneha 3al booking"
+14. User: "bdk tb3atle sura lal sh8el" -> Bot: "tekram tfadal sura mnel saf7a" -> User: "mni7a bde maw3ed" -> Bot: "ahla w sahla aya yom"
+15. User: "salam fi dawr hala2" -> Bot: "hala eh fadi tfadal" -> User: "tmm 5min w beje 3al ma7al" -> Bot: "ahla w sahla"
+16. User: "hii fethin l a7ad" -> Bot: "salam la2 be3tezer msakrin l a7ad" -> User: "okay bokra se3a 10" -> Bot: "tmm bokra se3a 10 sayevna" -> User: "esme jad" -> Bot: "tekram jad"
+17. User: "ade bda wa2t l jalse" -> Bot: "hala bda nos se3a" -> User: "tmm eza bde bokra fi wa2t" -> Bot: "eh bokra fi se3a 1 aw 3" -> User: "1 mni7a" -> Bot: "tekram esmak w ra2mak pls"
+18. User: "bte5do cash aw card" -> Bot: "hala cash aw 7wele" -> User: "tmm ade l se3r kello" -> Bot: "40$"
+19. User: "snene 3m yuja3une fi 7akim hala2" -> Bot: "salam eh l dr mawjud tfadal" -> User: "beje 3al ma7al hala2" -> Bot: "tmm natrinak"
+20. User: "bde el8e l maw3ed pls" -> Bot: "wala yhemak" -> User: "shokran" -> Bot: "tekram"`;
 
     const englishExamples = `REAL ENGLISH BOOKING DM EXCHANGES (Use ONLY when customer writes in English):
 
@@ -154,8 +164,21 @@ ARABIZI DICTIONARY (Use these terms ONLY when replying in Lebanese Arabizi, NEVE
 ` : "";
 
     // Language-appropriate checkout and goodbye phrases  
-    const checkoutAsk = isLebanese ? '"Tekram esmak w ra2mak pls"' : '"Name and phone number pls"';
-    const goodbyeReply = isLebanese ? '"Tsayyav el maw3ad!"' : '"Your appointment is booked!"';
+    let checkoutAsk: string;
+    let goodbyeReply: string;
+    if (business.language === 'Arabic') {
+        checkoutAsk = '"\u062a\u0643\u0631\u0645 \u0627\u0633\u0645\u0643 \u0648\u0631\u0642\u0645\u0643"'; // تكرم اسمك ورقمك
+        goodbyeReply = '"\u062a\u0633\u064a\u0641 \u0627\u0644\u0645\u0648\u0639\u062f!"'; // تسيف الموعد!
+    } else if (business.language === 'Lebanese Franco') {
+        checkoutAsk = '"Tekram esmak w ra2mak pls"';
+        goodbyeReply = '"Tsayyav el maw3ad!"';
+    } else if (isAutoDetect) {
+        checkoutAsk = '"Name and phone number pls" (English) or "Tekram esmak w ra2mak pls" (Arabizi) — use whichever matches the customer\'s language';
+        goodbyeReply = '"Your appointment is booked!" (English) or "Tsayyav el maw3ad!" (Arabizi)';
+    } else {
+        checkoutAsk = '"Name and phone number pls"';
+        goodbyeReply = '"Your appointment is booked!"';
+    }
 
     return `You are the booking coordinator for ${name}. ${persona}
 

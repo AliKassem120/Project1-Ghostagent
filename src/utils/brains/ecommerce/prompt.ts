@@ -100,7 +100,17 @@ export function buildEcommerceSystemPrompt(ctx: PromptContext): string {
 7. User: "mtawel l order" -> Bot: "hala bser3a bokra byusal Nshalah"
 8. User: "hii bde el8e l order" -> Bot: "hala hbb l order meshe" -> User: "ma bde ye t2a5arto" -> Bot: "be3tezer hbb l mandoub 3al tari2"
 9. User: "hii fi meno 2yes z8ir" -> Bot: "salam la2 bas kbir"
-10. User: "ade se3ro w ade delivery" -> Bot: "40$ w delivery 3$ inside beirut 5$ outside" -> User: "ok tmm bde wehde 3a jounieh" -> Bot: "tekram hbb esm 3nwen w ra2m pls"`;
+10. User: "ade se3ro w ade delivery" -> Bot: "40$ w delivery 3$ inside beirut 5$ outside" -> User: "ok tmm bde wehde 3a jounieh" -> Bot: "tekram hbb esm 3nwen w ra2m pls"
+11. User: "ma fhmt 3lek" -> Bot: "shu l 8alat aw mshkle" -> User: "bde ahke m3 mwazaf" -> Bot: "senye bas"
+12. User: "hii wen mawjud" -> Bot: "ahla w sahla beirut hamra" -> User: "fi delivery aw bas bl ma7al" -> Bot: "fi delivery akid"
+13. User: "bdk tb3atle sura awda7" -> Bot: "tekram hbb tfadal" -> User: "mni7a ktir ade se3ro" -> Bot: "20$ bdk ttlob" -> User: "eh tmm bde wehde" -> Bot: "esm 3nwen w ra2m pls"
+14. User: "hii bde 2" -> Bot: "hala hbb tekram shu l alwen" -> User: "wehde aswad wehde abiad" -> Bot: "tmm 40$ w 3$ delivery inside beirut" -> User: "ok" -> Bot: "name adress w ra2mak pls"
+15. User: "hii l se3a makfule" -> Bot: "salam eh fi kafele 1 year" -> User: "tmm ade se3ra" -> Bot: "60$" -> User: "okay bde wehde" -> Bot: "tekram esm 3nwen w ra2mak pls"
+16. User: "ana 3mlt order mbereh meshe?" -> Bot: "hala hbb esmak pls la fatesh" -> User: "rami" -> Bot: "eh hbb bokra byusal"
+17. User: "hii fi lon k7le" -> Bot: "hala eh fi k7le w aswad" -> User: "ade se3ra" -> Bot: "30$" -> User: "bde wehde k7le" -> Bot: "tekram name adress w ra2mak pls"
+18. User: "ade l towsil 3a trablos" -> Bot: "5$ hbb" -> User: "ok ade l se3r kello m3 towsil" -> Bot: "25$ l 8arad w 5$ delivery total 30$" -> User: "tmm bde wehde" -> Bot: "esm 3nwen w ra2m pls"
+19. User: "bde badela l 2yes ktir z8ir" -> Bot: "hala hbb be3tezer mnak" -> User: "fi kbir" -> Bot: "eh akid bokra bnb3atlak 2yes kbir ybadla"
+20. User: "balesh towsil?" -> Bot: "hala hbb l tlete b 100 w towsil balesh" -> User: "mni7a bde tlete" -> Bot: "tekram hbb name adress w ra2mak pls"`;
 
     const englishExamples = `REAL ENGLISH DM EXCHANGES (Use ONLY when customer writes in English):
 
@@ -157,9 +167,23 @@ ARABIZI DICTIONARY (Use these terms ONLY when replying in Lebanese Arabizi, NEVE
 - Troubleshooting: 8alat, Bade badela, Bde el8e, T2a5arto, Senye bas, Ma fhmt, Mwazaf
 ` : "";
 
-    // Language-appropriate checkout and goodbye phrases
-    const checkoutAsk = isLebanese ? '"Tekram name adress w ra2mak pls"' : '"Name, address and phone pls"';
-    const goodbyeReply = isLebanese ? '"Tekram!"' : '"You\'re welcome!"';
+    // Language-appropriate checkout and goodbye phrases for POST-SALE rules
+    let checkoutAsk: string;
+    let goodbyeReply: string;
+    if (business.language === 'Arabic') {
+        checkoutAsk = '"\u062a\u0643\u0631\u0645 \u0627\u0633\u0645\u0643 \u0648\u0639\u0646\u0648\u0627\u0646\u0643 \u0648\u0631\u0642\u0645\u0643"'; // تكرم اسمك وعنوانك ورقمك
+        goodbyeReply = '"\u062a\u0643\u0631\u0645!"'; // تكرم!
+    } else if (business.language === 'Lebanese Franco') {
+        checkoutAsk = '"Tekram name adress w ra2mak pls"';
+        goodbyeReply = '"Tekram!"';
+    } else if (isAutoDetect) {
+        // For Auto Detect, show both so the model picks the right one
+        checkoutAsk = '"Name, address and phone pls" (English) or "Tekram name adress w ra2mak pls" (Arabizi) — use whichever matches the customer\'s language';
+        goodbyeReply = '"You\'re welcome!" (English) or "Tekram!" (Arabizi)';
+    } else {
+        checkoutAsk = '"Name, address and phone pls"';
+        goodbyeReply = '"You\'re welcome!"';
+    }
 
     return `You are the sales manager for ${name}. ${persona}
 
