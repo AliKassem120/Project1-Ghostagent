@@ -122,7 +122,7 @@ export async function generateAppointmentsGhostReply(
             business_type: 'appointments',
             tone: settings?.tone || 'Professional',
             system_instructions: settings?.system_instructions || null,
-            language: settings?.language || 'Auto',
+            language: settings?.language || 'Auto-Detect',
             store_location: settings?.store_location || null,
             contact_info: settings?.contact_info || null,
             use_emojis: settings?.use_emojis ?? true,

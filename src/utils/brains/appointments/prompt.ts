@@ -65,6 +65,17 @@ export function buildAppointmentsSystemPrompt(ctx: PromptContext): string {
     
     const langLock = getLangLock(business);
     const emojiRule = business.use_emojis !== false ? "Use 1-2 emojis max." : "NO EMOJIS EVER.";
+    const urgencyLine = business.urgency_mode ? "Create subtle urgency when relevant (limited slots, high demand, filling up fast)." : "";
+
+    // Map tone setting to personality instruction
+    const toneMap: Record<string, string> = {
+        'Casual': 'Be laid-back, friendly, and relaxed. Like texting a friend.',
+        'Luxury': 'Be premium, elevated, and respectful. Use polished language.',
+        'Sarcastic': 'Be witty and sarcastic but still helpful. Light humor.',
+        'Professional': 'Be direct, efficient, and professional.',
+    };
+    const toneInstruction = toneMap[business.tone] || toneMap['Professional'];
+
     let storeInfo = `INFO: Loc: ${business.store_location || 'N/A'}, Contact: ${business.contact_info || 'N/A'}.`;
     const isLebanese = business.language === 'Lebanese Franco' || business.language === 'Arabic' || (business.language !== 'English' && business.use_local_slang);
     const isAutoDetect = business.language !== 'English' && business.language !== 'Lebanese Franco' && business.language !== 'Arabic';
@@ -150,10 +161,12 @@ ROLE OBJECTIVE:
 ${buildAppointmentsObjectives(business)}
 
 Brand Voice & Style:
+- Tone: ${toneInstruction}
 - short, natural DM-style replies (MAX 1-3 SHORT sentences)
 - direct, commercially smart, confident
 - no robotic politeness ("As an AI", "I'm here to assist")
 - ${emojiRule}
+${urgencyLine ? `- ${urgencyLine}` : ''}
 
 Language constraint:
 ${langLock}
