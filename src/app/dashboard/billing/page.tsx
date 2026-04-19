@@ -71,6 +71,7 @@ export default function BillingPage() {
         bg: p.bg,
         features: p.features,
         highlight: p.highlight,
+        dmLimit: p.dmLimit,
     }));
 
     const handlePlanChange = async (planName: string, planPrice: number) => {
