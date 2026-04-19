@@ -6,6 +6,17 @@ import { buildAppointmentsSystemPrompt } from './prompt';
 import { getConversationMemory, summarizeConversationIfNeeded, trackConversationMessage } from '../../rolling-memory';
 import { checkCalendarAvailabilityTool } from './tools';
 
+const cleanResponseText = (str: string | null | undefined) => {
+    if (!str) return null;
+    return str
+        .replace(/<function[^>]*>[\s\S]*?(?:<\/function>|$)/gi, '')
+        .replace(/<tool_call>[\s\S]*?(?:<\/tool_call>|$)/gi, '')
+        .replace(/finalize_transaction/g, '')
+        .replace(/check_calendar_availability/g, '')
+        .replace(/\{[^}]*\}/g, '') // Strips stranded raw JSON braces that leak
+        .trim();
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Date/Time resolvers for appointment finalization
 // ─────────────────────────────────────────────────────────────────────────────
@@ -382,7 +393,7 @@ export async function generateAppointmentsGhostReply(
                 summarizeConversationIfNeeded(supabase, userId, chatId, fullHistory, workspaceId).catch(console.error);
             }
 
-            return secondPass.text?.replace(/finalize_transaction/g, '').replace(/check_calendar_availability/g, '').trim() || null;
+            return cleanResponseText(secondPass.text) || null;
         }
 
         // ── 11. Return direct text reply ─────────────────────────────────────
@@ -391,7 +402,7 @@ export async function generateAppointmentsGhostReply(
             summarizeConversationIfNeeded(supabase, userId, chatId, fullHistory, workspaceId).catch(console.error);
         }
 
-        return (result.text || '').replace(/finalize_transaction/g, '').trim() || null;
+        return cleanResponseText(result.text) || null;
 
     } catch (error: any) {
         if (error?.statusCode === 429) {

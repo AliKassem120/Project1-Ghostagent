@@ -6,6 +6,17 @@ import { buildEcommerceSystemPrompt } from './prompt';
 import { getConversationMemory, summarizeConversationIfNeeded, trackConversationMessage } from '../../rolling-memory';
 import { checkEcommerceInventoryTool } from './tools';
 
+const cleanResponseText = (str: string | null | undefined) => {
+    if (!str) return null;
+    return str
+        .replace(/<function[^>]*>[\s\S]*?(?:<\/function>|$)/gi, '')
+        .replace(/<tool_call>[\s\S]*?(?:<\/tool_call>|$)/gi, '')
+        .replace(/finalize_transaction/g, '')
+        .replace(/check_ecommerce_inventory/g, '')
+        .replace(/\{[^}]*\}/g, '') // Strips stranded raw JSON braces that leak
+        .trim();
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Detects if the current conversation is in an active checkout collection phase
 // i.e. the bot already asked for name/address/phone and is waiting for them.
@@ -329,7 +340,7 @@ export async function generateEcommerceGhostReply(
                 summarizeConversationIfNeeded(supabase, userId, chatId, fullHistory, workspaceId).catch(console.error);
             }
 
-            return secondPass.text?.replace(/finalize_transaction/g, '').replace(/check_ecommerce_inventory/g, '').trim() || null;
+            return cleanResponseText(secondPass.text) || null;
         }
 
         // ── 11. Return direct text reply ─────────────────────────────────────
@@ -338,7 +349,7 @@ export async function generateEcommerceGhostReply(
             summarizeConversationIfNeeded(supabase, userId, chatId, fullHistory, workspaceId).catch(console.error);
         }
 
-        return (result.text || '').replace(/finalize_transaction/g, '').trim() || null;
+        return cleanResponseText(result.text) || null;
 
     } catch (error: any) {
         if (error?.statusCode === 429) {

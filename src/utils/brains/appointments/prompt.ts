@@ -187,7 +187,8 @@ ${buildAppointmentsObjectives(business)}
 
 Brand Voice & Style:
 - Tone: ${toneInstruction}
-- short, natural DM-style replies (MAX 1-3 SHORT sentences)
+- STRICT LENGTH LIMIT: Replies MUST be exactly 1-2 short sentences.
+- NEVER write paragraphs or explain your actions.
 - direct, commercially smart, confident
 - no robotic politeness ("As an AI", "I'm here to assist")
 - ${emojiRule}
