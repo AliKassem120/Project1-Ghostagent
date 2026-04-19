@@ -32,7 +32,7 @@ export const PLANS: PlanDefinition[] = [
             '1 Instagram Account',
             'Automated DM Responses',
             'Basic Product Information',
-            'GhostAgent Watermark',
+            'Standard Email Support',
         ],
         highlight: false,
         cta: 'Get Started Free',
