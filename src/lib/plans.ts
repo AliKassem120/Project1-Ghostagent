@@ -51,7 +51,7 @@ export const PLANS: PlanDefinition[] = [
             '1,000 AI Replies / month',
             '1 Instagram Account',
             'Comment & DM Auto-Reply',
-            'Order Lead Capture & Checkout',
+            'Order Capture & Appt. Booking',
             'Human Takeover (Mute AI)',
             'Custom AI Persona & Tone',
             'Priority Email Support',
