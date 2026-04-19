@@ -168,6 +168,40 @@ export async function generateAppointmentsGhostReply(
             historyContext += `\n[SYSTEM NOTE: The customer just attempted to book. Form content: ${checkoutContext}]`;
         }
 
+        // --- NEW TIME GAP LOGIC ---
+        if (chatId && fullHistory && fullHistory.length > 0) {
+            // Find the last message before the current one
+            const lastMsg = fullHistory[fullHistory.length - 1];
+            if (lastMsg && lastMsg.timestamp) {
+                const lastTime = new Date(lastMsg.timestamp).getTime();
+                const now = Date.now();
+                const hoursDiff = (now - lastTime) / (1000 * 60 * 60);
+
+                if (hoursDiff > 12) {
+                    historyContext += `\n[SYSTEM EVENT: ${Math.floor(hoursDiff)} hours have passed since the previous message. Treat this as a new session.]`;
+                    
+                    if (hoursDiff >= 24) {
+                        // Check if they booked recently
+                        let recentApptQ = supabase.from('appointments')
+                            .select('service, appointment_date, start_time, status, created_at')
+                            .eq('user_id', userId)
+                            .eq('instagram_user_id', chatId)
+                            .order('created_at', { ascending: false })
+                            .limit(1);
+
+                        if (workspaceId) recentApptQ = recentApptQ.eq('workspace_id', workspaceId);
+                        
+                        const { data: recentAppt } = await recentApptQ.maybeSingle();
+
+                        if (recentAppt) {
+                            historyContext += `\n[SYSTEM KNOWLEDGE: The customer booked "${recentAppt.service}" recently for ${recentAppt.appointment_date} at ${recentAppt.start_time}. Current booking status: ${recentAppt.status}.]`;
+                        }
+                    }
+                }
+            }
+        }
+        // --- END TIME GAP LOGIC ---
+
         // ── 4. Load services & knowledge ────────────────────────────────────
         let inventoryContext = 'No services listed currently.';
         let catalogContext = '';

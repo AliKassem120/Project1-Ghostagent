@@ -104,6 +104,40 @@ export async function generateEcommerceGhostReply(
             historyContext += `\n[SYSTEM NOTE: The customer just attempted to order. Form content: ${checkoutContext}]`;
         }
 
+        // --- NEW TIME GAP LOGIC ---
+        if (chatId && fullHistory && fullHistory.length > 0) {
+            // Find the last message before the current one (which hasn't been saved yet)
+            const lastMsg = fullHistory[fullHistory.length - 1];
+            if (lastMsg && lastMsg.timestamp) {
+                const lastTime = new Date(lastMsg.timestamp).getTime();
+                const now = Date.now();
+                const hoursDiff = (now - lastTime) / (1000 * 60 * 60);
+
+                if (hoursDiff > 12) {
+                    historyContext += `\n[SYSTEM EVENT: ${Math.floor(hoursDiff)} hours have passed since the previous message. Treat this as a new session.]`;
+                    
+                    if (hoursDiff >= 24) {
+                        // Check if they placed an order recently
+                        let recentOrderQ = supabase.from('orders')
+                            .select('item_requested, status, created_at')
+                            .eq('user_id', userId)
+                            .eq('instagram_user_id', chatId)
+                            .order('created_at', { ascending: false })
+                            .limit(1);
+
+                        if (workspaceId) recentOrderQ = recentOrderQ.eq('workspace_id', workspaceId);
+                        
+                        const { data: recentOrder } = await recentOrderQ.maybeSingle();
+
+                        if (recentOrder) {
+                            historyContext += `\n[SYSTEM KNOWLEDGE: The customer ordered "${recentOrder.item_requested}" recently. Current order status: ${recentOrder.status}.]`;
+                        }
+                    }
+                }
+            }
+        }
+        // --- END TIME GAP LOGIC ---
+
         // ── 4. Load inventory & knowledge ───────────────────────────────────
         let inventoryContext = 'No inventory items listed currently.';
         let catalogContext = '';
