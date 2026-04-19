@@ -158,14 +158,14 @@ export async function generateEcommerceGhostReply(
 
         // finalize_transaction is available on all plans so users can test order saving during their trial
         toolsMapping['finalize_transaction'] = {
-                description: 'Call this tool to save or update an order. If the customer already gave their info earlier in this conversation, reuse it. The system will automatically append to their existing recent order if one exists.',
+                description: 'Call this tool to save an order. You MUST fill ALL parameters from the conversation context. Look back through the chat history to find the item they discussed, their name, address, and phone. NEVER call this with missing data.',
                 parameters: z.object({
-                    name: z.string().optional().describe('Full name of the customer. Reuse from conversation if already provided.'),
-                    phone: z.string().optional().describe('Phone number. Reuse from conversation if already provided.'),
+                    name: z.string().describe('Full name of the customer. REQUIRED. Look through the conversation to find it. If not given yet, DO NOT call this tool — ask for it first.'),
+                    phone: z.string().describe('Phone number. REQUIRED. Look through the conversation to find it. If not given yet, DO NOT call this tool — ask for it first.'),
                     email: z.string().email().optional().describe('Optional email address.'),
-                    address: z.string().optional().describe('Delivery address. Reuse from conversation if already provided.'),
+                    address: z.string().describe('Delivery address. REQUIRED. Look through the conversation to find it. If not given yet, DO NOT call this tool — ask for it first.'),
                     payment_method: z.string().optional().describe('Cash on delivery by default.'),
-                    item: z.string().describe('The NEW item(s) being added to the order.'),
+                    item: z.string().describe('The item(s) being ordered. REQUIRED. Look at what product was discussed earlier in the conversation. For example if they asked about PS5 and said they want one, the item is "PS5".'),
                     variant: z.string().optional().describe('Color, size, or model variant if specified.'),
                 }),
                 execute: async (a: any) => {
