@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { after } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { generateGhostReply } from '@/utils/ghost-brain';
 
@@ -41,12 +42,15 @@ export async function POST(req: Request) {
         return new NextResponse('EVENT_RECEIVED', { status: 200 });
     }
 
-    // Always ack immediately to Meta
-    try {
-        await processWhatsAppEvent(body);
-    } catch (err) {
-        console.error('❌ WhatsApp webhook processing error:', err);
-    }
+    // ⏰ Return 200 to Meta IMMEDIATELY so it never times out.
+    // Use after() to process the event AFTER the response is sent.
+    after(async () => {
+        try {
+            await processWhatsAppEvent(body);
+        } catch (err) {
+            console.error('❌ WhatsApp webhook processing error:', err);
+        }
+    });
 
     return new NextResponse('EVENT_RECEIVED', { status: 200 });
 }
