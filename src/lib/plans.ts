@@ -30,8 +30,8 @@ export const PLANS: PlanDefinition[] = [
         features: [
             '100 AI Replies / month',
             '1 Instagram Account',
-            'Basic FAQ Chatbot',
-            'Arabic & English Support',
+            'Automated DM Responses',
+            'Basic Product Information',
             'GhostAgent Watermark',
         ],
         highlight: false,
