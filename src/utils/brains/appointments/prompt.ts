@@ -67,13 +67,15 @@ export function buildAppointmentsSystemPrompt(ctx: PromptContext): string {
     const emojiRule = business.use_emojis !== false ? "Use 1-2 emojis max." : "NO EMOJIS EVER.";
     let storeInfo = `INFO: Loc: ${business.store_location || 'N/A'}, Contact: ${business.contact_info || 'N/A'}.`;
     const isLebanese = business.language === 'Lebanese Franco' || business.language === 'Arabic' || (business.language !== 'English' && business.use_local_slang);
+    const isAutoDetect = business.language !== 'English' && business.language !== 'Lebanese Franco' && business.language !== 'Arabic';
 
     const persona = isLebanese
         ? "You reply to DMs like a real Lebanese business owner: confident, concise, and human."
+        : isAutoDetect
+        ? "You reply to DMs matching the customer's language perfectly. Confident, concise, and human."
         : "You reply to DMs like a real shop employee texting a customer: confident, concise, and human. No corporate tone.";
 
-    const examplesBlock = isLebanese
-        ? `REAL LEBANESE SERVICE/BOOKING EXCHANGES (Mimic this exact style and extreme brevity):
+    const lebaneseExamples = `REAL LEBANESE SERVICE/BOOKING EXCHANGES (Use when replying in Arabizi):
 
 1. User: "hii bde e5od maw3ed" -> Bot: "ahla w sahla aya yom b nesbak" -> User: "bokra l sobeh" -> Bot: "fi majel se3a 10 aw 11" -> User: "10 tmm" -> Bot: "tekram esmak w ra2mak pls la sayev l maw3ed"
 2. User: "salam wen mawjud" -> Bot: "beirut hamra" -> User: "fi 3aj2a hala2 aw beje" -> Bot: "msh ktir" -> User: "tmm nos se3a w bkun honik" -> Bot: "natrinak ahla w sahla"
@@ -94,8 +96,9 @@ export function buildAppointmentsSystemPrompt(ctx: PromptContext): string {
 17. User: "ade bda wa2t l jalse" -> Bot: "hala bda nos se3a" -> User: "tmm eza bde bokra fi wa2t" -> Bot: "eh bokra fi se3a 1 aw 3" -> User: "1 mni7a" -> Bot: "tekram esmak w ra2mak pls"
 18. User: "bte5do cash aw card" -> Bot: "hala cash aw 7wele" -> User: "tmm ade l se3r kello" -> Bot: "40$"
 19. User: "snene 3m yuja3une fi 7akim hala2" -> Bot: "salam eh l dr mawjud tfadal" -> User: "beje 3al ma7al hala2" -> Bot: "tmm natrinak"
-20. User: "bde el8e l maw3ed pls" -> Bot: "wala yhemak" -> User: "shokran" -> Bot: "tekram"`
-        : `REAL ENGLISH BOOKING DM EXCHANGES (Mimic this exact style and extreme brevity):
+20. User: "bde el8e l maw3ed pls" -> Bot: "wala yhemak" -> User: "shokran" -> Bot: "tekram"`;
+
+    const englishExamples = `REAL ENGLISH BOOKING DM EXCHANGES (Use when replying in English):
 
 1. User: "Hi can I book an appointment?" -> Bot: "Hey! What day works for you?" -> User: "Tomorrow morning" -> Bot: "10am or 11am?" -> User: "10" -> Bot: "Name and phone number pls"
 2. User: "How much is a session?" -> Bot: "$20" -> User: "Ok I want one" -> Bot: "When would you like to come?" -> User: "Today at 3" -> Bot: "Done! Name and phone?"
@@ -116,10 +119,20 @@ export function buildAppointmentsSystemPrompt(ctx: PromptContext): string {
 17. User: "What are your hours?" -> Bot: "Mon-Sat 9am to 7pm" -> User: "Ok coming Saturday" -> Bot: "What time?" -> User: "11" -> Bot: "Name and phone pls"
 18. User: "Can I book for 2 people?" -> Bot: "Sure! Both at same time?" -> User: "Yes 3pm" -> Bot: "Names and phone number?"
 19. User: "I need an emergency appointment" -> Bot: "Come in now, we'll fit you in" -> User: "On my way" -> Bot: "See you soon!"
-20. User: "Hi is Monday available?" -> Bot: "Yes! What time?" -> User: "Morning" -> Bot: "9am or 10:30am?" -> User: "9" -> Bot: "Name and phone pls"`;;
+20. User: "Hi is Monday available?" -> Bot: "Yes! What time?" -> User: "Morning" -> Bot: "9am or 10:30am?" -> User: "9" -> Bot: "Name and phone pls"`;
 
-    const dictionary = isLebanese ? `
-ARABIZI DICTIONARY (Use these exact terms for Lebanese tone):
+    // Auto Detect needs BOTH example sets so the model can reply in either language
+    let examplesBlock: string;
+    if (isAutoDetect) {
+        examplesBlock = `${englishExamples}\n\n${lebaneseExamples}`;
+    } else if (isLebanese) {
+        examplesBlock = lebaneseExamples;
+    } else {
+        examplesBlock = englishExamples;
+    }
+
+    const dictionary = (isLebanese || isAutoDetect) ? `
+ARABIZI DICTIONARY (Use these terms ONLY when replying in Lebanese Arabizi):
 - Greetings: Hala, Salam, Ahla w sahla
 - Politeness: Tfadal (guy), Tfadale (girl), Tekram (guy), Tekrame (girl), Shokran, Mamnunak, Yeslamo, Ysalemon
 - Agreement: Eh, Akid, Yalla, Tmm, Mni7a
