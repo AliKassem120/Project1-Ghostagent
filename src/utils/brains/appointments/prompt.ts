@@ -64,7 +64,7 @@ export function buildAppointmentsSystemPrompt(ctx: PromptContext): string {
     const name = business.business_name || 'our business';
     
     const langLock = getLangLock(business);
-    const emojiRule = business.use_emojis !== false ? "Use 1-2 emojis max." : "NO EMOJIS EVER.";
+    const emojiRule = business.use_emojis !== false ? "ALWAYS use 1-2 modern emojis in every response." : "NO EMOJIS EVER.";
     const urgencyLine = business.urgency_mode ? "Create subtle urgency when relevant (limited slots, high demand, filling up fast)." : "";
 
     // Map tone setting to personality instruction

@@ -569,7 +569,7 @@ export default function InteractionsPage() {
                             {/* Manual Toggle Button */}
                             <button
                                 onClick={() => {
-                                    if (planTier === 'starter' || planTier === 'free_trial') {
+                                    if (planTier === 'starter') {
                                         error('Upgrade to Pro to mute individual chats.');
                                         return;
                                     }
@@ -577,14 +577,14 @@ export default function InteractionsPage() {
                                 }}
                                 className={clsx(
                                     "px-3 py-1.5 text-xs rounded-lg border flex items-center gap-2 transition-all font-bold",
-                                    planTier === 'starter' || planTier === 'free_trial' 
+                                    planTier === 'starter' 
                                         ? "bg-surface-2 text-muted-foreground border-border opacity-70 cursor-not-allowed"
                                         : isMuted
                                         ? "bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20"
                                         : "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
                                 )}
                             >
-                                {planTier === 'starter' || planTier === 'free_trial' ? (
+                                {planTier === 'starter' ? (
                                     <><PauseCircle className="w-3 h-3" /> Mute AI (Pro)</>
                                 ) : isMuted ? (
                                     <><PlayCircle className="w-3 h-3" /> Resume AI</>

@@ -238,7 +238,7 @@ export default function BillingPage() {
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 ml-1">This Month&apos;s Usage</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     {[
-                        { icon: MessageSquare, label: 'Auto-Replies Sent', value: usage.replies, limit: currentPlan === 'Starter' ? '/ 50 limit' : 'Unlimited', color: 'text-violet-400', bg: 'bg-violet-500/10' },
+                        { icon: MessageSquare, label: 'Auto-Replies Sent', value: usage.replies, limit: currentPlan === 'Empire' ? 'Unlimited' : `/ ${currentPlanData?.dmLimit || 100} limit`, color: 'text-violet-400', bg: 'bg-violet-500/10' },
                         { icon: TrendingUp, label: 'Conversations', value: usage.conversations, limit: 'Active threads', color: 'text-blue-400', bg: 'bg-blue-500/10' },
                         { icon: DollarSign, label: 'Revenue Generated', value: `$${usage.revenue}`, limit: 'From AI sales', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
                     ].map((stat, i) => (

@@ -67,7 +67,7 @@ export function buildEcommerceSystemPrompt(ctx: PromptContext): string {
     const name = business.business_name || 'our store';
     
     const langLock = getLangLock(business);
-    const emojiRule = business.use_emojis !== false ? "Use 1-2 emojis max." : "NO EMOJIS EVER.";
+    const emojiRule = business.use_emojis !== false ? "ALWAYS use 1-2 modern emojis in every response." : "NO EMOJIS EVER.";
     const urgencyLine = business.urgency_mode ? "Create subtle FOMO when relevant (limited stock, high demand, selling fast)." : "";
 
     // Map tone setting to personality instruction

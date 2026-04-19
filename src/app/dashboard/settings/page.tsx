@@ -953,7 +953,7 @@ export default function SettingsPage() {
                             </div>
                             <div className="bg-surface-2 rounded-xl p-4">
                                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Reply Limit</p>
-                                <p className="text-lg font-black text-foreground">{planTier === 'empire' ? 'Unlimited' : planTier === 'pro' ? '1,000 / month' : '50 / month'}</p>
+                                <p className="text-lg font-black text-foreground">{planTier === 'empire' ? 'Unlimited' : planTier === 'pro' ? '1,000 / month' : '100 / month'}</p>
                             </div>
                             <div className="bg-surface-2 rounded-xl p-4">
                                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Workspaces</p>
