@@ -30,6 +30,10 @@ export async function updateWorkspaceSettingsAction(workspaceId: string, setting
             use_local_slang: settings.useLocalSlang,
             business_type: settings.businessType,
             reply_delay_seconds: settings.replyDelay || 0,
+            comment_auto_reply: settings.commentAutoReply,
+            comment_reply_style: settings.commentReplyStyle,
+            comment_keywords: settings.commentKeywords ? settings.commentKeywords.split(',').map((k: string) => k.trim()).filter(Boolean) : [],
+            comment_max_per_post: settings.commentMaxPerPost || 0,
             updated_at: new Date().toISOString(),
             ...(isEmpire ? {
                 whatsapp_business_account_id: settings.waBusinessAccountId || null,

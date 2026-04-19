@@ -350,6 +350,39 @@ async function processWebhookEvent(body: any) {
                         continue;
                     }
 
+                    // ── GATE: Check user's comment_auto_reply setting ──
+                    let commentSettings: any = null;
+                    if (commentWorkspaceId) {
+                        const { data: ws } = await supabaseAdmin.from('ai_settings').select('comment_auto_reply, comment_keywords, comment_max_per_post').eq('id', commentWorkspaceId).maybeSingle();
+                        commentSettings = ws;
+                    } else {
+                        const { data: ws } = await supabaseAdmin.from('ai_settings').select('comment_auto_reply, comment_keywords, comment_max_per_post').eq('user_id', ownerId).maybeSingle();
+                        commentSettings = ws;
+                    }
+                    if (commentSettings && commentSettings.comment_auto_reply === false) {
+                        console.log('🛑 SKIPPING COMMENT: comment_auto_reply is disabled in settings.');
+                        continue;
+                    }
+                    // ── Keyword Filter ──
+                    const keywords: string[] = commentSettings?.comment_keywords || [];
+                    if (keywords.length > 0) {
+                        const commentTextLower = (commentText || '').toLowerCase();
+                        const hasKeyword = keywords.some((k: string) => commentTextLower.includes(k.toLowerCase()));
+                        if (!hasKeyword) {
+                            console.log(`🛑 SKIPPING COMMENT: No matching keyword. Comment: "${commentText}"`);
+                            continue;
+                        }
+                    }
+                    // ── Max Replies per Post ──
+                    const maxPerPost: number = commentSettings?.comment_max_per_post || 0;
+                    if (maxPerPost > 0 && mediaId) {
+                        const { count } = await supabaseAdmin.from('activity_log').select('*', { count: 'exact', head: true }).eq('user_id', ownerId).eq('event_type', 'COMMENT_REPLY').filter('metadata->>media_id', 'eq', mediaId);
+                        if ((count || 0) >= maxPerPost) {
+                            console.log(`🛑 SKIPPING COMMENT: Max replies (${maxPerPost}) reached for post ${mediaId}.`);
+                            continue;
+                        }
+                    }
+
                     // Check for duplicate replies
                     const { data: existingReply } = await supabaseAdmin
                         .from('activity_log')

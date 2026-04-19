@@ -16,6 +16,7 @@ import { updateWorkspaceSettingsAction } from '@/app/actions/settings';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 
 export type SettingsTab = 'business' | 'personality' | 'connections' | 'advanced';
+import { MessageCircle } from 'lucide-react';
 
 export default function SettingsPage() {
     const supabase = createClient();
@@ -69,6 +70,11 @@ export default function SettingsPage() {
         waBusinessAccountId: '',
         waPhoneNumberId: '',
         waAccessToken: '',
+        // Comment Auto-Reply (Pro+)
+        commentAutoReply: false,
+        commentReplyStyle: 'public' as 'public' | 'dm' | 'both',
+        commentKeywords: '' as string,
+        commentMaxPerPost: 0,
     });
 
     // AI Generate state
@@ -162,6 +168,10 @@ export default function SettingsPage() {
                     waBusinessAccountId: data.whatsapp_business_account_id || '',
                     waPhoneNumberId: data.whatsapp_phone_number_id || '',
                     waAccessToken: data.whatsapp_access_token || '',
+                    commentAutoReply: data.comment_auto_reply ?? false,
+                    commentReplyStyle: data.comment_reply_style || 'public',
+                    commentKeywords: Array.isArray(data.comment_keywords) ? data.comment_keywords.join(', ') : '',
+                    commentMaxPerPost: data.comment_max_per_post || 0,
                 });
             }
         } catch (err) {
@@ -315,6 +325,10 @@ export default function SettingsPage() {
                     shipping_rules: settings.shippingRules || null,
                     business_type: settings.businessType,
                     reply_delay_seconds: settings.replyDelay || 0,
+                    comment_auto_reply: settings.commentAutoReply,
+                    comment_reply_style: settings.commentReplyStyle,
+                    comment_keywords: settings.commentKeywords ? settings.commentKeywords.split(',').map((k: string) => k.trim()).filter(Boolean) : [],
+                    comment_max_per_post: settings.commentMaxPerPost || 0,
                     updated_at: new Date().toISOString(),
                 }, { onConflict: 'user_id' });
 
@@ -613,6 +627,121 @@ export default function SettingsPage() {
                             <span className="text-xs font-mono font-medium text-muted-foreground">Coming Soon</span>
                         </div>
                     </div>
+                </motion.div>
+            )}
+
+            {/* ═══ AUTO COMMENT SECTION ═══ */}
+            {activeTab === 'connections' && (
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6 relative overflow-x-clip">
+                    <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
+                        <div className="p-2.5 rounded-xl bg-blue-500/10">
+                            <MessageCircle className="w-5 h-5 text-blue-400" />
+                        </div>
+                        <div>
+                            <h2 className="text-sm font-semibold text-foreground">Auto Comment Reply</h2>
+                            <p className="text-[11px] text-muted-foreground">Control how the AI handles public comments</p>
+                        </div>
+                        <span className="ml-auto flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 rounded-full px-2.5 py-1">
+                            {!isPro && <Lock className="w-3 h-3" />}
+                            Pro+
+                        </span>
+                    </div>
+
+                    <div className="space-y-6">
+                        {/* Master Toggle */}
+                        <div
+                            className={clsx("flex items-center justify-between p-4 bg-surface-2 rounded-xl border border-border hover:bg-surface-3 transition-all", isPro ? "cursor-pointer" : "opacity-50 pointer-events-none")}
+                            onClick={() => isPro && setSettings({ ...settings, commentAutoReply: !settings.commentAutoReply })}
+                        >
+                            <div>
+                                <p className="text-sm font-semibold text-foreground">Reply to Comments</p>
+                                <p className="text-[11px] text-muted-foreground mt-0.5">Ghost AI will automatically reply to public comments on your posts</p>
+                            </div>
+                            <div className={clsx("relative w-11 rounded-full transition-colors duration-300 shrink-0", settings.commentAutoReply && isPro ? "bg-primary" : "bg-surface-3 border border-border")} style={{ height: '24px' }}>
+                                <motion.div
+                                    className="absolute top-[2px] w-[20px] h-[20px] rounded-full bg-white shadow-sm"
+                                    animate={{ x: settings.commentAutoReply && isPro ? 22 : 2 }}
+                                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Reply Style */}
+                        <div className={clsx("space-y-2", !isPro || !settings.commentAutoReply ? "opacity-40 pointer-events-none" : "")}>
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Reply Style</label>
+                            <div className="grid grid-cols-3 gap-2">
+                                {([['public', '💬 Public Reply', 'Reply visibly under the comment'], ['dm', '📩 Send to DM', 'Slide into their DMs instead'], ['both', '⚡ Both', 'Reply publicly & continue in DMs']] as const).map(([val, label, desc]) => (
+                                    <button
+                                        key={val}
+                                        onClick={() => setSettings({ ...settings, commentReplyStyle: val })}
+                                        className={clsx(
+                                            "p-3 rounded-xl border text-left transition-all",
+                                            settings.commentReplyStyle === val
+                                                ? "bg-primary/10 border-primary/30 text-primary"
+                                                : "bg-surface-2 border-border text-muted-foreground hover:bg-surface-3"
+                                        )}
+                                    >
+                                        <p className="text-xs font-bold">{label}</p>
+                                        <p className="text-[10px] mt-0.5 opacity-70">{desc}</p>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Keyword Filter */}
+                        <div className={clsx("space-y-1.5", !isPro || !settings.commentAutoReply ? "opacity-40 pointer-events-none" : "")}>
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Keyword Filter <span className="normal-case font-normal">(optional)</span></label>
+                            <input
+                                type="text"
+                                value={settings.commentKeywords}
+                                onChange={(e) => setSettings({ ...settings, commentKeywords: e.target.value })}
+                                className="input-premium w-full"
+                                placeholder="price, stock, available, how much ..."
+                                disabled={!isPro || !settings.commentAutoReply}
+                            />
+                            <p className="text-[10px] text-muted-foreground ml-1">Comma-separated. AI only replies to comments containing these words. Leave empty to reply to all comments.</p>
+                        </div>
+
+                        {/* Max Replies per Post */}
+                        <div className={clsx("space-y-3", !isPro || !settings.commentAutoReply ? "opacity-40 pointer-events-none" : "")}>
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Max Replies per Post</label>
+                            <input
+                                type="range"
+                                min="0"
+                                max="50"
+                                step="5"
+                                value={settings.commentMaxPerPost}
+                                onChange={(e) => setSettings({ ...settings, commentMaxPerPost: parseInt(e.target.value) })}
+                                className="w-full h-2 rounded-full appearance-none cursor-pointer accent-primary border border-border"
+                                disabled={!isPro || !settings.commentAutoReply}
+                                style={{
+                                    background: `linear-gradient(to right, rgb(139 92 246) 0%, rgb(139 92 246) ${(settings.commentMaxPerPost / 50) * 100}%, var(--surface-3) ${(settings.commentMaxPerPost / 50) * 100}%, var(--surface-3) 100%)`
+                                }}
+                            />
+                            <div className="flex justify-between items-center">
+                                <span className="text-[10px] text-muted-foreground">Unlimited</span>
+                                <span className="text-primary font-bold text-xl font-mono">
+                                    {settings.commentMaxPerPost === 0 ? '∞' : settings.commentMaxPerPost}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground">50</span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground ml-1">Stops the AI from spamming replies if a post goes viral. 0 = no limit.</p>
+                        </div>
+                    </div>
+
+                    {/* Paywall overlay for Starter */}
+                    {!isPro && (
+                        <div className="absolute inset-0 bg-background/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center gap-3 z-10">
+                            <div className="p-3 rounded-full bg-surface-2 border border-border">
+                                <Lock className="w-5 h-5 text-muted-foreground" />
+                            </div>
+                            <div className="text-center px-6">
+                                <p className="text-sm font-bold text-muted-foreground">Pro Feature</p>
+                                <p className="text-[11px] text-muted-foreground mt-1">Upgrade to Pro to enable automatic replies to public comments on your posts.</p>
+                            </div>
+                            <a href="/dashboard/billing" className="text-[11px] font-bold text-primary hover:underline">Upgrade to Pro →</a>
+                        </div>
+                    )}
                 </motion.div>
             )}
 
