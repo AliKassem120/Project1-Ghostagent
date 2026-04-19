@@ -615,16 +615,47 @@ export default function SettingsPage() {
                         </span>
                     </div>
 
-                    <div className="flex flex-col items-center justify-center py-8 text-center relative z-10">
-                        <div className="p-3 bg-surface-2 border border-border rounded-2xl mb-4">
-                            <Wifi className="w-6 h-6 text-muted-foreground" />
+                    <div className={clsx("space-y-4 relative z-10", !isEmpire ? 'opacity-50 pointer-events-none' : '')}>
+                        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 mb-4">
+                            <p className="text-xs text-amber-500/90 font-medium">
+                                🛠️ Developer Mode: Paste your Meta Test Credentials here to record your App Review video.
+                            </p>
                         </div>
-                        <h3 className="text-base font-bold text-foreground mb-1">WhatsApp Integration Under Development</h3>
-                        <p className="text-sm text-muted-foreground max-w-sm mb-4">
-                            We are currently waiting on Meta's app review process to finalize our WhatsApp Business API integration.
-                        </p>
-                        <div className="px-3 py-1 bg-surface-2 border border-border rounded-full">
-                            <span className="text-xs font-mono font-medium text-muted-foreground">Coming Soon</span>
+
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Phone Number ID</label>
+                            <input
+                                type="text"
+                                value={settings.waPhoneNumberId}
+                                onChange={(e) => setSettings({ ...settings, waPhoneNumberId: e.target.value })}
+                                className="input-premium w-full font-mono text-xs"
+                                placeholder="e.g. 1021626144366767"
+                                disabled={!isEmpire}
+                            />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">WhatsApp Business Account ID</label>
+                            <input
+                                type="text"
+                                value={settings.waBusinessAccountId}
+                                onChange={(e) => setSettings({ ...settings, waBusinessAccountId: e.target.value })}
+                                className="input-premium w-full font-mono text-xs"
+                                placeholder="e.g. 1636770974186554"
+                                disabled={!isEmpire}
+                            />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Temporary Access Token</label>
+                            <input
+                                type="password"
+                                value={settings.waAccessToken}
+                                onChange={(e) => setSettings({ ...settings, waAccessToken: e.target.value })}
+                                className="input-premium w-full font-mono text-xs"
+                                placeholder="EAAI..."
+                                disabled={!isEmpire}
+                            />
                         </div>
                     </div>
                 </motion.div>
