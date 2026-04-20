@@ -12,6 +12,7 @@ const getAdminClient = () => {
 
 // Ali's known emails + environment variable
 const ADMIN_EMAILS = [
+    "alisalemkassem@gmail.com",
     "alikassem120@gmail.com",
     "alikm120@gmail.com",
     "ali_kassem120@hotmail.com",

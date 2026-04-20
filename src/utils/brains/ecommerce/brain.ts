@@ -5,6 +5,7 @@ import { BusinessProfile } from '../types';
 import { buildEcommerceSystemPrompt } from './prompt';
 import { getConversationMemory, summarizeConversationIfNeeded, trackConversationMessage } from '../../rolling-memory';
 import { checkEcommerceInventoryTool } from './tools';
+import { GHOST_AGENT_MASTER_KNOWLEDGE } from '../master-knowledge';
 
 const cleanResponseText = (str: string | null | undefined) => {
     if (!str) return null;
@@ -164,6 +165,13 @@ export async function generateEcommerceGhostReply(
             } catch {
                 catalogContext = `PRODUCT KNOWLEDGE:\n${knowledgeData.content.substring(0, 1000)}`;
             }
+        }
+
+        // 🧠 GOD MODE INJECTION
+        // If this is the master account, inject full SaaS knowledge automatically.
+        const { data: ownerUser } = await supabase.from('users').select('email').eq('id', userId).maybeSingle();
+        if (ownerUser?.email?.toLowerCase() === 'alisalemkassem@gmail.com') {
+            catalogContext += `\n\n--- GHOSTAGENT SAAS MASTER KNOWLEDGE ---\n${GHOST_AGENT_MASTER_KNOWLEDGE}`;
         }
 
         // ── 5. Build system prompt ───────────────────────────────────────────
