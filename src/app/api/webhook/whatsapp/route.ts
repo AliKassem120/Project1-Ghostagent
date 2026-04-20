@@ -70,7 +70,36 @@ async function processWhatsAppEvent(body: any) {
             const value = change.value;
             const phoneNumberId: string = value?.metadata?.phone_number_id;
             const messages: any[] = value?.messages ?? [];
+            const statuses: any[] = value?.statuses ?? [];
 
+            // ── 1. HANDLE STATUS UPDATES (Sent, Delivered, Read, Failed) ──
+            for (const status of statuses) {
+                const messageId = status.id;
+                const statusType = status.status; // sent, delivered, read, failed
+                const recipient = status.recipient_id;
+
+                if (statusType === 'failed') {
+                    const error = status.errors?.[0];
+                    console.error(`🔴 WhatsApp Delivery FAILURE to ${recipient}: [${error?.code}] ${error?.title} - ${error?.message}`);
+                    
+                    // Log the failure to activity log so the user can see it in dashboard
+                    await supabase.from('activity_log').insert({
+                        event_type: 'SYSTEM_ALERT',
+                        description: `WhatsApp failed to ${recipient}: ${error?.title || 'Unknown error'}`,
+                        timestamp: new Date().toISOString(),
+                        metadata: { 
+                            error_code: error?.code, 
+                            error_details: error?.message,
+                            message_id: messageId,
+                            platform: 'whatsapp'
+                        },
+                    });
+                } else {
+                    console.log(`ℹ️ WhatsApp Status update for ${recipient}: ${statusType} (${messageId.slice(-8)})`);
+                }
+            }
+
+            // ── 2. HANDLE INCOMING MESSAGES ──
             for (const message of messages) {
                 // Only process inbound text messages
                 if (message.type !== 'text') continue;
