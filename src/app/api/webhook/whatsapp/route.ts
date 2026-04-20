@@ -149,6 +149,7 @@ async function processWhatsAppEvent(body: any) {
                 }
 
                 let accessToken = workspace?.whatsapp_access_token;
+                const ownerId = workspace?.user_id;
                 const systemToken = process.env.WHATSAPP_SYSTEM_ACCESS_TOKEN;
                 const systemPhoneId = process.env.WHATSAPP_FROM_PHONE_NUMBER_ID;
 
