@@ -1,5 +1,5 @@
 import { createGroq } from '@ai-sdk/groq';
-import { generateText } from 'ai';
+import { generateText, tool } from 'ai';
 import { z } from 'zod';
 import { BusinessProfile } from '../types';
 import { buildAppointmentsSystemPrompt } from './prompt';
@@ -366,7 +366,7 @@ export async function generateAppointmentsGhostReply(
                         return 'Database error. Apologize briefly and tell the customer to message again.';
                     }
                 }
-            };
+            });
 
             if (workspaceId) {
                 toolsMapping['check_calendar_availability'] = checkCalendarAvailabilityTool(workspaceId);
@@ -376,7 +376,7 @@ export async function generateAppointmentsGhostReply(
         const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
 
         let result = await generateText({
-            model: groq(selectedModel),
+            model: groq(selectedModel, { structuredOutputs: false }),
             system: systemPrompt,
             messages,
             tools: toolsMapping,
@@ -411,7 +411,7 @@ export async function generateAppointmentsGhostReply(
             ];
 
             const secondPass = await generateText({
-                model: groq('llama-3.3-70b-versatile'),
+                model: groq('llama-3.3-70b-versatile', { structuredOutputs: false }),
                 system: systemPrompt,
                 messages: secondPassMessages,
                 temperature: 0.15,

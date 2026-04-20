@@ -1,5 +1,5 @@
 import { createGroq } from '@ai-sdk/groq';
-import { generateText } from 'ai';
+import { generateText, tool } from 'ai';
 import { z } from 'zod';
 import { BusinessProfile } from '../types';
 import { buildEcommerceSystemPrompt } from './prompt';
@@ -202,16 +202,16 @@ export async function generateEcommerceGhostReply(
         const toolsMapping: Record<string, any> = {};
 
         // finalize_transaction is available on all plans so users can test order saving during their trial
-        toolsMapping['finalize_transaction'] = {
+        toolsMapping['finalize_transaction'] = tool({
                 description: 'Call this tool to save an order. You MUST fill ALL parameters from the conversation context. Look back through the chat history to find the item they discussed, their name, address, and phone. NEVER call this with missing data.',
                 parameters: z.object({
                     name: z.string().describe('Full name of the customer. REQUIRED. Look through the conversation to find it. If not given yet, DO NOT call this tool — ask for it first.'),
                     phone: z.string().describe('Phone number. REQUIRED. Look through the conversation to find it. If not given yet, DO NOT call this tool — ask for it first.'),
-                    email: z.string().email().optional().describe('Optional email address.'),
+                    email: z.string().describe('Optional email address.').optional(),
                     address: z.string().describe('Delivery address. REQUIRED. Look through the conversation to find it. If not given yet, DO NOT call this tool — ask for it first.'),
-                    payment_method: z.string().optional().describe('Cash on delivery by default.'),
+                    payment_method: z.string().describe('Cash on delivery by default.').optional(),
                     item: z.string().describe('The item(s) being ordered. REQUIRED. Look at what product was discussed earlier in the conversation. For example if they asked about PS5 and said they want one, the item is "PS5".'),
-                    variant: z.string().optional().describe('Color, size, or model variant if specified.'),
+                    variant: z.string().describe('Color, size, or model variant if specified.').optional(),
                 }),
                 execute: async (a: any) => {
                     const name = a?.name || null;
@@ -312,7 +312,7 @@ export async function generateEcommerceGhostReply(
                         return 'Database error. Apologize briefly and tell the customer to message again.';
                     }
                 }
-            };
+            });
 
             if (workspaceId) {
                 toolsMapping['check_ecommerce_inventory'] = checkEcommerceInventoryTool(workspaceId);
@@ -322,7 +322,7 @@ export async function generateEcommerceGhostReply(
         const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
 
         let result = await generateText({
-            model: groq(selectedModel),
+            model: groq(selectedModel, { structuredOutputs: false }),
             system: systemPrompt,
             messages,
             tools: toolsMapping,
@@ -357,7 +357,7 @@ export async function generateEcommerceGhostReply(
             ];
 
             const secondPass = await generateText({
-                model: groq('llama-3.3-70b-versatile'),
+                model: groq('llama-3.3-70b-versatile', { structuredOutputs: false }),
                 system: systemPrompt,
                 messages: secondPassMessages,
                 temperature: 0.15,
