@@ -261,10 +261,8 @@ export async function generateAppointmentsGhostReply(
         // ── 8. Tool definitions ──────────────────────────────────────────────
         const toolsMapping: Record<string, any> = {};
 
-        // toolsMapping['finalize_transaction'] is available on all plans
-        // toolsMapping['finalize_transaction'] is available on all plans
-        const { tool } = require('ai');
-        toolsMapping['finalize_transaction'] = tool({
+        // finalize_transaction is available on all plans
+        toolsMapping['finalize_transaction'] = {
                 description: 'Save the booking to the database. REQUIRED: Name, phone, and time.',
                 parameters: z.object({
                     name: z.string().optional().describe('Full name of the customer.'),
@@ -330,7 +328,7 @@ export async function generateAppointmentsGhostReply(
                             workspace_id: workspaceId || null,
                             customer_name: name,
                             customer_phone: phone,
-                            customer_email: a?.customer_email || null,
+                            customer_email: a?.email || null,
                             service: service,
                             appointment_date: resolvedDate,
                             start_time: resolvedTime,
@@ -356,7 +354,7 @@ export async function generateAppointmentsGhostReply(
                             created_at: new Date().toISOString(),
                             customer_name: name,
                             customer_phone: phone,
-                            customer_email: a?.customer_email || null,
+                            customer_email: a?.email || null,
                             item_requested: service,
                             raw_message: JSON.stringify({ preferred_date: resolvedDate, preferred_time: resolvedTime }),
                         }).then(({ error }: any) => {

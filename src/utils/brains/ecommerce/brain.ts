@@ -202,8 +202,7 @@ export async function generateEcommerceGhostReply(
         const toolsMapping: Record<string, any> = {};
 
         // finalize_transaction is available on all plans so users can test order saving during their trial
-        const { tool } = require('ai');
-        toolsMapping['finalize_transaction'] = tool({
+        toolsMapping['finalize_transaction'] = {
                 description: 'Finalize the order and save to database. REQUIRED: Customer name, phone, address, and item list.',
                 parameters: z.object({
                     name: z.string().describe('Full name of the customer.'),

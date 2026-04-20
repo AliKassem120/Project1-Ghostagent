@@ -266,7 +266,7 @@ async function processWhatsAppEvent(body: any) {
                 if (message.id) {
                     fetch(`${WA_API_BASE}/${phoneNumberId}/messages`, {
                         method: 'POST',
-                        headers: { 'Authorization': `Bearer ${systemToken}`, 'Content-Type': 'application/json' },
+                        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
                         body: JSON.stringify({ messaging_product: 'whatsapp', message_id: message.id, status: 'read' })
                     }).catch(e => console.error('Failed to mark read:', e));
                 }
