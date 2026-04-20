@@ -72,6 +72,11 @@ async function processWhatsAppEvent(body: any) {
             const messages: any[] = value?.messages ?? [];
             const statuses: any[] = value?.statuses ?? [];
 
+            const normalizePhone = (p: string) => {
+                let cleaned = p.replace(/\D/g, ''); // Numbers only
+                return `+${cleaned}`;
+            };
+
             // ── 1. HANDLE STATUS UPDATES (Sent, Delivered, Read, Failed) ──
             for (const status of statuses) {
                 const messageId = status.id;
@@ -154,13 +159,16 @@ async function processWhatsAppEvent(body: any) {
                         
                         if (!aiResponse) { console.log('👻 No reply (handoff/empty).'); continue; }
                         
+                        const formattedRecipient = normalizePhone(customerPhone);
+                        console.log(`🔧 [Fallback] Sending to: ${formattedRecipient}`);
+                        
                         const sendResult = await fetch(`${WA_API_BASE}/${phoneNumberId}/messages`, {
                             method: 'POST',
                             headers: { 'Authorization': `Bearer ${systemToken}`, 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 messaging_product: 'whatsapp',
                                 recipient_type: 'individual',
-                                to: customerPhone,
+                                to: formattedRecipient,
                                 type: 'text',
                                 text: { body: aiResponse },
                             }),
@@ -217,6 +225,8 @@ async function processWhatsAppEvent(body: any) {
                     continue;
                 }
 
+                const formattedRecipient = normalizePhone(customerPhone);
+
                 // ── 4. SEND REPLY via WhatsApp Cloud API ──────────────────
                 let sendResult = await fetch(`${WA_API_BASE}/${phoneNumberId}/messages`, {
                     method: 'POST',
@@ -224,7 +234,7 @@ async function processWhatsAppEvent(body: any) {
                     body: JSON.stringify({
                         messaging_product: 'whatsapp',
                         recipient_type: 'individual',
-                        to: customerPhone,
+                        to: formattedRecipient,
                         type: 'text',
                         text: { body: aiResponse },
                     }),
@@ -239,7 +249,7 @@ async function processWhatsAppEvent(body: any) {
                         body: JSON.stringify({
                             messaging_product: 'whatsapp',
                             recipient_type: 'individual',
-                            to: customerPhone,
+                            to: formattedRecipient,
                             type: 'text',
                             text: { body: aiResponse },
                         }),
