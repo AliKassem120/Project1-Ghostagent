@@ -93,6 +93,58 @@ async function processWhatsAppEvent(body: any) {
 
                 if (wsError || !workspace) {
                     console.warn(`⚠️ No workspace found for phone_number_id: ${phoneNumberId}`);
+                    
+                    // ── FALLBACK: use system-level env credentials ──────────
+                    // This allows testing with the Meta test number before
+                    // a workspace has been linked in ai_settings.
+                    const systemToken = process.env.WHATSAPP_SYSTEM_ACCESS_TOKEN;
+                    const systemPhoneId = process.env.WHATSAPP_FROM_PHONE_NUMBER_ID;
+                    
+                    if (systemToken && systemPhoneId && phoneNumberId === systemPhoneId) {
+                        console.log(`🔧 [WhatsApp Fallback] Using system-level credentials for phone ID: ${phoneNumberId}`);
+                        
+                        // Find the first workspace owner as a fallback user
+                        const { data: anyWorkspace } = await supabase
+                            .from('ai_settings')
+                            .select('id, user_id')
+                            .limit(1)
+                            .maybeSingle();
+                        
+                        if (!anyWorkspace) {
+                            console.warn('⚠️ No workspace at all in DB. Skipping.');
+                            continue;
+                        }
+                        
+                        const aiResponse = await generateGhostReply(
+                            anyWorkspace.user_id,
+                            messageText,
+                            supabase,
+                            customerPhone,
+                            anyWorkspace.id
+                        );
+                        
+                        if (!aiResponse) { console.log('👻 No reply (handoff/empty).'); continue; }
+                        
+                        const sendResult = await fetch(`${WA_API_BASE}/${phoneNumberId}/messages`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${systemToken}`, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                messaging_product: 'whatsapp',
+                                recipient_type: 'individual',
+                                to: customerPhone,
+                                type: 'text',
+                                text: { body: aiResponse },
+                            }),
+                        });
+                        const sendBody = await sendResult.text();
+                        if (!sendResult.ok) {
+                            console.error(`❌ [Fallback] WhatsApp send failed (${sendResult.status}):`, sendBody);
+                        } else {
+                            console.log(`✅ [Fallback] WhatsApp reply sent to ${customerPhone}:`, sendBody);
+                        }
+                    } else {
+                        console.warn(`⚠️ Phone ID ${phoneNumberId} does not match system ID ${process.env.WHATSAPP_FROM_PHONE_NUMBER_ID}. No handler found.`);
+                    }
                     continue;
                 }
 
