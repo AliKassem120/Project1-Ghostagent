@@ -262,22 +262,26 @@ export async function generateAppointmentsGhostReply(
         const toolsMapping: Record<string, any> = {};
 
         // toolsMapping['finalize_transaction'] is available on all plans
-        toolsMapping['finalize_transaction'] = {
-                description: 'Call this tool IMMEDIATELY after the customer provides their name, phone, and preferred time. Save the booking to the database.',
+        // toolsMapping['finalize_transaction'] is available on all plans
+        const { tool } = require('ai');
+        toolsMapping['finalize_transaction'] = tool({
+                description: 'Save the booking to the database. REQUIRED: Name, phone, and time.',
                 parameters: z.object({
-                    customer_name: z.string().optional().describe('Full name of the customer.'),
-                    customer_phone: z.string().optional().describe('Phone number of the customer.'),
-                    customer_email: z.string().email().optional().describe('Optional email address.'),
-                    service: z.string().describe('The service or appointment type being booked.'),
-                    preferred_date: z.string().optional().describe('The date (e.g. "2026-04-15", "tomorrow", "bokra").'),
-                    preferred_time: z.string().optional().describe('The time (e.g. "10:00", "3 PM", "10 AM").'),
+                    name: z.string().optional().describe('Full name of the customer.'),
+                    phone: z.string().optional().describe('Phone number.'),
+                    email: z.string().email().optional().describe('Optional email address.'),
+                    service: z.string().optional().describe('The service/appointment type.'),
+                    date: z.string().optional().describe('Date (e.g. 2026-04-15 or "tomorrow").'),
+                    time: z.string().optional().describe('Time (e.g. 10:00 or "3 PM").'),
                 }),
                 execute: async (a: any) => {
-                    const name = a?.customer_name || null;
-                    const phone = a?.customer_phone || null;
+                    const name = a?.name || null;
+                    const phone = a?.phone || null;
                     const service = a?.service || 'Unknown service';
+                    const preferred_date = a?.date || null;
+                    const preferred_time = a?.time || null;
 
-                    console.log('📅 [APPOINTMENTS] Executing finalize_transaction:', { name, phone, service, date: a?.preferred_date, time: a?.preferred_time });
+                    console.log('📅 [APPOINTMENTS] Executing finalize_transaction:', { name, phone, service, date: preferred_date, time: preferred_time });
                     try {
                         // Duplicate guard
                         const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
@@ -308,8 +312,8 @@ export async function generateAppointmentsGhostReply(
                         }
 
                         // Parse date and time
-                        const resolvedDate = resolveAppointmentDate(a?.preferred_date);
-                        const resolvedTime = resolveAppointmentTime(a?.preferred_time);
+                        const resolvedDate = resolveAppointmentDate(preferred_date);
+                        const resolvedTime = resolveAppointmentTime(preferred_time);
 
                         // Get slot duration
                         let slotDuration = 60;

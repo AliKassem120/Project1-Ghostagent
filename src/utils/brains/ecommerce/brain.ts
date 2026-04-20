@@ -202,16 +202,17 @@ export async function generateEcommerceGhostReply(
         const toolsMapping: Record<string, any> = {};
 
         // finalize_transaction is available on all plans so users can test order saving during their trial
-        toolsMapping['finalize_transaction'] = {
-                description: 'Call this tool to save an order. You MUST fill ALL parameters from the conversation context. Look back through the chat history to find the item they discussed, their name, address, and phone. NEVER call this with missing data.',
+        const { tool } = require('ai');
+        toolsMapping['finalize_transaction'] = tool({
+                description: 'Finalize the order and save to database. REQUIRED: Customer name, phone, address, and item list.',
                 parameters: z.object({
-                    name: z.string().describe('Full name of the customer. REQUIRED. Look through the conversation to find it. If not given yet, DO NOT call this tool — ask for it first.'),
-                    phone: z.string().describe('Phone number. REQUIRED. Look through the conversation to find it. If not given yet, DO NOT call this tool — ask for it first.'),
+                    name: z.string().describe('Full name of the customer.'),
+                    phone: z.string().describe('Phone number.'),
                     email: z.string().optional().describe('Optional email address.'),
-                    address: z.string().describe('Delivery address. REQUIRED. Look through the conversation to find it. If not given yet, DO NOT call this tool — ask for it first.'),
+                    address: z.string().describe('Delivery address.'),
                     payment_method: z.string().optional().describe('Cash on delivery by default.'),
-                    item: z.string().describe('The item(s) being ordered. REQUIRED. Look at what product was discussed earlier in the conversation. For example if they asked about PS5 and said they want one, the item is "PS5".'),
-                    variant: z.string().optional().describe('Color, size, or model variant if specified.'),
+                    item: z.string().optional().describe('The item(s) being ordered. If missing, use "Recent items discussed".'),
+                    variant: z.string().optional().describe('Color, size, or model.'),
                 }),
                 execute: async (a: any) => {
                     const name = a?.name || null;
