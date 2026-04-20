@@ -318,21 +318,39 @@ export async function generateEcommerceGhostReply(
                 toolsMapping['check_ecommerce_inventory'] = checkEcommerceInventoryTool(workspaceId);
             }
 
-        // ── 9. First AI pass ─────────────────────────────────────────────────
+        // ── 9. First AI pass (with tool-call retry safety) ──────────────────
         const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
 
-        let result = await generateText({
-            model: groq(selectedModel),
-            experimental_repairToolCall: async ({ toolCall, error }) => {
-                console.warn('[E-COMMERCE] Repairing malformed tool call:', toolCall?.toolName, error?.message?.slice(0, 80));
-                return null;
-            },
-            system: systemPrompt,
-            messages,
-            tools: toolsMapping,
-            toolChoice: 'auto',
-            temperature: 0.15,
-        });
+        let result: any;
+        try {
+            result = await generateText({
+                model: groq(selectedModel),
+                system: systemPrompt,
+                messages,
+                tools: toolsMapping,
+                toolChoice: 'auto',
+                temperature: 0.15,
+            });
+        } catch (toolErr: any) {
+            // Groq returns HTTP 400 when the AI generates a tool call with wrong
+            // parameter names (e.g. "name" instead of "customer_name"). This is a
+            // server-side rejection BEFORE our code can repair it, so we catch it
+            // here and retry WITHOUT tools so the bot still gives a text reply.
+            const isGroqSchemaError = toolErr?.statusCode === 400 &&
+                toolErr?.responseBody?.includes('tool_use_failed');
+
+            if (isGroqSchemaError) {
+                console.warn('[E-COMMERCE] Groq rejected tool call schema. Retrying without tools...');
+                result = await generateText({
+                    model: groq(selectedModel),
+                    system: systemPrompt,
+                    messages,
+                    temperature: 0.15,
+                });
+            } else {
+                throw toolErr; // Rethrow anything else (rate limits, auth, etc)
+            }
+        }
 
         if (result.usage) {
             const { promptTokens, completionTokens, totalTokens } = result.usage as any;

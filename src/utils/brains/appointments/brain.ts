@@ -372,21 +372,35 @@ export async function generateAppointmentsGhostReply(
                 toolsMapping['check_calendar_availability'] = checkCalendarAvailabilityTool(workspaceId);
             }
 
-        // ── 9. First AI pass ─────────────────────────────────────────────────
+        // ── 9. First AI pass (with tool-call retry safety) ──────────────────
         const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
 
-        let result = await generateText({
-            model: groq(selectedModel),
-            experimental_repairToolCall: async ({ toolCall, error }) => {
-                console.warn('[APPOINTMENTS] Repairing malformed tool call:', toolCall?.toolName, error?.message?.slice(0, 80));
-                return null;
-            },
-            system: systemPrompt,
-            messages,
-            tools: toolsMapping,
-            toolChoice: 'auto',
-            temperature: 0.15,
-        });
+        let result: any;
+        try {
+            result = await generateText({
+                model: groq(selectedModel),
+                system: systemPrompt,
+                messages,
+                tools: toolsMapping,
+                toolChoice: 'auto',
+                temperature: 0.15,
+            });
+        } catch (toolErr: any) {
+            const isGroqSchemaError = toolErr?.statusCode === 400 &&
+                toolErr?.responseBody?.includes('tool_use_failed');
+
+            if (isGroqSchemaError) {
+                console.warn('[APPOINTMENTS] Groq rejected tool call schema. Retrying without tools...');
+                result = await generateText({
+                    model: groq(selectedModel),
+                    system: systemPrompt,
+                    messages,
+                    temperature: 0.15,
+                });
+            } else {
+                throw toolErr;
+            }
+        }
 
         if (result.usage) {
             const { promptTokens, completionTokens, totalTokens } = result.usage as any;
