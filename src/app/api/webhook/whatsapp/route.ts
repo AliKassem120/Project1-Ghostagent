@@ -148,10 +148,18 @@ async function processWhatsAppEvent(body: any) {
                     continue;
                 }
 
-                const { user_id: ownerId, whatsapp_access_token: accessToken } = workspace;
+                let accessToken = workspace?.whatsapp_access_token;
+                const systemToken = process.env.WHATSAPP_SYSTEM_ACCESS_TOKEN;
+                const systemPhoneId = process.env.WHATSAPP_FROM_PHONE_NUMBER_ID;
+
+                // If DB token missing, fallback to system token (for testing stability)
+                if (!accessToken && phoneNumberId === systemPhoneId) {
+                    console.log('🔧 [WhatsApp] No workspace token found. Using system-level test token.');
+                    accessToken = systemToken;
+                }
 
                 if (!accessToken) {
-                    console.warn(`⚠️ Workspace ${workspace.id} has no whatsapp_access_token`);
+                    console.warn(`⚠️ Phone ID ${phoneNumberId} has no WhatsApp access token in DB and does not match system fallback.`);
                     continue;
                 }
 
@@ -166,13 +174,12 @@ async function processWhatsAppEvent(body: any) {
                 });
 
                 // ── 3. GENERATE AI REPLY ──────────────────────────────────
-                // Reuses the same Ghost Brain — same prompt, memory, inventory.
                 const aiResponse = await generateGhostReply(
                     ownerId,
                     messageText,
                     supabase,
-                    customerPhone,   // chatId = customer phone for rolling memory
-                    workspace.id     // Pass workspace ID for isolation
+                    customerPhone,
+                    workspace.id
                 );
 
                 if (!aiResponse) {
@@ -181,12 +188,9 @@ async function processWhatsAppEvent(body: any) {
                 }
 
                 // ── 4. SEND REPLY via WhatsApp Cloud API ──────────────────
-                const sendResult = await fetch(`${WA_API_BASE}/${phoneNumberId}/messages`, {
+                let sendResult = await fetch(`${WA_API_BASE}/${phoneNumberId}/messages`, {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`,
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         messaging_product: 'whatsapp',
                         recipient_type: 'individual',
@@ -196,10 +200,35 @@ async function processWhatsAppEvent(body: any) {
                     }),
                 });
 
+                // Retry with system token if the user's test token expired (401)
+                if (sendResult.status === 401 && accessToken !== systemToken && phoneNumberId === systemPhoneId) {
+                    console.warn('⚠️ [WhatsApp] Workspace token was rejected (401). Falling back to system token.');
+                    sendResult = await fetch(`${WA_API_BASE}/${phoneNumberId}/messages`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${systemToken}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            messaging_product: 'whatsapp',
+                            recipient_type: 'individual',
+                            to: customerPhone,
+                            type: 'text',
+                            text: { body: aiResponse },
+                        }),
+                    });
+                }
+
                 if (!sendResult.ok) {
                     const errText = await sendResult.text();
                     console.error(`❌ WhatsApp send failed (${sendResult.status}):`, errText);
                     continue;
+                }
+
+                // Mark the incoming message as read
+                if (message.id) {
+                    fetch(`${WA_API_BASE}/${phoneNumberId}/messages`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${systemToken}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ messaging_product: 'whatsapp', message_id: message.id, status: 'read' })
+                    }).catch(e => console.error('Failed to mark read:', e));
                 }
 
                 // ── 5. LOG AI REPLY ───────────────────────────────────────
