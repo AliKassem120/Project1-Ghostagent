@@ -213,10 +213,10 @@ export async function generateEcommerceGhostReply(
         toolsMapping['finalize_transaction'] = {
                 description: 'Finalize the order and save to database. REQUIRED: Customer name, phone, address, and item list.',
                 parameters: z.object({
-                    name: z.string().describe('Full name of the customer.'),
-                    phone: z.string().describe('Phone number.'),
+                    name: z.string().optional().describe('Full name of the customer.'),
+                    phone: z.string().optional().describe('Phone number.'),
                     email: z.string().optional().describe('Optional email address.'),
-                    address: z.string().describe('Delivery address.'),
+                    address: z.string().optional().describe('Delivery address.'),
                     payment_method: z.string().optional().describe('Cash on delivery by default.'),
                     item: z.string().optional().describe('The item(s) being ordered. If missing, use "Recent items discussed".'),
                     variant: z.string().optional().describe('Color, size, or model.'),
