@@ -288,7 +288,13 @@ export async function generateAppointmentsGhostReply(
                     const preferred_time = a?.time;
 
                     if (!name || !phone || !service || !preferred_date || !preferred_time) {
-                         return 'ERROR: Missing mandatory booking information. You MUST ask the customer for their full name and phone number before finalizing. DO NOT confirm the booking yet.';
+                        const missing = [];
+                        if (!name) missing.push("Name");
+                        if (!phone) missing.push("Phone");
+                        if (!service) missing.push("Service");
+                        if (!preferred_date) missing.push("Date");
+                        if (!preferred_time) missing.push("Time");
+                        return \`ERROR: Tool missing fields: \${missing.join(', ')}. If the customer already provided them, call the tool again with ALL fields included. If they haven't, gently ask them for exactly what is missing.\`;
                     }
 
                     console.log('📅 [APPOINTMENTS] Executing finalize_transaction:', { name, phone, service, date: preferred_date, time: preferred_time });
