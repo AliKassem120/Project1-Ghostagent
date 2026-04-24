@@ -154,14 +154,14 @@ export const checkCalendarAvailabilityTool = (workspaceId: string) => ({
         let serviceInfo = '';
         if (service_name) {
             const { data: services } = await supabase
-                .from('inventory')
-                .select('item_name, price')
+                .from('services')
+                .select('name, price, duration_minutes')
                 .eq('workspace_id', workspaceId)
-                .ilike('item_name', `%${service_name}%`)
+                .ilike('name', `%${service_name}%`)
                 .limit(3);
 
             if (services && services.length > 0) {
-                serviceInfo = '\nMatching services: ' + services.map((s: any) => `${s.item_name} ($${s.price})`).join(', ');
+                serviceInfo = '\nMatching services: ' + services.map((s: any) => `${s.name} ($${s.price}, ${s.duration_minutes}m)`).join(', ');
             }
         }
 

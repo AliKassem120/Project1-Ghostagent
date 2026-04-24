@@ -207,13 +207,13 @@ export async function generateAppointmentsGhostReply(
         let inventoryContext = 'No services listed currently.';
         let catalogContext = '';
 
-        let inventoryQuery = supabase.from('inventory').select('item_name, price');
+        let inventoryQuery = supabase.from('services').select('name, price, duration_minutes');
         if (workspaceId) inventoryQuery = inventoryQuery.eq('workspace_id', workspaceId);
         else inventoryQuery = inventoryQuery.eq('user_id', userId).is('workspace_id', null);
 
         const { data: inventory } = await inventoryQuery.limit(50);
         if (inventory?.length) {
-            inventoryContext = inventory.map((i: any) => `- ${i.item_name} ($${i.price})`).join('\n');
+            inventoryContext = inventory.map((i: any) => `- ${i.name} ($${i.price}, ${i.duration_minutes}m)`).join('\n');
         }
 
         let knowledgeQuery = supabase.from('business_knowledge').select('content, file_name');
@@ -271,21 +271,25 @@ export async function generateAppointmentsGhostReply(
 
         // finalize_transaction is available on all plans
         toolsMapping['finalize_transaction'] = {
-                description: 'Save the booking to the database. REQUIRED: Name, phone, and time.',
+                description: 'Save the booking to the database. REQUIRED: Name, phone, service, date, and time.',
                 parameters: z.object({
-                    name: z.string().optional().describe('Full name of the customer.'),
-                    phone: z.string().optional().describe('Phone number.'),
+                    name: z.string().describe('Full name of the customer.'),
+                    phone: z.string().describe('Phone number.'),
                     email: z.string().email().optional().describe('Optional email address.'),
-                    service: z.string().optional().describe('The service/appointment type.'),
-                    date: z.string().optional().describe('Date (e.g. 2026-04-15 or "tomorrow").'),
-                    time: z.string().optional().describe('Time (e.g. 10:00 or "3 PM").'),
+                    service: z.string().describe('The service/appointment type.'),
+                    date: z.string().describe('Date (e.g. 2026-04-15 or "tomorrow").'),
+                    time: z.string().describe('Time (e.g. 10:00 or "3 PM").'),
                 }),
                 execute: async (a: any) => {
-                    const name = a?.name || null;
-                    const phone = a?.phone || null;
-                    const service = a?.service || 'Unknown service';
-                    const preferred_date = a?.date || null;
-                    const preferred_time = a?.time || null;
+                    const name = a?.name;
+                    const phone = a?.phone;
+                    const service = a?.service;
+                    const preferred_date = a?.date;
+                    const preferred_time = a?.time;
+
+                    if (!name || !phone || !service || !preferred_date || !preferred_time) {
+                         return 'ERROR: Missing mandatory booking information. You MUST ask the customer for their full name and phone number before finalizing. DO NOT confirm the booking yet.';
+                    }
 
                     console.log('📅 [APPOINTMENTS] Executing finalize_transaction:', { name, phone, service, date: preferred_date, time: preferred_time });
                     try {
@@ -321,13 +325,52 @@ export async function generateAppointmentsGhostReply(
                         const resolvedDate = resolveAppointmentDate(preferred_date);
                         const resolvedTime = resolveAppointmentTime(preferred_time);
 
-                        // Get slot duration
-                        let slotDuration = 60;
+                        // 1. Verify Service exists & get its duration
+                        let slotDuration = 30; // default safe fallback
+                        let exactServiceName = service;
                         if (workspaceId) {
-                            const { data: sd } = await supabase
-                                .from('ai_settings').select('slot_duration_minutes')
-                                .eq('id', workspaceId).maybeSingle();
-                            if (sd?.slot_duration_minutes) slotDuration = sd.slot_duration_minutes;
+                            const { data: matchedServices } = await supabase
+                                .from('services')
+                                .select('name, duration_minutes')
+                                .eq('workspace_id', workspaceId)
+                                .ilike('name', `%${service}%`)
+                                .limit(1);
+                                
+                            if (!matchedServices || matchedServices.length === 0) {
+                                return `ERROR: Service "${service}" does not exist in the database. Ask the customer to pick a valid service from the catalog. DO NOT confirm the booking.`;
+                            }
+                            slotDuration = matchedServices[0].duration_minutes;
+                            exactServiceName = matchedServices[0].name;
+                        }
+
+                        // 2. Validate calendar availability
+                        if (workspaceId) {
+                            const { data: existingAppts } = await supabase
+                                .from('appointments')
+                                .select('start_time, duration_minutes')
+                                .eq('workspace_id', workspaceId)
+                                .eq('appointment_date', resolvedDate)
+                                .neq('status', 'cancelled');
+                                
+                            const [reqH, reqM] = resolvedTime.split(':').map(Number);
+                            const reqStart = reqH * 60 + reqM;
+                            const reqEnd = reqStart + slotDuration;
+                            
+                            let conflict = false;
+                            (existingAppts || []).forEach((a: any) => {
+                                const [exH, exM] = a.start_time.split(':').map(Number);
+                                const exStart = exH * 60 + exM;
+                                const exEnd = exStart + (a.duration_minutes || 60);
+                                
+                                // overlap logic: max(start1, start2) < min(end1, end2)
+                                if (Math.max(reqStart, exStart) < Math.min(reqEnd, exEnd)) {
+                                    conflict = true;
+                                }
+                            });
+                            
+                            if (conflict) {
+                                return `ERROR: The slot on ${resolvedDate} at ${resolvedTime} is ALREADY BOOKED. Tell the customer this time is taken and ask them to pick another time. DO NOT confirm the booking.`;
+                            }
                         }
 
                         // Save to appointments table (for calendar)
@@ -337,7 +380,7 @@ export async function generateAppointmentsGhostReply(
                             customer_name: name,
                             customer_phone: phone,
                             customer_email: a?.email || null,
-                            service: service,
+                            service: exactServiceName,
                             appointment_date: resolvedDate,
                             start_time: resolvedTime,
                             duration_minutes: slotDuration,
