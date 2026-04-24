@@ -21,7 +21,10 @@ import {
   Star,
   Quote,
   Plus,
-  Minus
+  Minus,
+  Instagram,
+  BadgeCheck,
+  Calendar
 } from 'lucide-react';
 
 /* ════════════════════════════════════════════════════
@@ -209,6 +212,7 @@ function StepCard({
 export default function Home() {
   const [showVideo, setShowVideo] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [activeWorkspace, setActiveWorkspace] = useState<'ecom' | 'appointments'>('ecom');
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -258,51 +262,14 @@ export default function Home() {
             </div>
 
             <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tighter leading-[0.95] mb-6 text-foreground">
-              {/* "Sell While" fades in first */}
-              <motion.span
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.6, ease: "easeOut" }}
-                className="inline-block"
-              >
-                Sell While
-              </motion.span>
-              <br />
-              {/* "You Sleep." — ghost reveals gradient from left to right */}
-              <span className="relative inline-block whitespace-nowrap overflow-visible" style={{ lineHeight: 1.15 }}>
-                {/* Base: invisible until gradient paints over */}
-                <span className="text-foreground" style={{ opacity: 0 }}>You Sleep.</span>
-
-                {/* Gradient text layer — revealed by clipPath synced to ghost */}
-                <motion.span
-                  className="absolute left-0 top-0 w-full h-full bg-clip-text text-transparent bg-gradient-to-r from-primary via-blue-500 to-primary"
-                  style={{ backgroundSize: '200% 100%', animation: 'gradientShift 4s ease 2.8s infinite' }}
-                  initial={{ clipPath: "inset(-15% 100% -15% 0)" }}
-                  animate={{ clipPath: "inset(-15% -5% -15% 0)" }}
-                  transition={{ duration: 2.5, ease: [0.25, 0.1, 0.25, 1], delay: 0.6 }}
-                >
-                  You Sleep.
-                </motion.span>
-
-                {/* Ghost gliding across — synced to the same timing */}
-                <motion.div
-                  className="absolute top-1/2 -translate-y-1/2 z-20 pointer-events-none"
-                  initial={{ left: "-20%", opacity: 0 }}
-                  animate={{ left: "105%", opacity: [0, 1, 1, 0.9] }}
-                  transition={{ duration: 2.5, ease: [0.25, 0.1, 0.25, 1], delay: 0.6 }}
-                >
-                  <motion.div
-                    animate={{ y: [-3, 3, -3] }}
-                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                  >
-                    <GhostLogo className="w-12 h-12 md:w-16 md:h-16 lg:w-20 lg:h-20 text-primary drop-shadow-[0_0_20px_rgba(139,92,246,0.5)]" />
-                  </motion.div>
-                </motion.div>
+              <span className="inline-block mb-2">Sell While You Sleep.</span><br />
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-blue-500 to-primary" style={{ backgroundSize: '200% 100%', animation: 'gradientShift 4s ease infinite' }}>
+                Book While You Work.
               </span>
             </h1>
 
             <p className="text-base md:text-[1.15rem] text-muted-foreground max-w-lg mx-auto lg:mx-0 leading-relaxed font-medium">
-              GhostAgent replies to Instagram DMs and comments in Arabic, English, or any language — 24/7. It answers product questions, captures orders, and hands off to you when needed.
+              AI-powered automation that handles your DMs, syncs inventory, and schedules clients 24/7.
             </p>
           </motion.div>
 
@@ -334,35 +301,28 @@ export default function Home() {
             </button>
           </motion.div>
 
-          {/* Trust Micro-Stats */}
+          {/* Multi-Platform Badges */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 1.2 }}
-            className="flex items-center gap-5 justify-center lg:justify-start pt-6"
+            transition={{ delay: 0.8 }}
+            className="flex flex-wrap items-center gap-4 justify-center lg:justify-start pt-6"
           >
-            <div className="flex -space-x-2">
-              {[
-                { initials: 'R', bg: 'bg-violet-500/80' },
-                { initials: 'S', bg: 'bg-rose-500/80' },
-                { initials: 'K', bg: 'bg-emerald-500/80' },
-                { initials: 'N', bg: 'bg-sky-500/80' },
-              ].map((av, i) => (
-                <div
-                  key={i}
-                  className={`w-7 h-7 rounded-full border-2 border-background ${av.bg} flex items-center justify-center text-[10px] font-semibold text-white shrink-0`}
-                >
-                  {av.initials}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-1 border border-border shadow-sm">
+                <Instagram className="w-4 h-4 text-pink-500" />
+                <span className="text-xs font-semibold">Instagram</span>
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/20 ml-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-green-500 text-[9px] font-bold uppercase tracking-wider">Live</span>
                 </div>
-              ))}
             </div>
-            <div className="flex flex-col">
-              <div className="flex gap-1 text-yellow-400 mb-0.5">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Star key={star} className="w-3.5 h-3.5 fill-current" />
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground font-medium">Replies in <span className="text-foreground font-bold">Arabic & English</span> — 24/7</p>
+            
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-1/50 border border-border/50 shadow-sm opacity-80 relative group">
+                <MessageCircle className="w-4 h-4 text-green-500" />
+                <span className="text-xs font-semibold">WhatsApp</span>
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 ml-1 relative">
+                    <span className="text-yellow-500 text-[9px] font-bold uppercase tracking-wider relative z-10 w-full drop-shadow-[0_0_8px_rgba(234,179,8,0.5)]">Coming Soon</span>
+                </div>
             </div>
           </motion.div>
         </div>
@@ -381,40 +341,145 @@ export default function Home() {
       </section>
 
       {/* ═══════════════════════════════════════════════════
-         NARRATIVE: PROBLEM / SOLUTION
+         SECTION 2: DUAL WORKSPACE SHOWCASE (NEW)
          ═══════════════════════════════════════════════════ */}
       <section className="relative py-20 md:py-32 px-4 md:px-6 z-10 border-t border-border/50 bg-surface-0/30">
-        <div className="max-w-4xl mx-auto text-center">
+        <div className="max-w-6xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
+            className="text-center mb-12"
           >
             <h2 className="text-3xl md:text-5xl font-bold mb-6 text-foreground tracking-tight">
-              Stop losing customers in your DMs.
+              One Agent. Two Core Workspaces.
             </h2>
-            <p className="text-lg md:text-xl text-muted-foreground leading-relaxed mb-10 max-w-2xl mx-auto">
-              Every unanswered question is a lost sale. Ghost Agent gives modern brands the superpower to reply instantly, build trust, and check out customers directly within Instagram.
+            <p className="text-lg text-muted-foreground leading-relaxed max-w-2xl mx-auto font-medium">
+              Choose the brain that powers your business. From physical products to service bookings, GhostAgent handles the heavy lifting.
             </p>
           </motion.div>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-8 md:gap-16 pt-8 border-t border-border/50"
-          >
-            <div className="text-center">
-              <p className="text-4xl md:text-5xl font-black text-primary mb-2">3x</p>
-              <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest">More Conversions</p>
+
+          {/* Toggle Tabs */}
+          <div className="flex justify-center mb-12">
+            <div className="relative inline-flex bg-surface-2 p-1.5 rounded-full border border-border shadow-sm">
+                <button
+                    onClick={() => setActiveWorkspace('ecom')}
+                    className={`relative z-10 px-6 py-3 rounded-full text-sm sm:text-base font-bold transition-colors ${
+                        activeWorkspace === 'ecom' ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                    E-Commerce
+                </button>
+                <button
+                    onClick={() => setActiveWorkspace('appointments')}
+                    className={`relative z-10 px-6 py-3 rounded-full text-sm sm:text-base font-bold transition-colors ${
+                        activeWorkspace === 'appointments' ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                    Service & Appointments
+                </button>
+                {/* Active Indicator Slider */}
+                <div
+                    className={`absolute top-1.5 bottom-1.5 w-[calc(50%-0.375rem)] bg-primary rounded-full shadow-md transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${
+                        activeWorkspace === 'ecom' ? 'translate-x-0' : 'translate-x-full'
+                    }`}
+                />
             </div>
-            <div className="hidden sm:block w-px h-16 bg-border" />
-            <div className="text-center">
-              <p className="text-4xl md:text-5xl font-black text-primary mb-2">&lt; 1s</p>
-              <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Response Time</p>
-            </div>
-          </motion.div>
+          </div>
+
+          {/* Tab Content */}
+          <div className="bg-surface-1 border border-border rounded-[2rem] p-6 md:p-10 shadow-xl overflow-hidden relative">
+            <AnimatePresence mode="wait">
+                {activeWorkspace === 'ecom' && (
+                    <motion.div
+                        key="ecom"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.3 }}
+                        className="grid lg:grid-cols-2 gap-10 items-center"
+                    >
+                        <div className="space-y-6">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/10 text-blue-500 border border-blue-500/20 rounded-full text-xs font-bold uppercase tracking-widest">
+                                <ShoppingBag className="w-3.5 h-3.5" /> E-Commerce
+                            </div>
+                            <h3 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+                                Multilingual automated replies & real-time inventory syncing.
+                            </h3>
+                            <p className="text-lg text-muted-foreground font-medium leading-relaxed">
+                                Never sell an out-of-stock item again. GhostAgent checks your live inventory, answers product questions fluently in any language, and checks out customers directly in the DM.
+                            </p>
+                            <ul className="space-y-4 pt-2">
+                                {[
+                                    'Checks live inventory numbers before replying',
+                                    'Sends strict checkout links and tracks orders',
+                                    'Handles size, color, and shipping inquiries naturally'
+                                ].map((feature, idx) => (
+                                    <li key={idx} className="flex items-start gap-3">
+                                        <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center shrink-0 mt-0.5">
+                                            <Check className="w-3.5 h-3.5 text-primary" />
+                                        </div>
+                                        <span className="font-semibold text-foreground/90">{feature}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                        <div className="w-full aspect-[4/3] rounded-2xl border border-dashed border-border flex items-center justify-center bg-surface-2/50 relative overflow-hidden group">
+                           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5" />
+                           <div className="text-center p-6 relative z-10">
+                               <p className="text-sm font-bold text-muted-foreground uppercase tracking-[0.2em] mb-2">Placeholder</p>
+                               <p className="text-base text-foreground/60 font-medium">4K Resolution Product Mockup<br/>E-commerce Split Screen</p>
+                           </div>
+                        </div>
+                    </motion.div>
+                )}
+
+                {activeWorkspace === 'appointments' && (
+                    <motion.div
+                        key="appointments"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.3 }}
+                        className="grid lg:grid-cols-2 gap-10 items-center"
+                    >
+                        <div className="space-y-6">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-full text-xs font-bold uppercase tracking-widest">
+                                <Calendar className="w-3.5 h-3.5" /> Appointments
+                            </div>
+                            <h3 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+                                Smart scheduling and strict calendar management.
+                            </h3>
+                            <p className="text-lg text-muted-foreground font-medium leading-relaxed">
+                                Your automated receptionist. GhostAgent books specific service slots, double-checks your calendar availability, and handles strict overlapping appointment logic.
+                            </p>
+                            <ul className="space-y-4 pt-2">
+                                {[
+                                    'Smart calendar block checks inside the DM',
+                                    'Mandatory name & phone capture before booking',
+                                    'Strict service duration calculation'
+                                ].map((feature, idx) => (
+                                    <li key={idx} className="flex items-start gap-3">
+                                        <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center shrink-0 mt-0.5">
+                                            <Check className="w-3.5 h-3.5 text-primary" />
+                                        </div>
+                                        <span className="font-semibold text-foreground/90">{feature}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                        <div className="w-full aspect-[4/3] rounded-2xl border border-dashed border-border flex items-center justify-center bg-surface-2/50 relative overflow-hidden group">
+                           <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 to-orange-500/5" />
+                           <div className="text-center p-6 relative z-10">
+                               <p className="text-sm font-bold text-muted-foreground uppercase tracking-[0.2em] mb-2">Placeholder</p>
+                               <p className="text-base text-foreground/60 font-medium">4K Resolution Product Mockup<br/>Booking Calendar Split Screen</p>
+                           </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+          </div>
         </div>
       </section>
 
@@ -653,12 +718,18 @@ export default function Home() {
                 className="glass-frosted rounded-2xl p-6 flex flex-col hover:-translate-y-1 transition-transform duration-300"
               >
                 <div className="flex items-center gap-3 mb-4">
-                  <div className={`w-11 h-11 rounded-full ${testimonial.color} flex items-center justify-center font-bold text-sm text-white shadow-md`}>
-                    {testimonial.avatar}
+                  <div className="w-11 h-11 rounded-full overflow-hidden bg-surface-2 border border-border shadow-sm shrink-0 relative group-hover:border-primary/50 transition-colors">
+                     {/* Image proxy/placeholder representing a high-res photo */}
+                     <div className="absolute inset-0 bg-gradient-to-br from-surface-3 to-surface-1 flex items-center justify-center">
+                         <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest text-center leading-tight">High-Res<br/>Photo</span>
+                     </div>
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-foreground tracking-tight">{testimonial.name}</p>
-                    <p className="text-xs text-muted-foreground">{testimonial.handle}</p>
+                    <div className="flex items-center gap-1 mt-0.5">
+                        <p className="text-xs text-muted-foreground font-medium">{testimonial.handle}</p>
+                        <BadgeCheck className="w-3.5 h-3.5 text-blue-500 drop-shadow-[0_0_2px_rgba(59,130,246,0.3)]" />
+                    </div>
                   </div>
                 </div>
                 <div className="flex gap-0.5 mb-4">
