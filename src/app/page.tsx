@@ -425,12 +425,9 @@ export default function Home() {
                                 ))}
                             </ul>
                         </div>
-                        <div className="w-full aspect-[4/3] rounded-2xl border border-dashed border-border flex items-center justify-center bg-surface-2/50 relative overflow-hidden group">
-                           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5" />
-                           <div className="text-center p-6 relative z-10">
-                               <p className="text-sm font-bold text-muted-foreground uppercase tracking-[0.2em] mb-2">Placeholder</p>
-                               <p className="text-base text-foreground/60 font-medium">4K Resolution Product Mockup<br/>E-commerce Split Screen</p>
-                           </div>
+                        <div className="w-full aspect-[4/3] rounded-2xl flex items-center justify-center relative overflow-hidden group">
+                           <div className="absolute inset-0 bg-blue-500/5 group-hover:bg-blue-500/10 transition-colors duration-500" />
+                           <img src="/ecom_mockup.png" alt="E-Commerce AI Dashboard" className="relative z-10 w-full h-full object-cover transition-transform duration-700 hover:scale-[1.02] shadow-2xl" />
                         </div>
                     </motion.div>
                 )}
@@ -469,12 +466,9 @@ export default function Home() {
                                 ))}
                             </ul>
                         </div>
-                        <div className="w-full aspect-[4/3] rounded-2xl border border-dashed border-border flex items-center justify-center bg-surface-2/50 relative overflow-hidden group">
-                           <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 to-orange-500/5" />
-                           <div className="text-center p-6 relative z-10">
-                               <p className="text-sm font-bold text-muted-foreground uppercase tracking-[0.2em] mb-2">Placeholder</p>
-                               <p className="text-base text-foreground/60 font-medium">4K Resolution Product Mockup<br/>Booking Calendar Split Screen</p>
-                           </div>
+                        <div className="w-full aspect-[4/3] rounded-2xl flex items-center justify-center relative overflow-hidden group">
+                           <div className="absolute inset-0 bg-rose-500/5 group-hover:bg-rose-500/10 transition-colors duration-500" />
+                           <img src="/booking_mockup.png" alt="Appointments UI Mockup" className="relative z-10 w-full h-full object-cover transition-transform duration-700 hover:scale-[1.02] shadow-2xl" />
                         </div>
                     </motion.div>
                 )}
@@ -552,7 +546,7 @@ export default function Home() {
               </div>
             </motion.div>
 
-            {/* Card 3: Inventory Sync */}
+            {/* Card 3: Inventory & Appointments */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -565,14 +559,14 @@ export default function Home() {
                 <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                   <ShoppingBag className="w-6 h-6 text-green-500" />
                 </div>
-                <h3 className="text-xl font-bold text-foreground mb-3 tracking-tight">Inventory Sync</h3>
+                <h3 className="text-xl font-bold text-foreground mb-3 tracking-tight">Syncs Systems</h3>
                 <p className="text-muted-foreground leading-relaxed text-sm font-medium">
-                  Real-time stock levels, pricing, and availability — updated directly from your chats.
+                  Real-time stock syncing for E-Commerce and live calendar availability checking for Service Appointments.
                 </p>
               </div>
             </motion.div>
 
-            {/* Card 4: Sales Analytics */}
+            {/* Card 4: Actionable Analytics */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -587,7 +581,7 @@ export default function Home() {
                 </div>
                 <h3 className="text-xl font-bold text-foreground mb-3 tracking-tight">Sales Analytics</h3>
                 <p className="text-muted-foreground leading-relaxed text-sm font-medium">
-                  Track conversions, revenue, response times, and customer sentiment with live dashboards.
+                  Track orders, booked appointments, response times, and customer sentiment all from one live unified dashboard.
                 </p>
               </div>
             </motion.div>
@@ -685,27 +679,27 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {[
               {
-                name: 'Sarah M.',
-                handle: '@s***boutique',
-                avatar: 'S',
+                name: 'Elena Rostova',
+                handle: '@elena_glowup',
+                avatar: 'E',
                 color: 'bg-pink-500',
-                quote: 'Ghost Agent tripled my response rate overnight. My DMs used to be a nightmare — now they close sales while I sleep.',
+                quote: 'Using GhostAgent for my clinic is incredible. Customers book their slots through DMs at 2 AM, and it perfectly blocks out my calendar. No double-bookings ever.',
                 stars: 5,
               },
               {
-                name: 'Ahmad K.',
-                handle: '@a***_tech',
-                avatar: 'A',
+                name: 'Julian Cortez',
+                handle: '@cortez_apparel',
+                avatar: 'J',
                 color: 'bg-blue-500',
-                quote: 'The multilingual support is insane. It handles Arabic and English seamlessly. My customers in Lebanon love it.',
+                quote: 'The real-time inventory sync changed the game for us. It checks stock live and checks out customers directly in WhatsApp and Instagram. Tripled our conversion rate.',
                 stars: 5,
               },
               {
-                name: 'Maria L.',
-                handle: '@m***.fashion',
-                avatar: 'M',
+                name: 'Amira Hassan',
+                handle: '@amira.studios',
+                avatar: 'A',
                 color: 'bg-purple-500',
-                quote: 'Set it up in 5 minutes, inventory syncs perfectly, and my conversion rate jumped 40% in the first week.',
+                quote: 'Absolutely flawless multilingual support. It switches between Arabic and English flawlessly, collecting mandatory details before confirming any booking.',
                 stars: 5,
               },
             ].map((testimonial, i) => (
@@ -770,10 +764,10 @@ export default function Home() {
 
           <div className="space-y-4">
             {[
-              { q: 'Does Ghost Agent reply to comments too?', a: 'Yes! Ghost Agent can be configured to automatically reply to story replies, post comments, and direct messages, smoothly transitioning public comments into private sales conversations.' },
+              { q: 'Does Ghost Agent handle both physical products and services?', a: 'Yes! Ghost Agent is built with dual workspaces. It can sync physical inventory to check out e-com customers, OR it can sync with your calendar to strictly manage service appointments.' },
               { q: 'Will my account get banned for using a bot?', a: 'No. Ghost Agent uses the official Instagram and Facebook Graph APIs. We are fully compliant with Meta’s terms of service and rate limits.' },
               { q: 'Can it speak my local dialect?', a: 'Ghost Agent powered by advanced LLMs is natively multilingual. It understands and responds fluently in Lebanese Franco, Gulf Arabic, English, French, Spanish, and many more, matching your customer’s tone.' },
-              { q: 'How does it know my inventory?', a: 'During setup, you add your products directly inside the GhostAgent dashboard — manually or via CSV. The AI reads your live product list and will never promote an item that is out of stock.' },
+              { q: 'How does the Appointments booking work?', a: 'You set your services and durations. Ghost Agent chats with the client, collects mandatory data (Name, Phone), securely queries your live availability, and blocks the slot instantly—preventing double-bookings.' },
               { q: 'Can I jump in and reply manually?', a: 'Absolutely. The AI automatically pauses if it detects you typing or sending a manual message, handing control securely back to you or your human agents.' },
             ].map((faq, idx) => (
               <motion.div
