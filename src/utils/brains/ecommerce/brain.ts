@@ -222,10 +222,20 @@ export async function generateEcommerceGhostReply(
                     variant: z.string().optional().describe('Color, size, or model.'),
                 }),
                 execute: async (a: any) => {
-                    const name = a?.name || null;
-                    const phone = a?.phone || null;
-                    const address = a?.address || null;
-                    const item = a?.item || 'Unknown item';
+                    const name = a?.name?.trim() || null;
+                    const phone = a?.phone?.trim() || null;
+                    const address = a?.address?.trim() || null;
+                    const item = a?.item?.trim() || null;
+
+                    const missingFields = [];
+                    if (!name) missingFields.push('Customer Name');
+                    if (!phone) missingFields.push('Phone Number');
+                    if (!address) missingFields.push('Delivery Address');
+                    if (!item) missingFields.push('Item(s) requested');
+
+                    if (missingFields.length > 0) {
+                        return `ORDER FAILED: You cannot save the order yet. You must collect the following mandatory information from the customer first: ${missingFields.join(', ')}. Reply to the customer right now and ask for it politely.`;
+                    }
 
                     console.log('🛍️ [E-COMMERCE] Executing finalize_transaction:', { name, phone, address, item });
                     try {
