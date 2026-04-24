@@ -294,7 +294,7 @@ export async function generateAppointmentsGhostReply(
                         if (!service) missing.push("Service");
                         if (!preferred_date) missing.push("Date");
                         if (!preferred_time) missing.push("Time");
-                        return \`ERROR: Tool missing fields: \${missing.join(', ')}. If the customer already provided them, call the tool again with ALL fields included. If they haven't, gently ask them for exactly what is missing.\`;
+                        return `ERROR: Tool missing fields: ${missing.join(', ')}. If the customer already provided them, call the tool again with ALL fields included. If they haven't, gently ask them for exactly what is missing.`;
                     }
 
                     console.log('📅 [APPOINTMENTS] Executing finalize_transaction:', { name, phone, service, date: preferred_date, time: preferred_time });
