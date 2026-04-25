@@ -486,24 +486,25 @@ export default function Home() {
       {/* ═══════════════════════════════════════════════════
          SECTION 2: BENTO BOX FEATURES
          ═══════════════════════════════════════════════════ */}
-      <section id="features" className="relative py-24 md:py-32 px-4 md:px-6 z-10">
+      <section id="features" className="relative pt-28 md:pt-32 pb-24 md:pb-32 px-4 md:px-6 z-10">
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center mb-16"
+            className="text-center mb-14 md:mb-16"
           >
-            <h2 className="text-3xl md:text-5xl font-bold mb-4 text-foreground tracking-tight">
+            <span className="text-primary font-bold tracking-[0.2em] text-xs uppercase mb-4 block">FEATURES</span>
+            <h2 className="text-3xl md:text-5xl font-black mb-4 text-foreground tracking-tighter">
               Everything You Need to Scale
             </h2>
-            <p className="text-muted-foreground max-w-xl mx-auto text-lg font-medium">
-              One platform. Every tool your Instagram business needs to automate, grow, and dominate.
+            <p className="text-muted-foreground max-w-2xl mx-auto text-lg md:text-xl font-medium leading-relaxed">
+              Automate replies, capture orders, book appointments, and manage customer conversations from one AI-powered workspace.
             </p>
           </motion.div>
 
           {/* Bento Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
             {/* Card 1: Smart Replies — spans 2 cols on lg */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
@@ -511,83 +512,105 @@ export default function Home() {
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
               whileHover={{ y: -4 }}
-              className="bento-card lg:col-span-2 group"
+              className="glass-frosted border border-border rounded-[2.5rem] p-8 lg:col-span-2 group flex flex-col md:flex-row gap-8 relative overflow-hidden"
             >
-              <div className="flex flex-col md:flex-row items-start gap-4 md:gap-6 mb-4">
-                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+              <div className="flex-1 relative z-10">
+                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary/20 transition-colors">
                   <MessageCircle className="w-7 h-7 text-primary" />
                 </div>
-                <div className="mt-1">
-                  <h3 className="text-2xl font-bold text-foreground mb-2 tracking-tight">Smart Replies</h3>
-                  <p className="text-muted-foreground leading-relaxed font-medium">
-                    Context-aware AI that understands intent, reads tone, and replies like a human — handling questions, objections, and closing sales automatically.
-                  </p>
+                <h3 className="text-2xl font-bold text-foreground mb-3 tracking-tight">Smart Replies</h3>
+                <p className="text-muted-foreground leading-relaxed font-medium mb-6">
+                  GhostAgent understands customer intent, reads context, and replies naturally — from product questions to appointment requests.
+                </p>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-xs font-bold text-green-500">Average response time: &lt; 1 second</span>
                 </div>
               </div>
-              <div className="mt-6 p-4 rounded-2xl bg-surface-2 border border-border">
-                <div className="flex items-center gap-3 text-sm font-semibold">
-                  <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
-                  <span className="text-muted-foreground">Average response time: <span className="text-foreground">&lt; 1 second</span></span>
-                </div>
+
+              {/* Animated DM Preview */}
+              <div className="flex-1 bg-surface-2/50 border border-border/50 rounded-2xl p-6 relative min-h-[220px] flex flex-col justify-end gap-4 overflow-hidden">
+                <motion.div 
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ repeat: Infinity, repeatDelay: 5, duration: 0.5, delay: 1 }}
+                  className="bg-surface-3 border border-border/50 p-3 rounded-2xl rounded-bl-sm self-start max-w-[85%] text-sm font-medium shadow-sm"
+                >
+                  Do you have this in medium? 🤔
+                </motion.div>
+                <motion.div 
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ repeat: Infinity, repeatDelay: 5, duration: 0.5, delay: 3 }}
+                  className="bg-primary text-white p-3 rounded-2xl rounded-br-sm self-end max-w-[85%] text-sm font-semibold shadow-md"
+                >
+                  Yes — medium is in stock. Want me to reserve it?
+                </motion.div>
+                <div className="absolute top-4 right-4 text-[10px] font-bold text-muted-foreground/50 tracking-widest uppercase">Live Preview</div>
               </div>
             </motion.div>
 
-            {/* Card 2: Multilingual */}
+            {/* Card 2: Multilingual AI */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.1, duration: 0.6 }}
               whileHover={{ y: -4 }}
-              className="bento-card group flex flex-col justify-between"
+              className="glass-frosted border border-border rounded-[2.5rem] p-8 group flex flex-col justify-between"
             >
               <div>
-                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-6 group-hover:bg-blue-500/20 transition-colors">
                   <Globe className="w-6 h-6 text-blue-500" />
                 </div>
                 <h3 className="text-xl font-bold text-foreground mb-3 tracking-tight">Multilingual AI</h3>
-                <p className="text-muted-foreground leading-relaxed text-sm font-medium">
-                  Fluently switches between Arabic, English, French, Spanish and more — mid-conversation.
+                <p className="text-muted-foreground leading-relaxed text-sm font-medium mb-6">
+                  Reply naturally in English, Arabic, French, Spanish, and mixed-language conversations without breaking flow.
                 </p>
+              </div>
+              <div className="flex gap-2">
+                {['EN', 'AR', 'FR', 'ES'].map(lang => (
+                  <span key={lang} className="px-2.5 py-1 rounded-lg bg-surface-2 border border-border text-[10px] font-black text-muted-foreground group-hover:text-primary group-hover:border-primary/30 transition-colors">{lang}</span>
+                ))}
               </div>
             </motion.div>
 
-            {/* Card 3: Inventory & Appointments */}
+            {/* Card 3: Live System Sync */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.2, duration: 0.6 }}
               whileHover={{ y: -4 }}
-              className="bento-card group flex flex-col justify-between"
+              className="glass-frosted border border-border rounded-[2.5rem] p-8 group flex flex-col justify-between"
             >
               <div>
-                <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                  <ShoppingBag className="w-6 h-6 text-green-500" />
+                <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center mb-6 group-hover:bg-cyan-500/20 transition-colors">
+                  <RefreshCcw className="w-6 h-6 text-cyan-500" />
                 </div>
-                <h3 className="text-xl font-bold text-foreground mb-3 tracking-tight">Syncs Systems</h3>
+                <h3 className="text-xl font-bold text-foreground mb-3 tracking-tight">Live System Sync</h3>
                 <p className="text-muted-foreground leading-relaxed text-sm font-medium">
-                  Real-time stock syncing for E-Commerce and live calendar availability checking for Service Appointments.
+                  Connect inventory, services, calendar availability, and order data so replies are based on facts — not guesses.
                 </p>
               </div>
             </motion.div>
 
-            {/* Card 4: Actionable Analytics */}
+            {/* Card 4: Sales & Booking Analytics */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.3, duration: 0.6 }}
               whileHover={{ y: -4 }}
-              className="bento-card group flex flex-col justify-between"
+              className="glass-frosted border border-border rounded-[2.5rem] p-8 group flex flex-col justify-between"
             >
               <div>
-                <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center mb-6 group-hover:bg-orange-500/20 transition-colors">
                   <BarChart3 className="w-6 h-6 text-orange-500" />
                 </div>
-                <h3 className="text-xl font-bold text-foreground mb-3 tracking-tight">Sales Analytics</h3>
+                <h3 className="text-xl font-bold text-foreground mb-3 tracking-tight">Sales & Booking Analytics</h3>
                 <p className="text-muted-foreground leading-relaxed text-sm font-medium">
-                  Track orders, booked appointments, response times, and customer sentiment all from one live unified dashboard.
+                  Track conversations, captured orders, booked appointments, response times, and automation performance from one dashboard.
                 </p>
               </div>
             </motion.div>
@@ -599,18 +622,67 @@ export default function Home() {
               viewport={{ once: true }}
               transition={{ delay: 0.4, duration: 0.6 }}
               whileHover={{ y: -4 }}
-              className="bento-card group flex flex-col justify-between"
+              className="glass-frosted border border-border rounded-[2.5rem] p-8 group flex flex-col justify-between"
             >
               <div>
-                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                  <Shield className="w-6 h-6 text-primary" />
+                <div className="w-12 h-12 rounded-2xl bg-rose-500/10 flex items-center justify-center mb-6 group-hover:bg-rose-500/20 transition-colors">
+                  <Bot className="w-6 h-6 text-rose-500" />
                 </div>
                 <h3 className="text-xl font-bold text-foreground mb-3 tracking-tight">24/7 Autopilot</h3>
                 <p className="text-muted-foreground leading-relaxed text-sm font-medium">
-                  Your Ghost never sleeps. Every DM gets answered — nights, weekends, holidays — instantly.
+                  Answer customers instantly during nights, weekends, holidays, and busy work hours — without losing control.
                 </p>
               </div>
             </motion.div>
+
+            {/* Card 6: Workflow Automation — Wide card */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.5, duration: 0.6 }}
+              whileHover={{ y: -4 }}
+              className="glass-frosted border border-border rounded-[2.5rem] p-8 lg:col-span-2 group flex flex-col justify-between overflow-hidden relative"
+            >
+              <div className="flex flex-col md:flex-row md:items-center gap-8">
+                <div className="flex-1">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center mb-6 group-hover:bg-indigo-500/20 transition-colors">
+                    <Zap className="w-6 h-6 text-indigo-500" />
+                  </div>
+                  <h3 className="text-xl font-bold text-foreground mb-3 tracking-tight">Workflow Automation</h3>
+                  <p className="text-muted-foreground leading-relaxed text-sm font-medium">
+                    GhostAgent can guide customers through checkout, collect required details, check appointment slots, and hand off when a human is needed.
+                  </p>
+                </div>
+                
+                {/* Tiny Workflow Row Animation */}
+                <div className="flex-1 flex items-center justify-between gap-2 p-4 bg-surface-2/50 rounded-2xl border border-border/50 relative overflow-hidden">
+                   {[
+                     { label: "DM Received", icon: MessageCircle },
+                     { label: "Data Checked", icon: RefreshCcw },
+                     { label: "Reply Sent", icon: Zap },
+                     { label: "Captured", icon: CheckCircle2 }
+                   ].map((step, i) => (
+                     <div key={i} className="flex flex-col items-center gap-2 relative z-10">
+                        <motion.div 
+                          initial={{ scale: 0.8, opacity: 0.5 }}
+                          animate={{ scale: [0.8, 1.1, 1], opacity: [0.5, 1, 1] }}
+                          transition={{ repeat: Infinity, repeatDelay: 4, duration: 0.5, delay: i * 0.8 }}
+                          className="w-10 h-10 rounded-xl bg-surface-3 flex items-center justify-center text-primary border border-border shadow-sm"
+                        >
+                           <step.icon className="w-5 h-5" />
+                        </motion.div>
+                        <span className="text-[8px] font-black uppercase tracking-wider text-muted-foreground/60">{step.label}</span>
+                     </div>
+                   ))}
+                   {/* Connectors */}
+                   <div className="absolute top-9 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-border to-transparent -z-0 opacity-30" />
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
           </div>
         </div>
       </section>
