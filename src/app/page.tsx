@@ -26,7 +26,10 @@ import {
   Minus,
   Instagram,
   BadgeCheck,
-  Calendar
+  Calendar,
+  RefreshCcw,
+  Bot,
+  CheckCircle2
 } from 'lucide-react';
 
 /* ════════════════════════════════════════════════════
@@ -683,9 +686,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-          </div>
-        </div>
-      </section>
+
 
       {/* ═══════════════════════════════════════════════════
          SECTION 3: HOW IT WORKS
