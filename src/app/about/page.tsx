@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, Variants } from 'framer-motion';
 import { ArrowRight, MessageCircle, Clock, Zap, Target, ShieldCheck, HeartHandshake, Box, CalendarDays, CheckCircle2, ChevronRight, MessageSquare, Briefcase } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
@@ -10,12 +10,12 @@ import DemoVideoModal from '@/components/demo/DemoVideoModal';
 import { useState, useEffect } from 'react';
 
 // Animations
-const fadeInUp = {
+const fadeInUp: Variants = {
   hidden: { opacity: 0, y: 30 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } }
 };
 
-const staggerContainer = {
+const staggerContainer: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
