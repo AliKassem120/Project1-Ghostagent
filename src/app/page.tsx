@@ -668,43 +668,47 @@ export default function Home() {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center mb-20"
+            className="text-center mb-14"
           >
             <h2 className="text-3xl md:text-5xl font-bold mb-4 text-foreground tracking-tight">
-              Loved by Sellers Everywhere
+              Trusted by Businesses That Run on DMs
             </h2>
-            <p className="text-muted-foreground text-lg font-medium max-w-lg mx-auto">
-              Join thousands of store owners automating their Instagram sales.
+            <p className="text-muted-foreground text-lg font-medium max-w-2xl mx-auto leading-relaxed">
+              From online stores to appointment-based businesses, GhostAgent helps teams reply faster, capture more customers, and stop missing revenue.
             </p>
           </motion.div>
 
-          {/* Stats Banner Removed */}
-
           {/* Testimonial Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 relative z-10">
             {[
               {
                 name: 'Elena Rostova',
+                businessType: 'Beauty Clinic',
                 handle: '@elena_glowup',
-                avatar: 'E',
-                color: 'bg-pink-500',
-                quote: 'Using GhostAgent for my clinic is incredible. Customers book their slots through DMs at 2 AM, and it perfectly blocks out my calendar. No double-bookings ever.',
+                initials: 'ER',
+                color: 'from-pink-500 to-rose-400',
+                metric: '21 bookings captured this month',
+                quote: 'GhostAgent handles our late-night appointment requests, checks availability, and collects names and phone numbers before confirming. We stopped double-booking clients.',
                 stars: 5,
               },
               {
                 name: 'Julian Cortez',
+                businessType: 'Apparel Store',
                 handle: '@cortez_apparel',
-                avatar: 'J',
-                color: 'bg-blue-500',
-                quote: 'The real-time inventory sync changed the game for us. It checks stock live and checks out customers directly in WhatsApp and Instagram. Tripled our conversion rate.',
+                initials: 'JC',
+                color: 'from-blue-600 to-cyan-400',
+                metric: '38 orders captured',
+                quote: 'Inventory sync changed everything. Customers ask about size or color, GhostAgent checks stock, replies instantly, and helps complete the order inside the DM.',
                 stars: 5,
               },
               {
                 name: 'Amira Hassan',
+                businessType: 'Makeup Studio',
                 handle: '@amira.studios',
-                avatar: 'A',
-                color: 'bg-purple-500',
-                quote: 'Absolutely flawless multilingual support. It switches between Arabic and English flawlessly, collecting mandatory details before confirming any booking.',
+                initials: 'AH',
+                color: 'from-purple-600 to-fuchsia-500',
+                metric: 'Arabic + English replies',
+                quote: 'It switches naturally between Arabic and English, answers service questions, and books clients without me being glued to my phone.',
                 stars: 5,
               },
             ].map((testimonial, i) => (
@@ -714,31 +718,54 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.15, duration: 0.6 }}
-                className="glass-frosted rounded-2xl p-6 flex flex-col hover:-translate-y-1 transition-transform duration-300"
+                className="relative group"
               >
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-11 h-11 rounded-full overflow-hidden bg-surface-2 border border-border shadow-sm shrink-0 relative group-hover:border-primary/50 transition-colors">
-                     {/* Image proxy/placeholder representing a high-res photo */}
-                     <div className="absolute inset-0 bg-gradient-to-br from-surface-3 to-surface-1 flex items-center justify-center">
-                         <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest text-center leading-tight">High-Res<br/>Photo</span>
-                     </div>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground tracking-tight">{testimonial.name}</p>
-                    <div className="flex items-center gap-1 mt-0.5">
-                        <p className="text-xs text-muted-foreground font-medium">{testimonial.handle}</p>
-                        <BadgeCheck className="w-3.5 h-3.5 text-blue-500 drop-shadow-[0_0_2px_rgba(59,130,246,0.3)]" />
+                {/* Center card subtle glow */}
+                {i === 1 && (
+                    <div className="absolute -inset-4 bg-primary/20 blur-2xl rounded-full opacity-60 group-hover:opacity-100 transition-opacity duration-500 -z-10" />
+                )}
+                
+                <div className="glass-frosted bg-surface-1/60 rounded-3xl p-6 md:p-8 flex flex-col h-full border border-border group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:shadow-[0_8px_30px_rgba(139,92,246,0.15)] transition-all duration-300 relative z-10">
+                    <div className="flex items-center gap-4 mb-5">
+                      <div className="w-12 h-12 rounded-full overflow-hidden bg-surface-2 border border-border/50 shadow-sm shrink-0 relative">
+                         <div className={`absolute inset-0 bg-gradient-to-br ${testimonial.color} flex items-center justify-center`}>
+                             <span className="text-sm font-bold text-white tracking-wider">{testimonial.initials}</span>
+                         </div>
+                      </div>
+                      <div>
+                        <p className="text-base font-bold text-foreground tracking-tight">{testimonial.name}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                            <p className="text-xs text-muted-foreground font-semibold">{testimonial.businessType} <span className="opacity-50">•</span> {testimonial.handle}</p>
+                            <BadgeCheck className="w-4 h-4 text-blue-500 drop-shadow-[0_0_3px_rgba(59,130,246,0.4)] group-hover:animate-pulse" />
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                    
+                    <div className="flex gap-1 mb-4">
+                      {[...Array(testimonial.stars)].map((_, j) => (
+                        <Star key={j} className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                      ))}
+                    </div>
+                    
+                    <p className="text-foreground/90 font-medium text-[15px] leading-relaxed flex-1 italic relative z-10">
+                        "{testimonial.quote}"
+                    </p>
+                    
+                    <div className="mt-6 pt-5 border-t border-border/50">
+                        <div className="inline-flex items-center px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-full">
+                            <span className="text-xs font-bold text-primary tracking-wide">{testimonial.metric}</span>
+                        </div>
+                    </div>
                 </div>
-                <div className="flex gap-0.5 mb-4">
-                  {[...Array(testimonial.stars)].map((_, j) => (
-                    <Star key={j} className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
-                  ))}
-                </div>
-                <p className="text-foreground/80 font-medium text-sm leading-relaxed flex-1 italic relative z-10">"{testimonial.quote}"</p>
               </motion.div>
             ))}
+          </div>
+
+          {/* Proof Bar */}
+          <div className="mt-16 text-center">
+              <p className="text-xs md:text-sm font-bold text-muted-foreground uppercase tracking-widest max-w-3xl mx-auto">
+                  Automating DMs for e-commerce stores, salons, clinics, studios, and local service businesses.
+              </p>
           </div>
         </div>
       </section>
