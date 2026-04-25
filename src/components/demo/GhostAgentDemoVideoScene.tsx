@@ -307,7 +307,7 @@ function Scene4() {
                         </div>
                         <div className="h-12 bg-surface-3/50 rounded-xl flex items-center px-4 border border-border/30 relative">
                             <span className="w-24 text-muted-foreground relative z-10">3:00 PM</span>
-                            <motion.div initial={{ opacity: 0, scaleX: 0 }} animate={{ opacity: 1, scaleX: 1 }} transition={{ delay: 37, duration: 0.5, originX: 0 }} className="h-6 flex-1 bg-rose-500/20 border border-rose-500/40 rounded-md px-3 flex items-center text-rose-400 font-bold relative z-10 shadow-[0_0_15px_rgba(244,63,94,0.3)]">
+                            <motion.div style={{ transformOrigin: 'left' }} initial={{ opacity: 0, scaleX: 0 }} animate={{ opacity: 1, scaleX: 1 }} transition={{ delay: 37, duration: 0.5 }} className="h-6 flex-1 bg-rose-500/20 border border-rose-500/40 rounded-md px-3 flex items-center text-rose-400 font-bold relative z-10 shadow-[0_0_15px_rgba(244,63,94,0.3)]">
                                 John (Haircut) • 555-0192
                             </motion.div>
                         </div>
