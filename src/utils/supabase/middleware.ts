@@ -45,7 +45,9 @@ export async function updateSession(request: NextRequest) {
         !request.nextUrl.pathname.startsWith('/privacy') &&
         !request.nextUrl.pathname.startsWith('/terms') &&
         !request.nextUrl.pathname.startsWith('/contact') &&
-        !request.nextUrl.pathname.startsWith('/about')
+        !request.nextUrl.pathname.startsWith('/about') &&
+        !request.nextUrl.pathname.startsWith('/demo-recording') &&
+        !request.nextUrl.pathname.startsWith('/demo')
     ) {
         // no user, potentially respond by redirecting the user to the login page
         const url = request.nextUrl.clone()

@@ -299,6 +299,7 @@ export default function Home() {
               isOpen={showVideo}
               onClose={() => setShowVideo(false)}
               videoSrc="/demo/ghostagent-demo.webm"
+              posterSrc="/demo/ghostagent-demo-poster.png"
             />
             <button
               onClick={() => setShowVideo(true)}
