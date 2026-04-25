@@ -1,0 +1,39 @@
+-- Optional but recommended enterprise tables for GhostAgent.
+-- These tables let you debug every decision without relying on prompt guessing.
+
+create table if not exists public.automation_events (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null,
+    workspace_id uuid null,
+    chat_id text null,
+    workspace_type text not null check (workspace_type in ('ecommerce', 'appointments')),
+    intent text not null,
+    confidence numeric null,
+    payload jsonb not null default '{}'::jsonb,
+    created_at timestamptz not null default now()
+);
+
+create index if not exists automation_events_user_created_idx
+    on public.automation_events (user_id, created_at desc);
+
+create index if not exists automation_events_workspace_created_idx
+    on public.automation_events (workspace_id, created_at desc);
+
+create index if not exists automation_events_chat_created_idx
+    on public.automation_events (chat_id, created_at desc);
+
+create table if not exists public.conversation_states (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null,
+    workspace_id uuid null,
+    chat_id text not null,
+    workspace_type text not null check (workspace_type in ('ecommerce', 'appointments')),
+    stage text not null default 'idle',
+    data jsonb not null default '{}'::jsonb,
+    updated_at timestamptz not null default now(),
+    created_at timestamptz not null default now(),
+    unique (user_id, workspace_id, chat_id, workspace_type)
+);
+
+create index if not exists conversation_states_user_workspace_chat_idx
+    on public.conversation_states (user_id, workspace_id, chat_id, workspace_type);

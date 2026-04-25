@@ -8,6 +8,8 @@ import StarBackground from '@/components/StarBackground';
 import PricingPlans from '@/components/PricingPlans';
 import VideoModal from '@/components/VideoModal';
 import Footer from '@/components/Footer';
+import EcommerceHeroAnimation from '@/components/landing/EcommerceHeroAnimation';
+import AppointmentsHeroAnimation from '@/components/landing/AppointmentsHeroAnimation';
 import Link from 'next/link';
 import {
   ArrowRight,
@@ -361,11 +363,11 @@ export default function Home() {
           </motion.div>
 
           {/* Toggle Tabs */}
-          <div className="flex justify-center mb-12">
-            <div className="relative inline-flex bg-surface-2 p-1.5 rounded-full border border-border shadow-sm">
+          <div className="flex justify-center mb-12 px-2">
+            <div className="relative grid grid-cols-2 bg-surface-2 p-1.5 rounded-full border border-border shadow-sm w-full max-w-[340px] sm:max-w-md">
                 <button
                     onClick={() => setActiveWorkspace('ecom')}
-                    className={`relative z-10 px-6 py-3 rounded-full text-sm sm:text-base font-bold transition-colors ${
+                    className={`relative z-10 py-3 rounded-full text-xs sm:text-sm font-bold transition-colors ${
                         activeWorkspace === 'ecom' ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
                     }`}
                 >
@@ -373,7 +375,7 @@ export default function Home() {
                 </button>
                 <button
                     onClick={() => setActiveWorkspace('appointments')}
-                    className={`relative z-10 px-6 py-3 rounded-full text-sm sm:text-base font-bold transition-colors ${
+                    className={`relative z-10 py-3 rounded-full text-xs sm:text-sm font-bold transition-colors ${
                         activeWorkspace === 'appointments' ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
                     }`}
                 >
@@ -381,7 +383,7 @@ export default function Home() {
                 </button>
                 {/* Active Indicator Slider */}
                 <div
-                    className={`absolute top-1.5 bottom-1.5 w-[calc(50%-0.375rem)] bg-primary rounded-full shadow-md transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${
+                    className={`absolute top-1.5 bottom-1.5 left-1.5 w-[calc(50%-0.375rem)] bg-primary rounded-full shadow-md transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${
                         activeWorkspace === 'ecom' ? 'translate-x-0' : 'translate-x-full'
                     }`}
                 />
@@ -426,8 +428,7 @@ export default function Home() {
                             </ul>
                         </div>
                         <div className="w-full aspect-[4/3] rounded-2xl flex items-center justify-center relative overflow-hidden group">
-                           <div className="absolute inset-0 bg-blue-500/5 group-hover:bg-blue-500/10 transition-colors duration-500" />
-                           <img src="/ecom_mockup.png" alt="E-Commerce AI Dashboard" className="relative z-10 w-full h-full object-cover transition-transform duration-700 hover:scale-[1.02] shadow-2xl" />
+                           <EcommerceHeroAnimation />
                         </div>
                     </motion.div>
                 )}
@@ -467,8 +468,7 @@ export default function Home() {
                             </ul>
                         </div>
                         <div className="w-full aspect-[4/3] rounded-2xl flex items-center justify-center relative overflow-hidden group">
-                           <div className="absolute inset-0 bg-rose-500/5 group-hover:bg-rose-500/10 transition-colors duration-500" />
-                           <img src="/booking_mockup.png" alt="Appointments UI Mockup" className="relative z-10 w-full h-full object-cover transition-transform duration-700 hover:scale-[1.02] shadow-2xl" />
+                           <AppointmentsHeroAnimation />
                         </div>
                     </motion.div>
                 )}

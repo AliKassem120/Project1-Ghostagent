@@ -1,174 +1,377 @@
-import { z } from 'zod';
-import { createClient } from '@supabase/supabase-js';
-
-const getAdminClient = () => {
-    return createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY!
-    );
+export type BusinessHoursRow = {
+    day_of_week: number; // 0 Sunday, 1 Monday, ... 6 Saturday
+    is_open: boolean;
+    open_time: string | null; // HH:mm or HH:mm:ss
+    close_time: string | null;
 };
 
-/**
- * Resolves a human-readable date string into a proper YYYY-MM-DD date.
- * Handles "today", "tomorrow", day names, and ISO dates.
- */
-function resolveDate(input: string): string {
-    const lower = input.toLowerCase().trim();
-    const now = new Date();
+export type AppointmentService = {
+    id?: string;
+    name: string;
+    price?: number | string | null;
+    duration_minutes?: number | null;
+    description?: string | null;
+};
 
-    if (lower === 'today' || lower === 'lyom' || lower === 'lyawm') {
-        return formatDate(now);
-    }
-    if (lower === 'tomorrow' || lower === 'bokra' || lower === 'bukra') {
-        const d = new Date(now);
-        d.setDate(d.getDate() + 1);
-        return formatDate(d);
-    }
+export type AppointmentSlot = {
+    date: string;
+    time: string;
+    end_time: string;
+};
 
-    // Day names (English + Franco)
-    const dayMap: Record<string, number> = {
-        sunday: 0, sun: 0, l7ad: 0, ahad: 0,
-        monday: 1, mon: 1, tnen: 1, itnen: 1,
-        tuesday: 2, tue: 2, tleta: 2, taleta: 2,
-        wednesday: 3, wed: 3, arba3a: 3, arb3a: 3,
-        thursday: 4, thu: 4, khamis: 4, '5amis': 4,
-        friday: 5, fri: 5, jom3a: 5, jum3a: 5,
-        saturday: 6, sat: 6, sabt: 6, sebt: 6,
-    };
+export type AppointmentValidation = {
+    ok: boolean;
+    code: 'ok' | 'closed' | 'outside_business_hours' | 'conflict' | 'missing_fields' | 'database_error';
+    message: string;
+};
 
-    if (dayMap[lower] !== undefined) {
-        const target = dayMap[lower];
-        const current = now.getDay();
-        let diff = target - current;
-        if (diff <= 0) diff += 7;
-        const d = new Date(now);
-        d.setDate(d.getDate() + diff);
-        return formatDate(d);
-    }
+const DAY_ALIASES: Record<string, number> = {
+    sunday: 0,
+    sun: 0,
+    ahad: 0,
+    a7ad: 0,
+    l7ad: 0,
+    'الأحد': 0,
+    'الاحد': 0,
 
-    // Try parsing as ISO date
-    if (/^\d{4}-\d{2}-\d{2}$/.test(input)) return input;
+    monday: 1,
+    mon: 1,
+    tnen: 1,
+    itnen: 1,
+    tanen: 1,
+    ltnen: 1,
+    'l tnen': 1,
+    'الإثنين': 1,
+    'الاثنين': 1,
 
-    // Fallback: return tomorrow
-    const d = new Date(now);
-    d.setDate(d.getDate() + 1);
-    return formatDate(d);
+    tuesday: 2,
+    tue: 2,
+    tleta: 2,
+    taleta: 2,
+    'الثلاثاء': 2,
+
+    wednesday: 3,
+    wed: 3,
+    arba3a: 3,
+    arb3a: 3,
+    'الأربعاء': 3,
+    'الاربعاء': 3,
+
+    thursday: 4,
+    thu: 4,
+    khamis: 4,
+    '5amis': 4,
+    'الخميس': 4,
+
+    friday: 5,
+    fri: 5,
+    jom3a: 5,
+    jum3a: 5,
+    jem3a: 5,
+    'الجمعة': 5,
+
+    saturday: 6,
+    sat: 6,
+    sabt: 6,
+    sebt: 6,
+    'السبت': 6,
+};
+
+function clean(value: string | null | undefined): string | null {
+    const v = value?.trim();
+    return v ? v : null;
 }
 
-function formatDate(d: Date): string {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function normalizeDay(input: string): string {
+    return input.toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
-function formatTime12(time: string): string {
-    const [h, m] = time.split(':').map(Number);
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    const hour = h % 12 || 12;
-    return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`;
+export function resolveDayOfWeek(input?: string | null, now = new Date()): number | null {
+    if (!input) return null;
+    const normalized = normalizeDay(input);
+    if (normalized === 'today' || normalized === 'lyom' || normalized === 'اليوم') return now.getDay();
+    if (normalized === 'tomorrow' || normalized === 'bokra' || normalized === 'بكرا' || normalized === 'غدا') return (now.getDay() + 1) % 7;
+    if (DAY_ALIASES[normalized] !== undefined) return DAY_ALIASES[normalized];
+    return null;
 }
 
-/**
- * Tool that checks REAL availability by reading business_hours and
- * cross-referencing with existing appointments.
- */
-export const checkCalendarAvailabilityTool = (workspaceId: string) => ({
-    description: 'Check REAL-TIME availability for a specific date. Returns open time slots after checking business hours and existing bookings.',
-    parameters: z.object({
-        date: z.string().describe("The date to check (e.g. 'tomorrow', 'bokra', '2026-04-15', 'Monday')."),
-        service_name: z.string().optional().describe('The service they want to book, if mentioned.'),
-    }),
-    execute: async ({ date, service_name }: any) => {
-        const supabase = getAdminClient();
-        const resolvedDate = resolveDate(date);
-        const dayOfWeek = new Date(resolvedDate + 'T00:00:00').getDay();
+export function dateToDayOfWeek(date: string): number {
+    const d = new Date(`${date}T12:00:00`);
+    return d.getDay();
+}
 
-        console.log(`[Calendar Tool] Checking: ${date} → ${resolvedDate} (day ${dayOfWeek}) | ws: ${workspaceId}`);
+export function timeToMinutes(time: string): number {
+    const [h, m] = time.split(':').map((part) => Number(part));
+    return h * 60 + (Number.isFinite(m) ? m : 0);
+}
 
-        // 1. Get business hours for this day
-        const { data: hoursData } = await supabase
-            .from('business_hours')
-            .select('is_open, open_time, close_time')
-            .eq('workspace_id', workspaceId)
-            .eq('day_of_week', dayOfWeek)
-            .maybeSingle();
+export function minutesToTime(minutes: number): string {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
 
-        if (!hoursData || !hoursData.is_open) {
-            const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek];
-            return `CLOSED on ${dayName} (${resolvedDate}). Suggest an alternative day when the business is open.`;
+function rangesOverlap(aStart: number, aEnd: number, bStart: number, bEnd: number): boolean {
+    return aStart < bEnd && bStart < aEnd;
+}
+
+function scopeWorkspace(query: any, userId: string, workspaceId?: string) {
+    if (workspaceId) return query.eq('workspace_id', workspaceId);
+    return query.eq('user_id', userId).is('workspace_id', null);
+}
+
+export async function getBusinessHours(args: {
+    supabase: any;
+    userId: string;
+    workspaceId?: string;
+    day?: string | number | null;
+}): Promise<{ hours: BusinessHoursRow[]; error?: string }> {
+    const { supabase, userId, workspaceId, day } = args;
+    const dayOfWeek = typeof day === 'number' ? day : resolveDayOfWeek(day || null);
+
+    let query = supabase
+        .from('business_hours')
+        .select('day_of_week, is_open, open_time, close_time')
+        .order('day_of_week', { ascending: true });
+
+    query = scopeWorkspace(query, userId, workspaceId);
+    if (dayOfWeek !== null) query = query.eq('day_of_week', dayOfWeek);
+
+    const { data, error } = await query;
+    if (error) {
+        console.error('[AppointmentTools] Business hours error:', error);
+        return { hours: [], error: error.message || 'business_hours_failed' };
+    }
+
+    return { hours: (data || []) as BusinessHoursRow[] };
+}
+
+export async function getBusinessHoursForDate(args: {
+    supabase: any;
+    userId: string;
+    workspaceId?: string;
+    date: string;
+}) {
+    const dayOfWeek = dateToDayOfWeek(args.date);
+    const result = await getBusinessHours({ ...args, day: dayOfWeek });
+    return { hours: result.hours[0] || null, error: result.error };
+}
+
+export async function getServices(args: {
+    supabase: any;
+    userId: string;
+    workspaceId?: string;
+    serviceName?: string | null;
+    limit?: number;
+}): Promise<{ services: AppointmentService[]; error?: string }> {
+    const { supabase, userId, workspaceId, serviceName, limit = 10 } = args;
+
+    let query = supabase
+        .from('services')
+        .select('id, name, price, duration_minutes, description')
+        .limit(limit);
+
+    query = scopeWorkspace(query, userId, workspaceId);
+    if (clean(serviceName)) query = query.ilike('name', `%${clean(serviceName)}%`);
+
+    const { data, error } = await query;
+    if (error) {
+        console.error('[AppointmentTools] Services error:', error);
+        return { services: [], error: error.message || 'services_failed' };
+    }
+
+    return { services: (data || []) as AppointmentService[] };
+}
+
+export function validateSlotInsideBusinessHours(args: {
+    hours: BusinessHoursRow | null;
+    time: string;
+    durationMinutes: number;
+}): AppointmentValidation {
+    const { hours, time, durationMinutes } = args;
+
+    if (!hours || !hours.is_open || !hours.open_time || !hours.close_time) {
+        return { ok: false, code: 'closed', message: 'Business is closed on this day.' };
+    }
+
+    const start = timeToMinutes(time);
+    const end = start + durationMinutes;
+    const open = timeToMinutes(hours.open_time);
+    const close = timeToMinutes(hours.close_time);
+
+    if (start < open || end > close) {
+        return {
+            ok: false,
+            code: 'outside_business_hours',
+            message: `Requested time is outside business hours (${hours.open_time}-${hours.close_time}).`,
+        };
+    }
+
+    return { ok: true, code: 'ok', message: 'Slot is inside business hours.' };
+}
+
+export async function checkAppointmentAvailability(args: {
+    supabase: any;
+    userId: string;
+    workspaceId?: string;
+    date: string;
+    durationMinutes?: number;
+}): Promise<{ slots: AppointmentSlot[]; hours: BusinessHoursRow | null; closed: boolean; error?: string }> {
+    const { supabase, userId, workspaceId, date, durationMinutes = 60 } = args;
+    const hoursResult = await getBusinessHoursForDate({ supabase, userId, workspaceId, date });
+    const hours = hoursResult.hours;
+
+    if (hoursResult.error) return { slots: [], hours: null, closed: false, error: hoursResult.error };
+    if (!hours || !hours.is_open || !hours.open_time || !hours.close_time) {
+        return { slots: [], hours, closed: true };
+    }
+
+    let appointmentsQuery = supabase
+        .from('appointments')
+        .select('appointment_date, start_time, duration_minutes, status')
+        .eq('appointment_date', date)
+        .neq('status', 'Cancelled');
+
+    appointmentsQuery = scopeWorkspace(appointmentsQuery, userId, workspaceId);
+
+    const { data: appointments, error } = await appointmentsQuery;
+    if (error) {
+        console.error('[AppointmentTools] Appointment lookup error:', error);
+        return { slots: [], hours, closed: false, error: error.message || 'appointment_lookup_failed' };
+    }
+
+    const busyRanges = (appointments || []).map((apt: any) => {
+        const start = timeToMinutes(apt.start_time);
+        const end = start + Number(apt.duration_minutes || durationMinutes);
+        return { start, end };
+    });
+
+    const open = timeToMinutes(hours.open_time);
+    const close = timeToMinutes(hours.close_time);
+    const slots: AppointmentSlot[] = [];
+
+    for (let start = open; start + durationMinutes <= close; start += durationMinutes) {
+        const end = start + durationMinutes;
+        const hasConflict = busyRanges.some((busy: { start: number, end: number }) => rangesOverlap(start, end, busy.start, busy.end));
+        if (!hasConflict) {
+            slots.push({ date, time: minutesToTime(start), end_time: minutesToTime(end) });
         }
+    }
 
-        const openTime = hoursData.open_time?.slice(0, 5) || '09:00';
-        const closeTime = hoursData.close_time?.slice(0, 5) || '17:00';
+    return { slots, hours, closed: false };
+}
 
-        // 2. Get slot duration from ai_settings
-        const { data: settingsData } = await supabase
-            .from('ai_settings')
-            .select('slot_duration_minutes')
-            .eq('id', workspaceId)
-            .maybeSingle();
+export async function validateAppointmentSlot(args: {
+    supabase: any;
+    userId: string;
+    workspaceId?: string;
+    date: string;
+    time: string;
+    durationMinutes: number;
+}): Promise<AppointmentValidation> {
+    const { supabase, userId, workspaceId, date, time, durationMinutes } = args;
+    const hoursResult = await getBusinessHoursForDate({ supabase, userId, workspaceId, date });
+    const hoursValidation = validateSlotInsideBusinessHours({ hours: hoursResult.hours, time, durationMinutes });
+    if (!hoursValidation.ok) return hoursValidation;
 
-        const slotMinutes = settingsData?.slot_duration_minutes || 60;
+    const availability = await checkAppointmentAvailability({ supabase, userId, workspaceId, date, durationMinutes });
+    if (availability.error) return { ok: false, code: 'database_error', message: availability.error };
 
-        // 3. Get existing appointments for this date
-        const { data: existingAppts } = await supabase
-            .from('appointments')
-            .select('start_time, duration_minutes')
-            .eq('workspace_id', workspaceId)
-            .eq('appointment_date', resolvedDate)
-            .neq('status', 'cancelled');
+    const requestedStart = timeToMinutes(time);
+    const requestedEnd = requestedStart + durationMinutes;
+    const available = availability.slots.some((slot) => {
+        const slotStart = timeToMinutes(slot.time);
+        const slotEnd = timeToMinutes(slot.end_time);
+        return requestedStart >= slotStart && requestedEnd <= slotEnd;
+    });
 
-        const bookedSlots = new Set<string>();
-        (existingAppts || []).forEach((a: any) => {
-            // Mark every minute of the booking as occupied
-            const [ah, am] = a.start_time.split(':').map(Number);
-            const startMin = ah * 60 + am;
-            for (let m = startMin; m < startMin + (a.duration_minutes || slotMinutes); m++) {
-                bookedSlots.add(String(m));
-            }
-        });
+    if (!available) return { ok: false, code: 'conflict', message: 'Requested appointment time conflicts with another booking.' };
+    return { ok: true, code: 'ok', message: 'Appointment slot is valid.' };
+}
 
-        // 4. Generate available slots
-        const [oh, om] = openTime.split(':').map(Number);
-        const [ch, cm] = closeTime.split(':').map(Number);
-        const openMin = oh * 60 + om;
-        const closeMin = ch * 60 + cm;
+export async function finalizeAppointmentBooking(args: {
+    supabase: any;
+    userId: string;
+    workspaceId?: string;
+    chatId?: string;
+    customerName?: string | null;
+    customerPhone?: string | null;
+    serviceName?: string | null;
+    date?: string | null;
+    time?: string | null;
+    durationMinutes?: number;
+}) {
+    const { supabase, userId, workspaceId, chatId } = args;
+    const missing: string[] = [];
+    if (!clean(args.customerName)) missing.push('name');
+    if (!clean(args.customerPhone)) missing.push('phone');
+    if (!clean(args.serviceName)) missing.push('service');
+    if (!clean(args.date)) missing.push('date');
+    if (!clean(args.time)) missing.push('time');
 
-        const availableSlots: string[] = [];
-        for (let slotStart = openMin; slotStart + slotMinutes <= closeMin; slotStart += slotMinutes) {
-            // Check if any minute in this slot is occupied
-            let conflict = false;
-            for (let m = slotStart; m < slotStart + slotMinutes; m++) {
-                if (bookedSlots.has(String(m))) {
-                    conflict = true;
-                    break;
-                }
-            }
-            if (!conflict) {
-                const hour = Math.floor(slotStart / 60);
-                const minute = slotStart % 60;
-                const timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-                availableSlots.push(formatTime12(timeStr));
-            }
-        }
+    if (missing.length) {
+        return { ok: false, code: 'missing_fields', missing, message: `Missing booking fields: ${missing.join(', ')}` };
+    }
 
-        // 5. Also get matching services if specified
-        let serviceInfo = '';
-        if (service_name) {
-            const { data: services } = await supabase
-                .from('services')
-                .select('name, price, duration_minutes')
-                .eq('workspace_id', workspaceId)
-                .ilike('name', `%${service_name}%`)
-                .limit(3);
+    const durationMinutes = args.durationMinutes || 60;
+    const validation = await validateAppointmentSlot({
+        supabase,
+        userId,
+        workspaceId,
+        date: args.date!,
+        time: args.time!,
+        durationMinutes,
+    });
 
-            if (services && services.length > 0) {
-                serviceInfo = '\nMatching services: ' + services.map((s: any) => `${s.name} ($${s.price}, ${s.duration_minutes}m)`).join(', ');
-            }
-        }
+    if (!validation.ok) return { ok: false, code: validation.code, message: validation.message };
 
-        if (availableSlots.length === 0) {
-            return `FULLY BOOKED on ${resolvedDate}. No available slots. Suggest another day.${serviceInfo}`;
-        }
+    // Get instagram handle
+    let handle = 'Customer';
+    if (chatId) {
+        const { data: lastMsg } = await supabase
+            .from('activity_log').select('metadata')
+            .eq('user_id', userId)
+            .filter('metadata->>chat_id', 'eq', chatId)
+            .order('timestamp', { ascending: false })
+            .limit(1).maybeSingle();
+        if (lastMsg?.metadata?.username) handle = lastMsg.metadata.username;
+    }
 
-        return `Available slots on ${resolvedDate}: ${availableSlots.join(', ')} (${slotMinutes}-min sessions).${serviceInfo}\nOffer these times to the customer and let them pick one.`;
-    },
-});
+    const { error } = await supabase.from('appointments').insert({
+        user_id: userId,
+        workspace_id: workspaceId || null,
+        instagram_user_id: chatId || null,
+        instagram_handle: handle,
+        customer_name: clean(args.customerName),
+        customer_phone: clean(args.customerPhone),
+        service: clean(args.serviceName),
+        appointment_date: args.date,
+        start_time: args.time,
+        duration_minutes: durationMinutes,
+        status: 'confirmed',
+        created_at: new Date().toISOString(),
+    });
+
+    if (error) {
+        console.error('[AppointmentTools] Booking insert error:', error);
+        return { ok: false, code: 'database_error', message: error.message || 'Failed to save booking.' };
+    }
+
+    // Also save to orders table (for orders page)
+    await supabase.from('orders').insert({
+        user_id: userId,
+        workspace_id: workspaceId || null,
+        instagram_user_id: chatId || null,
+        instagram_handle: handle,
+        status: 'Pending',
+        created_at: new Date().toISOString(),
+        customer_name: clean(args.customerName),
+        customer_phone: clean(args.customerPhone),
+        item_requested: clean(args.serviceName),
+        raw_message: JSON.stringify({ preferred_date: args.date, preferred_time: args.time }),
+    }).then(({ error: orderError }: any) => {
+        if (orderError) console.warn('⚠️ [APPOINTMENTS] orders mirror insert error:', orderError.message);
+    });
+
+    return { ok: true, code: 'appointment_saved', message: 'Appointment saved successfully.' };
+}
