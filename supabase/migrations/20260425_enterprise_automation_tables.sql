@@ -14,6 +14,7 @@ create table if not exists public.automation_events (
 );
 
 alter table public.automation_events add column if not exists workspace_id uuid null;
+alter table public.automation_events add column if not exists chat_id text null;
 
 create index if not exists automation_events_user_created_idx
     on public.automation_events (user_id, created_at desc);
@@ -28,7 +29,7 @@ create table if not exists public.conversation_states (
     id uuid primary key default gen_random_uuid(),
     user_id uuid not null,
     workspace_id uuid null,
-    chat_id text not null,
+    chat_id text null,
     workspace_type text not null check (workspace_type in ('ecommerce', 'appointments')),
     stage text not null default 'idle',
     data jsonb not null default '{}'::jsonb,
@@ -37,6 +38,7 @@ create table if not exists public.conversation_states (
 );
 
 alter table public.conversation_states add column if not exists workspace_id uuid null;
+alter table public.conversation_states add column if not exists chat_id text null;
 
 do $$
 begin
