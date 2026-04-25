@@ -6,7 +6,7 @@ import GhostLogo from '@/components/GhostLogo';
 import Navbar from '@/components/Navbar';
 import StarBackground from '@/components/StarBackground';
 import PricingPlans from '@/components/PricingPlans';
-import VideoModal from '@/components/VideoModal';
+import DemoVideoModal from '@/components/demo/DemoVideoModal';
 import Footer from '@/components/Footer';
 import EcommerceHeroAnimation from '@/components/landing/EcommerceHeroAnimation';
 import AppointmentsHeroAnimation from '@/components/landing/AppointmentsHeroAnimation';
@@ -295,6 +295,11 @@ export default function Home() {
                 style={{ animation: 'shimmer 3s ease-in-out infinite' }}
               />
             </Link>
+            <DemoVideoModal
+              isOpen={showVideo}
+              onClose={() => setShowVideo(false)}
+              videoSrc="/demo/ghostagent-demo.webm"
+            />
             <button
               onClick={() => setShowVideo(true)}
               className="px-8 py-4 bg-foreground/5 border border-border rounded-full hover:bg-foreground/10 transition-colors backdrop-blur-md text-foreground font-semibold flex items-center justify-center gap-2"
@@ -391,7 +396,7 @@ export default function Home() {
           </div>
 
           {/* Tab Content */}
-          <div className="bg-surface-1 border border-border rounded-[2rem] p-6 md:p-10 shadow-xl overflow-hidden relative">
+          <div className="bg-surface-1 border border-border rounded-[2rem] p-6 md:p-10 shadow-xl overflow-visible lg:overflow-hidden relative h-auto">
             <AnimatePresence mode="wait">
                 {activeWorkspace === 'ecom' && (
                     <motion.div
@@ -427,7 +432,7 @@ export default function Home() {
                                 ))}
                             </ul>
                         </div>
-                        <div className="w-full aspect-[4/3] rounded-2xl flex items-center justify-center relative overflow-hidden group">
+                        <div className="relative w-full min-h-[420px] sm:min-h-[480px] lg:h-[560px] rounded-2xl flex items-center justify-center overflow-visible lg:overflow-hidden group">
                            <EcommerceHeroAnimation />
                         </div>
                     </motion.div>
@@ -467,7 +472,7 @@ export default function Home() {
                                 ))}
                             </ul>
                         </div>
-                        <div className="w-full aspect-[4/3] rounded-2xl flex items-center justify-center relative overflow-hidden group">
+                        <div className="relative w-full min-h-[420px] sm:min-h-[480px] lg:h-[560px] rounded-2xl flex items-center justify-center overflow-visible lg:overflow-hidden group">
                            <AppointmentsHeroAnimation />
                         </div>
                     </motion.div>
@@ -841,8 +846,6 @@ export default function Home() {
 
       {/* Footer */}
       <Footer />
-
-      <VideoModal isOpen={showVideo} onClose={() => setShowVideo(false)} />
     </main>
   );
 }

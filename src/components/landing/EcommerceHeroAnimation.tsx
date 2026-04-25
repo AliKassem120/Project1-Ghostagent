@@ -5,12 +5,12 @@ import { Package, ShieldCheck, ShoppingBag, TrendingUp, Zap } from 'lucide-react
 
 export default function EcommerceHeroAnimation() {
   return (
-    <div className="absolute inset-0 bg-surface-1/50 backdrop-blur-xl flex flex-col md:flex-row p-4 md:p-6 gap-4 overflow-hidden rounded-2xl border border-border">
+    <div className="absolute inset-0 bg-surface-1/50 backdrop-blur-xl flex flex-col md:flex-row p-3 sm:p-4 md:p-6 gap-4 overflow-hidden rounded-2xl border border-border">
       {/* Background glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/4 h-3/4 bg-blue-500/20 blur-[80px] rounded-full pointer-events-none" />
       
       {/* Phone Mockup (Left) */}
-      <div className="flex-[0.8] md:flex-[0.9] bg-surface-2 rounded-xl border border-border shadow-2xl overflow-hidden flex flex-col relative z-10">
+      <div className="w-full md:flex-[0.9] h-full bg-surface-2 rounded-xl border border-border shadow-2xl overflow-hidden flex flex-col relative z-10 scale-[0.95] sm:scale-100 origin-center sm:origin-top">
         <div className="h-10 border-b border-border bg-surface-1/80 flex items-center px-4 gap-3 shrink-0">
           <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-blue-600 to-blue-400 flex items-center justify-center shadow-sm">
              <Zap className="w-3 h-3 text-white" />
