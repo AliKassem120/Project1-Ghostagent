@@ -173,7 +173,7 @@ export async function classifyEcommerceIntent(args: {
     businessLanguage?: string;
     modelName?: string;
 }): Promise<EcommerceIntent> {
-    const { message, historyContext = '', contextSummary = '', businessLanguage = 'Auto-Detect', modelName = 'llama-3.3-70b-versatile' } = args;
+    const { message, historyContext = '', contextSummary = '', businessLanguage = 'Auto-Detect', modelName = 'llama-3.1-70b-versatile' } = args;
 
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) return fallbackClassify(message);

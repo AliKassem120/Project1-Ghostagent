@@ -95,16 +95,16 @@ function fallbackClassify(message: string): AppointmentIntent {
         return { ...base, intent: 'gratitude_goodbye', confidence: 0.75 };
     }
 
-    if (['hi', 'hello', 'hey', 'hala', 'marhaba', 'مرحبا', 'اهلا', 'kifak', 'kif halak'].includes(text)) {
+    if (hasAny(text, ['hi', 'hello', 'hey', 'hala', 'marhaba', 'مرحبا', 'اهلا', 'kifak', 'kif halak']) && text.split(' ').length < 3) {
         return { ...base, intent: 'greeting', confidence: 0.7 };
     }
 
     // Confirmed yes/no signals from Arabizi module
-    if (hints.yes) {
+    if (hints.yes || hasAny(text, ['eh', 'ee', 'yes', 'akid', 'ok', 'tamem', 'اي', 'نعم', 'تمام'])) {
         return { ...base, intent: 'confirmation', confidence: 0.82 };
     }
 
-    if (hints.no) {
+    if (hints.no || hasAny(text, ['la', 'la2', 'no', 'mish', 'stop', 'cancel', 'لا', 'مش'])) {
         return { ...base, intent: 'rejection', confidence: 0.82 };
     }
 
@@ -121,8 +121,8 @@ function fallbackClassify(message: string): AppointmentIntent {
     if (hints.wantsAppointment || hasAny(text, [
         'bde e5od maw3ed', 'bade ekhod maw3ed', 'baddi maw3ed',
         'badde 7ajez', 'bde 7ajez', 'bde maw3ed',
-        '7ajez', 'hajiz', 'hajez',
-        'book', 'reserve', 'b7ajez', 'حجز', 'احجز',
+        '7ajez', 'hajiz', 'hajez', 'book', 'appointment', 'maw3ed', 'maw3id', 
+        'cut', 'haircut', 'sha3er', 'قص', 'موعد', 'حجز'
     ])) {
         const date = hints.today ? new Date().toISOString().slice(0, 10)
                     : hints.tomorrow ? (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); })()
@@ -138,7 +138,7 @@ function fallbackClassify(message: string): AppointmentIntent {
 
     // Availability (slot check)
     if (hints.asksAvailability || hasAny(text, [
-        'available', 'availability', 'slot', 'fi maw3ed', 'fi mahal', 'في محل', 'موعد',
+        'available', 'availability', 'slot', 'fi maw3ed', 'fi mahal', 'في محل', 'موعد', 'time', 'se3a', 'fadi', 'sa3a', 'فاضي', 'ساعة', 'وقت'
     ])) {
         return { ...base, intent: 'appointment_availability', confidence: 0.75 };
     }
@@ -170,7 +170,7 @@ export async function classifyAppointmentIntent(args: {
     businessLanguage?: string;
     modelName?: string;
 }): Promise<AppointmentIntent> {
-    const { message, historyContext = '', contextSummary = '', businessLanguage = 'Auto-Detect', modelName = 'llama-3.3-70b-versatile' } = args;
+    const { message, historyContext = '', contextSummary = '', businessLanguage = 'Auto-Detect', modelName = 'llama-3.1-70b-versatile' } = args;
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) return fallbackClassify(message);
 
