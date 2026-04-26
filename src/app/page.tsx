@@ -158,6 +158,17 @@ function PhoneMockup() {
   );
 }
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+  return isMobile;
+}
+
 /* ════════════════════════════════════════════════════
    SCROLL-TRIGGERED STEP COMPONENT
    ════════════════════════════════════════════════════ */
@@ -176,14 +187,21 @@ function StepItem({
   isActive: boolean;
   onInView: () => void;
 }) {
+  const isMobile = useIsMobile();
+  
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-20% 0px -20% 0px" }}
+      viewport={{ 
+        once: false, 
+        amount: isMobile ? 0.6 : 0.4,
+        margin: isMobile ? "-20% 0px -25% 0px" : "-10% 0px -10% 0px" 
+      }}
       onViewportEnter={onInView}
       className={clsx(
-        "relative pl-12 md:pl-20 py-8 md:py-12 transition-all duration-500",
+        "relative pl-12 md:pl-20 py-10 md:py-12 transition-all duration-500",
+        isMobile && "min-h-[320px] flex flex-col justify-center",
         isActive ? "opacity-100 scale-100" : "opacity-40 scale-[0.98]"
       )}
     >
@@ -860,7 +878,7 @@ export default function Home() {
       {/* ═══════════════════════════════════════════════════
          SECTION 3: HOW IT WORKS
          ═══════════════════════════════════════════════════ */}
-      <section id="about" className="relative py-24 md:py-32 px-4 md:px-6 z-10 border-t border-border overflow-visible">
+      <section id="about" className="relative py-24 md:py-32 px-4 md:px-6 z-10 border-t border-border overflow-visible scroll-mt-24">
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -875,6 +893,13 @@ export default function Home() {
             <p className="text-muted-foreground max-w-2xl mx-auto text-lg md:text-xl font-medium leading-relaxed">
               Connect Instagram, configure your workspace, and start automating replies, orders, and bookings in minutes.
             </p>
+            
+            {/* Debug label - only visible in dev if needed */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="mt-4 inline-block px-3 py-1 bg-primary/20 rounded-full text-[10px] font-bold text-primary">
+                Active Step: {activeStep + 1}
+              </div>
+            )}
           </motion.div>
 
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-start">
