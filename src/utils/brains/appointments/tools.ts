@@ -39,10 +39,11 @@ const DAY_ALIASES: Record<string, number> = {
     saturday: 6, sat: 6, sabt: 6, sebt: 6, 'السبت': 6,
 };
 
-function clean(value: string | null | undefined): string | null {
+export function clean(value: string | null | undefined): string | null {
     const v = value?.trim();
     return v ? v : null;
 }
+
 
 function normalizeDay(input: string): string {
     return input.toLowerCase().replace(/\s+/g, ' ').trim();
@@ -212,106 +213,7 @@ export async function checkAppointmentAvailability(args: {
     return { slots, hours, closed: false };
 }
 
-export async function finalizeAppointmentBooking(args: {
-    supabase: any;
-    userId: string;
-    workspaceId?: string;
-    chatId?: string;
-    customerName?: string | null;
-    customerPhone?: string | null;
-    serviceName?: string | null;
-    date?: string | null;
-    time?: string | null;
-    durationMinutes?: number;
-}) {
-    const { supabase, userId, workspaceId, chatId, date, time } = args;
 
-    if (!workspaceId) return { ok: false, code: 'workspace_missing', message: 'Workspace context missing.' };
-
-    const missing: string[] = [];
-    if (!clean(args.customerName)) missing.push('name');
-    if (!clean(args.customerPhone)) missing.push('phone');
-    if (!clean(args.serviceName)) missing.push('service');
-    if (!clean(date)) missing.push('date');
-    if (!clean(time)) missing.push('time');
-
-    if (missing.length) {
-        return { ok: false, code: 'missing_fields', missing, message: `Missing fields: ${missing.join(', ')}` };
-    }
-
-    const slotDuration = args.durationMinutes || await getAppointmentSlotDuration(supabase, workspaceId);
-    
-    // Validate slot
-    const availability = await checkAppointmentAvailability({
-        supabase,
-        userId,
-        workspaceId,
-        date: date!,
-        durationMinutes: slotDuration
-    });
-
-    if (availability.error) return { ok: false, code: 'database_error', message: availability.error };
-    if (availability.closed) return { ok: false, code: 'closed', message: 'We are closed on this day.' };
-
-    const requestedStart = timeToMinutes(time!);
-    const requestedEnd = requestedStart + slotDuration;
-    
-    const isAvailable = availability.slots.some(s => {
-        const sStart = timeToMinutes(s.time);
-        const sEnd = timeToMinutes(s.end_time);
-        return requestedStart >= sStart && requestedEnd <= sEnd;
-    });
-
-    if (!isAvailable) {
-        return { ok: false, code: 'outside_business_hours', message: 'This slot is unavailable or outside business hours.' };
-    }
-
-    // Get handle
-    let handle = 'Customer';
-    if (chatId) {
-        const { data: lastMsg } = await supabase
-            .from('activity_log').select('metadata')
-            .eq('user_id', userId)
-            .filter('metadata->>chat_id', 'eq', chatId)
-            .order('timestamp', { ascending: false })
-            .limit(1).maybeSingle();
-        if (lastMsg?.metadata?.username) handle = lastMsg.metadata.username;
-    }
-
-    const { error } = await supabase.from('appointments').insert({
-        user_id: userId,
-        workspace_id: workspaceId,
-        instagram_user_id: chatId || null,
-        instagram_handle: handle,
-        customer_name: clean(args.customerName),
-        customer_phone: clean(args.customerPhone),
-        service: clean(args.serviceName),
-        appointment_date: date,
-        start_time: time,
-        duration_minutes: slotDuration,
-        status: 'confirmed',
-    });
-
-    if (error) {
-        console.error('[AppointmentTools] Booking error:', error);
-        return { ok: false, code: 'database_error', message: 'Failed to save booking.' };
-    }
-
-    // Mirror to orders
-    await supabase.from('orders').insert({
-        user_id: userId,
-        workspace_id: workspaceId,
-        instagram_user_id: chatId || null,
-        instagram_handle: handle,
-        status: 'Pending',
-        customer_name: clean(args.customerName),
-        customer_phone: clean(args.customerPhone),
-        item_requested: clean(args.serviceName),
-        raw_message: JSON.stringify({ appointment_date: date, appointment_time: time }),
-    }).catch((e: any) => console.warn('Mirror error:', e));
-
-    return { ok: true, code: 'appointment_saved', message: 'Appointment saved successfully.' };
-}
 
 export async function getServices(args: {
     supabase: any;

@@ -16,6 +16,8 @@ export const AppointmentIntentNameSchema = z.enum([
     'late_arrival',
     'gratitude_goodbye',
     'human_handoff',
+    'confirmation',
+    'rejection',
     'unknown',
 ]);
 
@@ -116,8 +118,17 @@ function fallbackClassify(message: string): AppointmentIntent {
         return { ...base, intent: 'location_question', confidence: 0.7 };
     }
 
+    if (hasAny(text, ['yes', 'yeah', 'yep', 'confirm', 'book it', 'do it', 'eh', 'aywa', 'mazbout', 'tamem', 'اي', 'ايه', 'تمام', 'صح'])) {
+        return { ...base, intent: 'confirmation', confidence: 0.8 };
+    }
+
+    if (hasAny(text, ['no', 'nope', 'cancel', 'dont', 'la', 'mesh', 'لا', 'مش'])) {
+        return { ...base, intent: 'rejection', confidence: 0.8 };
+    }
+
     return base;
 }
+
 
 export async function classifyAppointmentIntent(args: {
     message: string;
@@ -142,6 +153,8 @@ Critical distinction:
 - business_hours means the customer asks when the business opens/closes or whether it is open on a day. Examples: "do you open Sunday", "aya se3a btefta7o l tanen", "كل يوم؟", "اي ساعة بتفتح؟".
 - appointment_availability means the customer asks whether a booking slot is available. Examples: "fi mahal se3a 4", "do you have an appointment tomorrow", "available at 5?".
 - book_appointment means customer is choosing/confirming a concrete service/date/time.
+- confirmation means the customer explicitly says "yes", "confirm", or agrees to a proposal.
+- rejection means the customer says "no" or "cancel" to a proposal.
 - service_question asks what services exist.
 - price_question asks service cost.
 - duration_question asks how long service takes.

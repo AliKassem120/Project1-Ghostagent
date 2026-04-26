@@ -6,11 +6,17 @@ import { classifyAppointmentIntent, AppointmentIntent } from './intent';
 import { buildAppointmentFinalReplyPrompt, buildAppointmentFinalReplyUserPrompt, cleanAppointmentReply } from './prompt';
 import {
     checkAppointmentAvailability,
-    finalizeAppointmentBooking,
     getBusinessHours,
     getServices,
 } from './tools';
-import { getAppointmentSlotDuration } from '@/lib/appointments/business-hours';
+import { getAppointmentSlotDuration, getWorkspaceTimezone } from '@/lib/appointments/business-hours';
+import { createAppointmentBooking } from '@/lib/appointments/create-appointment';
+import { 
+    getConversationState, 
+    updateConversationState, 
+    clearConversationState, 
+    ConversationState 
+} from '@/lib/appointments/conversation-state';
 
 import { GHOST_AGENT_MASTER_KNOWLEDGE } from '../master-knowledge';
 
@@ -47,17 +53,16 @@ export async function generateAppointmentsGhostReply(
     console.log('📅 [APPOINTMENTS BRAIN] Generating reply for', userId, workspaceId ? `(workspace: ${workspaceId})` : '');
 
     try {
-        let settingsQuery = supabase
-            .from('ai_settings')
-            .select('business_name, business_type, tone, system_instructions, urgency_mode, handoff_keywords, language, store_location, contact_info, use_emojis, use_local_slang, shipping_rules, is_autopilot_enabled');
-
-        if (workspaceId) {
-            settingsQuery = settingsQuery.eq('id', workspaceId);
-        } else {
-            settingsQuery = settingsQuery.eq('user_id', userId).is('id', null);
+        if (!workspaceId) {
+            console.error('❌ [APPOINTMENTS] No workspaceId provided.');
+            return null;
         }
 
-        const { data: settings } = await settingsQuery.limit(1).maybeSingle();
+        const { data: settings } = await supabase
+            .from('ai_settings')
+            .select('*')
+            .eq('id', workspaceId)
+            .maybeSingle();
 
         const business: BusinessProfile = {
             business_name: settings?.business_name || 'our business',
@@ -77,7 +82,6 @@ export async function generateAppointmentsGhostReply(
         if (Array.isArray(business.handoff_keywords) && business.handoff_keywords.some(
             (kw: string) => userMessage.toLowerCase().includes(kw.toLowerCase())
         )) {
-            console.log('🛑 [APPOINTMENTS] Handoff Keyword Detected. Pausing AI.');
             return null;
         }
 
@@ -92,10 +96,6 @@ export async function generateAppointmentsGhostReply(
             fullHistory = memory.fullHistory;
         }
 
-        if (checkoutContext) {
-            historyContext += `\n[SYSTEM NOTE: The customer just attempted to book. Form content: ${checkoutContext}]`;
-        }
-
         const cleanMessage = cleanMessageText(userMessage);
         const intent = await classifyAppointmentIntent({
             message: cleanMessage,
@@ -106,8 +106,13 @@ export async function generateAppointmentsGhostReply(
 
         if (intent.intent === 'human_handoff') return null;
 
-        const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
+        // Load Conversation State
+        let state: ConversationState = { stage: 'idle', data: {} };
+        if (chatId) {
+            state = await getConversationState(supabase, userId, workspaceId, chatId);
+        }
 
+        const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
         const replyWithTruth = async (truth: unknown, constraints: string[] = []) => {
             const final = await generateText({
                 model: groq('llama-3.3-70b-versatile'),
@@ -122,38 +127,52 @@ export async function generateAppointmentsGhostReply(
                 temperature: 0.1,
             });
 
-            await safeTrackMemory({ supabase, userId, chatId, workspaceId, fullHistory });
+            if (chatId) await safeTrackMemory({ supabase, userId, chatId, workspaceId, fullHistory });
             return cleanAppointmentReply(final.text);
         };
 
+        // HANDLE CONFIRMATION FLOW
+        if (intent.intent === 'confirmation' && state.stage === 'awaiting_booking_confirmation' && state.data.date && state.data.startTime) {
+            const booking = await createAppointmentBooking({
+                supabase,
+                userId,
+                workspaceId,
+                chatId: chatId!,
+                serviceId: state.data.serviceId,
+                serviceName: state.data.serviceName || 'Service',
+                customerName: state.data.customerName || intent.customer_name || 'Customer',
+                customerPhone: state.data.customerPhone || intent.customer_phone || '',
+                date: state.data.date,
+                startTime: state.data.startTime,
+                timezone: state.data.timezone || 'Asia/Beirut',
+                source: 'automation'
+            });
+
+            if (booking) {
+                await clearConversationState(supabase, userId, workspaceId, chatId!);
+                return replyWithTruth({ booking_success: true, booking }, [
+                    `Confirm that the appointment is set for ${booking.appointment_date} at ${booking.start_time}.`
+                ]);
+            } else {
+                return replyWithTruth({ booking_failed: true }, [
+                    "Say you are having trouble confirming the appointment right now and ask them to try again."
+                ]);
+            }
+        }
+
         switch (intent.intent) {
             case 'business_hours': {
-                if (!workspaceId) {
-                    return replyWithTruth(
-                        { error: 'I’m having trouble checking our schedule right now. Please try again in a moment.' },
-                        ['Say you are having trouble checking the schedule and ask them to try again soon.']
-                    );
-                }
                 const hours = await getBusinessHours({ supabase, userId, workspaceId, day: intent.day });
                 return replyWithTruth(
                     { requested_day: intent.day, hours: hours.hours, timezone: hours.timezone, error: hours.error },
-                    ['Answer opening/closing hours only based on TRUTH. Use exact hours. If closed, say closed. Do not invent.']
+                    ['Answer opening/closing hours only based on TRUTH.']
                 );
             }
 
             case 'appointment_availability': {
-                if (!workspaceId) {
-                    return replyWithTruth(
-                        { error: 'I’m having trouble checking availability right now. Please try again in a moment.' },
-                        ['Say you are having trouble checking availability and ask them to try again soon.']
-                    );
-                }
                 const date = chooseDateFromIntent(intent);
                 if (!date) {
-                    return replyWithTruth(
-                        { needs_date: true, requested_day: intent.day, requested_time: intent.time },
-                        ['Ask which specific day or date they want. Do not invent available slots.']
-                    );
+                    return replyWithTruth({ needs_date: true }, ['Ask which specific day or date they want.']);
                 }
 
                 const services = await getServices({ supabase, userId, workspaceId, serviceName: intent.service_name, limit: 1 });
@@ -161,92 +180,77 @@ export async function generateAppointmentsGhostReply(
                 const availability = await checkAppointmentAvailability({ supabase, userId, workspaceId, date, durationMinutes: duration });
 
                 return replyWithTruth(
-                    { requested_date: date, requested_time: intent.time, service: services.services[0] || null, availability, slotDurationUsed: duration },
-                    ['Offer only slots listed in TRUTH. If closed, say closed. If a time is requested but unavailable, say why (closed or booked) based on TRUTH.']
+                    { requested_date: date, requested_time: intent.time, service: services.services[0] || null, availability },
+                    ['Offer only slots listed in TRUTH. If closed, say closed.']
                 );
             }
 
             case 'book_appointment': {
-                if (!workspaceId) {
-                    return replyWithTruth(
-                        { error: 'I’m having trouble processing your booking right now. Please try again in a moment.' },
-                        ['Say you are having trouble processing the booking and ask them to try again soon.']
-                    );
-                }
                 const date = chooseDateFromIntent(intent);
-                const result = await finalizeAppointmentBooking({
-                    supabase,
-                    userId,
+                const time = intent.time;
+                if (!date || !time) {
+                    return replyWithTruth({ needs_date_or_time: true }, ['Ask for the date and time they want to book.']);
+                }
+
+                const services = await getServices({ supabase, userId, workspaceId, serviceName: intent.service_name, limit: 1 });
+                const service = services.services[0];
+                const timezone = await getWorkspaceTimezone(supabase, workspaceId);
+
+                // Check for missing customer details
+                const customerName = intent.customer_name || state.data.customerName;
+                const customerPhone = intent.customer_phone || state.data.customerPhone;
+
+                const pendingData = {
                     workspaceId,
-                    chatId,
-                    customerName: intent.customer_name,
-                    customerPhone: intent.customer_phone,
-                    serviceName: intent.service_name,
+                    serviceId: service?.id,
+                    serviceName: service?.name || intent.service_name || 'Service',
                     date,
-                    time: intent.time,
+                    startTime: time,
+                    customerName,
+                    customerPhone,
+                    timezone
+                };
+
+                if (!customerName || !customerPhone) {
+                    await updateConversationState(supabase, userId, workspaceId, chatId!, {
+                        stage: 'collecting_customer_details',
+                        data: pendingData
+                    });
+                    return replyWithTruth({ missing_details: true, pendingData }, [
+                        "Tell them you can book that slot, but you need their name and phone number first."
+                    ]);
+                }
+
+                await updateConversationState(supabase, userId, workspaceId, chatId!, {
+                    stage: 'awaiting_booking_confirmation',
+                    data: pendingData
                 });
 
-                return replyWithTruth(
-                    { booking_result: result },
-                    ['If missing fields, ask only for missing fields. If saved, confirm with date and time. If blocked (closed/conflict), explain exactly why.']
-                );
+                return replyWithTruth({ awaiting_confirmation: true, pendingData }, [
+                    `Ask if they want to confirm the booking for ${date} at ${time}.`
+                ]);
             }
 
             case 'service_question':
             case 'price_question':
             case 'duration_question': {
                 const services = await getServices({ supabase, userId, workspaceId, serviceName: intent.service_name });
-                return replyWithTruth(
-                    { requested_service: intent.service_name, services: services.services, error: services.error },
-                    ['Answer only from services in TRUTH. If no service is clear, ask which service they mean.']
-                );
-            }
-
-            case 'location_question': {
-                return replyWithTruth(
-                    { location: business.store_location, contact: business.contact_info },
-                    ['Answer only with provided location/contact.']
-                );
-            }
-
-            case 'gratitude_goodbye': {
-                return replyWithTruth(
-                    { outcome: 'customer_thanked_or_closed_conversation' },
-                    ['Acknowledge briefly. Do not restart booking.']
-                );
+                return replyWithTruth({ requested_service: intent.service_name, services: services.services });
             }
 
             default: {
-                // Incorporate GOD MODE INJECTION if master account
-                const { data: ownerUser } = await supabase.from('users').select('email').eq('id', userId).maybeSingle();
-                let masterKnowledge = null;
-                if (ownerUser?.email?.toLowerCase() === 'alisalemkassem@gmail.com') {
-                    masterKnowledge = GHOST_AGENT_MASTER_KNOWLEDGE;
-                }
-
-                let knowledgeQuery = supabase.from('business_knowledge').select('content');
-                if (workspaceId) knowledgeQuery = knowledgeQuery.eq('workspace_id', workspaceId);
-                else knowledgeQuery = knowledgeQuery.eq('user_id', userId).is('workspace_id', null);
-
+                // God Mode & Knowledge injection...
+                let knowledgeQuery = supabase.from('business_knowledge').select('content').eq('workspace_id', workspaceId);
                 const { data: knowledgeData } = await knowledgeQuery.maybeSingle();
 
-                return replyWithTruth(
-                    { 
-                        custom_instructions: business.system_instructions, 
-                        location: business.store_location, 
-                        contact: business.contact_info,
-                        business_knowledge: knowledgeData?.content || null,
-                        saas_master_knowledge: masterKnowledge 
-                    },
-                    ['Answer only if the business context clearly contains the answer. Otherwise ask one short clarifying question.']
-                );
+                return replyWithTruth({ 
+                    custom_instructions: business.system_instructions, 
+                    location: business.store_location, 
+                    business_knowledge: knowledgeData?.content || null
+                });
             }
         }
     } catch (error: any) {
-        if (error?.statusCode === 429) {
-            console.warn('⚠️ [APPOINTMENTS] Rate limited. Staying silent.');
-            return null;
-        }
         console.error('❌ [APPOINTMENTS] Fatal error:', error);
         return null;
     }
