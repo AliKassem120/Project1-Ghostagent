@@ -190,68 +190,77 @@ function StepItem({
   const isMobile = useIsMobile();
   
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ 
-        once: false, 
-        amount: isMobile ? 0.6 : 0.4,
-        margin: isMobile ? "-20% 0px -25% 0px" : "-10% 0px -10% 0px" 
-      }}
-      onViewportEnter={onInView}
-      className={clsx(
-        "relative pl-12 md:pl-20 py-10 md:py-12 transition-all duration-500",
-        isMobile && "min-h-[320px] flex flex-col justify-center",
-        isActive ? "opacity-100 scale-100" : "opacity-40 scale-[0.98]"
-      )}
-    >
-      {/* Icon Container */}
-      <div className="absolute left-0 top-8 md:top-12 z-20">
-        <div className={clsx(
-          "w-12 h-12 md:w-16 md:h-16 rounded-2xl flex items-center justify-center transition-all duration-500 border shadow-lg",
-          isActive 
-            ? "bg-primary border-primary/50 shadow-primary/20 scale-110" 
-            : "bg-surface-2 border-border shadow-black/20"
-        )}>
-          <Icon className={clsx(
-            "w-6 h-6 md:w-8 h-8 transition-colors duration-500",
-            isActive ? "text-white" : "text-muted-foreground"
-          )} />
-        </div>
-      </div>
+    <div className="relative">
+      {/* Invisible trigger element to handle scroll detection without layout shift interference */}
+      <motion.div 
+        className="absolute top-0 h-full w-full pointer-events-none"
+        viewport={{ 
+          once: false, 
+          amount: isMobile ? 0.2 : 0.4,
+          margin: isMobile ? "-45% 0px -45% 0px" : "-10% 0px -10% 0px" 
+        }}
+        onViewportEnter={onInView}
+      />
 
-      <div className="space-y-4">
-        <span className={clsx(
-          "text-xs font-black uppercase tracking-[0.2em] transition-colors duration-500",
-          isActive ? "text-primary" : "text-muted-foreground"
-        )}>
-          Step 0{index + 1}
-        </span>
-        <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">{title}</h3>
-        <p className="text-lg text-muted-foreground font-medium leading-relaxed max-w-md">
-          {description}
-        </p>
-      </div>
-
-      {/* Mobile Preview - Only visible on small screens when active */}
-      {isActive && (
-        <motion.div 
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          className="lg:hidden mt-8 overflow-hidden"
-        >
-          <div className="scale-90 origin-top">
-            <PreviewPanel step={index} />
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        className={clsx(
+          "relative pl-12 md:pl-20 py-12 md:py-16 transition-all duration-500",
+          isMobile && "min-h-[350px] flex flex-col justify-center",
+          isActive ? "opacity-100 scale-100" : "opacity-40 scale-[0.98]"
+        )}
+      >
+        {/* Icon Container */}
+        <div className="absolute left-0 top-8 md:top-12 z-20">
+          <div className={clsx(
+            "w-12 h-12 md:w-16 md:h-16 rounded-2xl flex items-center justify-center transition-all duration-500 border shadow-lg",
+            isActive 
+              ? "bg-primary border-primary/50 shadow-primary/20 scale-110" 
+              : "bg-surface-2 border-border shadow-black/20"
+          )}>
+            <Icon className={clsx(
+              "w-6 h-6 md:w-8 h-8 transition-colors duration-500",
+              isActive ? "text-white" : "text-muted-foreground"
+            )} />
           </div>
-        </motion.div>
-      )}
-    </motion.div>
+        </div>
+
+        <div className="space-y-4">
+          <span className={clsx(
+            "text-xs font-black uppercase tracking-[0.2em] transition-colors duration-500",
+            isActive ? "text-primary" : "text-muted-foreground"
+          )}>
+            Step 0{index + 1}
+          </span>
+          <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">{title}</h3>
+          <p className="text-lg text-muted-foreground font-medium leading-relaxed max-w-md">
+            {description}
+          </p>
+        </div>
+
+        {/* Mobile Preview - Only visible on small screens when active */}
+        {isActive && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            className="lg:hidden mt-8 overflow-hidden"
+          >
+            <div className="scale-90 origin-top">
+              <PreviewPanel step={index} />
+            </div>
+          </motion.div>
+        )}
+      </motion.div>
+    </div>
   );
 }
 
 function PreviewPanel({ step }: { step: number }) {
+  const isMobile = useIsMobile();
   return (
-    <div className="w-full h-full min-h-[400px] lg:min-h-[500px] relative flex items-center justify-center">
+    <div className={clsx("w-full h-full relative flex items-center justify-center", isMobile ? "min-h-[300px]" : "min-h-[500px]")}>
       <AnimatePresence mode="wait">
         {step === 0 && (
           <motion.div
