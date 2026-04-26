@@ -1,6 +1,7 @@
 import { createGroq } from '@ai-sdk/groq';
 import { generateObject } from 'ai';
 import { z } from 'zod';
+import { normalizeArabizi, ARABIZI_LLM_HINT } from '@/lib/automation/language/arabizi';
 
 export const AppointmentIntentNameSchema = z.enum([
     'greeting',
@@ -82,31 +83,67 @@ function fallbackClassify(message: string): AppointmentIntent {
     const lang = detectLanguageStyle(message);
     const base: AppointmentIntent = { ...EMPTY_INTENT, language_style: lang };
 
+    // Pull Arabizi hints for richer fallback classification
+    const az = normalizeArabizi(message);
+    const { hints } = az;
+
     if (hasAny(text, ['manager', 'human', 'employee', 'mwazaf', 'موظف'])) {
         return { ...base, intent: 'human_handoff', should_handoff: true, confidence: 0.8 };
     }
 
-    if (hasAny(text, ['thanks', 'thank you', 'shokran', 'شكرا', 'يسلمو', 'ok bye'])) {
+    if (hasAny(text, ['thanks', 'thank you', 'shokran', 'شكرا', 'يسلمو', 'ok bye', 'tekram', 'yeslamo'])) {
         return { ...base, intent: 'gratitude_goodbye', confidence: 0.75 };
     }
 
-    if (['hi', 'hello', 'hey', 'hala', 'marhaba', 'مرحبا', 'اهلا'].includes(text)) {
+    if (['hi', 'hello', 'hey', 'hala', 'marhaba', 'مرحبا', 'اهلا', 'kifak', 'kif halak'].includes(text)) {
         return { ...base, intent: 'greeting', confidence: 0.7 };
     }
 
-    if (hasAny(text, ['open', 'close', 'opening', 'closing', 'hours', 'btefta7', 'btfta7', 'bt2aflo', 'aya se3a', 'اي ساعة', 'بتفتح', 'متى بتفتح'])) {
-        return { ...base, intent: 'business_hours', confidence: 0.8 };
+    // Confirmed yes/no signals from Arabizi module
+    if (hints.yes) {
+        return { ...base, intent: 'confirmation', confidence: 0.82 };
     }
 
-    if (hasAny(text, ['available', 'availability', 'slot', 'appointment', 'maw3ed', 'ma3ed', 'fi mahal', 'في محل', 'موعد'])) {
+    if (hints.no) {
+        return { ...base, intent: 'rejection', confidence: 0.82 };
+    }
+
+    // Business hours (open/close questions)
+    if (hints.asksBusinessHours || hasAny(text, [
+        'open', 'close', 'opening', 'closing', 'hours',
+        'aya se3a', 'اي ساعة', 'بتفتح', 'متى بتفتح',
+        'emta btefta7', 'emta betsakro', 'fet7in', 'msakrin',
+    ])) {
+        return { ...base, intent: 'business_hours', confidence: 0.85 };
+    }
+
+    // Booking intent — Arabizi-rich detection
+    if (hints.wantsAppointment || hasAny(text, [
+        'bde e5od maw3ed', 'bade ekhod maw3ed', 'baddi maw3ed',
+        'badde 7ajez', 'bde 7ajez', 'bde maw3ed',
+        '7ajez', 'hajiz', 'hajez',
+        'book', 'reserve', 'b7ajez', 'حجز', 'احجز',
+    ])) {
+        const date = hints.today ? new Date().toISOString().slice(0, 10)
+                    : hints.tomorrow ? (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); })()
+                    : null;
+        return { 
+            ...base, 
+            intent: 'book_appointment', 
+            confidence: 0.85,
+            date,
+            time: hints.timeText || null,
+        };
+    }
+
+    // Availability (slot check)
+    if (hints.asksAvailability || hasAny(text, [
+        'available', 'availability', 'slot', 'fi maw3ed', 'fi mahal', 'في محل', 'موعد',
+    ])) {
         return { ...base, intent: 'appointment_availability', confidence: 0.75 };
     }
 
-    if (hasAny(text, ['book', 'reserve', 'confirm', 'b7ajez', 'حجز', 'احجز'])) {
-        return { ...base, intent: 'book_appointment', confidence: 0.75 };
-    }
-
-    if (hasAny(text, ['price', 'cost', 'how much', 'ade', 'قديش', 'كم'])) {
+    if (hasAny(text, ['price', 'cost', 'how much', 'ade', 'addesh', 'قديش', 'كم']) || hints.asksPrice) {
         return { ...base, intent: 'price_question', confidence: 0.7 };
     }
 
@@ -114,16 +151,12 @@ function fallbackClassify(message: string): AppointmentIntent {
         return { ...base, intent: 'duration_question', confidence: 0.7 };
     }
 
-    if (hasAny(text, ['where', 'location', 'address', 'wen', 'وين', 'عنوان'])) {
+    if (hasAny(text, ['where', 'location', 'address', 'wen', 'wain', 'وين', 'عنوان']) || hints.asksLocation) {
         return { ...base, intent: 'location_question', confidence: 0.7 };
     }
 
-    if (hasAny(text, ['yes', 'yeah', 'yep', 'confirm', 'book it', 'do it', 'eh', 'aywa', 'mazbout', 'tamem', 'اي', 'ايه', 'تمام', 'صح'])) {
-        return { ...base, intent: 'confirmation', confidence: 0.8 };
-    }
-
-    if (hasAny(text, ['no', 'nope', 'cancel', 'dont', 'la', 'mesh', 'لا', 'مش'])) {
-        return { ...base, intent: 'rejection', confidence: 0.8 };
+    if (hints.asksService || hasAny(text, ['shu l services', 'what services', 'services', 'شو الخدمات'])) {
+        return { ...base, intent: 'service_question', confidence: 0.7 };
     }
 
     return base;
@@ -141,6 +174,11 @@ export async function classifyAppointmentIntent(args: {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) return fallbackClassify(message);
 
+    // Pre-process with Arabizi module
+    const az = normalizeArabizi(message);
+    const isArabizi = az.detectedStyle === 'lebanese_arabizi' || az.detectedStyle === 'mixed';
+    const arabiziHint = isArabizi ? `\n\n${ARABIZI_LLM_HINT}` : '';
+
     try {
         const groq = createGroq({ apiKey });
         const result = await generateObject({
@@ -150,18 +188,18 @@ export async function classifyAppointmentIntent(args: {
             system: `You classify customer DMs for an appointment-based business. Return only structured data.
 
 Critical distinction:
-- business_hours means the customer asks when the business opens/closes or whether it is open on a day. Examples: "do you open Sunday", "aya se3a btefta7o l tanen", "كل يوم؟", "اي ساعة بتفتح؟".
+- business_hours means the customer asks when the business opens/closes or whether it is open on a day. Examples: "do you open Sunday", "aya se3a btefta7o l tanen", "كل يوم؟", "اي ساعة بتفتح؟", "emta btefta7o", "fet7in l a7ad".
 - appointment_availability means the customer asks whether a booking slot is available. Examples: "fi mahal se3a 4", "do you have an appointment tomorrow", "available at 5?".
-- book_appointment means customer is choosing/confirming a concrete service/date/time.
-- confirmation means the customer explicitly says "yes", "confirm", or agrees to a proposal.
-- rejection means the customer says "no" or "cancel" to a proposal.
+- book_appointment means customer is choosing/confirming a concrete service/date/time. Also triggered by: "bde e5od maw3ed", "baddi maw3ed", "bde 7ajez", "7ajez", "I want to book".
+- confirmation means the customer explicitly says "yes", "confirm", or agrees to a proposal. Also: "eh", "ee", "akid", "tamem".
+- rejection means the customer says "no" or "cancel" to a proposal. Also: "la", "la2", "mish".
 - service_question asks what services exist.
-- price_question asks service cost.
+- price_question asks service cost. Also: "ade", "addesh".
 - duration_question asks how long service takes.
-- location_question asks address/location.
+- location_question asks address/location. Also: "wen", "wain".
 
 Never classify an opening-time question as appointment_availability. Never classify a slot question as business_hours.
-Understand English, Arabic script, and Lebanese Franco/Arabizi.`, 
+Understand English, Arabic script, and Lebanese Franco/Arabizi.${arabiziHint}`, 
             prompt: `Business language setting: ${businessLanguage}
 
 Conversation summary:
@@ -171,7 +209,10 @@ Recent conversation:
 ${historyContext || 'None'}
 
 Latest customer message:
-${message}`,
+${message}
+
+Arabizi pre-analysis (use as hints, not as final answer):
+${JSON.stringify({ detectedStyle: az.detectedStyle, hints: az.hints }, null, 2)}`,
         });
 
         return result.object;

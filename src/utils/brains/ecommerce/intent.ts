@@ -1,6 +1,7 @@
 import { createGroq } from '@ai-sdk/groq';
 import { generateObject } from 'ai';
 import { z } from 'zod';
+import { normalizeArabizi, ARABIZI_LLM_HINT } from '@/lib/automation/language/arabizi';
 
 export const EcommerceIntentNameSchema = z.enum([
     'greeting',
@@ -90,13 +91,17 @@ function fallbackClassify(message: string): EcommerceIntent {
     const lang = detectLanguageStyle(message);
     const base: EcommerceIntent = { ...EMPTY_INTENT, language_style: lang };
 
+    // Pull Arabizi hints for richer classification
+    const az = normalizeArabizi(message);
+    const { hints } = az;
+
     if (!text) return { ...base, intent: 'greeting', confidence: 0.5 };
 
     if (hasAny(text, ['manager', 'human', 'employee', 'agent', 'mwazaf', 'mouazaf', 'حدا', 'موظف'])) {
         return { ...base, intent: 'human_handoff', should_handoff: true, confidence: 0.8 };
     }
 
-    if (hasAny(text, ['thanks', 'thank you', 'thx', 'merci', 'shokran', 'شكرا', 'يسلمو', 'yeslamo', 'ok bye'])) {
+    if (hasAny(text, ['thanks', 'thank you', 'thx', 'merci', 'shokran', 'شكرا', 'يسلمو', 'yeslamo', 'ok bye', 'tekram'])) {
         return { ...base, intent: 'gratitude_goodbye', confidence: 0.75 };
     }
 
@@ -105,7 +110,7 @@ function fallbackClassify(message: string): EcommerceIntent {
         return { ...base, intent: 'greeting', confidence: 0.7 };
     }
 
-    if (hasAny(text, ['where', 'location', 'address', 'wen', 'wein', 'mahal', 'ma7al', 'وين', 'عنوان'])) {
+    if (hasAny(text, ['where', 'location', 'address', 'wen', 'wein', 'mahal', 'ma7al', 'وين', 'عنوان']) || hints.asksLocation) {
         return { ...base, intent: 'location_question', confidence: 0.7 };
     }
 
@@ -133,15 +138,24 @@ function fallbackClassify(message: string): EcommerceIntent {
         return { ...base, intent: 'complaint', confidence: 0.7 };
     }
 
-    if (hasAny(text, ['i want', 'ill take', "i'll take", 'buy', 'order', 'checkout', 'bde', 'bade', 'badi', 'bdk ttlob', 'بدي', 'بطلب'])) {
-        return { ...base, intent: 'purchase_intent', confidence: 0.68 };
+    // Purchase intent — now also catches Arabizi buy signals
+    if (hints.wantsToBuy || hasAny(text, [
+        'i want', 'ill take', "i'll take", 'buy', 'order', 'checkout',
+        'bde', 'bade', 'badi', 'bde yeha', 'bde yehon', 'bdk ttlob', 'بدي', 'بطلب',
+    ])) {
+        return { ...base, intent: 'purchase_intent', confidence: 0.72 };
     }
 
-    if (hasAny(text, ['price', 'how much', 'cost', 'ade', 'se3r', 'se3ro', 'كم', 'قديش'])) {
+    // Price — also catches Arabizi price words
+    if (hints.asksPrice || hasAny(text, ['price', 'how much', 'cost', 'ade', 'adde', 'addesh', 'se3r', 'se3ro', 'كم', 'قديش'])) {
         return { ...base, intent: 'product_price', confidence: 0.7 };
     }
 
-    if (hasAny(text, ['available', 'in stock', 'still have', 'fi meno', 'mawjud', 'mawjoud', 'موجود', 'في منو'])) {
+    // Stock / availability
+    if (hints.asksStock || hasAny(text, [
+        'available', 'in stock', 'still have', 'fi meno', 'mawjud', 'mawjoud', 'موجود', 'في منو',
+        'fi men hal', // "fi men hal hoodie"
+    ])) {
         return { ...base, intent: 'product_availability', confidence: 0.7 };
     }
 
@@ -164,6 +178,11 @@ export async function classifyEcommerceIntent(args: {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) return fallbackClassify(message);
 
+    // Pre-process with Arabizi module
+    const az = normalizeArabizi(message);
+    const isArabizi = az.detectedStyle === 'lebanese_arabizi' || az.detectedStyle === 'mixed';
+    const arabiziHint = isArabizi ? `\n\n${ARABIZI_LLM_HINT}` : '';
+
     try {
         const groq = createGroq({ apiKey });
         const result = await generateObject({
@@ -176,16 +195,16 @@ Return only structured data. Do not write a customer-facing reply.
 
 Intent definitions:
 - greeting: customer only greets, no product or order question.
-- product_availability: asks whether an item exists or is in stock.
-- product_price: asks price, cost, total, or discount.
+- product_availability: asks whether an item exists or is in stock. Also: "fi men hal", "mawjoud", "fi meno".
+- product_price: asks price, cost, total, or discount. Also: "ade", "adde", "addesh", "se3ro".
 - product_variants: asks about color, size, model, quantity option.
 - product_details: asks product specs, warranty, material, images, or general details.
 - shipping_question: asks delivery cost, areas, timing, or shipping.
-- location_question: asks store address, branch, pickup, or where the business is.
+- location_question: asks store address, branch, pickup, or where the business is. Also: "wen", "wain".
 - payment_question: asks cash, card, COD, payment methods.
 - return_exchange_question: asks return, exchange, replacement, warranty process.
 - order_status: asks about an existing order status.
-- purchase_intent: explicitly wants to order/buy/take an item but has not necessarily sent all checkout info.
+- purchase_intent: explicitly wants to order/buy/take an item. Also: "bde yeha", "bde yehon", "badi", "bde wehde".
 - checkout_info: sends name, phone, address, or checkout form details after the bot asked for them.
 - cancel_order: wants to cancel an existing order.
 - complaint: reports damaged/wrong/late/problem.
@@ -199,7 +218,7 @@ Critical distinctions:
 - If the customer sends name/address/phone, classify as checkout_info.
 - Extract product_name from recent history if the latest message says things like "one", "this", "bde wehde", or "I want it".
 - For Lebanese Franco, understand words like bde/bade, ade, fi, mawjoud, se3r, 3nwen, ra2m, towsil.
-- should_handoff is true only for human_handoff or severe complaint requiring human help.`, 
+- should_handoff is true only for human_handoff or severe complaint requiring human help.${arabiziHint}`, 
             prompt: `Business language setting: ${businessLanguage}
 
 Conversation summary:
@@ -209,7 +228,10 @@ Recent conversation:
 ${historyContext || 'None'}
 
 Latest customer message:
-${message}`,
+${message}
+
+Arabizi pre-analysis (use as hints):
+${JSON.stringify({ detectedStyle: az.detectedStyle, hints: az.hints }, null, 2)}`,
         });
 
         return result.object;

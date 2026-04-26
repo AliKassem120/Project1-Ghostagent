@@ -142,7 +142,7 @@ export async function generateAppointmentsGhostReply(
             const generate = async () => {
                 const final = await generateText({
                     model: groq('llama-3.3-70b-versatile'),
-                    system: buildAppointmentFinalReplyPrompt({ business, intent, constraints: baseConstraints }),
+                    system: buildAppointmentFinalReplyPrompt({ business, intent, constraints: baseConstraints, customerMessage: cleanMessage }),
                     prompt: buildAppointmentFinalReplyUserPrompt({
                         customerMessage: cleanMessage,
                         intent,
