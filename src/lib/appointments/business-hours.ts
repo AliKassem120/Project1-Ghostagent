@@ -45,6 +45,37 @@ export async function getBusinessHoursForDay(supabase: SupabaseClient, workspace
 }
 
 /**
+ * Generates a human-readable summary of business hours.
+ */
+export async function getBusinessHoursSummary(supabase: SupabaseClient, workspaceId: string): Promise<string> {
+    const hours = await getWorkspaceBusinessHours(supabase, workspaceId);
+    if (hours.length === 0) return "not configured";
+
+    const openDays = hours.filter(h => h.is_open);
+    if (openDays.length === 0) return "closed all week";
+
+    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    
+    // Group days by same hours
+    const groups: { days: number[], open: string, close: string }[] = [];
+    openDays.forEach(h => {
+        const existing = groups.find(g => g.open === h.open_time && g.close === h.close_time);
+        if (existing) {
+            existing.days.push(h.day_of_week);
+        } else {
+            groups.push({ days: [h.day_of_week], open: h.open_time!, close: h.close_time! });
+        }
+    });
+
+    return groups.map(g => {
+        const daysLabel = g.days.length === 7 ? "Every day" : 
+                         (g.days.length === 5 && !g.days.includes(0) && !g.days.includes(6)) ? "Monday to Friday" :
+                         g.days.map(d => dayNames[d]).join(', ');
+        return `${daysLabel}, ${g.open.slice(0, 5)} to ${g.close.slice(0, 5)}`;
+    }).join('; ');
+}
+
+/**
  * Fetches the configured slot duration for the workspace.
  */
 export async function getAppointmentSlotDuration(supabase: SupabaseClient, workspaceId: string): Promise<number> {
@@ -79,4 +110,3 @@ export async function getWorkspaceTimezone(supabase: SupabaseClient, workspaceId
 
     return data?.timezone || 'Asia/Beirut';
 }
-

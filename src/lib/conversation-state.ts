@@ -12,16 +12,30 @@ export type AppointmentStateData = {
     timezone: string;
 };
 
+export type EcomStateData = {
+    workspaceId: string;
+    productId?: string;
+    variantId?: string;
+    productName: string;
+    variantLabel?: string;
+    quantity: number;
+    price: number;
+    customerName?: string;
+    customerPhone?: string;
+    deliveryAddress?: string;
+};
+
 export type ConversationState = {
-    stage: 'idle' | 'awaiting_booking_confirmation' | 'collecting_customer_details';
-    data: Partial<AppointmentStateData>;
+    stage: 'idle' | 'awaiting_booking_confirmation' | 'collecting_customer_details' | 'awaiting_order_details';
+    data: any;
 };
 
 export async function getConversationState(
     supabase: SupabaseClient, 
     userId: string, 
     workspaceId: string, 
-    chatId: string
+    chatId: string,
+    workspaceType: 'appointments' | 'ecommerce'
 ): Promise<ConversationState> {
     const { data, error } = await supabase
         .from('conversation_states')
@@ -29,7 +43,7 @@ export async function getConversationState(
         .eq('user_id', userId)
         .eq('workspace_id', workspaceId)
         .eq('chat_id', chatId)
-        .eq('workspace_type', 'appointments')
+        .eq('workspace_type', workspaceType)
         .maybeSingle();
 
     if (error || !data) {
@@ -44,6 +58,7 @@ export async function updateConversationState(
     userId: string,
     workspaceId: string,
     chatId: string,
+    workspaceType: 'appointments' | 'ecommerce',
     state: ConversationState
 ) {
     const { error } = await supabase
@@ -52,7 +67,7 @@ export async function updateConversationState(
             user_id: userId,
             workspace_id: workspaceId,
             chat_id: chatId,
-            workspace_type: 'appointments',
+            workspace_type: workspaceType,
             stage: state.stage,
             data: state.data,
             updated_at: new Date().toISOString()
@@ -69,7 +84,8 @@ export async function clearConversationState(
     supabase: SupabaseClient,
     userId: string,
     workspaceId: string,
-    chatId: string
+    chatId: string,
+    workspaceType: 'appointments' | 'ecommerce'
 ) {
     const { error } = await supabase
         .from('conversation_states')
@@ -77,7 +93,7 @@ export async function clearConversationState(
         .eq('user_id', userId)
         .eq('workspace_id', workspaceId)
         .eq('chat_id', chatId)
-        .eq('workspace_type', 'appointments');
+        .eq('workspace_type', workspaceType);
 
     if (error) {
         console.error("[CONVERSATION_STATE] Clear failed", error);

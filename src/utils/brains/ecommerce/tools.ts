@@ -2,11 +2,14 @@ import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
 
 export type InventoryItem = {
+    id: string;
     item_name: string;
     stock_level: number | null;
     price: number | string | null;
     description?: string | null;
+    variants?: any[];
 };
+
 
 export type EcommerceOrderInput = {
     userId: string;
@@ -36,7 +39,10 @@ export type OrderActionResult = {
     item?: string;
     updatedItems?: string;
     products?: InventoryItem[];
+    order?: any;
+    error?: any;
 };
+
 
 export const CheckoutInfoSchema = z.object({
     name: z.string().optional(),
@@ -110,22 +116,70 @@ export async function searchInventory(args: {
 
     let query = supabase
         .from('inventory')
-        .select('item_name, stock_level, price, description')
+        .select('id, item_name, stock_level, price, description, variants')
         .limit(limit);
 
-    query = scopeInventoryQuery(query, userId, workspaceId);
 
-    if (clean(productName)) {
-        query = query.ilike('item_name', `%${clean(productName)}%`);
-    }
+    query = scopeInventoryQuery(query, userId, workspaceId);
+    if (clean(productName)) query = query.ilike('item_name', `%${clean(productName)}%`);
 
     const { data, error } = await query;
+    let items = (data || []) as InventoryItem[];
+
+    // 2. Search Business Knowledge (CSV products)
+    if (workspaceId) {
+        try {
+            const { data: knowledge } = await supabase
+                .from('business_knowledge')
+                .select('content')
+                .eq('workspace_id', workspaceId)
+                .maybeSingle();
+
+            if (knowledge?.content) {
+                const csvRows = JSON.parse(knowledge.content);
+                const queryLower = clean(productName)?.toLowerCase();
+
+                const csvItems: InventoryItem[] = csvRows
+                    .filter((row: any) => {
+                        const rowKeys = Object.keys(row);
+                        const nameKey = rowKeys.find(k => ['name', 'title', 'product', 'item'].some(key => k.toLowerCase().includes(key)));
+                        const name = (nameKey ? row[nameKey] : '').toLowerCase();
+                        return !queryLower || name.includes(queryLower);
+                    })
+                    .slice(0, limit)
+                    .map((row: any, index: number) => {
+                        const rowKeys = Object.keys(row);
+                        const getVal = (keys: string[]) => {
+                            const key = rowKeys.find(k => keys.some(s => k.toLowerCase().includes(s)));
+                            return key ? row[key] : null;
+                        };
+
+                        const priceStr = String(getVal(['price', 'cost', 'value']) || '0').replace(/[^0-9.]/g, '');
+                        const stockStr = String(getVal(['stock', 'qty', 'quantity', 'level']) || '1').replace(/[^0-9]/g, '');
+
+                        return {
+                            id: `csv-${index}`,
+                            item_name: getVal(['name', 'title', 'product', 'item']) || `CSV Item ${index + 1}`,
+                            price: parseFloat(priceStr) || 0,
+                            stock_level: parseInt(stockStr, 10) || 0,
+                            description: getVal(['description', 'details', 'about']) || null,
+                            variants: []
+                        };
+                    });
+
+                items = [...items, ...csvItems].slice(0, limit * 2);
+            }
+        } catch (err) {
+            console.error('[EcommerceTools] CSV search error:', err);
+        }
+    }
+
     if (error) {
         console.error('[EcommerceTools] Inventory search error:', error);
         return { items: [], error: error.message || 'inventory_search_failed' };
     }
 
-    return { items: (data || []) as InventoryItem[] };
+    return { items };
 }
 
 export function findBestInventoryMatch(items: InventoryItem[], requestedItem: string | null | undefined): InventoryItem | null {
@@ -197,6 +251,7 @@ export async function finalizeEcommerceOrder(args: EcommerceOrderInput & { supab
 
     const missingFields = getMissingCheckoutFields({ name, phone, address, item });
     if (missingFields.length > 0) {
+        console.warn("[ORDER_BLOCKED] Missing fields:", missingFields);
         return {
             ok: false,
             code: 'missing_fields',
@@ -206,10 +261,12 @@ export async function finalizeEcommerceOrder(args: EcommerceOrderInput & { supab
         };
     }
 
+
     const inventoryResult = await searchInventory({ supabase, userId, workspaceId, productName: item, limit: 5 });
     const matchedItem = findBestInventoryMatch(inventoryResult.items, item);
 
     if (!matchedItem) {
+        console.warn("[ORDER_BLOCKED] Product not found:", item);
         return {
             ok: false,
             code: 'product_not_found',
@@ -219,7 +276,9 @@ export async function finalizeEcommerceOrder(args: EcommerceOrderInput & { supab
         };
     }
 
+
     if (!isItemInStock(matchedItem)) {
+        console.warn("[ORDER_BLOCKED] Out of stock:", matchedItem.item_name);
         return {
             ok: false,
             code: 'out_of_stock',
@@ -228,6 +287,7 @@ export async function finalizeEcommerceOrder(args: EcommerceOrderInput & { supab
             products: inventoryResult.items,
         };
     }
+
 
     try {
         let handle = 'Customer';
@@ -291,6 +351,8 @@ export async function finalizeEcommerceOrder(args: EcommerceOrderInput & { supab
                 .eq('id', existingOrder.id);
 
             if (error) throw error;
+            
+            console.log("[ORDER_UPDATE_SUCCESS]", { orderId: existingOrder.id, items: updatedItems });
 
             return {
                 ok: true,
@@ -299,6 +361,7 @@ export async function finalizeEcommerceOrder(args: EcommerceOrderInput & { supab
                 item: finalItemLabel,
                 updatedItems,
             };
+
         }
 
         const { error } = await supabase.from('orders').insert({
@@ -321,6 +384,8 @@ export async function finalizeEcommerceOrder(args: EcommerceOrderInput & { supab
         });
 
         if (error) throw error;
+        
+        console.log("[ORDER_CREATE_SUCCESS]", { workspaceId, item: finalItemLabel });
 
         return {
             ok: true,
@@ -328,6 +393,7 @@ export async function finalizeEcommerceOrder(args: EcommerceOrderInput & { supab
             message: `Order saved successfully.`,
             item: finalItemLabel,
         };
+
     } catch (error: any) {
         console.error('[EcommerceTools] Failed to finalize order:', error);
         return {
@@ -351,7 +417,7 @@ export const checkEcommerceInventoryTool = (workspaceId: string, userId?: string
 
         let query = supabase
             .from('inventory')
-            .select('item_name, stock_level, price, description')
+            .select('id, item_name, stock_level, price, description, variants')
             .eq('workspace_id', workspaceId)
             .ilike('item_name', `%${product_name}%`)
             .limit(10);
@@ -359,12 +425,13 @@ export const checkEcommerceInventoryTool = (workspaceId: string, userId?: string
         if (!workspaceId && effectiveUserId) {
             query = supabase
                 .from('inventory')
-                .select('item_name, stock_level, price, description')
+                .select('id, item_name, stock_level, price, description, variants')
                 .eq('user_id', effectiveUserId)
                 .is('workspace_id', null)
                 .ilike('item_name', `%${product_name}%`)
                 .limit(10);
         }
+
 
         const { data, error } = await query;
         if (error) {

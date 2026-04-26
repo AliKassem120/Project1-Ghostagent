@@ -16,6 +16,8 @@ export interface BusinessProfile {
     timezone?: string | null;
     currency?: string | null;
     slot_duration_minutes?: number | null;
+    max_discount?: number | null;
+    min_order_for_discount?: number | null;
 }
 
 export interface PromptContext {

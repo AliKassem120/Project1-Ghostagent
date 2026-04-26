@@ -11,6 +11,14 @@ import {
     getMissingCheckoutFields,
     searchInventory,
 } from './tools';
+import { 
+    getConversationState, 
+    updateConversationState, 
+    clearConversationState, 
+    ConversationState 
+} from '@/lib/conversation-state';
+import { ECOM_TEMPLATES, applyTemplate } from '../templates';
+import { validateDMResponse } from '../validator';
 
 function cleanMessageText(message: string): string {
     return message.replace(/\[ATTACHMENT:.*?\]/g, '').trim() || 'Hello';
@@ -24,18 +32,6 @@ function truncate(value: string | null | undefined, max = 2500): string | null {
 function extractPhoneFallback(text: string): string | null {
     const match = text.match(/(?:\+?\d[\d\s().-]{6,}\d)/);
     return match ? match[0].replace(/\s+/g, ' ').trim() : null;
-}
-
-function chooseFinalModel(intent: EcommerceIntent): string {
-    const highAccuracyIntents = new Set([
-        'purchase_intent',
-        'checkout_info',
-        'order_status',
-        'complaint',
-        'cancel_order',
-        'return_exchange_question',
-    ]);
-    return highAccuracyIntents.has(intent.intent) ? 'llama-3.3-70b-versatile' : 'llama-3.1-8b-instant';
 }
 
 async function safeTrackMemory(args: {
@@ -73,7 +69,7 @@ async function logAutomationEvent(args: {
             created_at: new Date().toISOString(),
         });
     } catch {
-        // Optional table. Do not break live replies if the migration is not installed yet.
+        // Optional table
     }
 }
 
@@ -82,7 +78,7 @@ async function loadBusinessProfile(args: { supabase: any; userId: string; worksp
 
     let settingsQuery = supabase
         .from('ai_settings')
-        .select('business_name, business_type, tone, system_instructions, urgency_mode, handoff_keywords, language, store_location, contact_info, use_emojis, use_local_slang, shipping_rules, is_autopilot_enabled');
+        .select('business_name, business_type, tone, system_instructions, urgency_mode, handoff_keywords, language, store_location, contact_info, use_emojis, use_local_slang, shipping_rules, max_discount, min_order_for_discount, timezone');
 
     if (workspaceId) {
         settingsQuery = settingsQuery.eq('id', workspaceId);
@@ -105,6 +101,9 @@ async function loadBusinessProfile(args: { supabase: any; userId: string; worksp
         urgency_mode: settings?.urgency_mode ?? false,
         handoff_keywords: settings?.handoff_keywords || [],
         shipping_rules: settings?.shipping_rules || null,
+        max_discount: settings?.max_discount || null,
+        min_order_for_discount: settings?.min_order_for_discount || null,
+        timezone: settings?.timezone || null,
     };
 }
 
@@ -145,12 +144,12 @@ export async function generateEcommerceGhostReply(
 
     try {
         const business = await loadBusinessProfile({ supabase, userId, workspaceId });
+        console.log(`[ECOMMERCE_CONNECTION_CONTEXT] Using ai_settings for workspace: ${workspaceId || 'personal'}`);
         const cleanMessage = cleanMessageText(userMessage);
 
         if (Array.isArray(business.handoff_keywords) && business.handoff_keywords.some(
             (kw: string) => cleanMessage.toLowerCase().includes(kw.toLowerCase())
         )) {
-            console.log('[E-COMMERCE] Handoff keyword detected. Pausing AI.');
             return null;
         }
 
@@ -165,247 +164,215 @@ export async function generateEcommerceGhostReply(
             fullHistory = memory.fullHistory;
         }
 
-        if (checkoutContext) {
-            historyContext += `\n[SYSTEM NOTE: The customer submitted checkout/order form content: ${checkoutContext}]`;
+        // Load state
+        let state: ConversationState = { stage: 'idle', data: {} };
+        if (chatId && workspaceId) {
+            state = await getConversationState(supabase, userId, workspaceId, chatId, 'ecommerce');
         }
-
-        if (chatId && fullHistory && fullHistory.length > 0) {
-            const lastMsg = fullHistory[fullHistory.length - 1];
-            if (lastMsg?.timestamp) {
-                const hoursDiff = (Date.now() - new Date(lastMsg.timestamp).getTime()) / (1000 * 60 * 60);
-                if (hoursDiff > 12) {
-                    historyContext += `\n[SYSTEM EVENT: ${Math.floor(hoursDiff)} hours passed since the previous message. Treat this as a fresh session unless the customer clearly continues the old order.]`;
-                }
-            }
-        }
-
-        const catalogContext = await loadCatalogContext({ supabase, userId, workspaceId });
-        const classifierMessage = checkoutContext
-            ? `${cleanMessage}\n\nCheckout/order form content:\n${checkoutContext}`
-            : cleanMessage;
 
         const intent = await classifyEcommerceIntent({
-            message: classifierMessage,
+            message: cleanMessage,
             historyContext,
             contextSummary,
             businessLanguage: business.language,
         });
 
         if (!intent.customer_phone) {
-            intent.customer_phone = extractPhoneFallback(classifierMessage);
+            intent.customer_phone = extractPhoneFallback(cleanMessage);
         }
 
-        console.log('[E-COMMERCE] Classified intent:', intent);
-
-        if (intent.intent === 'human_handoff') {
-            console.log('[E-COMMERCE] Human handoff requested. Pausing AI.');
-            return null;
-        }
+        if (intent.intent === 'human_handoff') return null;
 
         const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
 
-        const finishWithTruth = async (truth: unknown, constraints: string[] = []) => {
-            const selectedModel = chooseFinalModel(intent);
-            const final = await generateText({
-                model: groq(selectedModel),
-                system: buildEnterpriseFinalReplyPrompt({ business, intent, constraints }),
-                prompt: buildFinalReplyUserPrompt({
-                    customerMessage: cleanMessage,
-                    intent,
-                    truth,
-                    contextSummary,
-                    historyContext,
-                }),
-                temperature: 0.1,
-            });
+        const replyWithTruth = async (truth: any, constraints: string[] = [], templateKey?: keyof typeof ECOM_TEMPLATES, templateData: Record<string, any> = {}) => {
+            const isActuallyConfirmed = !!(truth.checkout_status === 'processed');
+            
+            let truthWithTemplate = { ...truth };
+            if (templateKey) {
+                const template = ECOM_TEMPLATES[templateKey];
+                truthWithTemplate.templated_reply = applyTemplate(template, templateData);
+            }
 
-            const reply = cleanResponseText(final.text);
-            if (final.usage) {
-                const { promptTokens, completionTokens, totalTokens } = final.usage as any;
-                console.log(`[E-COMMERCE Usage] ${selectedModel}: ${promptTokens}in / ${completionTokens}out / ${totalTokens}total`);
+            const baseConstraints = [...constraints];
+            if (!isActuallyConfirmed) {
+                baseConstraints.push("CRITICAL: Order NOT created. NEVER use 'confirmed', 'placed', 'reserved'.");
+            }
+
+            const generate = async () => {
+                const final = await generateText({
+                    model: groq('llama-3.3-70b-versatile'),
+                    system: buildEnterpriseFinalReplyPrompt({ business, intent, constraints: baseConstraints }),
+                    prompt: buildFinalReplyUserPrompt({
+                        customerMessage: cleanMessage,
+                        intent,
+                        truth: truthWithTemplate,
+                        contextSummary,
+                        historyContext,
+                    }),
+                    temperature: 0.1,
+                });
+                return cleanResponseText(final.text) || "";
+            };
+
+            let response = await generate();
+            let validation = validateDMResponse(response, { isActuallyConfirmed });
+
+            if (!validation.isValid) {
+                console.warn(`⚠️ [E-COMMERCE] Validation failed: ${validation.reason}. Regenerating...`);
+                baseConstraints.push(`STRICT: Previous response failed: ${validation.reason}. Rewrite shorter.`);
+                response = await generate();
+                validation = validateDMResponse(response, { isActuallyConfirmed });
+            }
+
+            if (!validation.isValid && truthWithTemplate.templated_reply) {
+                console.error(`❌ [E-COMMERCE] Double validation failure. Falling back to template.`);
+                response = truthWithTemplate.templated_reply;
             }
 
             await safeTrackMemory({ supabase, userId, chatId, workspaceId, fullHistory });
-            await logAutomationEvent({ supabase, userId, workspaceId, chatId, intent, truth, reply });
-            return reply || null;
+            await logAutomationEvent({ supabase, userId, workspaceId, chatId, intent, truth, reply: response });
+            return response;
         };
 
-        if (intent.intent === 'gratitude_goodbye') {
-            return finishWithTruth(
-                { outcome: 'customer_thanked_or_closed_conversation', should_restart_checkout: false },
-                ['Do not offer products or restart checkout. Just acknowledge briefly.']
-            );
-        }
-
-        if (intent.intent === 'greeting') {
-            return finishWithTruth(
-                { outcome: 'greeting_only', available_context: { business_name: business.business_name } },
-                ['Greet briefly and invite the customer to ask about products or orders. Do not invent product facts.']
-            );
-        }
-
-        if (intent.intent === 'location_question') {
-            return finishWithTruth(
-                { location: business.store_location, contact: business.contact_info },
-                ['Answer only with provided location/contact. If location is missing, ask one short clarifying/handoff question.']
-            );
-        }
-
-        if (intent.intent === 'shipping_question') {
-            return finishWithTruth(
-                { shipping_rules: business.shipping_rules, custom_instructions: business.system_instructions },
-                ['Answer only from shipping_rules or custom_instructions. If delivery cost depends on area, ask for area.']
-            );
-        }
-
-        if (intent.intent === 'payment_question') {
-            return finishWithTruth(
-                { custom_instructions: business.system_instructions, contact: business.contact_info },
-                ['Answer only if payment methods are provided in business context. Otherwise say you can confirm with the team.']
-            );
-        }
-
-        if (intent.intent === 'return_exchange_question' || intent.intent === 'complaint') {
-            return finishWithTruth(
-                {
-                    issue_type: intent.intent,
-                    custom_instructions: business.system_instructions,
-                    contact: business.contact_info,
-                },
-                ['Be helpful and calm. Ask for order name/phone or a photo/details if needed. Do not promise a replacement unless policy says so.']
-            );
-        }
-
-        if (intent.intent === 'order_status') {
-            const lookup = await findRecentCustomerOrder({
-                supabase,
-                userId,
-                workspaceId,
-                chatId,
-                phone: intent.order_lookup_phone || intent.customer_phone,
-                name: intent.order_lookup_name || intent.customer_name,
-            });
-
-            return finishWithTruth(
-                {
-                    order_found: Boolean(lookup.order),
-                    order: lookup.order,
-                    lookup_error: lookup.error,
-                    needs_identifier: !lookup.order && !chatId && !intent.order_lookup_phone && !intent.customer_phone && !intent.order_lookup_name && !intent.customer_name,
-                },
-                ['If no order is found, ask for the name or phone used for the order. Do not invent delivery status.']
-            );
-        }
-
-        if (intent.intent === 'cancel_order') {
-            const lookup = await findRecentCustomerOrder({
-                supabase,
-                userId,
-                workspaceId,
-                chatId,
-                phone: intent.order_lookup_phone || intent.customer_phone,
-                name: intent.order_lookup_name || intent.customer_name,
-            });
-
-            return finishWithTruth(
-                { cancel_requested: true, order_found: Boolean(lookup.order), order: lookup.order },
-                ['Do not cancel automatically in the reply. If order is found, say you will help cancel/confirm. If not found, ask for name or phone.']
-            );
-        }
-
-        if (
-            intent.intent === 'product_availability' ||
-            intent.intent === 'product_price' ||
-            intent.intent === 'product_variants' ||
-            intent.intent === 'product_details'
-        ) {
-            const inventory = await searchInventory({
-                supabase,
-                userId,
-                workspaceId,
-                productName: intent.product_name,
-                limit: intent.product_name ? 10 : 5,
-            });
-
-            return finishWithTruth(
-                {
-                    requested_product: intent.product_name,
-                    requested_variant: intent.variant,
-                    products: inventory.items,
-                    inventory_error: inventory.error,
-                    catalog_excerpt: truncate(catalogContext),
-                },
-                [
-                    'For stock/price/variants, answer only from products in TRUTH.',
-                    'If no exact product is clear and multiple products are listed, ask which item they mean.',
-                    'Do not ask for name/address/phone unless the customer explicitly says they want to order.',
-                ]
-            );
-        }
-
-        if (intent.intent === 'purchase_intent' || intent.intent === 'checkout_info') {
-            const item = [intent.product_name, intent.variant].filter(Boolean).join(' - ') || intent.product_name;
-            const missingFields = getMissingCheckoutFields({
-                item,
-                name: intent.customer_name,
-                phone: intent.customer_phone,
-                address: intent.customer_address,
-            });
-
-            if (missingFields.length > 0) {
-                return finishWithTruth(
-                    {
-                        checkout_status: 'missing_fields',
-                        missing_fields: missingFields,
-                        product: item,
-                        extracted_customer: {
-                            name: intent.customer_name,
-                            phone: intent.customer_phone,
-                            address: intent.customer_address,
-                        },
-                    },
-                    ['Ask only for the missing fields. Do not confirm the order was saved. Keep it one short message.']
-                );
-            }
-
+        const performOrder = async (data: any) => {
+            console.log("[ORDER_CREATE_ATTEMPT]", data);
             const orderResult = await finalizeEcommerceOrder({
                 supabase,
                 userId,
                 workspaceId,
                 chatId,
-                name: intent.customer_name,
-                phone: intent.customer_phone,
-                address: intent.customer_address,
-                item,
-                variant: intent.variant,
+                name: data.customerName,
+                phone: data.customerPhone,
+                address: data.deliveryAddress,
+                item: data.productName,
+                variant: data.variantLabel,
                 payment_method: 'Cash on Delivery',
             });
+            console.log(`[ECOMMERCE_CONNECTION_CONTEXT] Order creation result: ${orderResult.ok ? 'SUCCESS' : 'FAILED'} (workspace: ${workspaceId})`);
 
-            return finishWithTruth(
-                { checkout_status: orderResult.ok ? 'processed' : 'blocked', order_result: orderResult },
-                [
-                    'If order_result.ok is true, confirm the order naturally.',
-                    'If blocked because missing/product_not_found/out_of_stock/database_error, explain briefly and ask for the next needed info.',
-                ]
-            );
+            if (orderResult.ok) {
+                console.log("[ORDER_CREATE_SUCCESS]", { orderId: orderResult.order?.id, workspaceId, productId: data.productId });
+                await clearConversationState(supabase, userId, workspaceId!, chatId!, 'ecommerce');
+                return replyWithTruth({ checkout_status: 'processed', order_result: orderResult }, [], 'ORDER_CONFIRMED', { orderId: orderResult.order?.id });
+            } else {
+                console.error("[ORDER_CREATE_ERROR]", { input: data, error: orderResult.error });
+                return replyWithTruth({ checkout_status: 'blocked', order_result: orderResult }, [], 'ORDER_ERROR', { error: orderResult.message });
+            }
+        };
+
+        switch (intent.intent) {
+            case 'greeting':
+                return replyWithTruth({ outcome: 'greeting_only' }, [], 'GREETING');
+
+
+            case 'gratitude_goodbye':
+                return replyWithTruth({ outcome: 'customer_thanked_or_closed_conversation' });
+
+            case 'location_question':
+                return replyWithTruth({ location: business.store_location, contact: business.contact_info });
+
+            case 'product_availability':
+            case 'product_price':
+            case 'product_variants':
+            case 'product_details': {
+                const inventory = await searchInventory({
+                    supabase,
+                    userId,
+                    workspaceId,
+                    productName: intent.product_name,
+                    limit: intent.product_name ? 10 : 5,
+                });
+
+                console.log("[ECOM_BOT_CONTEXT]", { workspaceId, chatId, intent, productQuery: intent.product_name, products: inventory.items });
+
+                return replyWithTruth({
+                    requested_product: intent.product_name,
+                    requested_variant: intent.variant,
+                    products: inventory.items,
+                    catalog_excerpt: truncate(await loadCatalogContext({ supabase, userId, workspaceId })),
+                });
+            }
+
+            case 'purchase_intent':
+            case 'checkout_info': {
+                const productName = intent.product_name || state.data.productName;
+                const variantLabel = intent.variant || state.data.variantLabel;
+                
+                if (!productName) {
+                    return replyWithTruth({ needs_product: true }, [], 'GREETING');
+                }
+
+
+                // Search to confirm existence and variants
+                const inventory = await searchInventory({ supabase, userId, workspaceId, productName, limit: 1 });
+                const product = inventory.items[0];
+
+                if (!product) {
+                    return replyWithTruth({ product_not_found: true, productName }, [], 'HUMAN_HANDOFF');
+                }
+
+                // If variant required but missing
+                if (product.variants && product.variants.length > 0 && !variantLabel) {
+                    return replyWithTruth({ needs_variant: true, product }, [], 'ASK_PRODUCT_VARIANT');
+                }
+
+                const customerName = intent.customer_name || state.data.customerName;
+                const customerPhone = intent.customer_phone || state.data.customerPhone;
+                const deliveryAddress = intent.customer_address || state.data.deliveryAddress;
+
+                const pendingData = {
+                    workspaceId: workspaceId!,
+                    productId: product.id,
+                    productName: product.item_name,
+
+                    variantLabel,
+                    quantity: 1,
+                    price: product.price,
+                    customerName,
+                    customerPhone,
+                    deliveryAddress
+                };
+
+                // If we have EVERYTHING and were waiting for details, BOOK NOW.
+                if (customerName && customerPhone && deliveryAddress && state.stage === 'awaiting_order_details') {
+                    return await performOrder(pendingData);
+                }
+
+                if (!customerName || !customerPhone || !deliveryAddress) {
+                    await updateConversationState(supabase, userId, workspaceId!, chatId!, 'ecommerce', {
+                        stage: 'awaiting_order_details',
+                        data: pendingData
+                    });
+                    return replyWithTruth({ missing_details: true, pendingData }, [], 'NEED_ORDER_DETAILS');
+                }
+
+                // If we have everything but just started fresh
+                return await performOrder(pendingData);
+            }
+
+            case 'order_status': {
+                const lookup = await findRecentCustomerOrder({
+                    supabase,
+                    userId,
+                    workspaceId,
+                    chatId,
+                    phone: intent.order_lookup_phone || intent.customer_phone,
+                    name: intent.order_lookup_name || intent.customer_name,
+                });
+                return replyWithTruth({ order_found: !!lookup.order, order: lookup.order });
+            }
+
+            default:
+                return replyWithTruth({ 
+                    outcome: 'unknown_or_general_question',
+                    custom_instructions: business.system_instructions,
+                    catalog_excerpt: truncate(await loadCatalogContext({ supabase, userId, workspaceId })),
+                    location: business.store_location,
+                    contact: business.contact_info,
+                });
         }
-
-        return finishWithTruth(
-            {
-                outcome: 'unknown_or_general_question',
-                custom_instructions: business.system_instructions,
-                catalog_excerpt: truncate(catalogContext),
-                location: business.store_location,
-                contact: business.contact_info,
-                shipping_rules: business.shipping_rules,
-            },
-            ['Answer only if the business context clearly contains the answer. Otherwise ask one short clarifying question.']
-        );
     } catch (error: any) {
-        if (error?.statusCode === 429) {
-            console.warn('[E-COMMERCE] Rate limited. Staying silent.');
-            return null;
-        }
         console.error('[E-COMMERCE] Fatal error:', error);
         return null;
     }
