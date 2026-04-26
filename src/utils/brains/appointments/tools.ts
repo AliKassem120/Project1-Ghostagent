@@ -94,7 +94,7 @@ export async function getBusinessHours(args: {
     userId: string;
     workspaceId?: string;
     day?: string | number | null;
-}): Promise<{ hours: BusinessHoursRow[]; timezone: string; error?: string }> {
+}): Promise<{ hours: BusinessHoursRow[]; timezone: string; closed?: boolean; error?: string }> {
     const { supabase, workspaceId, day } = args;
     
     if (!workspaceId) {
@@ -118,8 +118,9 @@ export async function getBusinessHours(args: {
         resolvedDayOfWeek: dayOfWeek,
         businessHoursRows: finalHours,
     });
+    const isClosed = dayOfWeek !== null ? (finalHours.length === 0 || !finalHours[0]?.is_open) : false;
 
-    return { hours: finalHours, timezone };
+    return { hours: finalHours, timezone, closed: isClosed };
 }
 
 
