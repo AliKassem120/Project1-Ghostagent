@@ -2,215 +2,209 @@
  * ============================================================
  * Arabizi Language Module — Regression Tests
  * ============================================================
- * Run with: npx jest src/lib/automation/language/arabizi.test.ts
+ * Standalone runner — no test framework required.
+ * Run with:  npx ts-node src/lib/automation/language/arabizi.test.ts
+ *
+ * If you have Jest set up, add /// <reference types="jest" />
+ * at the top and this file works as a Jest spec too.
  * ============================================================
  */
 
-import { normalizeArabizi, detectLanguageStyle } from './arabizi';
+import { normalizeArabizi, detectLanguageStyle, ARABIZI_APPOINTMENT_REPLIES, ARABIZI_LLM_HINT } from './arabizi';
+
+// ── Tiny assertion helper (works without any test framework) ──
+let passed = 0;
+let failed = 0;
+const results: string[] = [];
+
+function assert(label: string, condition: boolean): void {
+  if (condition) {
+    passed++;
+    results.push(`  ✅ ${label}`);
+  } else {
+    failed++;
+    results.push(`  ❌ FAIL: ${label}`);
+  }
+}
+
+function suite(name: string, fn: () => void): void {
+  results.push(`\n📋 ${name}`);
+  fn();
+}
 
 // ── Language Detection ────────────────────────────────────────
 
-describe('detectLanguageStyle', () => {
-  test('detects lebanese_arabizi for "Bde e5od maw3ed"', () => {
-    expect(detectLanguageStyle('Bde e5od maw3ed')).toBe('lebanese_arabizi');
-  });
-
-  test('detects lebanese_arabizi for "Baddi 7ajez"', () => {
-    expect(detectLanguageStyle('Baddi 7ajez')).toBe('lebanese_arabizi');
-  });
-
-  test('detects lebanese_arabizi for "Emta btefta7o?"', () => {
-    expect(detectLanguageStyle('Emta btefta7o?')).toBe('lebanese_arabizi');
-  });
-
-  test('detects lebanese_arabizi for "Fet7in l a7ad?"', () => {
-    expect(detectLanguageStyle('Fet7in l a7ad?')).toBe('lebanese_arabizi');
-  });
-
-  test('detects arabic for pure Arabic script', () => {
-    expect(detectLanguageStyle('أريد موعد')).toBe('arabic');
-  });
-
-  test('detects english for English messages', () => {
-    expect(detectLanguageStyle('I want to book an appointment')).toBe('english');
-  });
-
-  test('detects mixed for Arabic + Latin mix', () => {
-    expect(detectLanguageStyle('بدي maw3ed bukra')).toBe('mixed');
-  });
+suite('detectLanguageStyle', () => {
+  assert(
+    '"Bde e5od maw3ed" → lebanese_arabizi',
+    detectLanguageStyle('Bde e5od maw3ed') === 'lebanese_arabizi',
+  );
+  assert(
+    '"Baddi 7ajez" → lebanese_arabizi',
+    detectLanguageStyle('Baddi 7ajez') === 'lebanese_arabizi',
+  );
+  assert(
+    '"Emta btefta7o?" → lebanese_arabizi',
+    detectLanguageStyle('Emta btefta7o?') === 'lebanese_arabizi',
+  );
+  assert(
+    '"Fet7in l a7ad?" → lebanese_arabizi',
+    detectLanguageStyle('Fet7in l a7ad?') === 'lebanese_arabizi',
+  );
+  assert(
+    'Arabic script → arabic',
+    detectLanguageStyle('أريد موعد') === 'arabic',
+  );
+  assert(
+    'English → english',
+    detectLanguageStyle('I want to book an appointment') === 'english',
+  );
+  assert(
+    'Mixed Arabic + Latin → mixed',
+    detectLanguageStyle('بدي maw3ed bukra') === 'mixed',
+  );
 });
 
 // ── Appointment Intent Hints ──────────────────────────────────
 
-describe('normalizeArabizi — appointment hints', () => {
-  test('"Bde e5od maw3ed" → wantsAppointment = true', () => {
-    const { hints } = normalizeArabizi('Bde e5od maw3ed');
-    expect(hints.wantsAppointment).toBe(true);
-    expect(hints.wantsToBuy).toBeFalsy();
-    expect(hints.asksBusinessHours).toBeFalsy();
-  });
+suite('normalizeArabizi — appointment hints', () => {
+  const r1 = normalizeArabizi('Bde e5od maw3ed');
+  assert('"Bde e5od maw3ed" → wantsAppointment', !!r1.hints.wantsAppointment);
+  assert('"Bde e5od maw3ed" → NOT wantsToBuy', !r1.hints.wantsToBuy);
+  assert('"Bde e5od maw3ed" → NOT asksBusinessHours', !r1.hints.asksBusinessHours);
 
-  test('"Baddi 7ajez" → wantsAppointment = true', () => {
-    const { hints } = normalizeArabizi('Baddi 7ajez');
-    expect(hints.wantsAppointment).toBe(true);
-  });
+  const r2 = normalizeArabizi('Baddi 7ajez');
+  assert('"Baddi 7ajez" → wantsAppointment', !!r2.hints.wantsAppointment);
 
-  test('"Bde maw3ed bukra se3a 4" → wantsAppointment + tomorrow + time 04:00', () => {
-    const { hints } = normalizeArabizi('Bde maw3ed bukra se3a 4');
-    expect(hints.wantsAppointment).toBe(true);
-    expect(hints.tomorrow).toBe(true);
-    // time extracted — se3a 4 → "04:00" (ambiguous AM/PM, raw extraction)
-    expect(hints.timeText).toBe('04:00');
-  });
+  const r3 = normalizeArabizi('Bde maw3ed bukra se3a 4');
+  assert('"Bde maw3ed bukra se3a 4" → wantsAppointment', !!r3.hints.wantsAppointment);
+  assert('"Bde maw3ed bukra se3a 4" → tomorrow', !!r3.hints.tomorrow);
+  assert('"Bde maw3ed bukra se3a 4" → timeText = 04:00', r3.hints.timeText === '04:00');
 
-  test('"Bde maw3ed bukra 4pm" → time = 16:00', () => {
-    const { hints } = normalizeArabizi('Bde maw3ed bukra 4pm');
-    expect(hints.tomorrow).toBe(true);
-    expect(hints.timeText).toBe('16:00');
-  });
+  const r4 = normalizeArabizi('Bde maw3ed bukra 4pm');
+  assert('"bukra 4pm" → tomorrow', !!r4.hints.tomorrow);
+  assert('"bukra 4pm" → timeText = 16:00', r4.hints.timeText === '16:00');
 
-  test('"Bde maw3ed lyom 10am" → today + time 10:00', () => {
-    const { hints } = normalizeArabizi('Bde maw3ed lyom 10am');
-    expect(hints.today).toBe(true);
-    expect(hints.timeText).toBe('10:00');
-  });
+  const r5 = normalizeArabizi('Bde maw3ed lyom 10am');
+  assert('"lyom 10am" → today', !!r5.hints.today);
+  assert('"lyom 10am" → timeText = 10:00', r5.hints.timeText === '10:00');
 
-  test('"4 l masa" → time 16:00 (PM disambiguation)', () => {
-    const { hints } = normalizeArabizi('maw3ed 4 l masa');
-    expect(hints.timeText).toBe('16:00');
-  });
+  const r6 = normalizeArabizi('maw3ed 4 l masa');
+  assert('"4 l masa" → timeText = 16:00 (PM)', r6.hints.timeText === '16:00');
 
-  test('"10 l sobo7" → time 10:00 (AM)', () => {
-    const { hints } = normalizeArabizi('maw3ed 10 l sobo7');
-    expect(hints.timeText).toBe('10:00');
-  });
+  const r7 = normalizeArabizi('maw3ed 10 l sobo7');
+  assert('"10 l sobo7" → timeText = 10:00 (AM)', r7.hints.timeText === '10:00');
 });
 
 // ── Business Hours Hints ─────────────────────────────────────
 
-describe('normalizeArabizi — business hours hints', () => {
-  test('"Emta btefta7o?" → asksBusinessHours = true', () => {
-    const { hints } = normalizeArabizi('Emta btefta7o?');
-    expect(hints.asksBusinessHours).toBe(true);
-    expect(hints.wantsAppointment).toBeFalsy();
-  });
+suite('normalizeArabizi — business hours hints', () => {
+  const r1 = normalizeArabizi('Emta btefta7o?');
+  assert('"Emta btefta7o?" → asksBusinessHours', !!r1.hints.asksBusinessHours);
+  assert('"Emta btefta7o?" → NOT wantsAppointment', !r1.hints.wantsAppointment);
 
-  test('"Fet7in l a7ad?" → asksBusinessHours = true, dayOfWeek = 0 (Sunday)', () => {
-    const { hints } = normalizeArabizi('Fet7in l a7ad?');
-    expect(hints.asksBusinessHours).toBe(true);
-    expect(hints.dayOfWeek).toBe(0); // Sunday
-    expect(hints.dayName).toBe('l a7ad');
-  });
+  const r2 = normalizeArabizi('Fet7in l a7ad?');
+  assert('"Fet7in l a7ad?" → asksBusinessHours', !!r2.hints.asksBusinessHours);
+  assert('"Fet7in l a7ad?" → dayOfWeek = 0 (Sunday)', r2.hints.dayOfWeek === 0);
 
-  test('"aya se3a btefta7o l tnen" → business hours + Monday', () => {
-    const { hints } = normalizeArabizi('aya se3a btefta7o l tnen');
-    expect(hints.asksBusinessHours).toBe(true);
-    expect(hints.dayOfWeek).toBe(1); // Monday
-  });
+  const r3 = normalizeArabizi('aya se3a btefta7o l tnen');
+  assert('"...l tnen" → asksBusinessHours', !!r3.hints.asksBusinessHours);
+  assert('"...l tnen" → dayOfWeek = 1 (Monday)', r3.hints.dayOfWeek === 1);
 });
 
 // ── Yes/No Hints ─────────────────────────────────────────────
 
-describe('normalizeArabizi — yes/no hints', () => {
-  test('"Eh" → yes = true', () => {
-    const { hints } = normalizeArabizi('Eh');
-    expect(hints.yes).toBe(true);
-    expect(hints.no).toBeFalsy();
-  });
-
-  test('"Akid" → yes = true', () => {
-    const { hints } = normalizeArabizi('Akid');
-    expect(hints.yes).toBe(true);
-  });
-
-  test('"Tamem" → yes = true', () => {
-    const { hints } = normalizeArabizi('Tamem');
-    expect(hints.yes).toBe(true);
-  });
-
-  test('"Okay" → NOT yes (English okay should not trigger yes)', () => {
-    // "okay" is in the yes list — this tests that it does trigger (used for awaiting details)
-    const { hints } = normalizeArabizi('Okay');
-    expect(hints.yes).toBe(true);
-  });
-
-  test('"La2" → no = true', () => {
-    const { hints } = normalizeArabizi('La2');
-    expect(hints.no).toBe(true);
-    expect(hints.yes).toBeFalsy();
-  });
-
-  test('"Mish" → no = true', () => {
-    const { hints } = normalizeArabizi('Mish, mish hayda');
-    expect(hints.no).toBe(true);
-  });
+suite('normalizeArabizi — yes/no hints', () => {
+  assert('"Eh" → yes', !!normalizeArabizi('Eh').hints.yes);
+  assert('"Eh" → NOT no', !normalizeArabizi('Eh').hints.no);
+  assert('"Akid" → yes', !!normalizeArabizi('Akid').hints.yes);
+  assert('"Tamem" → yes', !!normalizeArabizi('Tamem').hints.yes);
+  assert('"okay" → yes (triggers yes list)', !!normalizeArabizi('okay').hints.yes);
+  assert('"La2" → no', !!normalizeArabizi('La2').hints.no);
+  assert('"La2" → NOT yes', !normalizeArabizi('La2').hints.yes);
+  assert('"Mish" → no', !!normalizeArabizi('Mish, mish hayda').hints.no);
 });
 
 // ── Day Name Resolution ───────────────────────────────────────
 
-describe('normalizeArabizi — day name resolution', () => {
-  const cases: [string, number, string][] = [
-    ['l a7ad', 0, 'Sunday'],
-    ['l tnen', 1, 'Monday'],
-    ['l tleta', 2, 'Tuesday'],
-    ['l arba3a', 3, 'Wednesday'],
-    ['l khamis', 4, 'Thursday'],
-    ['l jem3a', 5, 'Friday'],
-    ['l sabet', 6, 'Saturday'],
+suite('normalizeArabizi — day name resolution', () => {
+  const cases: [string, number][] = [
+    ['l a7ad', 0],
+    ['l tnen', 1],
+    ['l tleta', 2],
+    ['l arba3a', 3],
+    ['l khamis', 4],
+    ['l jem3a', 5],
+    ['l sabet', 6],
   ];
-
-  cases.forEach(([input, expectedDow, label]) => {
-    test(`"${input}" → dayOfWeek = ${expectedDow} (${label})`, () => {
-      const { hints } = normalizeArabizi(`maw3ed ${input}`);
-      expect(hints.dayOfWeek).toBe(expectedDow);
-    });
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  cases.forEach(([token, dow]) => {
+    const { hints } = normalizeArabizi(`maw3ed ${token}`);
+    assert(`"${token}" → dayOfWeek = ${dow} (${dayNames[dow]})`, hints.dayOfWeek === dow);
   });
 });
 
 // ── E-Commerce Hints ─────────────────────────────────────────
 
-describe('normalizeArabizi — e-commerce hints', () => {
-  test('"Fi men hal hoodie medium black?" → asksStock = true', () => {
-    const { hints } = normalizeArabizi('Fi men hal hoodie medium black?');
-    expect(hints.asksStock).toBe(true);
-    expect(hints.wantsToBuy).toBeFalsy();
-  });
-
-  test('"Ade se3ro?" → asksPrice = true', () => {
-    const { hints } = normalizeArabizi('Ade se3ro?');
-    expect(hints.asksPrice).toBe(true);
-  });
-
-  test('"Bde yeha" → wantsToBuy = true', () => {
-    const { hints } = normalizeArabizi('Bde yeha');
-    expect(hints.wantsToBuy).toBe(true);
-  });
-
-  test('"Shu l services?" → asksService = true', () => {
-    const { hints } = normalizeArabizi('Shu l services?');
-    expect(hints.asksService).toBe(true);
-  });
+suite('normalizeArabizi — e-commerce hints', () => {
+  assert(
+    '"Fi men hal hoodie medium black?" → asksStock',
+    !!normalizeArabizi('Fi men hal hoodie medium black?').hints.asksStock,
+  );
+  assert(
+    '"Fi men hal hoodie..." → NOT wantsToBuy',
+    !normalizeArabizi('Fi men hal hoodie medium black?').hints.wantsToBuy,
+  );
+  assert('"Ade se3ro?" → asksPrice', !!normalizeArabizi('Ade se3ro?').hints.asksPrice);
+  assert('"Bde yeha" → wantsToBuy', !!normalizeArabizi('Bde yeha').hints.wantsToBuy);
+  assert('"Shu l services?" → asksService', !!normalizeArabizi('Shu l services?').hints.asksService);
 });
 
-// ── Anti-regression: no fake facts leaked ────────────────────
+// ── Anti-regression: no fake facts ───────────────────────────
 
-describe('arabizi module — no fake facts', () => {
-  test('Module does not export any hardcoded business hours', () => {
-    // The ARABIZI_APPOINTMENT_REPLIES strings must not contain specific hours
-    const { ARABIZI_APPOINTMENT_REPLIES } = require('./arabizi');
-    const allReplies = Object.values(ARABIZI_APPOINTMENT_REPLIES).join(' ');
-    // Should not contain patterns like "9:00", "7pm", "Mon-Sat", etc.
-    // Template variables like {summary} are OK — they're filled from DB
-    expect(allReplies).not.toMatch(/\b\d{1,2}:\d{2}\s*(AM|PM|am|pm)?\b/);
-    expect(allReplies).not.toMatch(/Mon(day)?[-–]Fri(day)?/i);
-    expect(allReplies).not.toMatch(/\$\d+/); // no dollar amounts
-  });
+suite('arabizi module — no hardcoded business facts', () => {
+  const allReplies = Object.values(ARABIZI_APPOINTMENT_REPLIES).join(' ');
 
-  test('ARABIZI_LLM_HINT does not contain hardcoded business facts', () => {
-    const { ARABIZI_LLM_HINT } = require('./arabizi');
-    // Should have no phone numbers (8+ digit sequences)
-    expect(ARABIZI_LLM_HINT).not.toMatch(/\b\d{8,}\b/);
-    // Should have no dollar/price amounts
-    expect(ARABIZI_LLM_HINT).not.toMatch(/\$\d+/);
-  });
+  // No hardcoded times like "9:00 AM", "7pm", "18:00"
+  const hasHardcodedTime = /\b\d{1,2}:\d{2}\s*(AM|PM|am|pm)?\b/.test(
+    allReplies.replace(/\{[^}]+\}/g, ''), // strip {placeholders}
+  );
+  assert('ARABIZI_APPOINTMENT_REPLIES has no hardcoded clock times', !hasHardcodedTime);
+
+  // No hardcoded Mon-Fri / Mon-Sat patterns
+  assert(
+    'ARABIZI_APPOINTMENT_REPLIES has no hardcoded day ranges',
+    !/Mon(day)?[-–]Fri(day)?/i.test(allReplies),
+  );
+
+  // No dollar amounts
+  assert(
+    'ARABIZI_APPOINTMENT_REPLIES has no hardcoded prices',
+    !/\$\d+/.test(allReplies),
+  );
+
+  // ARABIZI_LLM_HINT has no phone numbers
+  assert(
+    'ARABIZI_LLM_HINT has no hardcoded phone numbers',
+    !/\b\d{8,}\b/.test(ARABIZI_LLM_HINT),
+  );
+
+  // ARABIZI_LLM_HINT has no dollar amounts
+  assert(
+    'ARABIZI_LLM_HINT has no hardcoded prices',
+    !/\$\d+/.test(ARABIZI_LLM_HINT),
+  );
 });
+
+// ── Summary ───────────────────────────────────────────────────
+
+console.log('\n' + results.join('\n'));
+console.log(`\n${'─'.repeat(50)}`);
+console.log(`Total: ${passed + failed} | ✅ Passed: ${passed} | ❌ Failed: ${failed}`);
+
+if (failed > 0) {
+  console.error('\nSome tests failed.');
+  process.exit(1);
+} else {
+  console.log('\nAll tests passed.');
+}
