@@ -24,13 +24,23 @@ export async function createAppointmentBooking(input: {
         customerName, customerPhone, date, startTime, source 
     } = input;
 
-    console.log("[CREATE_APPOINTMENT_INPUT]", { ...input, supabase: 'SUPABASE_CLIENT' });
+    console.log("[APPOINTMENT_CREATE_ATTEMPT]", { 
+        workspaceId,
+        chatId,
+        serviceName,
+        date,
+        startTime,
+        endTime: minutesToTime(timeToMinutes(startTime) + 60), // placeholder until duration is fetched
+        customerName,
+        customerPhone,
+    });
 
     // 1. Basic validation
     if (!workspaceId || !userId || !date || !startTime || !customerName || !customerPhone) {
-        console.error("[CREATE_APPOINTMENT_ERROR] Missing required fields", { workspaceId, userId, date, startTime, customerName, customerPhone });
+        console.error("[APPOINTMENT_CREATE_ERROR] Missing required fields", { workspaceId, userId, date, startTime, customerName, customerPhone });
         return null;
     }
+
 
     try {
         // 2. Fetch service/duration context if needed
@@ -53,9 +63,10 @@ export async function createAppointmentBooking(input: {
         });
 
         if (availability.error || availability.closed) {
-            console.error("[CREATE_APPOINTMENT_ERROR] Business closed or availability error", availability);
+            console.error("[APPOINTMENT_CREATE_ERROR] Business closed or availability error", availability);
             return null;
         }
+
 
         const requestedStart = timeToMinutes(startTime);
         const requestedEnd = requestedStart + durationMinutes;
@@ -67,9 +78,10 @@ export async function createAppointmentBooking(input: {
         });
 
         if (!isAvailable) {
-            console.error("[CREATE_APPOINTMENT_ERROR] Slot unavailable or outside hours", { startTime, durationMinutes, slots: availability.slots });
+            console.error("[APPOINTMENT_CREATE_ERROR] Slot unavailable or outside hours", { startTime, durationMinutes, slots: availability.slots });
             return null;
         }
+
 
         // 4. Determine handle/username
         let instagram_handle = 'Customer';
@@ -107,11 +119,17 @@ export async function createAppointmentBooking(input: {
             .single();
 
         if (error) {
-            console.error("[CREATE_APPOINTMENT_ERROR] DB Insert failed", error);
+            console.error("[APPOINTMENT_CREATE_ERROR] DB Insert failed", error);
             return null;
         }
 
-        console.log("[CREATE_APPOINTMENT_SUCCESS]", insertedAppointment);
+        console.log("[APPOINTMENT_CREATE_SUCCESS]", {
+            appointmentId: insertedAppointment.id,
+            workspaceId,
+            date,
+            startTime,
+        });
+
 
         try {
             await supabase.from('automation_events').insert({
@@ -124,10 +142,12 @@ export async function createAppointmentBooking(input: {
                     event: "appointment_create_attempt",
                     workspaceId,
                     chatId,
+                    serviceName,
                     date,
                     startTime,
-                    customerNamePresent: !!customerName,
-                    customerPhonePresent: !!customerPhone,
+                    endTime: minutesToTime(requestedEnd),
+                    hasCustomerName: !!customerName,
+                    hasCustomerPhone: !!customerPhone,
                     insertSuccess: true,
                     insertedAppointmentId: insertedAppointment.id
                 }

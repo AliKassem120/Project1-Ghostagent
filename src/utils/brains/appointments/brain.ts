@@ -113,10 +113,23 @@ export async function generateAppointmentsGhostReply(
         }
 
         const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
-        const replyWithTruth = async (truth: unknown, constraints: string[] = []) => {
+        
+        /**
+         * Final Reply Guard: Enforces that "confirmed" etc. can ONLY be used if DB insert succeeded.
+         */
+        const replyWithTruth = async (truth: any, constraints: string[] = []) => {
+            const isActuallyBooked = !!truth.booking_success;
+            
+            const baseConstraints = [...constraints];
+            if (!isActuallyBooked) {
+                baseConstraints.push("CRITICAL: The appointment is NOT yet saved in the database. You are FORBIDDEN from using the words: 'confirmed', 'booked', 'scheduled', 'appointment is set'.");
+            } else {
+                baseConstraints.push("The appointment is successfully saved in the database. You should now confirm it clearly with the date and time.");
+            }
+
             const final = await generateText({
                 model: groq('llama-3.3-70b-versatile'),
-                system: buildAppointmentFinalReplyPrompt({ business, intent, constraints }),
+                system: buildAppointmentFinalReplyPrompt({ business, intent, constraints: baseConstraints }),
                 prompt: buildAppointmentFinalReplyUserPrompt({
                     customerMessage: cleanMessage,
                     intent,
@@ -131,20 +144,19 @@ export async function generateAppointmentsGhostReply(
             return cleanAppointmentReply(final.text);
         };
 
-        // HANDLE CONFIRMATION FLOW
-        if (intent.intent === 'confirmation' && state.stage === 'awaiting_booking_confirmation' && state.data.date && state.data.startTime) {
+        const performBooking = async (data: any) => {
             const booking = await createAppointmentBooking({
                 supabase,
                 userId,
                 workspaceId,
                 chatId: chatId!,
-                serviceId: state.data.serviceId,
-                serviceName: state.data.serviceName || 'Service',
-                customerName: state.data.customerName || intent.customer_name || 'Customer',
-                customerPhone: state.data.customerPhone || intent.customer_phone || '',
-                date: state.data.date,
-                startTime: state.data.startTime,
-                timezone: state.data.timezone || 'Asia/Beirut',
+                serviceId: data.serviceId,
+                serviceName: data.serviceName || 'Service',
+                customerName: data.customerName,
+                customerPhone: data.customerPhone,
+                date: data.date,
+                startTime: data.startTime,
+                timezone: data.timezone || 'Asia/Beirut',
                 source: 'automation'
             });
 
@@ -158,6 +170,17 @@ export async function generateAppointmentsGhostReply(
                     "Say you are having trouble confirming the appointment right now and ask them to try again."
                 ]);
             }
+        };
+
+        // ── FLOW: USER CONFIRMED PENDING BOOKING ──
+        if (intent.intent === 'confirmation' && state.stage === 'awaiting_booking_confirmation' && state.data.date && state.data.startTime) {
+            return await performBooking(state.data);
+        }
+
+        // ── FLOW: USER REJECTED PENDING BOOKING ──
+        if (intent.intent === 'rejection' && (state.stage === 'awaiting_booking_confirmation' || state.stage === 'collecting_customer_details')) {
+            await clearConversationState(supabase, userId, workspaceId, chatId!);
+            return replyWithTruth({ booking_cancelled: true }, ["Acknowledge that the booking was cancelled and ask how else you can help."]);
         }
 
         switch (intent.intent) {
@@ -165,7 +188,7 @@ export async function generateAppointmentsGhostReply(
                 const hours = await getBusinessHours({ supabase, userId, workspaceId, day: intent.day });
                 return replyWithTruth(
                     { requested_day: intent.day, hours: hours.hours, timezone: hours.timezone, error: hours.error },
-                    ['Answer opening/closing hours only based on TRUTH.']
+                    ['Answer opening/closing hours only based on TRUTH. Use exact hours.']
                 );
             }
 
@@ -186,8 +209,9 @@ export async function generateAppointmentsGhostReply(
             }
 
             case 'book_appointment': {
-                const date = chooseDateFromIntent(intent);
-                const time = intent.time;
+                const date = chooseDateFromIntent(intent) || state.data.date;
+                const time = intent.time || state.data.startTime;
+
                 if (!date || !time) {
                     return replyWithTruth({ needs_date_or_time: true }, ['Ask for the date and time they want to book.']);
                 }
@@ -196,14 +220,13 @@ export async function generateAppointmentsGhostReply(
                 const service = services.services[0];
                 const timezone = await getWorkspaceTimezone(supabase, workspaceId);
 
-                // Check for missing customer details
                 const customerName = intent.customer_name || state.data.customerName;
                 const customerPhone = intent.customer_phone || state.data.customerPhone;
 
                 const pendingData = {
                     workspaceId,
-                    serviceId: service?.id,
-                    serviceName: service?.name || intent.service_name || 'Service',
+                    serviceId: service?.id || state.data.serviceId,
+                    serviceName: service?.name || intent.service_name || state.data.serviceName || 'Service',
                     date,
                     startTime: time,
                     customerName,
@@ -211,16 +234,24 @@ export async function generateAppointmentsGhostReply(
                     timezone
                 };
 
+                // CRITICAL: If we have EVERYTHING and we were just waiting for details, BOOK NOW.
+                if (customerName && customerPhone && state.stage === 'collecting_customer_details') {
+                    console.log('✅ [APPOINTMENTS] All details received during collection stage. Proceeding to book.');
+                    return await performBooking(pendingData);
+                }
+
+                // If missing name/phone, ask for them.
                 if (!customerName || !customerPhone) {
                     await updateConversationState(supabase, userId, workspaceId, chatId!, {
                         stage: 'collecting_customer_details',
                         data: pendingData
                     });
                     return replyWithTruth({ missing_details: true, pendingData }, [
-                        "Tell them you can book that slot, but you need their name and phone number first."
+                        "Tell them you can book that slot, but you need their name and phone number to confirm."
                     ]);
                 }
 
+                // If we have everything but just started a fresh 'book' intent, ask for confirmation.
                 await updateConversationState(supabase, userId, workspaceId, chatId!, {
                     stage: 'awaiting_booking_confirmation',
                     data: pendingData
@@ -238,15 +269,39 @@ export async function generateAppointmentsGhostReply(
                 return replyWithTruth({ requested_service: intent.service_name, services: services.services });
             }
 
+            case 'confirmation':
+            case 'rejection': {
+                return replyWithTruth({ unhandled_confirmation_or_rejection: true }, [
+                    "The customer said yes or no, but there is no pending action to confirm or reject.",
+                    "Ask them to clarify what they want to book or how you can help."
+                ]);
+            }
+
+            case 'location_question': {
+
+                return replyWithTruth({ location: business.store_location, contact: business.contact_info });
+            }
+
+            case 'gratitude_goodbye': {
+                return replyWithTruth({ outcome: 'customer_thanked_or_closed_conversation' });
+            }
+
             default: {
-                // God Mode & Knowledge injection...
                 let knowledgeQuery = supabase.from('business_knowledge').select('content').eq('workspace_id', workspaceId);
                 const { data: knowledgeData } = await knowledgeQuery.maybeSingle();
+
+                const { data: ownerUser } = await supabase.from('users').select('email').eq('id', userId).maybeSingle();
+                let masterKnowledge = null;
+                if (ownerUser?.email?.toLowerCase() === 'alisalemkassem@gmail.com') {
+                    masterKnowledge = GHOST_AGENT_MASTER_KNOWLEDGE;
+                }
 
                 return replyWithTruth({ 
                     custom_instructions: business.system_instructions, 
                     location: business.store_location, 
-                    business_knowledge: knowledgeData?.content || null
+                    contact: business.contact_info,
+                    business_knowledge: knowledgeData?.content || null,
+                    saas_master_knowledge: masterKnowledge 
                 });
             }
         }
