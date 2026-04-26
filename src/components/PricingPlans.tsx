@@ -1,32 +1,63 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { Check } from 'lucide-react';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Check, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
 import Link from 'next/link';
 import { PLANS } from '@/lib/plans';
 
 export default function PricingPlans() {
+    const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+
     return (
-        <section id="pricing" className="relative py-24 md:py-32 px-4 md:px-6 z-10 pt-32">
+        <section id="pricing" className="relative pt-28 md:pt-32 pb-24 md:pb-32 px-4 md:px-6 z-10">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-            <div className="max-w-6xl mx-auto">
+            
+            <div className="max-w-7xl mx-auto">
+                {/* Header */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
-                    className="text-center mb-20"
+                    className="text-center mb-12"
                 >
-                    <h2 className="text-3xl md:text-5xl font-bold mb-4 tracking-tight text-foreground">
-                        Simple, Transparent Pricing
+                    <h2 className="text-3xl md:text-5xl font-black mb-4 tracking-tighter text-foreground leading-[1.1]">
+                        Simple pricing for growing DM businesses
                     </h2>
-                    <p className="text-muted-foreground max-w-lg mx-auto text-lg font-medium">
-                        Start free. Upgrade when your DMs start rolling in.
+                    <p className="text-muted-foreground max-w-2xl mx-auto text-lg md:text-xl font-medium leading-relaxed">
+                        Start free, then upgrade when your automated replies, orders, and bookings start scaling.
                     </p>
                 </motion.div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 items-center">
+                {/* Billing Toggle */}
+                <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    className="flex items-center justify-center gap-4 mb-16"
+                >
+                    <span className={`text-sm font-bold transition-colors ${billingCycle === 'monthly' ? 'text-foreground' : 'text-muted-foreground'}`}>Monthly</span>
+                    <button 
+                        onClick={() => setBillingCycle(billingCycle === 'monthly' ? 'yearly' : 'monthly')}
+                        className="w-12 h-6 rounded-full bg-surface-2 border border-border relative p-1 transition-colors hover:border-primary/50"
+                    >
+                        <motion.div 
+                            animate={{ x: billingCycle === 'monthly' ? 0 : 24 }}
+                            className="w-4 h-4 rounded-full bg-primary shadow-sm"
+                        />
+                    </button>
+                    <div className="flex items-center gap-2">
+                        <span className={`text-sm font-bold transition-colors ${billingCycle === 'yearly' ? 'text-foreground' : 'text-muted-foreground'}`}>Yearly</span>
+                        <span className="px-2 py-0.5 rounded-md bg-green-500/10 border border-green-500/20 text-[10px] font-black text-green-500 uppercase tracking-wider">Save 20%</span>
+                    </div>
+                </motion.div>
+
+                {/* Pricing Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch mb-20">
                     {PLANS.map((plan, i) => {
                         const isHighlighted = plan.highlight;
+                        const displayPrice = billingCycle === 'monthly' ? plan.price : Math.floor(plan.price * 0.8);
+
                         return (
                             <motion.div
                                 key={plan.tier}
@@ -34,71 +65,163 @@ export default function PricingPlans() {
                                 whileInView={{ opacity: 1, y: 0 }}
                                 viewport={{ once: true }}
                                 transition={{ delay: i * 0.1, duration: 0.6 }}
-                                className={
-                                    isHighlighted
-                                        ? 'pricing-card bg-surface-0 border border-primary/30 rounded-2xl p-8 shadow-[0_0_50px_rgba(139,92,246,0.1)] relative transform md:scale-105 z-10 flex flex-col'
-                                        : 'pricing-card bg-surface-1 rounded-2xl p-8 border border-border shadow-sm flex flex-col'
-                                }
+                                whileHover={{ y: -5 }}
+                                className={`group relative flex flex-col glass-frosted border rounded-[2.5rem] p-8 md:p-10 transition-all duration-300 ${
+                                    isHighlighted 
+                                    ? 'border-primary/40 shadow-[0_0_50px_rgba(139,92,246,0.15)] ring-1 ring-primary/20 bg-surface-0/50' 
+                                    : 'border-border bg-surface-1/40 hover:border-border-hover'
+                                }`}
                             >
                                 {isHighlighted && (
-                                    <div className="absolute -top-px left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-b-lg bg-primary text-foreground text-[11px] font-bold uppercase tracking-wider shadow-sm">
+                                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 px-5 py-2 rounded-full bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-[0_0_20px_rgba(139,92,246,0.4)] z-20">
                                         Most Popular
                                     </div>
                                 )}
 
-                                {/* Plan Header */}
-                                <div className="mb-2">
-                                    <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold mb-3 ${plan.bg} ${plan.color}`}>
+                                {/* Card Header */}
+                                <div className="mb-8">
+                                    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider mb-4 ${plan.bg} ${plan.color}`}>
                                         <plan.icon className="w-3.5 h-3.5" />
                                         {plan.name}
                                     </div>
-                                    <p className="text-xs text-muted-foreground font-medium">{plan.description}</p>
+                                    <h3 className="text-xl font-bold text-foreground mb-2">{plan.description}</h3>
+                                    {plan.valueLine && (
+                                        <p className="text-primary text-xs font-bold uppercase tracking-wide opacity-80">{plan.valueLine}</p>
+                                    )}
                                 </div>
 
-                                {/* Price */}
-                                <div className={`mb-6 flex items-baseline ${isHighlighted ? 'mt-4' : ''}`}>
-                                    <span className="text-5xl font-black text-foreground">${plan.price}</span>
-                                    <span className="text-muted-foreground text-sm ml-1 font-medium">/month</span>
+                                {/* Price Section */}
+                                <div className="mb-8">
+                                    <div className="flex items-baseline gap-1">
+                                        <span className="text-5xl font-black tracking-tighter text-foreground">${displayPrice}</span>
+                                        <span className="text-muted-foreground font-bold">/month</span>
+                                    </div>
+                                    {billingCycle === 'yearly' && plan.price > 0 && (
+                                        <p className="text-[10px] font-bold text-green-500 uppercase tracking-widest mt-1">Billed annually</p>
+                                    )}
                                 </div>
 
-                                {/* DM Limit Badge */}
-                                <div className={`mb-6 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold self-start ${isHighlighted ? 'bg-primary/15 text-primary' : 'bg-surface-2 text-muted-foreground'}`}>
-                                    {plan.dmLimit === null
-                                        ? '∞ Unlimited Replies'
-                                        : `${plan.dmLimit.toLocaleString()} AI Replies / month`}
+                                {/* Limit Pill */}
+                                <div className={`mb-8 inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-black shadow-sm ${
+                                    isHighlighted ? 'bg-primary text-white' : 'bg-surface-2 text-muted-foreground'
+                                }`}>
+                                    {plan.dmLimit === null ? '∞ Unlimited AI Replies' : `${plan.dmLimit.toLocaleString()} AI Replies / month`}
                                 </div>
 
-                                {/* Features */}
-                                <ul className="space-y-3 mb-8 flex-1">
-                                    {plan.features.map((feature) => (
-                                        <li key={feature} className={`flex items-start gap-3 text-sm font-medium ${isHighlighted ? 'text-foreground' : 'text-foreground/80'}`}>
-                                            <Check className={`w-4 h-4 mt-0.5 shrink-0 ${isHighlighted ? 'text-primary' : 'text-muted-foreground'}`} />
-                                            {feature}
-                                        </li>
+                                {/* Features List */}
+                                <div className="flex-1 space-y-4 mb-10">
+                                    {plan.features.map((feature, idx) => (
+                                        <div key={idx} className="flex items-start gap-3">
+                                            <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
+                                                isHighlighted ? 'bg-primary/20 text-primary' : 'bg-surface-3 text-muted-foreground'
+                                            }`}>
+                                                <Check className="w-3 h-3" />
+                                            </div>
+                                            <span className="text-sm font-medium text-foreground/90 leading-tight">{feature}</span>
+                                        </div>
                                     ))}
-                                </ul>
+                                </div>
 
-                                {/* CTA */}
-                                <Link
-                                    href={plan.ctaLink}
-                                    className={
-                                        isHighlighted
-                                            ? 'block w-full py-4 rounded-xl bg-primary text-primary-foreground text-center font-bold hover:opacity-90 transition-opacity shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:shadow-[0_0_30px_rgba(139,92,246,0.5)] mt-auto'
-                                            : 'block w-full py-3.5 rounded-xl border border-border bg-surface-2 text-center font-bold text-foreground hover:bg-surface-3 transition-colors mt-auto'
-                                    }
-                                >
-                                    {plan.cta}
-                                </Link>
+                                {/* CTA Button */}
+                                <div>
+                                    <Link
+                                        href={plan.ctaLink}
+                                        className={`block w-full py-5 rounded-[1.5rem] text-center font-black uppercase tracking-widest text-sm transition-all shadow-lg active:scale-95 ${
+                                            isHighlighted 
+                                            ? 'bg-primary text-white hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:scale-[1.02]' 
+                                            : plan.tier === 'empire'
+                                                ? 'bg-foreground text-background hover:bg-foreground/90 hover:scale-[1.02]'
+                                                : 'bg-surface-2 text-foreground border border-border hover:bg-surface-3 hover:scale-[1.02]'
+                                        }`}
+                                    >
+                                        {plan.cta}
+                                    </Link>
+                                    {plan.tier === 'starter' && (
+                                        <p className="text-center text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-4">No credit card required</p>
+                                    )}
+                                </div>
                             </motion.div>
                         );
                     })}
                 </div>
 
-                {/* Fine print */}
-                <p className="text-center text-xs text-muted-foreground mt-10 font-medium">
-                    No contracts. Cancel anytime. Prices in USD.
-                </p>
+                {/* Trust Row */}
+                <motion.div 
+                    initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
+                    className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-20 border-b border-border/50"
+                >
+                    {[
+                        "Cancel anytime",
+                        "No setup fee",
+                        "Works for E-Com & Booking",
+                        "Upgrade when you need"
+                    ].map((text, i) => (
+                        <div key={i} className="flex items-center justify-center gap-2 text-muted-foreground font-bold text-[10px] md:text-xs uppercase tracking-widest">
+                            <Check className="w-3 h-3 text-primary" /> {text}
+                        </div>
+                    ))}
+                </motion.div>
+
+                {/* FAQ Section */}
+                <div className="py-24">
+                    <motion.div 
+                        initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+                        className="text-center mb-16"
+                    >
+                        <HelpCircle className="w-10 h-10 text-primary mx-auto mb-4" />
+                        <h2 className="text-3xl font-black tracking-tighter">Frequently Asked Questions</h2>
+                    </motion.div>
+
+                    <div className="max-w-3xl mx-auto space-y-4">
+                        <FAQItem 
+                            question="What counts as an AI reply?"
+                            answer="Each automated message GhostAgent sends to a customer counts as one AI reply."
+                        />
+                        <FAQItem 
+                            question="Can I use both E-Commerce and Appointments?"
+                            answer="Yes. The Pro and Empire plans support both workspace types. Starter lets you test one workspace type."
+                        />
+                        <FAQItem 
+                            question="Can I upgrade later?"
+                            answer="Yes. You can start free and upgrade when your DM volume grows."
+                        />
+                        <FAQItem 
+                            question="Do you support Arabic and mixed-language messages?"
+                            answer="Yes. GhostAgent can reply in English, Arabic, Franco Arabic, French, Spanish, and mixed-language conversations depending on your setup."
+                        />
+                    </div>
+                </div>
             </div>
         </section>
+    );
+}
+
+function FAQItem({ question, answer }: { question: string; answer: string }) {
+    const [isOpen, setIsOpen] = useState(false);
+
+    return (
+        <div className="glass-frosted border border-border rounded-2xl overflow-hidden">
+            <button 
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full px-6 py-5 flex items-center justify-between text-left hover:bg-surface-2/50 transition-colors"
+            >
+                <span className="font-bold text-foreground">{question}</span>
+                {isOpen ? <ChevronUp className="w-4 h-4 text-primary" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+            </button>
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div 
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden"
+                    >
+                        <div className="px-6 pb-5 pt-0 text-muted-foreground font-medium text-sm leading-relaxed">
+                            {answer}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
     );
 }
