@@ -161,55 +161,221 @@ function PhoneMockup() {
 /* ════════════════════════════════════════════════════
    SCROLL-TRIGGERED STEP COMPONENT
    ════════════════════════════════════════════════════ */
-function StepCard({
-  step,
+function StepItem({
+  index,
   title,
   description,
   icon: Icon,
-  index,
+  isActive,
+  onInView
 }: {
-  step: string;
+  index: number;
   title: string;
   description: string;
-  icon: React.ComponentType<{ className?: string }>;
-  index: number;
+  icon: any;
+  isActive: boolean;
+  onInView: () => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const isInView = useInView(ref, { once: true, margin: '-100px' });
-
   return (
     <motion.div
-      ref={ref}
-      initial={{ opacity: 0, x: index % 2 === 0 ? -40 : 40 }}
-      animate={isInView ? { opacity: 1, x: 0 } : {}}
-      transition={{ duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className="flex items-start gap-6 md:gap-8 group"
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-20% 0px -20% 0px" }}
+      onViewportEnter={onInView}
+      className={clsx(
+        "relative pl-12 md:pl-20 py-8 md:py-12 transition-all duration-500",
+        isActive ? "opacity-100 scale-100" : "opacity-40 scale-[0.98]"
+      )}
     >
-      {/* Step Number */}
-      <div className="flex flex-col items-center shrink-0">
-        <div
-          className="w-16 h-16 md:w-20 md:h-20 rounded-2xl flex items-center justify-center relative shadow-sm border border-border bg-surface-1"
-          style={{
-            background: 'linear-gradient(135deg, rgba(139,92,246,0.1) 0%, rgba(59,130,246,0.05) 100%)',
-            animation: isInView ? 'pulseGlow 3s ease-in-out infinite' : 'none',
-          }}
-        >
-          <Icon className="w-7 h-7 md:w-8 md:h-8 text-primary group-hover:scale-110 transition-transform duration-300" />
+      {/* Icon Container */}
+      <div className="absolute left-0 top-8 md:top-12 z-20">
+        <div className={clsx(
+          "w-12 h-12 md:w-16 md:h-16 rounded-2xl flex items-center justify-center transition-all duration-500 border shadow-lg",
+          isActive 
+            ? "bg-primary border-primary/50 shadow-primary/20 scale-110" 
+            : "bg-surface-2 border-border shadow-black/20"
+        )}>
+          <Icon className={clsx(
+            "w-6 h-6 md:w-8 h-8 transition-colors duration-500",
+            isActive ? "text-white" : "text-muted-foreground"
+          )} />
         </div>
-        {index < 2 && (
-          <div className="w-px h-16 bg-gradient-to-b from-primary/30 to-transparent mt-4" />
-        )}
       </div>
 
-      {/* Content */}
-      <div className="pt-2 md:pt-4">
-        <span className="text-xs font-bold text-primary uppercase tracking-widest mb-2 block">
-          Step {step}
+      <div className="space-y-4">
+        <span className={clsx(
+          "text-xs font-black uppercase tracking-[0.2em] transition-colors duration-500",
+          isActive ? "text-primary" : "text-muted-foreground"
+        )}>
+          Step 0{index + 1}
         </span>
-        <h3 className="text-xl md:text-2xl font-bold text-foreground mb-3 tracking-tight">{title}</h3>
-        <p className="text-muted-foreground leading-relaxed max-w-md font-medium">{description}</p>
+        <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">{title}</h3>
+        <p className="text-lg text-muted-foreground font-medium leading-relaxed max-w-md">
+          {description}
+        </p>
       </div>
+
+      {/* Mobile Preview - Only visible on small screens when active */}
+      {isActive && (
+        <motion.div 
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="lg:hidden mt-8 overflow-hidden"
+        >
+          <div className="scale-90 origin-top">
+            <PreviewPanel step={index} />
+          </div>
+        </motion.div>
+      )}
     </motion.div>
+  );
+}
+
+function PreviewPanel({ step }: { step: number }) {
+  return (
+    <div className="w-full h-full min-h-[400px] lg:min-h-[500px] relative flex items-center justify-center">
+      <AnimatePresence mode="wait">
+        {step === 0 && (
+          <motion.div
+            key="step1"
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: -20 }}
+            className="w-full max-w-sm aspect-square glass-frosted rounded-[2.5rem] p-8 border border-border shadow-2xl flex flex-col items-center justify-center gap-8"
+          >
+            <div className="relative">
+              <div className="w-24 h-24 rounded-3xl bg-surface-2 border border-border flex items-center justify-center shadow-inner">
+                <Instagram className="w-12 h-12 text-pink-500" />
+              </div>
+              <motion.div 
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.5 }}
+                className="absolute -bottom-2 -right-2 w-10 h-10 rounded-full bg-green-500 border-4 border-surface-1 flex items-center justify-center shadow-lg"
+              >
+                <Check className="w-5 h-5 text-white stroke-[3px]" />
+              </motion.div>
+            </div>
+            <div className="text-center space-y-2">
+              <p className="text-lg font-bold text-foreground">Instagram Connected</p>
+              <p className="text-sm text-muted-foreground">@yourbusiness is live</p>
+            </div>
+            <div className="w-full bg-surface-2 h-2 rounded-full overflow-hidden">
+                <motion.div 
+                  initial={{ width: "0%" }}
+                  animate={{ width: "100%" }}
+                  transition={{ duration: 1.5, ease: "easeInOut" }}
+                  className="h-full bg-primary"
+                />
+            </div>
+          </motion.div>
+        )}
+
+        {step === 1 && (
+          <motion.div
+            key="step2"
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: -20 }}
+            className="w-full max-w-sm aspect-square glass-frosted rounded-[2.5rem] p-8 border border-border shadow-2xl flex flex-col gap-6"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Workspace Setup</span>
+              <div className="flex gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                <div className="w-1.5 h-1.5 rounded-full bg-surface-3" />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+               <div className="p-4 rounded-2xl bg-primary/10 border border-primary/30 flex flex-col gap-3">
+                  <ShoppingBag className="w-6 h-6 text-primary" />
+                  <span className="text-xs font-bold">E-Commerce</span>
+                  <div className="w-full h-1 bg-primary rounded-full" />
+               </div>
+               <div className="p-4 rounded-2xl bg-surface-2 border border-border flex flex-col gap-3 opacity-50">
+                  <Calendar className="w-6 h-6 text-muted-foreground" />
+                  <span className="text-xs font-bold">Services</span>
+                  <div className="w-full h-1 bg-border rounded-full" />
+               </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+               {[
+                 { label: "Inventory Synced", icon: RefreshCcw },
+                 { label: "Brand Tone: Professional", icon: Bot },
+                 { label: "Sales Rules Active", icon: Shield }
+               ].map((item, i) => (
+                 <motion.div 
+                   key={i}
+                   initial={{ x: -20, opacity: 0 }}
+                   animate={{ x: 0, opacity: 1 }}
+                   transition={{ delay: 0.3 + (i * 0.1) }}
+                   className="flex items-center gap-3 p-3 rounded-xl bg-surface-2/50 border border-border/50"
+                 >
+                    <item.icon className="w-4 h-4 text-primary" />
+                    <span className="text-xs font-bold">{item.label}</span>
+                 </motion.div>
+               ))}
+            </div>
+          </motion.div>
+        )}
+
+        {step === 2 && (
+          <motion.div
+            key="step3"
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: -20 }}
+            className="w-full max-w-sm aspect-square glass-frosted rounded-[2.5rem] p-6 border border-border shadow-2xl flex flex-col"
+          >
+            <div className="flex-1 flex flex-col gap-4 overflow-hidden pt-4">
+              <motion.div 
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.5 }}
+                className="bg-surface-3 p-3 rounded-2xl rounded-bl-sm self-start max-w-[80%] text-xs font-medium border border-border/50"
+              >
+                Is the blue hoodie in XL available? 👕
+              </motion.div>
+              <motion.div 
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 1.5 }}
+                className="bg-primary text-white p-3 rounded-2xl rounded-br-sm self-end max-w-[80%] text-xs font-semibold shadow-md"
+              >
+                Checking... Yes! We have 3 left in XL. Want the checkout link?
+              </motion.div>
+            </div>
+
+            <div className="mt-6 pt-6 border-t border-border flex items-center justify-between gap-4">
+                <div className="flex flex-col gap-1">
+                   <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Live Performance</span>
+                   <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-black text-primary">1,248</span>
+                      <span className="text-[10px] font-bold text-green-500">+12%</span>
+                   </div>
+                </div>
+                <div className="w-24 h-10 bg-surface-2 rounded-xl border border-border relative overflow-hidden flex items-end">
+                   {[40, 70, 45, 90, 65, 80, 55, 95].map((h, i) => (
+                     <motion.div 
+                        key={i}
+                        initial={{ height: 0 }}
+                        animate={{ height: `${h}%` }}
+                        transition={{ delay: 2 + i * 0.1, duration: 1 }}
+                        className="flex-1 bg-primary/20 border-t border-primary/50"
+                     />
+                   ))}
+                </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Decorative Glow */}
+      <div className="absolute inset-0 bg-gradient-radial from-primary/5 via-transparent to-transparent -z-10 blur-3xl" />
+    </div>
   );
 }
 
@@ -220,6 +386,7 @@ export default function Home() {
   const [showVideo, setShowVideo] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [activeWorkspace, setActiveWorkspace] = useState<'ecom' | 'appointments'>('ecom');
+  const [activeStep, setActiveStep] = useState(0);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -661,27 +828,27 @@ export default function Home() {
                 </div>
                 
                 {/* Tiny Workflow Row Animation */}
-                <div className="flex-1 flex items-center justify-between gap-2 p-4 bg-surface-2/50 rounded-2xl border border-border/50 relative overflow-hidden">
+                <div className="flex-1 lg:flex-[1.4] flex items-center justify-between gap-2 lg:gap-8 p-4 lg:p-12 bg-surface-2/50 rounded-2xl lg:rounded-[2.5rem] border border-border/50 relative overflow-hidden">
                    {[
                      { label: "DM Received", icon: MessageCircle },
                      { label: "Data Checked", icon: RefreshCcw },
                      { label: "Reply Sent", icon: Zap },
                      { label: "Captured", icon: CheckCircle2 }
                    ].map((step, i) => (
-                     <div key={i} className="flex flex-col items-center gap-2 relative z-10">
+                     <div key={i} className="flex flex-col items-center gap-2 lg:gap-4 relative z-10">
                         <motion.div 
                           initial={{ scale: 0.8, opacity: 0.5 }}
                           animate={{ scale: [0.8, 1.1, 1], opacity: [0.5, 1, 1] }}
                           transition={{ repeat: Infinity, repeatDelay: 4, duration: 0.5, delay: i * 0.8 }}
-                          className="w-10 h-10 rounded-xl bg-surface-3 flex items-center justify-center text-primary border border-border shadow-sm"
+                          className="w-10 h-10 lg:w-20 lg:h-20 rounded-xl lg:rounded-[1.5rem] bg-surface-3 flex items-center justify-center text-primary border border-border shadow-sm"
                         >
-                           <step.icon className="w-5 h-5" />
+                           <step.icon className="w-5 h-5 lg:w-10 lg:h-10" />
                         </motion.div>
-                        <span className="text-[8px] font-black uppercase tracking-wider text-muted-foreground/60">{step.label}</span>
+                        <span className="text-[8px] lg:text-[10px] font-black uppercase tracking-wider text-muted-foreground/60">{step.label}</span>
                      </div>
                    ))}
                    {/* Connectors */}
-                   <div className="absolute top-9 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-border to-transparent -z-0 opacity-30" />
+                   <div className="absolute top-9 lg:top-[5.5rem] left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-border to-transparent -z-0 opacity-30" />
                 </div>
               </div>
             </motion.div>
@@ -693,44 +860,119 @@ export default function Home() {
       {/* ═══════════════════════════════════════════════════
          SECTION 3: HOW IT WORKS
          ═══════════════════════════════════════════════════ */}
-      <section id="about" className="relative py-24 md:py-32 px-4 md:px-6 z-10 border-t border-border">
-        <div className="max-w-4xl mx-auto">
+      <section id="about" className="relative py-24 md:py-32 px-4 md:px-6 z-10 border-t border-border overflow-visible">
+        <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center mb-24"
+            className="text-center mb-16 md:mb-24"
           >
-            <h2 className="text-3xl md:text-5xl font-bold mb-4 tracking-tight text-foreground">
-              Live in 3 Minutes
+            <span className="text-primary font-bold tracking-[0.2em] text-xs uppercase mb-4 block underline decoration-primary/30 underline-offset-8">HOW IT WORKS</span>
+            <h2 className="text-4xl md:text-6xl font-black mb-6 tracking-tighter text-foreground">
+              Launch GhostAgent in 3 minutes
             </h2>
-            <p className="text-muted-foreground max-w-lg mx-auto text-lg font-medium">
-              From signup to your first automated sale — faster than making coffee.
+            <p className="text-muted-foreground max-w-2xl mx-auto text-lg md:text-xl font-medium leading-relaxed">
+              Connect Instagram, configure your workspace, and start automating replies, orders, and bookings in minutes.
             </p>
           </motion.div>
 
-          <div className="flex flex-col gap-8 md:gap-12">
-            <StepCard
-              step="01"
-              title="Connect Your Account"
-              description="Link your Instagram business profile with one tap. Secure OAuth — we never store your password."
-              icon={Zap}
-              index={0}
-            />
-            <StepCard
-              step="02"
-              title="Configure Your Agent"
-              description="Set your brand voice, upload inventory, define sales rules. Your Ghost learns your business in seconds."
-              icon={MessageCircle}
-              index={1}
-            />
-            <StepCard
-              step="03"
-              title="Watch It Scale"
-              description="Sit back as your Ghost Agent replies to DMs, handles objections, and closes deals around the clock."
-              icon={BarChart3}
-              index={2}
-            />
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-start">
+            {/* Left Side: Steps with Timeline */}
+            <div className="relative">
+              {/* Vertical Timeline Line */}
+              <div className="absolute left-6 md:left-8 top-12 bottom-12 w-0.5 bg-border z-0">
+                 <motion.div 
+                    className="absolute top-0 left-0 w-full bg-gradient-to-b from-primary via-blue-500 to-primary/20 shadow-[0_0_15px_rgba(139,92,246,0.5)]"
+                    style={{ 
+                        height: activeStep === 0 ? "10%" : activeStep === 1 ? "50%" : "100%",
+                        transition: "height 0.8s cubic-bezier(0.25, 1, 0.5, 1)"
+                    }}
+                 />
+                 {/* Moving Pulse Dot */}
+                 <motion.div 
+                    className="absolute left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-primary shadow-[0_0_15px_rgba(139,92,246,0.8)] z-10"
+                    animate={{ 
+                        top: activeStep === 0 ? "10%" : activeStep === 1 ? "50%" : "95%",
+                        opacity: [0.5, 1, 0.5]
+                    }}
+                    transition={{ 
+                        top: { duration: 0.8, ease: "easeInOut" },
+                        opacity: { duration: 2, repeat: Infinity }
+                    }}
+                 />
+              </div>
+
+              {/* Steps */}
+              <div className="relative z-10">
+                <StepItem 
+                   index={0}
+                   title="Connect Your Instagram"
+                   description="Link your Instagram business account securely with Meta OAuth. No password storage and no complicated setup."
+                   icon={Instagram}
+                   isActive={activeStep === 0}
+                   onInView={() => setActiveStep(0)}
+                />
+                <StepItem 
+                   index={1}
+                   title="Set Up Your Workspace"
+                   description="Choose E-Commerce or Appointments, sync your products or services, and define your AI tone and rules."
+                   icon={RefreshCcw}
+                   isActive={activeStep === 1}
+                   onInView={() => setActiveStep(1)}
+                />
+                <StepItem 
+                   index={2}
+                   title="Go Live on Autopilot"
+                   description="GhostAgent starts replying to DMs, checking inventory or availability, and helping convert customers automatically."
+                   icon={Bot}
+                   isActive={activeStep === 2}
+                   onInView={() => setActiveStep(2)}
+                />
+              </div>
+
+              {/* Final CTA in Step Column */}
+              <motion.div 
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+                className="pl-12 md:pl-20 mt-8 flex flex-wrap gap-4"
+              >
+                <Link
+                  href="/register"
+                  className="px-8 py-3.5 bg-primary text-primary-foreground font-bold rounded-full hover:scale-105 transition-all shadow-lg text-sm"
+                >
+                  Get Started Free
+                </Link>
+                <button
+                  onClick={() => setShowVideo(true)}
+                  className="px-8 py-3.5 bg-surface-2 border border-border text-foreground font-bold rounded-full hover:bg-surface-3 transition-all text-sm"
+                >
+                  Watch Demo
+                </button>
+              </motion.div>
+            </div>
+
+            {/* Right Side: Sticky Preview Panel (Desktop Only) */}
+            <div className="hidden lg:block lg:sticky lg:top-32 h-fit">
+               <PreviewPanel step={activeStep} />
+               
+               {/* Connection Trails */}
+               <div className="absolute -left-12 top-1/2 -translate-y-1/2 pointer-events-none">
+                  {[...Array(3)].map((_, i) => (
+                    <motion.div 
+                      key={i}
+                      className="h-px bg-gradient-to-r from-primary/30 to-transparent mb-8"
+                      initial={{ width: 0, opacity: 0 }}
+                      animate={{ 
+                        width: activeStep === i ? 60 : 0,
+                        opacity: activeStep === i ? 1 : 0
+                      }}
+                      transition={{ duration: 0.5 }}
+                    />
+                  ))}
+               </div>
+            </div>
           </div>
         </div>
       </section>
