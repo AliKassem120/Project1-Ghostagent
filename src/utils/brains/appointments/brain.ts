@@ -10,6 +10,8 @@ import {
     getBusinessHours,
     getServices,
 } from './tools';
+import { getAppointmentSlotDuration } from '@/lib/appointments/business-hours';
+
 import { GHOST_AGENT_MASTER_KNOWLEDGE } from '../master-knowledge';
 
 function cleanMessageText(message: string): string {
@@ -126,33 +128,51 @@ export async function generateAppointmentsGhostReply(
 
         switch (intent.intent) {
             case 'business_hours': {
+                if (!workspaceId) {
+                    return replyWithTruth(
+                        { error: 'I’m having trouble checking our schedule right now. Please try again in a moment.' },
+                        ['Say you are having trouble checking the schedule and ask them to try again soon.']
+                    );
+                }
                 const hours = await getBusinessHours({ supabase, userId, workspaceId, day: intent.day });
                 return replyWithTruth(
-                    { requested_day: intent.day, hours: hours.hours, error: hours.error },
-                    ['Answer opening/closing hours only. Do not mention appointment slots. If no day was requested, summarize open days briefly.']
+                    { requested_day: intent.day, hours: hours.hours, timezone: hours.timezone, error: hours.error },
+                    ['Answer opening/closing hours only based on TRUTH. Use exact hours. If closed, say closed. Do not invent.']
                 );
             }
 
             case 'appointment_availability': {
+                if (!workspaceId) {
+                    return replyWithTruth(
+                        { error: 'I’m having trouble checking availability right now. Please try again in a moment.' },
+                        ['Say you are having trouble checking availability and ask them to try again soon.']
+                    );
+                }
                 const date = chooseDateFromIntent(intent);
                 if (!date) {
                     return replyWithTruth(
                         { needs_date: true, requested_day: intent.day, requested_time: intent.time },
-                        ['Ask which day/date they want. Do not invent available slots.']
+                        ['Ask which specific day or date they want. Do not invent available slots.']
                     );
                 }
 
                 const services = await getServices({ supabase, userId, workspaceId, serviceName: intent.service_name, limit: 1 });
-                const duration = services.services[0]?.duration_minutes || 60;
+                const duration = services.services[0]?.duration_minutes || await getAppointmentSlotDuration(supabase, workspaceId);
                 const availability = await checkAppointmentAvailability({ supabase, userId, workspaceId, date, durationMinutes: duration });
 
                 return replyWithTruth(
-                    { requested_date: date, requested_time: intent.time, service: services.services[0] || null, availability },
-                    ['Offer only slots listed in TRUTH. If closed, say closed. Do not say booked unless the slot is absent from TRUTH.']
+                    { requested_date: date, requested_time: intent.time, service: services.services[0] || null, availability, slotDurationUsed: duration },
+                    ['Offer only slots listed in TRUTH. If closed, say closed. If a time is requested but unavailable, say why (closed or booked) based on TRUTH.']
                 );
             }
 
             case 'book_appointment': {
+                if (!workspaceId) {
+                    return replyWithTruth(
+                        { error: 'I’m having trouble processing your booking right now. Please try again in a moment.' },
+                        ['Say you are having trouble processing the booking and ask them to try again soon.']
+                    );
+                }
                 const date = chooseDateFromIntent(intent);
                 const result = await finalizeAppointmentBooking({
                     supabase,
@@ -164,12 +184,11 @@ export async function generateAppointmentsGhostReply(
                     serviceName: intent.service_name,
                     date,
                     time: intent.time,
-                    durationMinutes: 60,
                 });
 
                 return replyWithTruth(
                     { booking_result: result },
-                    ['If missing fields, ask only for missing fields. If saved, confirm. If blocked, explain briefly and offer a valid next step.']
+                    ['If missing fields, ask only for missing fields. If saved, confirm with date and time. If blocked (closed/conflict), explain exactly why.']
                 );
             }
 
