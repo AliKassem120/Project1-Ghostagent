@@ -1,9 +1,6 @@
-import { createGroq } from '@ai-sdk/groq';
-import { generateText } from 'ai';
 import { BusinessProfile } from '../types';
 import { getConversationMemory, summarizeConversationIfNeeded, trackConversationMessage } from '../../rolling-memory';
 import { classifyAppointmentIntent, AppointmentIntent } from './intent';
-import { buildAppointmentFinalReplyPrompt, buildAppointmentFinalReplyUserPrompt, cleanAppointmentReply } from './prompt';
 import {
     checkAppointmentAvailability,
     getBusinessHours,
@@ -20,7 +17,6 @@ import {
 } from '@/lib/conversation-state';
 
 import { APPOINTMENT_TEMPLATES, applyTemplate } from '../templates';
-import { validateDMResponse } from '../validator';
 
 import { GHOST_AGENT_MASTER_KNOWLEDGE } from '../master-knowledge';
 
@@ -120,59 +116,24 @@ export async function generateAppointmentsGhostReply(
         }
 
 
-        const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
+
 
         /**
          * Final Reply Guard: Enforces that "confirmed" etc. can ONLY be used if DB insert succeeded.
          */
         const replyWithTruth = async (truth: any, constraints: string[] = [], templateKey?: keyof typeof APPOINTMENT_TEMPLATES, templateData: Record<string, any> = {}) => {
-            const isActuallyBooked = !!truth.booking_success;
-            const isBusinessHours = intent.intent === 'business_hours';
+            if (chatId) await safeTrackMemory({ supabase, userId, chatId, workspaceId, fullHistory });
 
-            let truthWithTemplate = { ...truth };
             if (templateKey) {
                 const template = APPOINTMENT_TEMPLATES[templateKey];
-                truthWithTemplate.templated_reply = applyTemplate(template, templateData);
+                return applyTemplate(template, templateData);
             }
 
-            const baseConstraints = [...constraints];
-            if (!isActuallyBooked) {
-                baseConstraints.push("CRITICAL: Appointment NOT saved. NEVER use 'confirmed', 'booked', 'scheduled'.");
-            }
+            // Fallback for cases where templateKey might be missing during transition
+            if (truth.templated_reply) return truth.templated_reply;
 
-            const generate = async () => {
-                const final = await generateText({
-                    model: groq('llama-3.3-70b-versatile'),
-                    system: buildAppointmentFinalReplyPrompt({ business, intent, constraints: baseConstraints, customerMessage: cleanMessage }),
-                    prompt: buildAppointmentFinalReplyUserPrompt({
-                        customerMessage: cleanMessage,
-                        intent,
-                        truth: truthWithTemplate,
-                        contextSummary,
-                        historyContext,
-                    }),
-                    temperature: 0.1,
-                });
-                return cleanAppointmentReply(final.text) || "";
-            };
-
-            let response = await generate();
-            let validation = validateDMResponse(response, { isBusinessHours, isActuallyConfirmed: isActuallyBooked });
-
-            if (!validation.isValid) {
-                console.warn(`⚠️ [APPOINTMENTS] Validation failed: ${validation.reason}. Regenerating...`);
-                baseConstraints.push(`STRICT: Your previous response failed validation: ${validation.reason}. Rewrite it to be shorter and follow all rules.`);
-                response = await generate();
-                validation = validateDMResponse(response, { isBusinessHours, isActuallyConfirmed: isActuallyBooked });
-            }
-
-            if (!validation.isValid && truthWithTemplate.templated_reply) {
-                console.error(`❌ [APPOINTMENTS] Double validation failure. Falling back to raw template.`);
-                response = truthWithTemplate.templated_reply;
-            }
-
-            if (chatId) await safeTrackMemory({ supabase, userId, chatId, workspaceId, fullHistory });
-            return response;
+            // Strict fallback for unclear or unmapped states
+            return APPOINTMENT_TEMPLATES.UNCLEAR;
         };
 
 
@@ -245,9 +206,13 @@ export async function generateAppointmentsGhostReply(
 
                 return replyWithTruth(
                     { requested_date: date, requested_time: intent.time, service: services.services[0] || null, availability },
-                    ['Offer only slots listed in TRUTH. If closed, say closed.'],
-                    availability.closed ? 'CLOSED_DAY' : (availability.slots.length === 0 ? 'NO_AVAILABILITY' : undefined),
-                    { dayLabel: date, slotOptions: availability.slots.slice(0, 3).map(s => s.time).join(', ') }
+                    [],
+                    availability.closed ? 'CLOSED_DAY' : (availability.slots.length === 0 ? 'NO_AVAILABILITY' : 'SLOT_AVAILABLE_NEED_DETAILS'),
+                    { 
+                        dayLabel: date, 
+                        timeLabel: intent.time || '',
+                        slotOptions: availability.slots.slice(0, 3).map(s => s.time).join(', ') 
+                    }
                 );
             }
 
@@ -272,9 +237,7 @@ export async function generateAppointmentsGhostReply(
                 // Multiple ambiguous matches — ask customer to choose
                 if (!resolvedService && confidence === 'fuzzy' && candidates.length > 1) {
                     const names = candidates.map(c => c.name).join(', ');
-                    return replyWithTruth({ needs_service_clarification: true, candidates }, [
-                        `Ask the customer which service they want. Options: ${names}`
-                    ]);
+                    return replyWithTruth({ needs_service_clarification: true, candidates }, [], 'ASK_SERVICE');
                 }
 
                 // No match — present all active services
@@ -332,24 +295,32 @@ export async function generateAppointmentsGhostReply(
             case 'service_question':
             case 'price_question':
             case 'duration_question': {
-                const services = await getServices({ supabase, userId, workspaceId, serviceName: intent.service_name });
-                return replyWithTruth({ requested_service: intent.service_name, services: services.services });
+                const servicesList = await getServices({ supabase, userId, workspaceId, serviceName: intent.service_name });
+                const serviceListStr = servicesList.services.map(s => `${s.name} ($${s.price})`).join(', ');
+                return replyWithTruth(
+                    { requested_service: intent.service_name, services: servicesList.services },
+                    [],
+                    'SERVICE_INFO',
+                    { serviceList: serviceListStr || 'our standard services' }
+                );
             }
 
             case 'confirmation':
             case 'rejection': {
-                return replyWithTruth({ unhandled_confirmation_or_rejection: true }, [
-                    "The customer said yes or no, but there is no pending action to confirm or reject.",
-                    "Ask them to clarify what they want to book or how you can help."
-                ]);
+                return replyWithTruth({ unhandled_confirmation_or_rejection: true }, [], 'UNHANDLED_CONFIRM_REJECT');
             }
 
             case 'location_question': {
-                return replyWithTruth({ location: business.store_location, contact: business.contact_info });
+                return replyWithTruth(
+                    { location: business.store_location, contact: business.contact_info },
+                    [],
+                    'LOCATION_INFO',
+                    { location: business.store_location || 'our shop', contact: business.contact_info || 'us directly' }
+                );
             }
 
             case 'gratitude_goodbye': {
-                return replyWithTruth({ outcome: 'customer_thanked_or_closed_conversation' });
+                return replyWithTruth({ outcome: 'customer_thanked_or_closed_conversation' }, [], 'GRATITUDE_GOODBYE');
             }
 
 

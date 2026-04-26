@@ -12,7 +12,12 @@ export const APPOINTMENT_TEMPLATES = {
     BUSINESS_HOURS_GENERAL: "We're open {summary}.",
     NO_AVAILABILITY: "That time isn't available. I can offer {slotOptions}.",
     BOOKING_ERROR: "I'm having trouble confirming the appointment right now. Please try again in a moment.",
-    REJECTION_ACK: "No problem. Let me know if you change your mind or need anything else."
+    REJECTION_ACK: "No problem. Let me know if you change your mind or need anything else.",
+    SERVICE_INFO: "We offer: {serviceList}.",
+    LOCATION_INFO: "We're located at {location}. Contact: {contact}.",
+    UNCLEAR: "I'm not sure I understood. How can I help you with your booking?",
+    GRATITUDE_GOODBYE: "You're welcome! Let me know if you need anything else.",
+    UNHANDLED_CONFIRM_REJECT: "I'm not sure what you're confirming or rejecting. How can I help you with your booking?",
 };
 
 export const ECOM_TEMPLATES = {
