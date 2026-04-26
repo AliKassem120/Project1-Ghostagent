@@ -162,66 +162,7 @@ export default function PricingPlans() {
                     ))}
                 </motion.div>
 
-                {/* FAQ Section */}
-                <div className="py-24">
-                    <motion.div 
-                        initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-                        className="text-center mb-16"
-                    >
-                        <HelpCircle className="w-10 h-10 text-primary mx-auto mb-4" />
-                        <h2 className="text-3xl font-black tracking-tighter">Frequently Asked Questions</h2>
-                    </motion.div>
-
-                    <div className="max-w-3xl mx-auto space-y-4">
-                        <FAQItem 
-                            question="What counts as an AI reply?"
-                            answer="Each automated message GhostAgent sends to a customer counts as one AI reply."
-                        />
-                        <FAQItem 
-                            question="Can I use both E-Commerce and Appointments?"
-                            answer="Yes. The Pro and Empire plans support both workspace types. Starter lets you test one workspace type."
-                        />
-                        <FAQItem 
-                            question="Can I upgrade later?"
-                            answer="Yes. You can start free and upgrade when your DM volume grows."
-                        />
-                        <FAQItem 
-                            question="Do you support Arabic and mixed-language messages?"
-                            answer="Yes. GhostAgent can reply in English, Arabic, Franco Arabic, French, Spanish, and mixed-language conversations depending on your setup."
-                        />
-                    </div>
-                </div>
             </div>
         </section>
-    );
-}
-
-function FAQItem({ question, answer }: { question: string; answer: string }) {
-    const [isOpen, setIsOpen] = useState(false);
-
-    return (
-        <div className="glass-frosted border border-border rounded-2xl overflow-hidden">
-            <button 
-                onClick={() => setIsOpen(!isOpen)}
-                className="w-full px-6 py-5 flex items-center justify-between text-left hover:bg-surface-2/50 transition-colors"
-            >
-                <span className="font-bold text-foreground">{question}</span>
-                {isOpen ? <ChevronUp className="w-4 h-4 text-primary" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-            </button>
-            <AnimatePresence>
-                {isOpen && (
-                    <motion.div 
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden"
-                    >
-                        <div className="px-6 pb-5 pt-0 text-muted-foreground font-medium text-sm leading-relaxed">
-                            {answer}
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </div>
     );
 }

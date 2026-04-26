@@ -29,8 +29,10 @@ import {
   Calendar,
   RefreshCcw,
   Bot,
-  CheckCircle2
+  CheckCircle2,
+  HelpCircle
 } from 'lucide-react';
+import clsx from 'clsx';
 
 /* ════════════════════════════════════════════════════
    CHAT MESSAGES — Multilingual DM Demo
@@ -850,9 +852,9 @@ export default function Home() {
       <PricingPlans />
 
       {/* ═══════════════════════════════════════════════════
-         NEW SECTION: FAQ
+         SECTION 5: FAQ
          ═══════════════════════════════════════════════════ */}
-      <section className="relative py-24 md:py-32 px-4 md:px-6 z-10 border-t border-border bg-surface-0/20">
+      <section id="faq" className="relative py-24 md:py-32 px-4 md:px-6 z-10 border-t border-border bg-surface-0/20">
         <div className="max-w-3xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -860,40 +862,86 @@ export default function Home() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-3xl md:text-5xl font-bold mb-4 tracking-tight text-foreground">
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
+                <HelpCircle className="w-6 h-6 text-primary" />
+            </div>
+            <h2 className="text-3xl md:text-5xl font-black mb-4 tracking-tighter text-foreground">
               Frequently Asked Questions
             </h2>
             <p className="text-muted-foreground text-lg font-medium">
-              Everything you need to know about the product and billing.
+              Everything you need to know about GhostAgent, automation, and billing.
             </p>
           </motion.div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {[
-              { q: 'Does Ghost Agent handle both physical products and services?', a: 'Yes! Ghost Agent is built with dual workspaces. It can sync physical inventory to check out e-com customers, OR it can sync with your calendar to strictly manage service appointments.' },
-              { q: 'Will my account get banned for using a bot?', a: 'No. Ghost Agent uses the official Instagram and Facebook Graph APIs. We are fully compliant with Meta’s terms of service and rate limits.' },
-              { q: 'Can it speak my local dialect?', a: 'Ghost Agent powered by advanced LLMs is natively multilingual. It understands and responds fluently in Lebanese Franco, Gulf Arabic, English, French, Spanish, and many more, matching your customer’s tone.' },
-              { q: 'How does the Appointments booking work?', a: 'You set your services and durations. Ghost Agent chats with the client, collects mandatory data (Name, Phone), securely queries your live availability, and blocks the slot instantly—preventing double-bookings.' },
-              { q: 'Can I jump in and reply manually?', a: 'Absolutely. The AI automatically pauses if it detects you typing or sending a manual message, handing control securely back to you or your human agents.' },
+              { 
+                q: 'Does GhostAgent handle both physical products and services?', 
+                a: 'Yes. GhostAgent supports both E-Commerce and Service/Appointments workspaces. You can automate product questions, inventory checks, orders, service questions, availability, and bookings.' 
+              },
+              { 
+                q: 'What counts as an AI reply?', 
+                a: 'Each automated message GhostAgent sends to a customer counts as one AI reply. Customer messages and manual replies do not count.' 
+              },
+              { 
+                q: 'Can I use both E-Commerce and Appointments?', 
+                a: 'Yes. Pro and Empire support both workspace types. Starter lets you test one workspace type.' 
+              },
+              { 
+                q: 'How does appointment booking work?', 
+                a: 'GhostAgent checks your working hours, service duration, and calendar availability before asking for required details like name and phone number. It only confirms after the booking is saved.' 
+              },
+              { 
+                q: 'How does E-Commerce automation work?', 
+                a: 'GhostAgent checks your products, variants, stock, and order settings before replying. It can answer product questions, collect customer details, and create orders when everything is valid.' 
+              },
+              { 
+                q: 'Will my account get banned for using a bot?', 
+                a: 'GhostAgent is designed for responsible business automation. You stay in control, can pause autopilot, and can reply manually anytime. Avoid spammy outreach and use it for real customer conversations.' 
+              },
+              { 
+                q: 'Can it speak my local dialect?', 
+                a: 'Yes. GhostAgent can handle English, Arabic, Franco Arabic, French, Spanish, and mixed-language conversations depending on your setup.' 
+              },
+              { 
+                q: 'Can I jump in and reply manually?', 
+                a: 'Yes. You can pause autopilot or manually reply whenever needed. GhostAgent should support your team, not lock you out.' 
+              },
+              { 
+                q: 'Can I upgrade later?', 
+                a: 'Yes. You can start free and upgrade when your DM volume grows.' 
+              },
+              { 
+                q: 'Do I need a credit card to start?', 
+                a: 'No. The Starter plan is free to try.' 
+              },
             ].map((faq, idx) => (
               <motion.div
                 key={idx}
                 initial={{ opacity: 0, y: 10 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: idx * 0.1 }}
-                className="border border-border rounded-2xl bg-surface-1 overflow-hidden"
+                transition={{ delay: idx * 0.05 }}
+                className={clsx(
+                    "border rounded-2xl transition-all duration-300",
+                    openFaq === idx ? "border-primary/30 bg-surface-1 shadow-sm" : "border-border bg-surface-1/40 hover:bg-surface-1"
+                )}
               >
                 <button
                   onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
-                  className="flex items-center justify-between w-full px-6 py-5 text-left focus:outline-none"
+                  className="flex items-center justify-between w-full px-6 py-5 text-left focus:outline-none group"
                 >
-                  <span className="font-semibold text-foreground pr-8">{faq.q}</span>
-                  {openFaq === idx ? (
-                    <Minus className="w-5 h-5 text-primary shrink-0" />
-                  ) : (
-                    <Plus className="w-5 h-5 text-muted-foreground shrink-0" />
-                  )}
+                  <span className={clsx(
+                      "font-bold transition-colors",
+                      openFaq === idx ? "text-primary" : "text-foreground group-hover:text-primary"
+                  )}>{faq.q}</span>
+                  <div className={clsx(
+                      "w-6 h-6 rounded-lg flex items-center justify-center transition-all",
+                      openFaq === idx ? "bg-primary text-white rotate-180" : "bg-surface-2 text-muted-foreground"
+                  )}>
+                    <Plus className={clsx("w-3.5 h-3.5 transition-transform", openFaq === idx && "hidden")} />
+                    <Minus className={clsx("w-3.5 h-3.5 transition-transform", openFaq !== idx && "hidden")} />
+                  </div>
                 </button>
                 <AnimatePresence>
                   {openFaq === idx && (
@@ -903,7 +951,7 @@ export default function Home() {
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.3, ease: 'easeInOut' }}
                     >
-                      <div className="px-6 pb-6 text-muted-foreground font-medium leading-relaxed border-t border-border/50 pt-4">
+                      <div className="px-6 pb-6 text-muted-foreground font-medium text-sm leading-relaxed border-t border-border/10 pt-4">
                         {faq.a}
                       </div>
                     </motion.div>
@@ -916,32 +964,82 @@ export default function Home() {
       </section>
 
       {/* ═══ FINAL CTA STRIP ═══ */}
-      <section className="relative py-24 md:py-32 px-4 md:px-6 z-10 border-t border-border bg-gradient-to-b from-surface-1 to-background">
+      <section className="relative py-28 md:py-40 px-4 md:px-6 z-10 border-t border-border overflow-hidden">
+        {/* Abstract Background Effects */}
+        <div className="absolute inset-0 bg-gradient-to-b from-surface-1/50 to-background -z-10" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-primary/20 blur-[120px] rounded-full -z-10 animate-pulse" style={{ animationDuration: '8s' }} />
+        <div className="absolute top-1/4 right-1/4 w-[300px] h-[300px] bg-blue-500/10 blur-[100px] rounded-full -z-10" />
+        
+        {/* Floating Decorative Elements (Subtle) */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden hidden lg:block">
+            <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 4, repeat: Infinity }} className="absolute top-[20%] left-[15%] p-3 bg-surface-2/40 border border-border/50 rounded-2xl backdrop-blur-md shadow-xl">
+                <MessageCircle className="w-5 h-5 text-primary" />
+            </motion.div>
+            <motion.div animate={{ y: [0, 10, 0] }} transition={{ duration: 5, repeat: Infinity, delay: 1 }} className="absolute bottom-[25%] right-[12%] p-3 bg-surface-2/40 border border-border/50 rounded-2xl backdrop-blur-md shadow-xl">
+                <Calendar className="w-5 h-5 text-rose-500" />
+            </motion.div>
+            <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 6, repeat: Infinity }} className="absolute top-[35%] right-[18%] p-2 bg-surface-2/30 border border-border/30 rounded-xl backdrop-blur-sm shadow-lg">
+                <ShoppingBag className="w-4 h-4 text-blue-500" />
+            </motion.div>
+        </div>
+
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="max-w-4xl mx-auto text-center"
+          className="max-w-5xl mx-auto"
         >
-          <h2 className="text-4xl md:text-6xl font-black mb-6 tracking-tight text-foreground">
-            Ready to Automate Your Sales?
-          </h2>
-          <p className="text-xl text-muted-foreground mb-10 max-w-xl mx-auto font-medium leading-relaxed">
-            Join 50+ store owners already using Ghost Agent. Set up in under 3 minutes.
-          </p>
-          <Link
-            href="/login"
-            className="relative overflow-x-clip inline-flex items-center gap-3 px-12 py-5 bg-primary text-primary-foreground font-bold rounded-full hover:scale-[1.03] transition-transform shadow-[0_0_30px_rgba(139,92,246,0.3)] hover:shadow-[0_0_50px_rgba(139,92,246,0.5)] text-lg"
-          >
-            <span className="relative z-10 flex items-center gap-2">
-              Start Your Free Trial
-              <ArrowRight className="w-5 h-5" />
-            </span>
-            <div
-              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent"
-              style={{ animation: 'shimmer 3s ease-in-out infinite' }}
-            />
-          </Link>
+          {/* Glass Card Container */}
+          <div className="relative glass-frosted border border-primary/20 rounded-[3rem] p-10 md:p-20 text-center shadow-2xl overflow-hidden group">
+            {/* Subtle Inner Glow */}
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+            
+            <div className="relative z-10 max-w-3xl mx-auto">
+                <h2 className="text-4xl md:text-6xl font-black mb-6 tracking-tighter text-foreground leading-[1.1]">
+                    Ready to turn DMs into <span className="text-primary">sales</span> and <span className="text-blue-500">bookings?</span>
+                </h2>
+                <p className="text-lg md:text-xl text-muted-foreground mb-12 font-medium leading-relaxed">
+                    Launch your AI business agent in minutes. Automate replies, capture orders, book appointments, and stay in control from one workspace.
+                </p>
+                
+                {/* CTA Buttons */}
+                <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-10">
+                    <Link
+                        href="/register"
+                        className="w-full sm:w-auto relative overflow-x-clip px-10 py-5 bg-primary text-primary-foreground font-black uppercase tracking-widest rounded-full hover:scale-[1.03] transition-all shadow-[0_0_30px_rgba(139,92,246,0.3)] hover:shadow-[0_0_50px_rgba(139,92,246,0.5)] text-sm"
+                    >
+                        <span className="relative z-10 flex items-center justify-center gap-2">
+                            Get Started Free
+                            <ArrowRight className="w-5 h-5" />
+                        </span>
+                        <div
+                            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent"
+                            style={{ animation: 'shimmer 3s ease-in-out infinite' }}
+                        />
+                    </Link>
+                    <button
+                        onClick={() => setShowVideo(true)}
+                        className="w-full sm:w-auto px-10 py-5 bg-surface-2 border border-border rounded-full hover:bg-surface-3 transition-colors text-foreground font-bold flex items-center justify-center gap-2 text-sm"
+                    >
+                        ▶ Watch Demo
+                    </button>
+                </div>
+
+                {/* Trust Row */}
+                <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-3">
+                    {[
+                        "No credit card required",
+                        "Free Starter plan",
+                        "Cancel anytime"
+                    ].map((item, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{item}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+          </div>
         </motion.div>
       </section>
 
