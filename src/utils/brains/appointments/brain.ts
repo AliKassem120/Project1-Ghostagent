@@ -17,6 +17,9 @@ import {
 } from '@/lib/conversation-state';
 
 import { APPOINTMENT_TEMPLATES, applyTemplate } from '../templates';
+import { validateReply } from '@/lib/automation/reply-validator';
+import { normalizeLanguage } from '@/lib/automation/language';
+import { resolveRelativeDate } from '@/lib/automation/time-context';
 
 import { GHOST_AGENT_MASTER_KNOWLEDGE } from '../master-knowledge';
 
@@ -100,6 +103,37 @@ export async function generateAppointmentsGhostReply(
         }
 
         const cleanMessage = cleanMessageText(userMessage);
+        // Load Conversation State
+        let state: ConversationState = { stage: 'idle', data: {} };
+        if (chatId) {
+            state = await getConversationState(supabase, userId, workspaceId, chatId, 'appointments');
+        }
+        const normalized = normalizeLanguage(cleanMessage);
+
+        const stateStage = state.stage === 'collecting_customer_details' ? 'awaiting_customer_details' : state.stage;
+
+        if (stateStage === 'awaiting_date_time' && normalized.hints.timeText) {
+            const timezone = await getWorkspaceTimezone(supabase, workspaceId!);
+            const intentLike = {
+                date: normalized.hints.tomorrow ? resolveRelativeDate('tomorrow', timezone) : resolveRelativeDate('today', timezone),
+                time: normalized.hints.timeText
+            };
+            const services = await getServices({ supabase, userId, workspaceId, serviceName: state.data.serviceName, limit: 1 });
+            const duration = services.services[0]?.duration_minutes || await getAppointmentSlotDuration(supabase, workspaceId);
+            const availability = await checkAppointmentAvailability({ supabase, userId, workspaceId, date: intentLike.date, durationMinutes: duration });
+            if (availability.slots.some(s => s.time === intentLike.time)) {
+                await updateConversationState(supabase, userId, workspaceId!, chatId!, 'appointments', { stage: 'awaiting_customer_details', data: { ...state.data, date: intentLike.date, startTime: intentLike.time } });
+                const template = applyTemplate(APPOINTMENT_TEMPLATES.SLOT_AVAILABLE_NEED_DETAILS, { dateLabel: intentLike.date, timeLabel: intentLike.time });
+                return validateReply({ userMessage: cleanMessage, reply: template, templateReply: template }).safeReply;
+            }
+            return validateReply({ userMessage: cleanMessage, reply: APPOINTMENT_TEMPLATES.ASK_DATE_TIME, templateReply: APPOINTMENT_TEMPLATES.ASK_DATE_TIME }).safeReply;
+        }
+
+        if (stateStage === 'awaiting_customer_details' && !normalized.hints.customerPhone) {
+            const template = APPOINTMENT_TEMPLATES.NEED_NAME_AND_PHONE;
+            return validateReply({ userMessage: cleanMessage, reply: template, templateReply: template }).safeReply;
+        }
+
         const intent = await classifyAppointmentIntent({
             message: cleanMessage,
             historyContext,
@@ -108,12 +142,6 @@ export async function generateAppointmentsGhostReply(
         });
 
         if (intent.intent === 'human_handoff') return null;
-
-        // Load Conversation State
-        let state: ConversationState = { stage: 'idle', data: {} };
-        if (chatId) {
-            state = await getConversationState(supabase, userId, workspaceId, chatId, 'appointments');
-        }
 
 
 
@@ -126,11 +154,12 @@ export async function generateAppointmentsGhostReply(
 
             if (templateKey) {
                 const template = APPOINTMENT_TEMPLATES[templateKey];
-                return applyTemplate(template, templateData);
+                const raw = applyTemplate(template, templateData);
+                return validateReply({ userMessage: cleanMessage, reply: raw, templateReply: raw, appointmentInsertSuccess: !!truth?.booking_success }).safeReply;
             }
 
             // Fallback for cases where templateKey might be missing during transition
-            if (truth.templated_reply) return truth.templated_reply;
+            if (truth.templated_reply) return validateReply({ userMessage: cleanMessage, reply: truth.templated_reply, templateReply: APPOINTMENT_TEMPLATES.UNCLEAR }).safeReply;
 
             // Strict fallback for unclear or unmapped states
             return APPOINTMENT_TEMPLATES.UNCLEAR;
@@ -222,6 +251,10 @@ export async function generateAppointmentsGhostReply(
                 const time = intent.time || state.data.startTime;
 
                 if (!date || !time) {
+                    await updateConversationState(supabase, userId, workspaceId!, chatId!, 'appointments', {
+                        stage: 'awaiting_date_time',
+                        data: { ...state.data, serviceName: intent.service_name || state.data.serviceName || null }
+                    });
                     return replyWithTruth({ needs_date_or_time: true }, [], 'ASK_DATE_TIME');
                 }
 
@@ -270,7 +303,7 @@ export async function generateAppointmentsGhostReply(
 
                 if (!customerName || !customerPhone) {
                     await updateConversationState(supabase, userId, workspaceId!, chatId!, 'appointments', {
-                        stage: 'collecting_customer_details',
+                        stage: 'awaiting_customer_details',
                         data: pendingData
                     });
                     let templateKey: 'NEED_NAME_AND_PHONE' | 'NEED_NAME' | 'NEED_PHONE' = 'NEED_NAME_AND_PHONE';

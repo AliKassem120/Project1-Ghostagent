@@ -1,7 +1,9 @@
 import { createGroq } from '@ai-sdk/groq';
-import { generateObject } from 'ai';
+import { generateText } from 'ai';
 import { z } from 'zod';
 import { normalizeArabizi, ARABIZI_LLM_HINT } from '@/lib/automation/language/arabizi';
+import { parseAndValidateJson } from '@/lib/automation/safe-json';
+import { getModelConfig } from '@/lib/automation/model-config';
 
 export const EcommerceIntentNameSchema = z.enum([
     'greeting',
@@ -185,56 +187,25 @@ export async function classifyEcommerceIntent(args: {
 
     try {
         const groq = createGroq({ apiKey });
-        const result = await generateObject({
-            model: groq(modelName),
-            schema: EcommerceIntentSchema,
+        const modelConfig = getModelConfig();
+        const result = await generateText({
+            model: groq(modelConfig.structuredModel || modelName),
             temperature: 0,
-            system: `You are the deterministic intent classifier for an enterprise Instagram e-commerce automation system.
-
-Return only structured data. Do not write a customer-facing reply.
-
-Intent definitions:
-- greeting: customer only greets, no product or order question.
-- product_availability: asks whether an item exists or is in stock. Also: "fi men hal", "mawjoud", "fi meno".
-- product_price: asks price, cost, total, or discount. Also: "ade", "adde", "addesh", "se3ro".
-- product_variants: asks about color, size, model, quantity option.
-- product_details: asks product specs, warranty, material, images, or general details.
-- shipping_question: asks delivery cost, areas, timing, or shipping.
-- location_question: asks store address, branch, pickup, or where the business is. Also: "wen", "wain".
-- payment_question: asks cash, card, COD, payment methods.
-- return_exchange_question: asks return, exchange, replacement, warranty process.
-- order_status: asks about an existing order status.
-- purchase_intent: explicitly wants to order/buy/take an item. Also: "bde yeha", "bde yehon", "badi", "bde wehde".
-- checkout_info: sends name, phone, address, or checkout form details after the bot asked for them.
-- cancel_order: wants to cancel an existing order.
-- complaint: reports damaged/wrong/late/problem.
-- gratitude_goodbye: thanks, ok, goodbye, no business question.
-- human_handoff: asks for manager/human/employee.
-- unknown: none of the above.
-
-Critical distinctions:
-- A price question is NOT purchase intent unless the customer says they want to buy/order/take it.
-- A thank-you after an order is NOT purchase intent.
-- If the customer sends name/address/phone, classify as checkout_info.
-- Extract product_name from recent history if the latest message says things like "one", "this", "bde wehde", or "I want it".
-- For Lebanese Franco, understand words like bde/bade, ade, fi, mawjoud, se3r, 3nwen, ra2m, towsil.
-- should_handoff is true only for human_handoff or severe complaint requiring human help.${arabiziHint}`, 
+            system: `You are a deterministic e-commerce intent classifier. Return JSON only matching this schema: ${EcommerceIntentSchema.toString()}${arabiziHint}`,
             prompt: `Business language setting: ${businessLanguage}
-
-Conversation summary:
-${contextSummary || 'None'}
-
-Recent conversation:
-${historyContext || 'None'}
-
-Latest customer message:
-${message}
-
-Arabizi pre-analysis (use as hints):
-${JSON.stringify({ detectedStyle: az.detectedStyle, hints: az.hints }, null, 2)}`,
+Conversation summary: ${contextSummary || 'None'}
+Recent conversation: ${historyContext || 'None'}
+Latest customer message: ${message}
+Arabizi hints: ${JSON.stringify({ detectedStyle: az.detectedStyle, hints: az.hints })}`,
         });
 
-        return result.object;
+        const parsed = parseAndValidateJson(result.text, EcommerceIntentSchema);
+        if (!parsed.ok) {
+            console.warn('[EcommerceIntent] Invalid JSON output, using fallback:', parsed.error);
+            return fallbackClassify(message);
+        }
+
+        return parsed.value;
     } catch (error) {
         console.warn('[EcommerceIntent] Classifier failed, using fallback:', error);
         return fallbackClassify(message);

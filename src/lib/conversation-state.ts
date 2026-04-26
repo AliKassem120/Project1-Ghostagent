@@ -26,7 +26,19 @@ export type EcomStateData = {
 };
 
 export type ConversationState = {
-    stage: 'idle' | 'awaiting_booking_confirmation' | 'collecting_customer_details' | 'awaiting_order_details';
+    stage:
+        | 'idle'
+        | 'awaiting_service'
+        | 'awaiting_date_time'
+        | 'awaiting_customer_details'
+        | 'awaiting_booking_confirmation'
+        | 'collecting_customer_details'
+        | 'awaiting_product_variant'
+        | 'awaiting_order_details'
+        | 'awaiting_checkout_confirmation'
+        | 'booking_failed'
+        | 'order_failed'
+        | 'handoff';
     data: any;
 };
 
