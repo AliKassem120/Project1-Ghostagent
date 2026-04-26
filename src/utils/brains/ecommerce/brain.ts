@@ -1,14 +1,10 @@
-import { createGroq } from '@ai-sdk/groq';
-import { generateText } from 'ai';
 import { BusinessProfile } from '../types';
 import { GHOST_AGENT_MASTER_KNOWLEDGE } from '../master-knowledge';
 import { getConversationMemory, summarizeConversationIfNeeded, trackConversationMessage } from '../../rolling-memory';
 import { classifyEcommerceIntent, EcommerceIntent } from './intent';
-import { buildEnterpriseFinalReplyPrompt, buildFinalReplyUserPrompt, cleanResponseText } from './prompt';
 import {
     finalizeEcommerceOrder,
     findRecentCustomerOrder,
-    getMissingCheckoutFields,
     searchInventory,
 } from './tools';
 import { 
@@ -18,7 +14,7 @@ import {
     ConversationState 
 } from '@/lib/conversation-state';
 import { ECOM_TEMPLATES, applyTemplate } from '../templates';
-import { validateDMResponse } from '../validator';
+import { validateReply } from '@/lib/automation/reply-validator';
 
 function cleanMessageText(message: string): string {
     return message.replace(/\[ATTACHMENT:.*?\]/g, '').trim() || 'Hello';
@@ -183,8 +179,6 @@ export async function generateEcommerceGhostReply(
 
         if (intent.intent === 'human_handoff') return null;
 
-        const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
-
         const replyWithTruth = async (truth: any, constraints: string[] = [], templateKey?: keyof typeof ECOM_TEMPLATES, templateData: Record<string, any> = {}) => {
             const isActuallyConfirmed = !!(truth.checkout_status === 'processed');
             
@@ -193,42 +187,14 @@ export async function generateEcommerceGhostReply(
                 const template = ECOM_TEMPLATES[templateKey];
                 truthWithTemplate.templated_reply = applyTemplate(template, templateData);
             }
-
-            const baseConstraints = [...constraints];
-            if (!isActuallyConfirmed) {
-                baseConstraints.push("CRITICAL: Order NOT created. NEVER use 'confirmed', 'placed', 'reserved'.");
-            }
-
-            const generate = async () => {
-                const final = await generateText({
-                    model: groq('llama-3.1-70b-versatile'),
-                    system: buildEnterpriseFinalReplyPrompt({ business, intent, constraints: baseConstraints }),
-                    prompt: buildFinalReplyUserPrompt({
-                        customerMessage: cleanMessage,
-                        intent,
-                        truth: truthWithTemplate,
-                        contextSummary,
-                        historyContext,
-                    }),
-                    temperature: 0.1,
-                });
-                return cleanResponseText(final.text) || "";
-            };
-
-            let response = await generate();
-            let validation = validateDMResponse(response, { isActuallyConfirmed });
-
-            if (!validation.isValid) {
-                console.warn(`⚠️ [E-COMMERCE] Validation failed: ${validation.reason}. Regenerating...`);
-                baseConstraints.push(`STRICT: Previous response failed: ${validation.reason}. Rewrite shorter.`);
-                response = await generate();
-                validation = validateDMResponse(response, { isActuallyConfirmed });
-            }
-
-            if (!validation.isValid && truthWithTemplate.templated_reply) {
-                console.error(`❌ [E-COMMERCE] Double validation failure. Falling back to template.`);
-                response = truthWithTemplate.templated_reply;
-            }
+            const baseResponse = truthWithTemplate.templated_reply || ECOM_TEMPLATES.GREETING;
+            const validation = validateReply({
+                userMessage: cleanMessage,
+                reply: baseResponse,
+                templateReply: baseResponse,
+                orderInsertSuccess: isActuallyConfirmed,
+            });
+            const response = validation.safeReply;
 
             await safeTrackMemory({ supabase, userId, chatId, workspaceId, fullHistory });
             await logAutomationEvent({ supabase, userId, workspaceId, chatId, intent, truth, reply: response });

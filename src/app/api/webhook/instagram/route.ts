@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { generateGhostReply } from '@/utils/ghost-brain';
 import { upsertDmBuffer, claimDmBuffer, clearDmBuffer, releaseDmBuffer, DEBOUNCE_SECONDS } from '@/utils/dm-debounce';
 import { containsAlertKeyword, triggerManagerAlert, ALERT_KEYWORDS } from '@/utils/whatsapp-alerts';
+import { logWebhookOutcome } from '@/lib/automation/events';
 
 import crypto from 'crypto';
 import { checkUserLimit } from '@/lib/billing';
@@ -534,6 +535,13 @@ async function processDmBuffer({
     const effectiveWorkspaceId = bufferWorkspace ?? workspaceId;
 
     console.log(`📦 [Buffer] Processing batched message: "${batchedMessage.slice(0, 100)}"`);
+    const outcome: any = {
+        workspaceId: effectiveWorkspaceId || undefined,
+        workspaceType: 'ecommerce',
+        chatId: senderId,
+        actions: [],
+        bufferStatus: 'started',
+    };
 
     try {
         // 2. Billing check
@@ -548,6 +556,9 @@ async function processDmBuffer({
                 timestamp: new Date().toISOString(),
                 metadata: { chat_id: senderId, platform: 'instagram', type: 'billing_limit' }
             });
+            outcome.bufferStatus = 'processed_with_error';
+            outcome.actions.push('billing_limit_block');
+            logWebhookOutcome(outcome);
             await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
             return;
         }
@@ -564,12 +575,19 @@ async function processDmBuffer({
             );
         } catch (ghostErr) {
             console.error('❌ [Ghost Brain] generateGhostReply threw:', ghostErr);
+            outcome.bufferStatus = 'processed_with_error';
+            outcome.classifierStatus = 'failed';
+            outcome.classifierError = String((ghostErr as any)?.message || ghostErr);
+            logWebhookOutcome(outcome);
             await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
             return;
         }
 
         if (!aiResponse) {
             console.log('Ghost Protocol: No reply (handoff or empty).');
+            outcome.bufferStatus = 'processed';
+            outcome.actions.push('no_reply_handoff_or_empty');
+            logWebhookOutcome(outcome);
             await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
             return;
         }
@@ -588,6 +606,11 @@ async function processDmBuffer({
                 timestamp: new Date().toISOString(),
                 metadata: { chat_id: senderId, platform: 'instagram', status: 'pending_approval', reply_text: aiResponse }
             });
+            outcome.bufferStatus = 'processed';
+            outcome.autopilotEnabled = false;
+            outcome.sentReply = aiResponse;
+            outcome.actions.push('saved_draft_autopilot_off');
+            logWebhookOutcome(outcome);
             await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
             return;
         }
@@ -615,11 +638,19 @@ async function processDmBuffer({
 
         // 8. Clear the buffer
         await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
+        outcome.bufferStatus = 'processed';
+        outcome.autopilotEnabled = true;
+        outcome.sentReply = aiResponse;
+        outcome.actions.push('sent_reply');
+        logWebhookOutcome(outcome);
         console.log(`✅ [Buffer] Reply sent and buffer cleared for sender ${senderId}`);
 
 
     } catch (err) {
         console.error(`❌ [Buffer] processDmBuffer failed for sender ${senderId}:`, err);
+        outcome.bufferStatus = 'failed_retryable';
+        outcome.classifierError = String((err as any)?.message || err);
+        logWebhookOutcome(outcome);
         // Release lock so TTL can allow retry
         await releaseDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
     }

@@ -1,7 +1,9 @@
 import { createGroq } from '@ai-sdk/groq';
-import { generateObject } from 'ai';
+import { generateText } from 'ai';
 import { z } from 'zod';
 import { normalizeArabizi, ARABIZI_LLM_HINT } from '@/lib/automation/language/arabizi';
+import { parseAndValidateJson } from '@/lib/automation/safe-json';
+import { getModelConfig } from '@/lib/automation/model-config';
 
 export const AppointmentIntentNameSchema = z.enum([
     'greeting',
@@ -181,41 +183,26 @@ export async function classifyAppointmentIntent(args: {
 
     try {
         const groq = createGroq({ apiKey });
-        const result = await generateObject({
-            model: groq(modelName),
-            schema: AppointmentIntentSchema,
+        const modelConfig = getModelConfig();
+        const result = await generateText({
+            model: groq(modelConfig.structuredModel || modelName),
             temperature: 0,
-            system: `You classify customer DMs for an appointment-based business. Return only structured data.
-
-Critical distinction:
-- business_hours means the customer asks when the business opens/closes or whether it is open on a day. Examples: "do you open Sunday", "aya se3a btefta7o l tanen", "كل يوم؟", "اي ساعة بتفتح؟", "emta btefta7o", "fet7in l a7ad".
-- appointment_availability means the customer asks whether a booking slot is available. Examples: "fi mahal se3a 4", "do you have an appointment tomorrow", "available at 5?".
-- book_appointment means customer is choosing/confirming a concrete service/date/time. Also triggered by: "bde e5od maw3ed", "baddi maw3ed", "bde 7ajez", "7ajez", "I want to book".
-- confirmation means the customer explicitly says "yes", "confirm", or agrees to a proposal. Also: "eh", "ee", "akid", "tamem".
-- rejection means the customer says "no" or "cancel" to a proposal. Also: "la", "la2", "mish".
-- service_question asks what services exist.
-- price_question asks service cost. Also: "ade", "addesh".
-- duration_question asks how long service takes.
-- location_question asks address/location. Also: "wen", "wain".
-
-Never classify an opening-time question as appointment_availability. Never classify a slot question as business_hours.
-Understand English, Arabic script, and Lebanese Franco/Arabizi.${arabiziHint}`, 
+            system: `You classify customer DMs for an appointment-based business. Return JSON only with keys exactly matching this schema: ${AppointmentIntentSchema.toString()}
+${arabiziHint}`,
             prompt: `Business language setting: ${businessLanguage}
-
-Conversation summary:
-${contextSummary || 'None'}
-
-Recent conversation:
-${historyContext || 'None'}
-
-Latest customer message:
-${message}
-
-Arabizi pre-analysis (use as hints, not as final answer):
-${JSON.stringify({ detectedStyle: az.detectedStyle, hints: az.hints }, null, 2)}`,
+Conversation summary: ${contextSummary || 'None'}
+Recent conversation: ${historyContext || 'None'}
+Latest message: ${message}
+Arabizi hints: ${JSON.stringify({ detectedStyle: az.detectedStyle, hints: az.hints })}`,
         });
 
-        return result.object;
+        const parsed = parseAndValidateJson(result.text, AppointmentIntentSchema);
+        if (!parsed.ok) {
+            console.warn('[AppointmentIntent] Invalid JSON output, using fallback:', parsed.error);
+            return fallbackClassify(message);
+        }
+
+        return parsed.value;
     } catch (error) {
         console.warn('[AppointmentIntent] Classifier failed, using fallback:', error);
         return fallbackClassify(message);

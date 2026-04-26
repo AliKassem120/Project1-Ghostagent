@@ -1,32 +1,21 @@
 # Automation Brain Connection Audit
 
-This document records the exact mapping between Dashboard UI features, database tables, and the Automation Brain tools.
+## Appointments
+| Dashboard source | Dashboard file | Table/API used by dashboard | Brain function | R/W | Issues found | Fixes made |
+|---|---|---|---|---|---|---|
+| Working Hours | `src/app/dashboard/hours/page.tsx` | `business_hours`, `ai_settings.slot_duration_minutes` | `getBusinessHoursForDay`, `getAppointmentSlotDuration` | Read | Prior flow could answer without checking state first | State-first handling added in appointments brain before classifier |
+| Services | `src/app/dashboard/services/page.tsx` | `services` (`is_active=true`) | `getServices`, `resolveService` | Read | Risk of inactive/ambiguous service handling | Active services-only matching kept deterministic |
+| Calendar | `src/app/dashboard/calendar/page.tsx` | `appointments` month query with `workspace_id` | `createAppointmentBooking` | Read/Write | Confirmations could occur before visibility check in some paths | Confirmation path constrained to insert success + visibility check |
+| AI Settings | `src/app/dashboard/settings/page.tsx` | `ai_settings` | appointment brain bootstrap | Read | Language and model behavior coupled to prompt output | Added shared model config + language normalization modules |
+| Recent Activity / Inbox | `src/app/dashboard/inbox/page.tsx` | `activity_log`, chats | appointment brain context loading | Read | Missing unified webhook outcome snapshot | Added structured webhook outcome logging module |
 
-## 1. Service/Appointments Workspace
+## E-Commerce
+| Dashboard source | Dashboard file | Table/API used by dashboard | Brain function | R/W | Issues found | Fixes made |
+|---|---|---|---|---|---|---|
+| Products / Inventory | `src/app/dashboard/inventory/page.tsx` | `inventory` | `searchInventory` | Read | Unknown product could still continue unsafe paths | Deterministic unknown-product fallback kept in order path |
+| Variants | `inventory.variants` | `inventory` JSON variants | ecommerce brain variant resolution | Read | Variant prompting inconsistent | Explicit template-first variant prompt path |
+| Orders | `src/app/dashboard/orders/page.tsx` | `orders` by `workspace_id` | `finalizeEcommerceOrder` | Read/Write | Prior freeform reply risked unsafe confirms | Reply now template-first + confirmation validator |
+| Leads | `orders` pending records | `orders` | pending state + missing field logic | Write | Incomplete details could attempt order flow | Missing fields now force awaiting details state |
+| Delivery / Checkout | `src/app/dashboard/shipping/page.tsx`, checkout routes | settings + checkout endpoints | checkout/delivery helpers | Read | Non-deterministic copy in final LLM layer | Removed freeform final generation in ecommerce brain |
+| AI Settings | `src/app/dashboard/settings/page.tsx` | `ai_settings` | ecommerce brain bootstrap | Read | Groq structured mismatch risk | Added `model-config` + JSON text fallback parser |
 
-| Dashboard UI | Database Table | Brain Function | Shared Utility |
-| :--- | :--- | :--- | :--- |
-| **Services Page** | `services` | `getServices()` | `src/lib/appointments/services.ts` |
-| **Calendar Page** | `appointments` | `createAppointmentBooking()` | `src/lib/appointments/create-appointment.ts` |
-| **Hours Page** | `business_hours` | `getBusinessHours()` | `src/lib/appointments/business-hours.ts` |
-| **Settings (Slot Duration)** | `ai_settings` | `getAppointmentSlotDuration()` | `src/lib/appointments/business-hours.ts` |
-| **Settings (Timezone)** | `ai_settings` | `getWorkspaceTimezone()` | `src/lib/appointments/business-hours.ts` |
-
-## 2. E-Commerce Workspace
-
-| Dashboard UI | Database Table | Brain Function | Shared Utility |
-| :--- | :--- | :--- | :--- |
-| **Inventory (Manual)** | `inventory` | `searchInventory()` | `src/utils/brains/ecommerce/tools.ts` |
-| **Inventory (CSV)** | `business_knowledge` | `searchInventory()` | `src/utils/brains/ecommerce/tools.ts` (Requires Fix) |
-| **Orders Page** | `orders` | `finalizeEcommerceOrder()` | `src/utils/brains/ecommerce/tools.ts` |
-| **Settings (Shipping)** | `ai_settings` | `loadBusinessProfile()` | `src/utils/brains/ecommerce/brain.ts` |
-| **Settings (Discounts)** | `ai_settings` | `loadBusinessProfile()` | `src/utils/brains/ecommerce/brain.ts` |
-
-## 3. Global Settings & Safeguards
-
-| Feature | Database Table | Logic Location |
-| :--- | :--- | :--- |
-| **Autopilot Toggle** | `ai_settings` | `src/app/api/webhook/instagram/route.ts` |
-| **Usage Limits** | `users.plan_tier` | `src/app/api/webhook/instagram/route.ts` |
-| **Reply Delay** | `ai_settings` | `src/app/api/webhook/instagram/route.ts` |
-| **Conversation State** | `conversation_state` | `src/lib/conversation-state.ts` |
