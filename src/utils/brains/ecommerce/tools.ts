@@ -251,7 +251,12 @@ export async function finalizeEcommerceOrder(args: EcommerceOrderInput & { supab
 
     const missingFields = getMissingCheckoutFields({ name, phone, address, item });
     if (missingFields.length > 0) {
-        console.warn("[ORDER_BLOCKED] Missing fields:", missingFields);
+        console.warn("[ORDER_SAVE_BLOCKED_MISSING_FIELDS]", {
+            event: "order_create_blocked",
+            reason: "missing_required_fields",
+            missingFields,
+            input: { name, phone, address, item, variant, workspaceId },
+        });
         return {
             ok: false,
             code: 'missing_fields',
@@ -266,7 +271,12 @@ export async function finalizeEcommerceOrder(args: EcommerceOrderInput & { supab
     const matchedItem = findBestInventoryMatch(inventoryResult.items, item);
 
     if (!matchedItem) {
-        console.warn("[ORDER_BLOCKED] Product not found:", item);
+        console.error("[ORDER_SAVE_BLOCKED_UNKNOWN_PRODUCT]", {
+            event: "order_create_blocked",
+            reason: "unknown_product",
+            requestedItem: item,
+            workspaceId,
+        });
         return {
             ok: false,
             code: 'product_not_found',
@@ -278,7 +288,12 @@ export async function finalizeEcommerceOrder(args: EcommerceOrderInput & { supab
 
 
     if (!isItemInStock(matchedItem)) {
-        console.warn("[ORDER_BLOCKED] Out of stock:", matchedItem.item_name);
+        console.warn("[ORDER_SAVE_BLOCKED_OUT_OF_STOCK]", {
+            event: "order_create_blocked",
+            reason: "out_of_stock",
+            item: matchedItem.item_name,
+            workspaceId,
+        });
         return {
             ok: false,
             code: 'out_of_stock',
@@ -322,12 +337,14 @@ export async function finalizeEcommerceOrder(args: EcommerceOrderInput & { supab
             const existingItems = existingOrder.item_requested || '';
 
             if (normalize(existingItems).includes(normalize(finalItemLabel))) {
+                console.log("[ORDER_DUPLICATE_PREVENTED]", { orderId: existingOrder.id, item: finalItemLabel });
                 return {
                     ok: true,
                     code: 'duplicate_prevented',
                     message: `${finalItemLabel} is already in this pending order.`,
                     item: finalItemLabel,
                     updatedItems: existingItems,
+                    order: existingOrder,
                 };
             }
 
@@ -339,7 +356,7 @@ export async function finalizeEcommerceOrder(args: EcommerceOrderInput & { supab
                 payment_method: args.payment_method || existingRaw.payment_method || 'Cash on Delivery',
             };
 
-            const { error } = await supabase
+            const { error: updateErr } = await supabase
                 .from('orders')
                 .update({
                     item_requested: updatedItems,
@@ -350,7 +367,7 @@ export async function finalizeEcommerceOrder(args: EcommerceOrderInput & { supab
                 })
                 .eq('id', existingOrder.id);
 
-            if (error) throw error;
+            if (updateErr) throw updateErr;
             
             console.log("[ORDER_UPDATE_SUCCESS]", { orderId: existingOrder.id, items: updatedItems });
 
@@ -360,38 +377,58 @@ export async function finalizeEcommerceOrder(args: EcommerceOrderInput & { supab
                 message: `Item added to existing pending order.`,
                 item: finalItemLabel,
                 updatedItems,
+                order: { ...existingOrder, item_requested: updatedItems },
             };
-
         }
 
-        const { error } = await supabase.from('orders').insert({
-            user_id: userId,
-            workspace_id: workspaceId || null,
-            instagram_user_id: chatId || null,
-            instagram_handle: handle,
-            status: 'Pending',
-            created_at: new Date().toISOString(),
-            customer_name: name,
-            customer_phone: phone,
-            customer_email: clean(args.email),
-            item_requested: finalItemLabel,
-            customer_address: address,
-            raw_message: JSON.stringify({
-                item_variant: variant || null,
-                payment_method: args.payment_method || 'Cash on Delivery',
-                inventory_item_name: matchedItem.item_name,
-            }),
-        });
+        // New order insert — return the inserted row
+        const { data: insertedOrder, error } = await supabase
+            .from('orders')
+            .insert({
+                user_id: userId,
+                workspace_id: workspaceId || null,
+                instagram_user_id: chatId || null,
+                instagram_handle: handle,
+                status: 'Pending',
+                created_at: new Date().toISOString(),
+                customer_name: name,
+                customer_phone: phone,
+                customer_email: clean(args.email),
+                item_requested: finalItemLabel,
+                customer_address: address,
+                raw_message: JSON.stringify({
+                    item_variant: variant || null,
+                    payment_method: args.payment_method || 'Cash on Delivery',
+                    inventory_item_name: matchedItem.item_name,
+                    inventory_item_id: matchedItem.id,
+                }),
+            })
+            .select()
+            .single();
 
         if (error) throw error;
-        
-        console.log("[ORDER_CREATE_SUCCESS]", { workspaceId, item: finalItemLabel });
+
+        console.log("[ORDER_CREATE_SUCCESS]", {
+            event: "order_create_attempt",
+            workspaceId,
+            chatId,
+            productId: matchedItem.id,
+            productName: matchedItem.item_name,
+            variantLabel: variant || null,
+            customerName: name,
+            customerPhone: phone,
+            deliveryAddress: address,
+            missingFields: [],
+            insertSuccess: true,
+            insertedOrderId: insertedOrder?.id,
+        });
 
         return {
             ok: true,
             code: 'order_saved',
             message: `Order saved successfully.`,
             item: finalItemLabel,
+            order: insertedOrder,
         };
 
     } catch (error: any) {

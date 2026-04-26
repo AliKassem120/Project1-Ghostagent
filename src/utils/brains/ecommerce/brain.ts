@@ -303,12 +303,19 @@ export async function generateEcommerceGhostReply(
                     return replyWithTruth({ needs_product: true }, [], 'GREETING');
                 }
 
-
                 // Search to confirm existence and variants
                 const inventory = await searchInventory({ supabase, userId, workspaceId, productName, limit: 1 });
                 const product = inventory.items[0];
 
+                console.log("[PRODUCT_RESOLUTION]", {
+                    rawUserText: cleanMessage,
+                    requestedProduct: productName,
+                    matchedProduct: product ? { id: product.id, name: product.item_name } : null,
+                    confidence: product ? 'high' : 'none',
+                });
+
                 if (!product) {
+                    console.error("[ORDER_SAVE_BLOCKED_UNKNOWN_PRODUCT]", { rawUserText: cleanMessage, productName, state });
                     return replyWithTruth({ product_not_found: true, productName }, [], 'HUMAN_HANDOFF');
                 }
 
@@ -325,7 +332,6 @@ export async function generateEcommerceGhostReply(
                     workspaceId: workspaceId!,
                     productId: product.id,
                     productName: product.item_name,
-
                     variantLabel,
                     quantity: 1,
                     price: product.price,
@@ -334,20 +340,35 @@ export async function generateEcommerceGhostReply(
                     deliveryAddress
                 };
 
-                // If we have EVERYTHING and were waiting for details, BOOK NOW.
-                if (customerName && customerPhone && deliveryAddress && state.stage === 'awaiting_order_details') {
+                // Determine missing fields
+                const missingOrderFields: string[] = [];
+                if (!customerName) missingOrderFields.push('customerName');
+                if (!customerPhone) missingOrderFields.push('customerPhone');
+                if (!deliveryAddress) missingOrderFields.push('deliveryAddress');
+
+                // If we have EVERYTHING and were waiting for details, create order now.
+                if (missingOrderFields.length === 0 && state.stage === 'awaiting_order_details') {
+                    console.log("[ORDER_SAVE_INPUT] All details collected, proceeding.", pendingData);
                     return await performOrder(pendingData);
                 }
 
-                if (!customerName || !customerPhone || !deliveryAddress) {
+                // If details are missing — save state and ask. NEVER fall through to create order.
+                if (missingOrderFields.length > 0) {
+                    console.warn("[ORDER_SAVE_BLOCKED_MISSING_FIELDS]", {
+                        event: "order_create_blocked",
+                        reason: "missing_required_fields",
+                        missingFields: missingOrderFields,
+                        pendingData,
+                    });
                     await updateConversationState(supabase, userId, workspaceId!, chatId!, 'ecommerce', {
                         stage: 'awaiting_order_details',
                         data: pendingData
                     });
-                    return replyWithTruth({ missing_details: true, pendingData }, [], 'NEED_ORDER_DETAILS');
+                    return replyWithTruth({ missing_details: true, pendingData, missingFields: missingOrderFields }, [], 'NEED_ORDER_DETAILS');
                 }
 
-                // If we have everything but just started fresh
+                // If we have everything and stage is fresh (not awaiting_order_details), create order.
+                console.log("[ORDER_SAVE_INPUT] All details present on first pass.", pendingData);
                 return await performOrder(pendingData);
             }
 
