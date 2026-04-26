@@ -15,6 +15,11 @@ export type AppointmentService = {
     price?: number | string | null;
     duration_minutes?: number | null;
     description?: string | null;
+    aliases?: string[];
+    category?: string | null;
+    buffer_before?: number;
+    buffer_after?: number;
+    is_active?: boolean;
 };
 
 export type AppointmentSlot = {
@@ -223,12 +228,15 @@ export async function getServices(args: {
     serviceName?: string | null;
     limit?: number;
 }): Promise<{ services: AppointmentService[]; error?: string }> {
-    const { supabase, userId, workspaceId, serviceName, limit = 10 } = args;
+    const { supabase, workspaceId, serviceName, limit = 10 } = args;
+
+    if (!workspaceId) return { services: [] };
 
     let query = supabase
         .from('services')
-        .select('id, name, price, duration_minutes, description')
+        .select('id, name, price, duration_minutes, description, aliases, category, buffer_before, buffer_after, is_active')
         .eq('workspace_id', workspaceId)
+        .eq('is_active', true)          // ← only active services can be booked
         .limit(limit);
 
     if (clean(serviceName)) query = query.ilike('name', `%${clean(serviceName)}%`);

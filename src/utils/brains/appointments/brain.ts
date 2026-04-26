@@ -11,11 +11,12 @@ import {
 } from './tools';
 import { getAppointmentSlotDuration, getWorkspaceTimezone, getBusinessHoursSummary } from '@/lib/appointments/business-hours';
 import { createAppointmentBooking } from '@/lib/appointments/create-appointment';
-import { 
-    getConversationState, 
-    updateConversationState, 
-    clearConversationState, 
-    ConversationState 
+import { resolveService } from '@/lib/appointments/resolve-service';
+import {
+    getConversationState,
+    updateConversationState,
+    clearConversationState,
+    ConversationState
 } from '@/lib/conversation-state';
 
 import { APPOINTMENT_TEMPLATES, applyTemplate } from '../templates';
@@ -120,14 +121,14 @@ export async function generateAppointmentsGhostReply(
 
 
         const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
-        
+
         /**
          * Final Reply Guard: Enforces that "confirmed" etc. can ONLY be used if DB insert succeeded.
          */
         const replyWithTruth = async (truth: any, constraints: string[] = [], templateKey?: keyof typeof APPOINTMENT_TEMPLATES, templateData: Record<string, any> = {}) => {
             const isActuallyBooked = !!truth.booking_success;
             const isBusinessHours = intent.intent === 'business_hours';
-            
+
             let truthWithTemplate = { ...truth };
             if (templateKey) {
                 const template = APPOINTMENT_TEMPLATES[templateKey];
@@ -194,16 +195,14 @@ export async function generateAppointmentsGhostReply(
             if (booking) {
                 await clearConversationState(supabase, userId, workspaceId, chatId!, 'appointments');
                 return replyWithTruth(
-
-                    { booking_success: true, booking }, 
-                    [], 
-                    'CONFIRMED', 
+                    { booking_success: true, booking },
+                    [],
+                    'CONFIRMED',
                     { serviceName: booking.service, dateLabel: booking.appointment_date, timeLabel: booking.start_time }
                 );
             } else {
                 return replyWithTruth({ booking_failed: true }, [], 'BOOKING_ERROR');
             }
-
         };
 
         // ── FLOW: USER CONFIRMED PENDING BOOKING ──
@@ -260,23 +259,40 @@ export async function generateAppointmentsGhostReply(
                 if (!date || !time) {
                     return replyWithTruth({ needs_date_or_time: true }, [], 'ASK_DATE_TIME');
                 }
-                
-                const services = await getServices({ supabase, userId, workspaceId, serviceName: intent.service_name, limit: 1 });
-                const service = services.services[0];
 
-                if (!service && intent.intent === 'book_appointment' && !state.data.serviceName) {
-                     return replyWithTruth({ needs_service: true }, [], 'ASK_SERVICE');
+                // Generic alias+fuzzy service resolver — no hardcoded service names
+                const serviceQuery = intent.service_name || state.data.serviceName || null;
+                const { service: resolvedService, confidence, candidates } = await resolveService({
+                    supabase,
+                    workspaceId: workspaceId!,
+                    query: serviceQuery,
+                });
+                console.log('[SERVICE_MATCH]', { query: serviceQuery, matched: resolvedService?.name ?? null, confidence, candidateCount: candidates.length });
+
+                // Multiple ambiguous matches — ask customer to choose
+                if (!resolvedService && confidence === 'fuzzy' && candidates.length > 1) {
+                    const names = candidates.map(c => c.name).join(', ');
+                    return replyWithTruth({ needs_service_clarification: true, candidates }, [
+                        `Ask the customer which service they want. Options: ${names}`
+                    ]);
                 }
 
-                const timezone = await getWorkspaceTimezone(supabase, workspaceId);
+                // No match — present all active services
+                if (!resolvedService) {
+                    const allServices = await getServices({ supabase, userId, workspaceId });
+                    return replyWithTruth({ needs_service: true, available_services: allServices.services }, [], 'ASK_SERVICE');
+                }
 
+                const timezone = await getWorkspaceTimezone(supabase, workspaceId!);
                 const customerName = intent.customer_name || state.data.customerName;
                 const customerPhone = intent.customer_phone || state.data.customerPhone;
 
                 const pendingData = {
                     workspaceId,
-                    serviceId: service?.id || state.data.serviceId,
-                    serviceName: service?.name || intent.service_name || state.data.serviceName || 'Service',
+                    serviceId: resolvedService.id,
+                    serviceName: resolvedService.name,
+                    servicePrice: resolvedService.price,
+                    serviceDuration: resolvedService.duration_minutes,
                     date,
                     startTime: time,
                     customerName,
@@ -284,42 +300,30 @@ export async function generateAppointmentsGhostReply(
                     timezone
                 };
 
-                // CRITICAL: If we have EVERYTHING and we were just waiting for details, BOOK NOW.
                 if (customerName && customerPhone && state.stage === 'collecting_customer_details') {
-                    console.log('✅ [APPOINTMENTS] All details received during collection stage. Proceeding to book.');
+                    console.log('✅ [APPOINTMENTS] All details received. Proceeding to book.');
                     return await performBooking(pendingData);
                 }
 
-                // If missing name/phone, ask for them.
                 if (!customerName || !customerPhone) {
-                    await updateConversationState(supabase, userId, workspaceId, chatId!, 'appointments', {
+                    await updateConversationState(supabase, userId, workspaceId!, chatId!, 'appointments', {
                         stage: 'collecting_customer_details',
                         data: pendingData
                     });
-
-                    
                     let templateKey: 'NEED_NAME_AND_PHONE' | 'NEED_NAME' | 'NEED_PHONE' = 'NEED_NAME_AND_PHONE';
                     if (!customerName && customerPhone) templateKey = 'NEED_NAME';
                     else if (customerName && !customerPhone) templateKey = 'NEED_PHONE';
-
-                    return replyWithTruth(
-                        { missing_details: true, pendingData }, 
-                        [], 
-                        templateKey
-                    );
+                    return replyWithTruth({ missing_details: true, pendingData }, [], templateKey);
                 }
 
-                // If we have everything but just started a fresh 'book' intent, ask for confirmation.
-                await updateConversationState(supabase, userId, workspaceId, chatId!, 'appointments', {
+                await updateConversationState(supabase, userId, workspaceId!, chatId!, 'appointments', {
                     stage: 'awaiting_booking_confirmation',
                     data: pendingData
                 });
-
-
                 return replyWithTruth(
-                    { awaiting_confirmation: true, pendingData }, 
-                    [], 
-                    'SLOT_AVAILABLE_NEED_DETAILS', 
+                    { awaiting_confirmation: true, pendingData },
+                    [],
+                    'SLOT_AVAILABLE_NEED_DETAILS',
                     { dateLabel: date, timeLabel: time }
                 );
             }
@@ -341,7 +345,6 @@ export async function generateAppointmentsGhostReply(
             }
 
             case 'location_question': {
-
                 return replyWithTruth({ location: business.store_location, contact: business.contact_info });
             }
 
@@ -360,12 +363,12 @@ export async function generateAppointmentsGhostReply(
                     masterKnowledge = GHOST_AGENT_MASTER_KNOWLEDGE;
                 }
 
-                return replyWithTruth({ 
-                    custom_instructions: business.system_instructions, 
-                    location: business.store_location, 
+                return replyWithTruth({
+                    custom_instructions: business.system_instructions,
+                    location: business.store_location,
                     contact: business.contact_info,
                     business_knowledge: knowledgeData?.content || null,
-                    saas_master_knowledge: masterKnowledge 
+                    saas_master_knowledge: masterKnowledge
                 }, [], 'GREETING');
             }
 

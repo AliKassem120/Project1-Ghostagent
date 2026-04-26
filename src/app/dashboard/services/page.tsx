@@ -4,11 +4,13 @@ import React, { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, Clock, DollarSign, Briefcase, Loader2, AlertCircle, ClipboardList, Edit2, Save, X, Search, Sparkles } from "lucide-react";
+import { Plus, Trash2, Clock, DollarSign, Briefcase, Loader2, AlertCircle, ClipboardList, Edit2, Save, X, Search, Sparkles, Power, Tag, Copy } from "lucide-react";
 import { clsx } from "clsx";
 import { useToast } from "@/contexts/ToastContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import GhostModal from "@/components/GhostModal";
+
+const CATEGORIES = ["Hair", "Nails", "Beauty", "Consultation", "Clinic", "Other"] as const;
 
 interface Service {
     id: string;
@@ -16,10 +18,25 @@ interface Service {
     description: string | null;
     price: number;
     duration_minutes: number;
+    is_active: boolean;
+    aliases: string[];
+    category: string | null;
+    buffer_before: number;
+    buffer_after: number;
     created_at: string;
 }
 
-const EMPTY_FORM = { name: "", description: "", price: "", duration_minutes: "30" };
+type FormState = {
+    name: string; description: string; price: string; duration_minutes: string;
+    is_active: boolean; aliases: string[]; aliasInput: string;
+    category: string; buffer_before: string; buffer_after: string;
+};
+
+const EMPTY_FORM: FormState = {
+    name: "", description: "", price: "", duration_minutes: "30",
+    is_active: true, aliases: [], aliasInput: "",
+    category: "", buffer_before: "0", buffer_after: "0",
+};
 
 export default function ServicesPage() {
     const supabase = createClient();
@@ -31,11 +48,11 @@ export default function ServicesPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
-    const [form, setForm] = useState(EMPTY_FORM);
+    const [form, setForm] = useState<FormState>(EMPTY_FORM);
     const [formError, setFormError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [editValues, setEditValues] = useState(EMPTY_FORM);
+    const [editValues, setEditValues] = useState<FormState>(EMPTY_FORM);
     const [deleteModal, setDeleteModal] = useState<{ open: boolean; id: string | null; name: string }>({ open: false, id: null, name: "" });
 
     const fetchServices = useCallback(async () => {
@@ -43,14 +60,14 @@ export default function ServicesPage() {
         setLoading(true);
         const { data, error } = await supabase
             .from("services")
-            .select("*")
+            .select("id, name, description, price, duration_minutes, is_active, aliases, category, buffer_before, buffer_after, created_at")
             .eq("workspace_id", activeWorkspaceId)
             .order("created_at", { ascending: false });
 
         if (error) {
             toast.error("Failed to load services.");
         } else {
-            setServices(data || []);
+            setServices((data || []).map((s: any) => ({ ...s, is_active: s.is_active ?? true, aliases: s.aliases || [], buffer_before: s.buffer_before ?? 0, buffer_after: s.buffer_after ?? 0 })));
         }
         setLoading(false);
     }, [activeWorkspaceId]);
@@ -78,6 +95,11 @@ export default function ServicesPage() {
             description: form.description.trim() || null,
             price: Number(form.price),
             duration_minutes: Number(form.duration_minutes),
+            is_active: form.is_active,
+            aliases: form.aliases.filter(a => a.trim()),
+            category: form.category || null,
+            buffer_before: Number(form.buffer_before) || 0,
+            buffer_after: Number(form.buffer_after) || 0,
         });
 
         if (error) {
@@ -98,6 +120,12 @@ export default function ServicesPage() {
             description: s.description || "",
             price: s.price.toString(),
             duration_minutes: s.duration_minutes.toString(),
+            is_active: s.is_active,
+            aliases: s.aliases || [],
+            aliasInput: "",
+            category: s.category || "",
+            buffer_before: (s.buffer_before || 0).toString(),
+            buffer_after: (s.buffer_after || 0).toString(),
         });
     };
 
@@ -108,6 +136,11 @@ export default function ServicesPage() {
             description: editValues.description.trim() || null,
             price: Number(editValues.price) || 0,
             duration_minutes: Number(editValues.duration_minutes) || 30,
+            is_active: editValues.is_active,
+            aliases: editValues.aliases.filter(a => a.trim()),
+            category: editValues.category || null,
+            buffer_before: Number(editValues.buffer_before) || 0,
+            buffer_after: Number(editValues.buffer_after) || 0,
         }).eq("id", editingId);
 
         if (error) {
@@ -117,6 +150,32 @@ export default function ServicesPage() {
             setEditingId(null);
             fetchServices();
         }
+    };
+
+    const handleToggleActive = async (s: Service) => {
+        const { error } = await supabase.from("services").update({ is_active: !s.is_active }).eq("id", s.id);
+        if (!error) {
+            toast.success(s.is_active ? "Service Deactivated" : "Service Activated");
+            fetchServices();
+        }
+    };
+
+    const handleDuplicate = async (s: Service) => {
+        if (!user?.id) return;
+        const { error } = await supabase.from("services").insert({
+            user_id: user.id,
+            workspace_id: activeWorkspaceId,
+            name: s.name + " (Copy)",
+            description: s.description,
+            price: s.price,
+            duration_minutes: s.duration_minutes,
+            is_active: false,
+            aliases: s.aliases || [],
+            category: s.category,
+            buffer_before: s.buffer_before,
+            buffer_after: s.buffer_after,
+        });
+        if (!error) { toast.success("Service Duplicated"); fetchServices(); }
     };
 
     const handleDelete = async (id: string) => {
@@ -131,9 +190,13 @@ export default function ServicesPage() {
     };
 
     const filtered = searchQuery.trim()
-        ? services.filter((s) => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
+        ? services.filter((s) => {
+            const q = searchQuery.toLowerCase();
+            return s.name.toLowerCase().includes(q) || (s.aliases || []).some(a => a.toLowerCase().includes(q));
+        })
         : services;
 
+    const activeCount = services.filter(s => s.is_active).length;
     const totalRevenuePotential = services.reduce((sum, s) => sum + s.price, 0);
     const avgDuration = services.length > 0 ? Math.round(services.reduce((sum, s) => sum + s.duration_minutes, 0) / services.length) : 0;
 
@@ -169,7 +232,7 @@ export default function ServicesPage() {
                     { icon: Briefcase, label: "Total Services", value: services.length, color: "text-violet-400", bg: "bg-violet-500/10" },
                     { icon: DollarSign, label: "Avg. Price", value: services.length > 0 ? `$${(totalRevenuePotential / services.length).toFixed(0)}` : "$0", color: "text-emerald-400", bg: "bg-emerald-500/10" },
                     { icon: Clock, label: "Avg. Duration", value: `${avgDuration}m`, color: "text-blue-400", bg: "bg-blue-500/10" },
-                    { icon: Sparkles, label: "AI Catalog", value: services.length > 0 ? "Active" : "Empty", color: services.length > 0 ? "text-emerald-400" : "text-amber-400", bg: services.length > 0 ? "bg-emerald-500/10" : "bg-amber-500/10" },
+                    { icon: Sparkles, label: "AI Active", value: `${activeCount}/${services.length}`, color: activeCount > 0 ? "text-emerald-400" : "text-amber-400", bg: activeCount > 0 ? "bg-emerald-500/10" : "bg-amber-500/10" },
                 ].map((stat, i) => (
                     <motion.div
                         key={stat.label}
@@ -278,6 +341,53 @@ export default function ServicesPage() {
                                     </div>
                                 </div>
 
+                                {/* Aliases */}
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Aliases / Keywords <span className="text-primary/60">(for AI matching)</span></label>
+                                    <div className="flex flex-wrap gap-1.5 mb-2">
+                                        {form.aliases.map((a, i) => (
+                                            <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 bg-primary/10 text-primary text-xs font-medium rounded-lg">
+                                                {a}
+                                                <button type="button" onClick={() => setForm({ ...form, aliases: form.aliases.filter((_, j) => j !== i) })} className="hover:text-red-400"><X className="w-3 h-3" /></button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <input type="text" value={form.aliasInput} onChange={(e) => setForm({ ...form, aliasInput: e.target.value })}
+                                        onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ',') && form.aliasInput.trim()) { e.preventDefault(); setForm({ ...form, aliases: [...form.aliases, form.aliasInput.trim()], aliasInput: "" }); } }}
+                                        placeholder="Type alias and press Enter (e.g. haircut, قص شعر, 7ale2)" className="input-premium w-full" />
+                                </div>
+
+                                {/* Category + Buffer + Active */}
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Category</label>
+                                        <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="input-premium w-full">
+                                            <option value="">None</option>
+                                            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Buffer Before</label>
+                                        <select value={form.buffer_before} onChange={(e) => setForm({ ...form, buffer_before: e.target.value })} className="input-premium w-full">
+                                            {[0,5,10,15,30].map(v => <option key={v} value={String(v)}>{v} min</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Buffer After</label>
+                                        <select value={form.buffer_after} onChange={(e) => setForm({ ...form, buffer_after: e.target.value })} className="input-premium w-full">
+                                            {[0,5,10,15,30].map(v => <option key={v} value={String(v)}>{v} min</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Status</label>
+                                        <button type="button" onClick={() => setForm({ ...form, is_active: !form.is_active })}
+                                            className={clsx("w-full py-2.5 rounded-xl text-sm font-bold transition-all border", form.is_active ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-surface-2 text-muted-foreground border-border")}>
+                                            {form.is_active ? "Active" : "Inactive"}
+                                        </button>
+                                    </div>
+                                </div>
+
+
                                 <AnimatePresence>
                                     {formError && (
                                         <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
@@ -323,18 +433,24 @@ export default function ServicesPage() {
                             >
                                 <div className="flex justify-between items-start mb-3">
                                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                                            <ClipboardList className="w-5 h-5 text-primary/70" />
+                                        <div className={clsx("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", service.is_active ? "bg-primary/10" : "bg-surface-2")}>
+                                            <ClipboardList className={clsx("w-5 h-5", service.is_active ? "text-primary/70" : "text-muted-foreground/40")} />
                                         </div>
                                         <div className="min-w-0 flex-1">
                                             {isEditing ? (
                                                 <input className="input-premium py-1 px-3 w-full text-base font-bold mb-1" value={editValues.name}
                                                     onChange={(e) => setEditValues({ ...editValues, name: e.target.value })} />
                                             ) : (
-                                                <h3 className="font-bold text-foreground text-base truncate">{service.name}</h3>
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className={clsx("font-bold text-base truncate", service.is_active ? "text-foreground" : "text-muted-foreground")}>{service.name}</h3>
+                                                    <span className={clsx("text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-md shrink-0", service.is_active ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>{service.is_active ? "Active" : "Off"}</span>
+                                                </div>
                                             )}
                                             {!isEditing && service.description && (
                                                 <p className="text-xs text-muted-foreground truncate">{service.description}</p>
+                                            )}
+                                            {!isEditing && service.aliases?.length > 0 && (
+                                                <p className="text-[10px] text-primary/50 truncate mt-0.5"><Tag className="w-3 h-3 inline mr-1" />{service.aliases.length} alias{service.aliases.length > 1 ? "es" : ""}</p>
                                             )}
                                         </div>
                                     </div>
@@ -346,6 +462,8 @@ export default function ServicesPage() {
                                     ) : (
                                         <div className="flex items-center gap-1 shrink-0 ml-2">
                                             <button onClick={() => handleEditClick(service)} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-all"><Edit2 className="w-4 h-4" /></button>
+                                            <button onClick={() => handleDuplicate(service)} className="p-2 text-muted-foreground hover:text-blue-400 hover:bg-blue-500/10 rounded-xl transition-all" title="Duplicate"><Copy className="w-4 h-4" /></button>
+                                            <button onClick={() => handleToggleActive(service)} className={clsx("p-2 rounded-xl transition-all", service.is_active ? "text-muted-foreground hover:text-amber-400 hover:bg-amber-500/10" : "text-muted-foreground hover:text-emerald-400 hover:bg-emerald-500/10")} title={service.is_active ? "Deactivate" : "Activate"}><Power className="w-4 h-4" /></button>
                                             <button onClick={() => setDeleteModal({ open: true, id: service.id, name: service.name })} className="p-2 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
                                         </div>
                                     )}
@@ -384,9 +502,10 @@ export default function ServicesPage() {
                         <thead>
                             <tr className="border-b border-border">
                                 <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Service</th>
-                                <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Price</th>
-                                <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Duration</th>
-                                <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Description</th>
+                                <th className="px-4 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Status</th>
+                                <th className="px-4 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Price</th>
+                                <th className="px-4 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Duration</th>
+                                <th className="px-4 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Aliases</th>
                                 <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Actions</th>
                             </tr>
                         </thead>
@@ -394,23 +513,29 @@ export default function ServicesPage() {
                             {filtered.map((service) => {
                                 const isEditing = editingId === service.id;
                                 return (
-                                    <tr key={service.id} className="hover:bg-surface-2 transition-colors group">
+                                    <tr key={service.id} className={clsx("hover:bg-surface-2 transition-colors group", !service.is_active && "opacity-60")}>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                                                    <ClipboardList className="w-4 h-4 text-primary/60" />
+                                                <div className={clsx("w-9 h-9 rounded-lg flex items-center justify-center shrink-0", service.is_active ? "bg-primary/10" : "bg-surface-2")}>
+                                                    <ClipboardList className={clsx("w-4 h-4", service.is_active ? "text-primary/60" : "text-muted-foreground/40")} />
                                                 </div>
                                                 {isEditing ? (
                                                     <input className="input-premium py-1 px-3 w-40 text-sm font-semibold" value={editValues.name} autoFocus
                                                         onChange={(e) => setEditValues({ ...editValues, name: e.target.value })} />
                                                 ) : (
-                                                    <span className="font-semibold text-foreground text-sm truncate max-w-[200px]">{service.name}</span>
+                                                    <div>
+                                                        <span className="font-semibold text-foreground text-sm truncate max-w-[200px] block">{service.name}</span>
+                                                        {service.category && <span className="text-[10px] text-muted-foreground">{service.category}</span>}
+                                                    </div>
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-4 py-4">
+                                            <span className={clsx("text-[10px] font-bold uppercase px-2 py-1 rounded-md", service.is_active ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>{service.is_active ? "Active" : "Inactive"}</span>
+                                        </td>
+                                        <td className="px-4 py-4">
                                             {isEditing ? (
-                                                <div className="relative w-28">
+                                                <div className="relative w-24">
                                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-semibold">$</span>
                                                     <input type="number" className="input-premium py-1 pl-7 pr-2 w-full text-sm font-semibold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                                         value={editValues.price} onChange={(e) => setEditValues({ ...editValues, price: e.target.value })} />
@@ -419,7 +544,7 @@ export default function ServicesPage() {
                                                 <span className="font-semibold text-emerald-400 text-sm">${Number(service.price).toFixed(2)}</span>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-4 py-4">
                                             {isEditing ? (
                                                 <input type="number" className="input-premium py-1 px-3 w-20 text-sm font-semibold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                                     value={editValues.duration_minutes} onChange={(e) => setEditValues({ ...editValues, duration_minutes: e.target.value })} />
@@ -430,12 +555,16 @@ export default function ServicesPage() {
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4">
-                                            {isEditing ? (
-                                                <input className="input-premium py-1 px-3 w-full text-sm" value={editValues.description}
-                                                    onChange={(e) => setEditValues({ ...editValues, description: e.target.value })} placeholder="Optional" />
+                                        <td className="px-4 py-4">
+                                            {service.aliases?.length > 0 ? (
+                                                <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                                    {service.aliases.slice(0, 3).map((a, i) => (
+                                                        <span key={i} className="text-[10px] bg-primary/10 text-primary/70 px-1.5 py-0.5 rounded">{a}</span>
+                                                    ))}
+                                                    {service.aliases.length > 3 && <span className="text-[10px] text-muted-foreground">+{service.aliases.length - 3}</span>}
+                                                </div>
                                             ) : (
-                                                <span className="text-sm text-muted-foreground truncate max-w-[200px] block">{service.description || "—"}</span>
+                                                <span className="text-xs text-muted-foreground/40">—</span>
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-right">
@@ -445,9 +574,11 @@ export default function ServicesPage() {
                                                     <button onClick={() => setEditingId(null)} className="text-muted-foreground p-1.5 hover:bg-surface-2 rounded-lg transition-all" title="Cancel"><X className="w-4 h-4" /></button>
                                                 </div>
                                             ) : (
-                                                <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button onClick={() => handleEditClick(service)} className="text-muted-foreground hover:text-primary/80 transition-all p-2 hover:bg-primary/10 rounded-lg" title="Edit"><Edit2 className="w-4 h-4" /></button>
-                                                    <button onClick={() => setDeleteModal({ open: true, id: service.id, name: service.name })} className="text-muted-foreground hover:text-red-400 transition-all p-2 hover:bg-red-500/10 rounded-lg" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                                                <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => handleEditClick(service)} className="text-muted-foreground hover:text-primary/80 transition-all p-1.5 hover:bg-primary/10 rounded-lg" title="Edit"><Edit2 className="w-4 h-4" /></button>
+                                                    <button onClick={() => handleDuplicate(service)} className="text-muted-foreground hover:text-blue-400 transition-all p-1.5 hover:bg-blue-500/10 rounded-lg" title="Duplicate"><Copy className="w-4 h-4" /></button>
+                                                    <button onClick={() => handleToggleActive(service)} className={clsx("p-1.5 rounded-lg transition-all", service.is_active ? "text-muted-foreground hover:text-amber-400 hover:bg-amber-500/10" : "text-muted-foreground hover:text-emerald-400 hover:bg-emerald-500/10")} title={service.is_active ? "Deactivate" : "Activate"}><Power className="w-4 h-4" /></button>
+                                                    <button onClick={() => setDeleteModal({ open: true, id: service.id, name: service.name })} className="text-muted-foreground hover:text-red-400 transition-all p-1.5 hover:bg-red-500/10 rounded-lg" title="Delete"><Trash2 className="w-4 h-4" /></button>
                                                 </div>
                                             )}
                                         </td>
