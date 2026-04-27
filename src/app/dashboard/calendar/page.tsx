@@ -18,8 +18,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { clsx } from "clsx";
 import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { useToast } from "@/contexts/ToastContext";
+import { useRealtime } from "@/contexts/RealtimeContext";
 import { Plus, Search, Filter, Info, MapPin, ExternalLink, CalendarDays, ListFilter } from "lucide-react";
 
 interface Appointment {
@@ -74,6 +73,7 @@ export default function CalendarPage() {
     const { activeWorkspaceId } = useWorkspace();
     const supabase = createClient();
     const toast = useToast();
+    const { lastUpdate } = useRealtime();
 
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDay, setSelectedDay] = useState<number | null>(new Date().getDate());
@@ -151,7 +151,7 @@ export default function CalendarPage() {
         } finally {
             setLoading(false);
         }
-    }, [user?.id, activeWorkspaceId, year, month, supabase, toast]);
+    }, [user?.id, activeWorkspaceId, year, month, supabase, toast, lastUpdate]);
 
     useEffect(() => {
         fetchData();

@@ -1,9 +1,10 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { useRealtime } from '@/contexts/RealtimeContext';
 import { 
     Zap, 
     Brain, 
@@ -43,6 +44,7 @@ interface AutomationLog {
 
 export default function AnalyticsPage() {
     const { activeWorkspaceId } = useWorkspace();
+    const { lastUpdate } = useRealtime();
     const [logs, setLogs] = useState<AutomationLog[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
@@ -51,9 +53,9 @@ export default function AnalyticsPage() {
         if (activeWorkspaceId) {
             fetchLogs();
         }
-    }, [activeWorkspaceId]);
+    }, [activeWorkspaceId, lastUpdate]);
 
-    const fetchLogs = async () => {
+    const fetchLogs = useCallback(async () => {
         setIsLoading(true);
         const { data, error } = await supabase
             .from('activity_log')
@@ -67,7 +69,7 @@ export default function AnalyticsPage() {
             setLogs(data as AutomationLog[]);
         }
         setIsLoading(false);
-    };
+    }, [activeWorkspaceId]);
 
     return (
         <div className="space-y-8 pb-20">

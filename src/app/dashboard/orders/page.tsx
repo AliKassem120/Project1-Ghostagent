@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Download, ShoppingBag, Instagram, Clock, CheckCircle2, PhoneCall, Loader2, RefreshCw, ChevronDown, Trash2 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { useRealtime } from '@/contexts/RealtimeContext';
 import CustomSelect from '@/components/CustomSelect';
 import GhostModal from '@/components/GhostModal';
 import clsx from 'clsx';
@@ -131,6 +132,7 @@ function formatDate(iso: string) {
 export default function OrdersPage() {
     const supabase = createClient();
     const { activeWorkspaceId, activeWorkspace } = useWorkspace();
+    const { lastUpdate } = useRealtime();
     const [orders, setOrders] = useState<OrderLead[]>([]);
     const [loading, setLoading] = useState(true);
     const [updating, setUpdating] = useState<string | null>(null);
@@ -152,7 +154,7 @@ export default function OrdersPage() {
         } finally {
             setLoading(false);
         }
-    }, [activeWorkspaceId, supabase]);
+    }, [activeWorkspaceId, supabase, lastUpdate]);
 
     useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
