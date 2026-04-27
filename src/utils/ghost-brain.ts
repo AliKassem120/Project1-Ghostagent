@@ -1,10 +1,16 @@
 import { generateEcommerceGhostReply } from './brains/ecommerce/brain';
 import { generateAppointmentsGhostReply } from './brains/appointments/brain';
+import { handleAutomationMessage } from '@/lib/automation-v2';
 
 // ═══════════════════════════════════════════════════════════════
 // 🧠 GHOST AGENT — Core AI Brain Router
 // This file simply delegates AI generation to the fully isolated
 // workspaces depending on the business type.
+//
+// V2 Feature Flag:
+//   - If workspace has automation_engine_version = 'v2' → V2 engine
+//   - If env AUTOMATION_ENGINE_VERSION = 'v2' → V2 for all workspaces
+//   - Otherwise → V1 (existing brains)
 // ═══════════════════════════════════════════════════════════════
 
 export async function generateGhostReply(
@@ -18,7 +24,7 @@ export async function generateGhostReply(
     try {
         let settingsQuery = supabase
             .from('ai_settings')
-            .select('business_type');
+            .select('business_type, automation_engine_version');
 
         if (workspaceId) {
             settingsQuery = settingsQuery.eq('id', workspaceId);
@@ -29,6 +35,28 @@ export async function generateGhostReply(
         const { data: settings } = await settingsQuery.limit(1).maybeSingle();
         const businessType = settings?.business_type || 'ecommerce';
 
+        // ── V2 Feature Flag Check ────────────────────────────
+        const envVersion = process.env.AUTOMATION_ENGINE_VERSION;
+        const wsVersion = settings?.automation_engine_version;
+        const useV2 = wsVersion === 'v2' || (envVersion === 'v2' && wsVersion !== 'v1');
+
+        if (useV2 && workspaceId && chatId) {
+            console.log(`🚀 [Ghost Brain Router] Using V2 engine for workspace ${workspaceId}`);
+            const result = await handleAutomationMessage({
+                workspaceId,
+                workspaceType: businessType as 'appointments' | 'ecommerce',
+                chatId,
+                message: userMessage,
+                platform: 'instagram',
+                supabase,
+                userId,
+            });
+
+            if (!result.shouldReply) return null;
+            return result.replyText || null;
+        }
+
+        // ── V1 Fallback (existing behavior) ──────────────────
         if (businessType === 'appointments') {
             return await generateAppointmentsGhostReply(userId, userMessage, supabase, chatId, workspaceId, checkoutContext);
         } else {
