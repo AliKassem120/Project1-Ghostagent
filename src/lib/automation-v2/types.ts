@@ -93,6 +93,7 @@ export type ConversationStage =
     | 'idle'
     | 'handoff'
     | 'failed'
+    | 'awaiting_cancel_confirmation'
     // Appointments
     | 'awaiting_service'
     | 'awaiting_date_time'

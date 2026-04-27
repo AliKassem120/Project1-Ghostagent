@@ -38,6 +38,7 @@ const AppointmentIntentSchema = z.object({
         'service_question',
         'price_question',
         'location_question',
+        'cancel_appointment',
         'human_handoff',
         'cancel_booking',
         'gratitude',
@@ -350,6 +351,33 @@ async function processAppointmentState(
                 stateAfter: 'awaiting_booking_confirmation',
             };
         }
+
+        case 'awaiting_cancel_confirmation': {
+            if (detectYesNo(message) === 'yes') {
+                const appointmentId = (state as any).cancelTargetId;
+                if (appointmentId) {
+                    const { error } = await supabase
+                        .from('appointments')
+                        .update({ status: 'Cancelled' })
+                        .eq('id', appointmentId);
+                    
+                    if (!error) {
+                        await clearConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', input.platform);
+                        return { 
+                            replyText: "Tmm, your appointment has been cancelled. Ma fi meshkle.", 
+                            stateAfter: 'idle', 
+                            actions: ['appointment_cancelled'] 
+                        };
+                    }
+                }
+                return { replyText: "Fi 8alat, I couldn't cancel it. Try again?", stateAfter: 'idle' };
+            }
+            if (detectYesNo(message) === 'no') {
+                await clearConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', input.platform);
+                return { replyText: "Tmm, keeping it as is.", stateAfter: 'idle' };
+            }
+            return { replyText: "Confirm you want to cancel?", stateAfter: 'awaiting_cancel_confirmation' };
+        }
     }
 
     return null;
@@ -494,6 +522,30 @@ async function processAppointmentIntent(
                 debug: { intent: 'location_question' } as any
             };
 
+        case 'cancel_appointment': {
+            // Find most recent upcoming appointment
+            const { data: upcoming } = await supabase
+                .from('appointments')
+                .select('id, service, appointment_date, start_time')
+                .eq('workspace_id', workspaceId)
+                .eq('instagram_user_id', chatId)
+                .eq('status', 'Confirmed')
+                .order('appointment_date', { ascending: true })
+                .limit(1)
+                .maybeSingle();
+
+            if (upcoming) {
+                const newState = { ...state, stage: 'awaiting_cancel_confirmation', cancelTargetId: upcoming.id } as any;
+                await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', input.platform, newState);
+                return { 
+                    replyText: `Badek telghe el ${upcoming.service} yom el ${upcoming.appointment_date} se3a ${upcoming.start_time}?`,
+                    stateAfter: 'awaiting_cancel_confirmation',
+                    debug: { intent: 'cancel_appointment' } as any
+                };
+            }
+            return { replyText: "Ma l2it aya appointment la elak la elghiya. Fi shi tene badek?", stateAfter: 'idle' };
+        }
+
         case 'human_handoff':
             return { shouldReply: false, stateAfter: 'handoff', actions: ['handoff'], debug: { intent: 'human_handoff' } as any };
 
@@ -532,8 +584,9 @@ IntENTS:
 - business_hours: Asking about opening times
 - service_question: Asking about available services
 - price_question: Asking about costs
-- location_question: Asking about address/location
-- human_handoff: Asking for a human
+- location_question: User asking where you are
+- cancel_appointment: User wants to cancel or delete an existing booking
+- human_handoff: User wants to talk to a human
 - cancel_booking: Cancelling current attempt
 - gratitude: Thank you
 - unclear: Unknown

@@ -35,6 +35,7 @@ const EcommerceIntentSchema = z.object({
         'price_question',
         'shipping_question',
         'location_question',
+        'cancel_order',
         'human_handoff',
         'gratitude',
         'unclear'
@@ -268,6 +269,33 @@ async function processEcommerceState(
             }
             return { replyText: "Should I go ahead and place this order for you?", stateAfter: 'awaiting_checkout_confirmation' };
         }
+
+        case 'awaiting_cancel_confirmation': {
+            if (detectYesNo(message) === 'yes') {
+                const orderId = (state as any).cancelTargetId;
+                if (orderId) {
+                    const { error } = await supabase
+                        .from('orders')
+                        .update({ status: 'Cancelled' })
+                        .eq('id', orderId);
+                    
+                    if (!error) {
+                        await clearConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', input.platform);
+                        return { 
+                            replyText: "Tmm, your order has been cancelled. Ma fi meshkle.", 
+                            stateAfter: 'idle', 
+                            actions: ['order_cancelled'] 
+                        };
+                    }
+                }
+                return { replyText: "Fi 8alat, I couldn't cancel the order. Try again?", stateAfter: 'idle' };
+            }
+            if (detectYesNo(message) === 'no') {
+                await clearConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', input.platform);
+                return { replyText: "Tmm, we're still processing your order.", stateAfter: 'idle' };
+            }
+            return { replyText: "Confirm you want to cancel the order?", stateAfter: 'awaiting_cancel_confirmation' };
+        }
     }
 
     return null;
@@ -364,6 +392,30 @@ async function processEcommerceIntent(
         case 'location_question':
             return { replyText: applyTemplate(ECOMMERCE_TEMPLATES.LOCATION, { location: config.storeLocation || 'our store' }), stateAfter: 'idle', debug: { intent: 'location_question' } as any };
 
+        case 'cancel_order': {
+            // Find most recent pending order
+            const { data: recent } = await supabase
+                .from('orders')
+                .select('id, item_requested, created_at')
+                .eq('workspace_id', workspaceId)
+                .eq('instagram_user_id', chatId)
+                .eq('status', 'Pending')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (recent) {
+                const newState = { ...state, stage: 'awaiting_cancel_confirmation', cancelTargetId: recent.id } as any;
+                await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', input.platform, newState);
+                return { 
+                    replyText: `Badek telghe el order la "${recent.item_requested}"?`,
+                    stateAfter: 'awaiting_cancel_confirmation',
+                    debug: { intent: 'cancel_order' } as any
+                };
+            }
+            return { replyText: "Ma l2it aya order la elak la elghiya. Fi shi tene badek?", stateAfter: 'idle' };
+        }
+
         case 'human_handoff':
             return { shouldReply: false, stateAfter: 'handoff', actions: ['handoff'], debug: { intent: 'human_handoff' } as any };
 
@@ -390,8 +442,9 @@ Intents:
 - product_availability: User asking if item is in stock
 - price_question
 - shipping_question
-- location_question
-- human_handoff
+- location_question: Asking where you are
+- cancel_order: User wants to cancel an existing order
+- human_handoff: Asking for a human
 - gratitude
 - unclear
 
