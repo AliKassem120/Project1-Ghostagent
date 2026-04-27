@@ -22,6 +22,7 @@ import { detectLanguage, detectYesNo, extractNameAndPhone, extractAddress } from
 import { ECOMMERCE_TEMPLATES, applyTemplate } from '../templates';
 import { validateReply } from '../validator';
 import { classifyWithLLM, translateReply } from '../model';
+import { getKnownCustomerDetails } from '../customer-history';
 import { v2log } from '../logger';
 
 // ── Intent Schema ────────────────────────────────────────────
@@ -58,6 +59,15 @@ export async function handleEcommerceMessage(
     const state = await getConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', input.platform);
     const stateBefore = state.stage;
 
+    // Fetch permanent customer memory
+    let knownCustomer: any = null;
+    if (state.stage === 'idle') {
+        knownCustomer = await getKnownCustomerDetails(supabase, workspaceId, chatId);
+        if (knownCustomer) {
+            v2log.info('V2_ECOMMERCE_BRAIN', 'Found historical customer details', { name: knownCustomer.name });
+        }
+    }
+
     v2log.ecommerce.context({ stateBefore, language, messagePreview: message.slice(0, 50) });
 
     let result: Partial<AutomationResult> = {
@@ -77,7 +87,7 @@ export async function handleEcommerceMessage(
     // 2. IF STILL IDLE → CLASSIFY
     if (!result.replyText) {
         const intent = await classifyEcommerceIntent(message, config);
-        const processed = await processEcommerceIntent(input, config, state, intent);
+        const processed = await processEcommerceIntent(input, config, state, intent, knownCustomer);
         result = { ...result, ...processed };
     }
 
@@ -269,7 +279,8 @@ async function processEcommerceIntent(
     input: AutomationInput,
     config: WorkspaceConfig,
     state: ConversationStateV2,
-    intent: EcommerceIntent
+    intent: EcommerceIntent,
+    knownCustomer?: any
 ): Promise<Partial<AutomationResult>> {
     const { supabase, userId, workspaceId, chatId, message } = input;
 
@@ -306,6 +317,23 @@ async function processEcommerceIntent(
                     return { replyText: applyTemplate(ECOMMERCE_TEMPLATES.PRODUCT_AVAILABLE, { variantLabel: match.itemName, priceInfo: `$${match.price}` }) + " " + ECOMMERCE_TEMPLATES.ASK_VARIANT, stateAfter: 'awaiting_variant', debug: { intent: 'product_availability' } as any };
                 }
                 
+                // SMART MEMORY: If we already know the customer, pre-fill and skip to confirmation
+                if (knownCustomer?.name && knownCustomer?.phone && knownCustomer?.address && newState.stage === 'awaiting_order_details') {
+                    newState.stage = 'awaiting_checkout_confirmation';
+                    newState.customer = {
+                        name: knownCustomer.name,
+                        phone: knownCustomer.phone,
+                        address: knownCustomer.address
+                    };
+                    await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', input.platform, newState);
+                    return {
+                        replyText: `Tmm — I have your details: ${knownCustomer.name}, ${knownCustomer.phone}, ${knownCustomer.address}. Confirm order for ${match.itemName}${intent.variant ? ` (${intent.variant})` : ''}?`,
+                        stateAfter: 'awaiting_checkout_confirmation',
+                        actions: ['flow_started', 'memory_used'],
+                        debug: { intent: intent.intent } as any
+                    };
+                }
+
                 await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', input.platform, newState);
                 return { 
                     replyText: applyTemplate(ECOMMERCE_TEMPLATES.PRODUCT_AVAILABLE, { variantLabel: intent.variant || match.itemName, priceInfo: `$${match.price}` }) + " " + (newState.stage === 'awaiting_variant' ? ECOMMERCE_TEMPLATES.ASK_VARIANT : ECOMMERCE_TEMPLATES.NEED_ORDER_DETAILS),

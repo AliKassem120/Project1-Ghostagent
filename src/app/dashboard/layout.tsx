@@ -42,6 +42,7 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     // Base menu items that all users see
     const topItems = [
         { icon: LayoutDashboard, label: 'Overview', href: '/dashboard' },
+        { icon: Zap, label: 'AI Analytics', href: '/dashboard/analytics' },
         { icon: Inbox, label: 'Inbox', href: '/dashboard/inbox' },
     ];
 

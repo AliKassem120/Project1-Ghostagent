@@ -25,6 +25,7 @@ import { detectLanguage, detectYesNo, extractNameAndPhone } from '../language';
 import { APPOINTMENT_TEMPLATES, applyTemplate } from '../templates';
 import { validateReply } from '../validator';
 import { classifyWithLLM, translateReply } from '../model';
+import { getKnownCustomerDetails } from '../customer-history';
 import { v2log } from '../logger';
 
 // ── Intent Schema ────────────────────────────────────────────
@@ -66,10 +67,10 @@ export async function handleAppointmentMessage(
     const state = await getConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', input.platform);
     const stateBefore = state.stage;
 
-    v2log.appointment.context({ stateBefore, language, messagePreview: message.slice(0, 50) });
-    
     // 2b. Fetch recent appointment context (for "after mine" requests)
     let recentAppointment: any = null;
+    let knownCustomer: any = null;
+
     if (state.stage === 'idle') {
         try {
             const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
@@ -85,10 +86,13 @@ export async function handleAppointmentMessage(
             
             if (recent) {
                 recentAppointment = recent;
-                v2log.info('V2_APPOINTMENTS_BRAIN', 'Found recent appointment for context', { service: recent.service, end_time: recent.end_time });
             }
-        } catch (e) {
-            // Non-critical: just proceed without context
+        } catch (e) {}
+
+        // Fetch permanent customer memory
+        knownCustomer = await getKnownCustomerDetails(supabase, workspaceId, chatId);
+        if (knownCustomer) {
+            v2log.info('V2_APPOINTMENTS_BRAIN', 'Found historical customer details', { name: knownCustomer.name });
         }
     }
 
@@ -106,10 +110,10 @@ export async function handleAppointmentMessage(
         }
     }
 
-    // 4. IF STILL IDLE (no state hit or state returned null) → CLASSIFY
+    // 4. IF STILL IDLE → CLASSIFY
     if (!result.replyText) {
         const intent = await classifyAppointmentIntent(message, config, timeCtx, recentAppointment);
-        const processed = await processAppointmentIntent(input, config, state, intent, timeCtx);
+        const processed = await processAppointmentIntent(input, config, state, intent, timeCtx, knownCustomer);
         result = { ...result, ...processed };
     }
 
@@ -358,7 +362,8 @@ async function processAppointmentIntent(
     config: WorkspaceConfig,
     state: ConversationStateV2,
     intent: AppointmentIntent,
-    timeCtx: any
+    timeCtx: any,
+    knownCustomer?: any
 ): Promise<Partial<AutomationResult>> {
     const { supabase, userId, workspaceId, chatId, message } = input;
 
@@ -409,6 +414,22 @@ async function processAppointmentIntent(
 
             if (avail.available) {
                 newState.stage = 'awaiting_customer_details';
+
+                // SMART MEMORY: If we already know the customer, pre-fill and skip to confirmation
+                if (knownCustomer?.name && knownCustomer?.phone) {
+                    newState.stage = 'awaiting_booking_confirmation';
+                    newState.customer = {
+                        name: knownCustomer.name,
+                        phone: knownCustomer.phone
+                    };
+                    await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', input.platform, newState);
+                    return {
+                        replyText: `Tmm — I have your details: ${knownCustomer.name} (${knownCustomer.phone}). Should I go ahead and book it?`,
+                        stateAfter: 'awaiting_booking_confirmation',
+                        actions: ['flow_started', 'slot_resolved', 'memory_used'],
+                    };
+                }
+
                 await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', input.platform, newState);
                 return {
                     replyText: applyTemplate(APPOINTMENT_TEMPLATES.SLOT_AVAILABLE_NEED_DETAILS, {

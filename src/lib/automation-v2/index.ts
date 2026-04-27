@@ -31,7 +31,7 @@ export async function handleAutomationMessage(input: AutomationInput): Promise<A
         result.debug.requestId = requestId;
         result.debug.durationMs = Date.now() - startTime;
 
-        // Log final outcome
+        // Log final outcome to terminal
         v2log.webhookOutcome({
             requestId,
             workspaceId: input.workspaceId,
@@ -48,6 +48,34 @@ export async function handleAutomationMessage(input: AutomationInput): Promise<A
             sentReply: result.replyText || null,
             error: result.error,
         });
+
+        // ── PERSIST TO ANALYTICS (Live Dashboard) ──
+        try {
+            await input.supabase.from('activity_log').insert({
+                user_id: input.userId,
+                workspace_id: input.workspaceId,
+                event_type: 'automation_v2',
+                description: result.replyText 
+                    ? `Replied to "${input.message.slice(0, 30)}..." with "${result.replyText.slice(0, 30)}..."`
+                    : `Processed message: "${input.message.slice(0, 30)}..." (No reply)`,
+                metadata: {
+                    requestId,
+                    message: input.message,
+                    reply: result.replyText,
+                    intent: result.debug.intent,
+                    language: result.debug.language,
+                    stateBefore: result.stateBefore,
+                    stateAfter: result.stateAfter,
+                    actions: result.actions,
+                    durationMs: result.debug.durationMs,
+                    platform: input.platform,
+                    chatId: input.chatId,
+                    error: result.error
+                }
+            });
+        } catch (logErr) {
+            v2log.warn('V2_ENGINE', 'Failed to persist analytics log', { error: logErr });
+        }
 
         return result;
 
