@@ -83,15 +83,15 @@ Digital,Saf7a,Page
 export const ARABIZI_DICTIONARY: Record<string, string> = {
     // --- Appointments ---
     'Hey 👋 how can I help?': 'Hala 👋 Kif fiyi se3dak?',
-    'What service would you like to book?': 'Ayya service badek te7jez?',
-    'Sure — what day and time would you like?': 'Akid — ayya yom w se3a badek?',
+    'What service would you like to book?': 'Aya service badek te7jez?',
+    'Sure — what day and time would you like?': 'Akid — aya yom w se3a badek?',
     '{dateLabel} at {timeLabel} is available. Send your name and phone number to confirm.': '{dateLabel} se3a {timeLabel} fi majel. B3atle ismak w ra2mak la2akked el 7ajez.',
     'Send your name and phone number to confirm.': 'B3atle ismak w ra2mak la2akked el 7ajez.',
     'Perfect — your {serviceName} is confirmed for {dateLabel} at {timeLabel}. ✅': 'Tmm — el {serviceName} t2akkad {dateLabel} se3a {timeLabel}. ✅',
     "We're closed on {dayLabel}.": 'Msakrin yom el {dayLabel}.',
     'That time is outside working hours ({openTime} – {closeTime}). Want a different time?': 'Hal wa2et barra dawemna ({openTime} – {closeTime}). Badek gheiro?',
     "I'm having trouble confirming the appointment right now. Please try again in a moment.": 'Fi 8alat bel 7ajez halla2. Jarreb kamen shway.',
-    'Sorry, what would you like to book?': 'Be3tezer, ayya service badek?',
+    'Sorry, what would you like to book?': 'Be3tezer, aya service badek?',
     'That slot is taken. Do you have another time in mind?': 'Hal maw3ed ma7jouz. Fi majel gheiro bi balak?',
     'That slot is already taken. Do you have another time in mind?': 'Hal maw3ed ma7jouz. Fi majel gheiro bi balak?',
     'No problem. Let me know if you need anything else.': 'Wala yhemak. Eza badek shi tene khaberne.',
@@ -103,15 +103,15 @@ export const ARABIZI_DICTIONARY: Record<string, string> = {
 
     // --- E-Commerce ---
     'Hey 👋 what are you looking for?': 'Hala 👋 Shu 3am baddawer?',
-    'Which product are you interested in?': 'Ayya product badek?',
-    'What size and color would you like?': 'Ayya 2yes w lon badek?',
+    'Which product are you interested in?': 'Aya product badek?',
+    'What size and color would you like?': 'Aya 2yes w lon badek?',
     'Yes, {variantLabel} is available. {priceInfo}': 'Eh, {variantLabel} mawjud. {priceInfo}',
     '{variantLabel} is sold out. {alternatives}': '{variantLabel} kholsan. {alternatives}',
     'Send your name, phone number, and delivery address to place the order.': 'B3atle ismak, ra2mak w el 3nwen la n2akked el order.',
     'Send your delivery address to place the order.': 'B3atle el 3nwen la n2akked el order.',
     'Perfect — your order is confirmed. ✅': 'Tmm — order-ak t2akkad. ✅',
     "I'm having trouble creating the order right now. Please try again in a moment.": 'Fi 8alat bel order halla2. Jarreb kamen shway.',
-    'Sorry, which product are you looking for?': 'Be3tezer, ayya product badek?',
+    'Sorry, which product are you looking for?': 'Be3tezer, aya product badek?',
     '{productName} is {price}.': 'el {productName} 7a2o {price}.',
     '{shippingRules}': '{shippingRules}',
 
