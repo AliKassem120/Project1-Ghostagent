@@ -67,6 +67,30 @@ export async function handleAppointmentMessage(
     const stateBefore = state.stage;
 
     v2log.appointment.context({ stateBefore, language, messagePreview: message.slice(0, 50) });
+    
+    // 2b. Fetch recent appointment context (for "after mine" requests)
+    let recentAppointment: any = null;
+    if (state.stage === 'idle') {
+        try {
+            const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+            const { data: recent } = await supabase
+                .from('appointments')
+                .select('appointment_date, end_time, service')
+                .eq('workspace_id', workspaceId)
+                .eq('instagram_user_id', chatId)
+                .gte('created_at', fiveMinsAgo)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+            
+            if (recent) {
+                recentAppointment = recent;
+                v2log.info('V2_APPOINTMENTS_BRAIN', 'Found recent appointment for context', { service: recent.service, end_time: recent.end_time });
+            }
+        } catch (e) {
+            // Non-critical: just proceed without context
+        }
+    }
 
     let result: Partial<AutomationResult> = {
         shouldReply: true,
@@ -84,7 +108,7 @@ export async function handleAppointmentMessage(
 
     // 4. IF STILL IDLE (no state hit or state returned null) → CLASSIFY
     if (!result.replyText) {
-        const intent = await classifyAppointmentIntent(message, config);
+        const intent = await classifyAppointmentIntent(message, config, timeCtx, recentAppointment);
         const processed = await processAppointmentIntent(input, config, state, intent, timeCtx);
         result = { ...result, ...processed };
     }
@@ -464,27 +488,42 @@ async function processAppointmentIntent(
 
 async function classifyAppointmentIntent(
     message: string,
-    config: WorkspaceConfig
+    config: WorkspaceConfig,
+    timeCtx: any,
+    recentAppointment?: { appointment_date: string; end_time: string; service: string } | null
 ): Promise<AppointmentIntent> {
-    const systemPrompt = `You are an AI assistant for "${config.businessName}", a service-based business.
-Classify the user's intent and extract any relevant fields.
+    let contextInstructions = '';
+    if (recentAppointment) {
+        const endTimeStr = formatTime12(recentAppointment.end_time);
+        contextInstructions = `
+RECENT CONTEXT: The user just booked a "${recentAppointment.service}" for ${recentAppointment.appointment_date} ending at ${endTimeStr}.
+If the user says "after mine", "right after", "immediately following", or similar, resolve the time as "${endTimeStr}" and the date as "${recentAppointment.appointment_date}".`;
+    }
 
-Intents:
-- greeting: Simple hello/hi
-- book_appointment: User wants to schedule or book a service
-- business_hours: User asking when the business is open
-- service_question: User asking what services are offered
-- price_question: User asking about costs/prices
-- location_question: User asking where the business is
-- human_handoff: User asking for a person/manager
-- cancel_booking: User wants to cancel their current booking attempt
-- gratitude: User saying thank you
-- unclear: None of the above
+    const systemPrompt = `You are a highly precise intent classifier for "${config.businessName}", a service-based business.
+Classify the user's intent and extract the service name, date, and time.
 
-Extract:
-- serviceName: if mentioned (e.g. "haircut")
-- date: if mentioned (e.g. "tomorrow", "monday")
-- time: if mentioned (e.g. "11am", "4:30")`;
+${contextInstructions}
+
+IntENTS:
+- greeting: Simple hello
+- book_appointment: User wants to schedule or book a service (even if for someone else)
+- business_hours: Asking about opening times
+- service_question: Asking about available services
+- price_question: Asking about costs
+- location_question: Asking about address/location
+- human_handoff: Asking for a human
+- cancel_booking: Cancelling current attempt
+- gratitude: Thank you
+- unclear: Unknown
+
+EXTRACTION RULES:
+1. serviceName: Extract the service they want (e.g. "haircut"). If they say "same as mine", use the service from RECENT CONTEXT if available.
+2. date: Return the date in YYYY-MM-DD format. If they say "after mine", use the date from RECENT CONTEXT.
+3. time: Return the time in HH:mm format. If they say "after mine", use the end_time from RECENT CONTEXT.
+
+MESSAGE CONTEXT:
+Today is ${timeCtx.dayName}, ${timeCtx.isoDate}. Current time is ${timeCtx.isoTime}.`;
 
     const userPrompt = `Message: "${message}"`;
 
