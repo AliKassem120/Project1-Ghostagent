@@ -19,7 +19,7 @@ import { v2log } from './logger';
 
 // ── Model Configuration ──────────────────────────────────────
 
-const DEFAULT_MODEL = 'llama-3.1-70b-versatile';
+const DEFAULT_MODEL = 'llama-3.3-70b-versatile';
 const FALLBACK_MODEL = 'llama-3.1-8b-instant';
 
 function getGroqClient() {

@@ -130,10 +130,12 @@ export function detectYesNo(message: string): 'yes' | 'no' | null {
     const normalized = normalizeText(message);
     const tokens = normalized.split(' ');
 
-    // Short messages (1-3 words) are more likely to be yes/no
-    if (tokens.length <= 3) {
-        if (YES_WORDS.some(w => normalized.includes(w))) return 'yes';
-        if (NO_WORDS.some(w => normalized.includes(w))) return 'no';
+    // Short messages (1-4 words) are more likely to be yes/no
+    if (tokens.length <= 4) {
+        const hasWord = (list: string[]) => tokens.some(token => list.includes(token));
+        
+        if (hasWord(YES_WORDS)) return 'yes';
+        if (hasWord(NO_WORDS)) return 'no';
     }
 
     return null;
