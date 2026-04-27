@@ -553,15 +553,18 @@ async function processDmBuffer({
         }
 
         // 3. Generate AI reply (ghost-brain v4 owns checkout via finalize_transaction tool)
-        let aiResponse: string | null;
+        let aiResponse: string | null = null;
+        let skipLegacyLogging = false;
         try {
-            aiResponse = await generateGhostReply(
+            const brainRes = await generateGhostReply(
                 ownerId,
                 batchedMessage,
                 supabaseAdmin,
                 senderId,
                 effectiveWorkspaceId ?? undefined
             );
+            aiResponse = brainRes?.replyText || null;
+            skipLegacyLogging = brainRes?.skipLegacyLogging || false;
         } catch (ghostErr) {
             console.error('❌ [Ghost Brain] generateGhostReply threw:', ghostErr);
             await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
@@ -573,8 +576,6 @@ async function processDmBuffer({
             await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
             return;
         }
-
-        // 5. Watermark Application (Removed by user request)
 
         // 6. Autopilot check
         const isAutopilot = await checkAutopilot(supabaseAdmin, ownerId, senderId, effectiveWorkspaceId ?? undefined);
@@ -603,15 +604,17 @@ async function processDmBuffer({
         console.log('🤖 AI Reply:', aiResponse);
         await sendReply(ownerId, senderId, aiResponse, supabaseAdmin, effectiveWorkspaceId || undefined);
 
-        // 7. Log the reply
-        await supabaseAdmin.from('activity_log').insert({
-            user_id: ownerId,
-            workspace_id: effectiveWorkspaceId || null,
-            event_type: 'AI_REPLY',
-            description: `Sent: "${aiResponse}"`,
-            timestamp: new Date().toISOString(),
-            metadata: { chat_id: senderId, platform: 'instagram' }
-        });
+        // 7. Log the reply (Only if not already logged by V2 engine)
+        if (!skipLegacyLogging) {
+            await supabaseAdmin.from('activity_log').insert({
+                user_id: ownerId,
+                workspace_id: effectiveWorkspaceId || null,
+                event_type: 'AI_REPLY',
+                description: `Sent: "${aiResponse}"`,
+                timestamp: new Date().toISOString(),
+                metadata: { chat_id: senderId, platform: 'instagram' }
+            });
+        }
 
         // 8. Clear the buffer
         await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');

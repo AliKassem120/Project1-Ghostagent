@@ -364,19 +364,27 @@ async function processAppointmentState(
                     if (!error) {
                         await clearConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', input.platform);
                         return { 
-                            replyText: "Tmm, your appointment has been cancelled. Ma fi meshkle.", 
+                            replyText: APPOINTMENT_TEMPLATES.CANCEL_SUCCESS, 
                             stateAfter: 'idle', 
                             actions: ['appointment_cancelled'] 
                         };
                     }
                 }
-                return { replyText: "Fi 8alat, I couldn't cancel it. Try again?", stateAfter: 'idle' };
+                return { replyText: APPOINTMENT_TEMPLATES.BOOKING_ERROR, stateAfter: 'idle' };
             }
             if (detectYesNo(message) === 'no') {
                 await clearConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', input.platform);
-                return { replyText: "Tmm, keeping it as is.", stateAfter: 'idle' };
+                return { replyText: APPOINTMENT_TEMPLATES.REJECTION_ACK, stateAfter: 'idle' };
             }
-            return { replyText: "Confirm you want to cancel?", stateAfter: 'awaiting_cancel_confirmation' };
+            const { data: upcoming } = await supabase.from('appointments').select('*').eq('id', (state as any).cancelTargetId).maybeSingle();
+            return { 
+                replyText: applyTemplate(APPOINTMENT_TEMPLATES.CANCEL_CONFIRM, {
+                    serviceName: upcoming?.service || 'appointment',
+                    dateLabel: formatDateLabel(upcoming?.appointment_date || '', timeCtx),
+                    timeLabel: formatTime12(upcoming?.start_time || '')
+                }), 
+                stateAfter: 'awaiting_cancel_confirmation' 
+            };
         }
     }
 
@@ -538,12 +546,16 @@ async function processAppointmentIntent(
                 const newState = { ...state, stage: 'awaiting_cancel_confirmation', cancelTargetId: upcoming.id } as any;
                 await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', input.platform, newState);
                 return { 
-                    replyText: `Badek telghe el ${upcoming.service} yom el ${upcoming.appointment_date} se3a ${upcoming.start_time}?`,
+                    replyText: applyTemplate(APPOINTMENT_TEMPLATES.CANCEL_CONFIRM, {
+                        serviceName: upcoming.service,
+                        dateLabel: formatDateLabel(upcoming.appointment_date, timeCtx),
+                        timeLabel: formatTime12(upcoming.start_time)
+                    }),
                     stateAfter: 'awaiting_cancel_confirmation',
                     debug: { intent: 'cancel_appointment' } as any
                 };
             }
-            return { replyText: "Ma l2it aya appointment la elak la elghiya. Fi shi tene badek?", stateAfter: 'idle' };
+            return { replyText: APPOINTMENT_TEMPLATES.CANCEL_NOT_FOUND, stateAfter: 'idle' };
         }
 
         case 'human_handoff':

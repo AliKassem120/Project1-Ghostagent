@@ -27,6 +27,9 @@ export const APPOINTMENT_TEMPLATES = {
     BUSINESS_HOURS: "We're open {hoursSummary}.",
     LOCATION: "We're located at {location}.",
     GRATITUDE: "You're welcome! 🙏",
+    CANCEL_CONFIRM: "Do you want to cancel the {serviceName} on {dateLabel} at {timeLabel}?",
+    CANCEL_SUCCESS: "Got it — your appointment has been cancelled. No problem.",
+    CANCEL_NOT_FOUND: "I couldn't find an appointment to cancel. Is there anything else I can help with?",
 } as const;
 
 export const ECOMMERCE_TEMPLATES = {
@@ -45,6 +48,9 @@ export const ECOMMERCE_TEMPLATES = {
     SHIPPING_INFO: '{shippingRules}',
     LOCATION: "We're located at {location}.",
     GRATITUDE: "You're welcome! 🙏",
+    CANCEL_CONFIRM: "Do you want to cancel your order for {itemName}?",
+    CANCEL_SUCCESS: "Got it — your order has been cancelled.",
+    CANCEL_NOT_FOUND: "I couldn't find a pending order to cancel.",
 } as const;
 
 // ── Safe Fallback Reply ──────────────────────────────────────

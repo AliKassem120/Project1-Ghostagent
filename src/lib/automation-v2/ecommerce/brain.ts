@@ -280,21 +280,27 @@ async function processEcommerceState(
                         .eq('id', orderId);
                     
                     if (!error) {
-                        await clearConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', input.platform);
+                        await clearConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', input.platform, state);
                         return { 
-                            replyText: "Tmm, your order has been cancelled. Ma fi meshkle.", 
+                            replyText: ECOMMERCE_TEMPLATES.CANCEL_SUCCESS, 
                             stateAfter: 'idle', 
                             actions: ['order_cancelled'] 
                         };
                     }
                 }
-                return { replyText: "Fi 8alat, I couldn't cancel the order. Try again?", stateAfter: 'idle' };
+                return { replyText: ECOMMERCE_TEMPLATES.ORDER_ERROR, stateAfter: 'idle' };
             }
             if (detectYesNo(message) === 'no') {
                 await clearConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', input.platform);
-                return { replyText: "Tmm, we're still processing your order.", stateAfter: 'idle' };
+                return { replyText: ECOMMERCE_TEMPLATES.REJECTION_ACK, stateAfter: 'idle' };
             }
-            return { replyText: "Confirm you want to cancel the order?", stateAfter: 'awaiting_cancel_confirmation' };
+            const { data: recent } = await supabase.from('orders').select('item_requested').eq('id', (state as any).cancelTargetId).maybeSingle();
+            return { 
+                replyText: applyTemplate(ECOMMERCE_TEMPLATES.CANCEL_CONFIRM, {
+                    itemName: recent?.item_requested || 'order'
+                }), 
+                stateAfter: 'awaiting_cancel_confirmation' 
+            };
         }
     }
 
@@ -408,12 +414,14 @@ async function processEcommerceIntent(
                 const newState = { ...state, stage: 'awaiting_cancel_confirmation', cancelTargetId: recent.id } as any;
                 await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', input.platform, newState);
                 return { 
-                    replyText: `Badek telghe el order la "${recent.item_requested}"?`,
+                    replyText: applyTemplate(ECOMMERCE_TEMPLATES.CANCEL_CONFIRM, {
+                        itemName: recent.item_requested
+                    }),
                     stateAfter: 'awaiting_cancel_confirmation',
                     debug: { intent: 'cancel_order' } as any
                 };
             }
-            return { replyText: "Ma l2it aya order la elak la elghiya. Fi shi tene badek?", stateAfter: 'idle' };
+            return { replyText: ECOMMERCE_TEMPLATES.CANCEL_NOT_FOUND, stateAfter: 'idle' };
         }
 
         case 'human_handoff':

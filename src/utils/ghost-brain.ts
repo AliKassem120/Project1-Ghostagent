@@ -52,17 +52,19 @@ export async function generateGhostReply(
                 userId,
             });
 
-            if (!result.shouldReply) return null;
-            return result.replyText || null;
+            if (!result.shouldReply) return { replyText: null, skipLegacyLogging: true };
+            return { replyText: result.replyText || null, skipLegacyLogging: true };
         }
 
         // ── V1 Fallback (existing behavior) ──────────────────
+        let v1Reply: string | null = null;
         if (businessType === 'appointments') {
-            return await generateAppointmentsGhostReply(userId, userMessage, supabase, chatId, workspaceId, checkoutContext);
+            v1Reply = await generateAppointmentsGhostReply(userId, userMessage, supabase, chatId, workspaceId, checkoutContext);
         } else {
             // Default to ecommerce
-            return await generateEcommerceGhostReply(userId, userMessage, supabase, chatId, workspaceId, checkoutContext);
+            v1Reply = await generateEcommerceGhostReply(userId, userMessage, supabase, chatId, workspaceId, checkoutContext);
         }
+        return { replyText: v1Reply, skipLegacyLogging: false };
     } catch (error: any) {
         console.error('❌ [Ghost Brain Router] Failed to route request:', error);
         return null;
