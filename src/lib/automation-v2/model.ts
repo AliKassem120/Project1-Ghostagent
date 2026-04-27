@@ -119,7 +119,7 @@ export async function classifyWithLLM<T extends z.ZodTypeAny>(args: {
     }
 }
 
-import { ARABIZI_DICTIONARY } from './dictionaries';
+import { ARABIZI_DICTIONARY, LEBANESE_VOCABULARY } from './dictionaries';
 
 /**
  * Translate/polish a template reply into the target language.
@@ -177,6 +177,10 @@ export async function translateReply(args: {
 Keep it short (1-2 sentences max), natural, and DM-appropriate. 
 Tone: ${tone}. 
 If the target is Arabizi, use Lebanese dialect with Latin characters and numbers (3, 7, 5, etc.).
+
+STRICT VOCABULARY FOR ARABIZI (Use these exact words):
+${LEBANESE_VOCABULARY}
+
 Return ONLY the translated text, nothing else.`,
             prompt: reply,
             temperature: 0.1,
