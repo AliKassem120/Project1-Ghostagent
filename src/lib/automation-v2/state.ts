@@ -15,7 +15,8 @@ export async function getConversationStateV2(
     userId: string,
     workspaceId: string,
     chatId: string,
-    workspaceType: 'appointments' | 'ecommerce'
+    workspaceType: 'appointments' | 'ecommerce',
+    platform: 'instagram' | 'whatsapp'
 ): Promise<ConversationStateV2> {
     const { data, error } = await supabase
         .from('conversation_states')
@@ -24,6 +25,7 @@ export async function getConversationStateV2(
         .eq('workspace_id', workspaceId)
         .eq('chat_id', chatId)
         .eq('workspace_type', workspaceType)
+        .eq('platform', platform)
         .maybeSingle();
 
     if (error) {
@@ -47,6 +49,7 @@ export async function updateConversationStateV2(
     workspaceId: string,
     chatId: string,
     workspaceType: 'appointments' | 'ecommerce',
+    platform: 'instagram' | 'whatsapp',
     state: ConversationStateV2
 ) {
     const { stage, ...data } = state;
@@ -57,7 +60,9 @@ export async function updateConversationStateV2(
             user_id: userId,
             workspace_id: workspaceId,
             chat_id: chatId,
+            external_chat_id: chatId, // Map for legacy compatibility
             workspace_type: workspaceType,
+            platform,
             stage,
             data,
             updated_at: new Date().toISOString()
@@ -75,7 +80,8 @@ export async function clearConversationStateV2(
     userId: string,
     workspaceId: string,
     chatId: string,
-    workspaceType: 'appointments' | 'ecommerce'
+    workspaceType: 'appointments' | 'ecommerce',
+    platform: 'instagram' | 'whatsapp'
 ) {
     const { error } = await supabase
         .from('conversation_states')
@@ -83,7 +89,8 @@ export async function clearConversationStateV2(
         .eq('user_id', userId)
         .eq('workspace_id', workspaceId)
         .eq('chat_id', chatId)
-        .eq('workspace_type', workspaceType);
+        .eq('workspace_type', workspaceType)
+        .eq('platform', platform);
 
     if (error) {
         v2log.error('V2_STATE', 'Failed to clear conversation state', { error, workspaceId, chatId });

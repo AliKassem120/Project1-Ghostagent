@@ -55,7 +55,7 @@ export async function handleEcommerceMessage(
     const startTime = Date.now();
 
     const language = detectLanguage(message);
-    const state = await getConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce');
+    const state = await getConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', input.platform);
     const stateBefore = state.stage;
 
     v2log.ecommerce.context({ stateBefore, language, messagePreview: message.slice(0, 50) });
@@ -117,7 +117,7 @@ async function processEcommerceState(
 
     // Global cancel
     if (detectYesNo(message) === 'no' || message.toLowerCase().includes('cancel')) {
-        await clearConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce');
+        await clearConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', input.platform);
         return { replyText: ECOMMERCE_TEMPLATES.REJECTION_ACK, stateAfter: 'idle', actions: ['flow_cancelled'] };
     }
 
@@ -138,7 +138,7 @@ async function processEcommerceState(
                         quantity: 1
                     }
                 };
-                await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', newState);
+                await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', input.platform, newState);
                 return {
                     replyText: match.variants?.length ? ECOMMERCE_TEMPLATES.ASK_VARIANT : ECOMMERCE_TEMPLATES.NEED_ORDER_DETAILS,
                     stateAfter: newState.stage,
@@ -164,7 +164,7 @@ async function processEcommerceState(
                             variantLabel: stock.variantMatch?.label || stock.variantMatch?.name || message
                         }
                     };
-                    await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', newState);
+                    await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', input.platform, newState);
                     return {
                         replyText: ECOMMERCE_TEMPLATES.NEED_ORDER_DETAILS,
                         stateAfter: 'awaiting_order_details',
@@ -194,7 +194,7 @@ async function processEcommerceState(
                     stage: 'awaiting_checkout_confirmation',
                     customer: { name: customerName, phone: customerPhone, address: customerAddress }
                 };
-                await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', newState);
+                await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', input.platform, newState);
                 return {
                     replyText: `Got it: ${customerName}, ${customerPhone}, ${customerAddress}. Confirm order for ${state.order?.productName}${state.order?.variantLabel ? ` (${state.order.variantLabel})` : ''}?`,
                     stateAfter: 'awaiting_checkout_confirmation',
@@ -240,7 +240,7 @@ async function processEcommerceState(
                 });
 
                 if (success) {
-                    await clearConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce');
+                    await clearConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', input.platform);
                     return {
                         replyText: ECOMMERCE_TEMPLATES.ORDER_CONFIRMED,
                         stateAfter: 'idle',
@@ -283,7 +283,7 @@ async function processEcommerceIntent(
             const match = intent.productName ? findBestProductMatch(products, intent.productName) : null;
 
             if (!match) {
-                await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', { stage: 'awaiting_product' });
+                await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', input.platform, { stage: 'awaiting_product' });
                 return { replyText: ECOMMERCE_TEMPLATES.ASK_PRODUCT, stateAfter: 'awaiting_product', actions: ['flow_started'], debug: { intent: intent.intent } as any };
             }
 
@@ -302,11 +302,11 @@ async function processEcommerceIntent(
 
             if (stock.inStock) {
                 if (intent.intent === 'product_availability' && !intent.variant && match.variants?.length) {
-                    await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', newState);
+                    await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', input.platform, newState);
                     return { replyText: applyTemplate(ECOMMERCE_TEMPLATES.PRODUCT_AVAILABLE, { variantLabel: match.itemName, priceInfo: `$${match.price}` }) + " " + ECOMMERCE_TEMPLATES.ASK_VARIANT, stateAfter: 'awaiting_variant', debug: { intent: 'product_availability' } as any };
                 }
                 
-                await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', newState);
+                await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', input.platform, newState);
                 return { 
                     replyText: applyTemplate(ECOMMERCE_TEMPLATES.PRODUCT_AVAILABLE, { variantLabel: intent.variant || match.itemName, priceInfo: `$${match.price}` }) + " " + (newState.stage === 'awaiting_variant' ? ECOMMERCE_TEMPLATES.ASK_VARIANT : ECOMMERCE_TEMPLATES.NEED_ORDER_DETAILS),
                     stateAfter: newState.stage,

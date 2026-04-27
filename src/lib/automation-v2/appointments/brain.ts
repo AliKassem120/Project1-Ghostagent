@@ -63,7 +63,7 @@ export async function handleAppointmentMessage(
     const language = detectLanguage(message);
     
     // 2. Load state
-    const state = await getConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments');
+    const state = await getConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', input.platform);
     const stateBefore = state.stage;
 
     v2log.appointment.context({ stateBefore, language, messagePreview: message.slice(0, 50) });
@@ -127,7 +127,7 @@ async function processAppointmentState(
     // Global cancel/rejection check
     const isNo = detectYesNo(message) === 'no';
     if (isNo || message.toLowerCase().includes('cancel')) {
-        await clearConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments');
+        await clearConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', input.platform);
         return {
             replyText: APPOINTMENT_TEMPLATES.REJECTION_ACK,
             stateAfter: 'idle',
@@ -152,7 +152,7 @@ async function processAppointmentState(
                         serviceDuration: match.durationMinutes,
                     }
                 };
-                await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', newState);
+                await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', input.platform, newState);
                 return {
                     replyText: APPOINTMENT_TEMPLATES.ASK_DATE_TIME,
                     stateAfter: 'awaiting_date_time',
@@ -190,7 +190,7 @@ async function processAppointmentState(
                             startTime: time,
                         }
                     };
-                    await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', newState);
+                    await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', input.platform, newState);
                     return {
                         replyText: applyTemplate(APPOINTMENT_TEMPLATES.SLOT_AVAILABLE_NEED_DETAILS, {
                             dateLabel: formatDateLabel(date, timeCtx),
@@ -244,7 +244,7 @@ async function processAppointmentState(
                         phone: customerPhone,
                     }
                 };
-                await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', newState);
+                await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', input.platform, newState);
                 return {
                     replyText: `Got it: ${customerName} (${customerPhone}). Should I go ahead and book this for you?`,
                     stateAfter: 'awaiting_booking_confirmation',
@@ -297,7 +297,7 @@ async function processAppointmentState(
                 });
 
                 if (success) {
-                    await clearConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments');
+                    await clearConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', input.platform);
                     return {
                         replyText: applyTemplate(APPOINTMENT_TEMPLATES.CONFIRMED, {
                             serviceName: state.appointment?.serviceName || 'appointment',
@@ -362,13 +362,13 @@ async function processAppointmentIntent(
             };
 
             if (!serviceMatch) {
-                await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', newState);
+                await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', input.platform, newState);
                 return { replyText: APPOINTMENT_TEMPLATES.ASK_SERVICE, stateAfter: 'awaiting_service', actions: ['flow_started'], debug: { intent: 'book_appointment' } as any };
             }
 
             newState.stage = 'awaiting_date_time';
             if (!date || !time) {
-                await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', newState);
+                await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', input.platform, newState);
                 return { replyText: APPOINTMENT_TEMPLATES.ASK_DATE_TIME, stateAfter: 'awaiting_date_time', actions: ['flow_started'], debug: { intent: 'book_appointment' } as any };
             }
 
@@ -385,7 +385,7 @@ async function processAppointmentIntent(
 
             if (avail.available) {
                 newState.stage = 'awaiting_customer_details';
-                await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', newState);
+                await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', input.platform, newState);
                 return {
                     replyText: applyTemplate(APPOINTMENT_TEMPLATES.SLOT_AVAILABLE_NEED_DETAILS, {
                         dateLabel: formatDateLabel(date, timeCtx),
@@ -396,7 +396,7 @@ async function processAppointmentIntent(
                     debug: { intent: 'book_appointment' } as any
                 };
             } else {
-                await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', newState);
+                await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', input.platform, newState);
                 return {
                     replyText: "That slot is taken. What other time works for you?",
                     stateAfter: 'awaiting_date_time',
