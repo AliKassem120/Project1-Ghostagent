@@ -596,6 +596,9 @@ EXTRACTION RULES:
 2. date: Return the date in YYYY-MM-DD format. If they say "after mine", use the date from RECENT CONTEXT.
 3. time: Return the time in HH:mm format. If they say "after mine", use the end_time from RECENT CONTEXT.
 
+BUSINESS FACTS (Treat these as absolute truth):
+${config.systemInstructions || 'No specific facts provided.'}
+
 MESSAGE CONTEXT:
 Today is ${timeCtx.dayName}, ${timeCtx.isoDate}. Current time is ${timeCtx.isoTime}.`;
 

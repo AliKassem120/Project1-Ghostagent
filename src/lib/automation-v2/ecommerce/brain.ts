@@ -451,7 +451,13 @@ Intents:
 Extract:
 - productName
 - variant (size, color)
-- quantity`;
+- quantity
+
+BUSINESS FACTS (Treat these as absolute truth):
+${config.systemInstructions || 'No specific facts provided.'}
+
+MESSAGE CONTEXT:
+Today is ${timeCtx.dayName}, ${timeCtx.isoDate}. Current time is ${timeCtx.isoTime}.`;
 
     const userPrompt = `Message: "${message}"`;
 
