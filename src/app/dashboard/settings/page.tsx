@@ -1019,7 +1019,7 @@ export default function SettingsPage() {
                 </motion.div>
             )}
 
-            {/* Agent Training */}
+            {/* Business Knowledge Base */}
             {activeTab === 'personality' && (
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6">
                     <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
@@ -1027,67 +1027,77 @@ export default function SettingsPage() {
                             <Sparkles className="w-5 h-5 text-violet-400" />
                         </div>
                         <div>
-                            <h2 className="text-sm font-semibold text-foreground">Agent Training</h2>
-                            <p className="text-[11px] text-muted-foreground">Knowledge base and product data</p>
+                            <h2 className="text-sm font-semibold text-foreground">Business Knowledge Base</h2>
+                            <p className="text-[11px] text-muted-foreground">Teach your bot specific facts about your business</p>
                         </div>
                     </div>
 
-                    <div className="space-y-5">
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Knowledge Base (System Instructions)</label>
-
-                            {/* Generate with AI */}
-                            <div className="bg-primary/[0.03] border border-primary/[0.08] rounded-xl p-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Sparkles className="w-3.5 h-3.5 text-primary" />
-                                    <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Generate with AI</span>
-                                </div>
-                                <p className="text-[10px] text-muted-foreground mb-3">Describe your business briefly and AI will write detailed instructions.</p>
-                                <div className="flex flex-col sm:flex-row gap-2 mt-4">
-                                    <input
-                                        type="text"
-                                        value={aiPromptInput}
-                                        onChange={(e) => setAiPromptInput(e.target.value)}
-                                        className="input-premium flex-1 w-full text-sm"
-                                        placeholder="e.g. We sell handmade candles, free shipping over $50..."
-                                        disabled={generating}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && !e.shiftKey) {
-                                                e.preventDefault();
-                                                handleGenerateInstructions();
-                                            }
+                    <div className="space-y-4">
+                        <p className="text-xs text-muted-foreground mb-4">
+                            Add simple facts here. The bot will use these to answer customer questions automatically.
+                        </p>
+                        
+                        <div className="space-y-3">
+                            {(settings.systemPrompt.split('\n').filter(line => line.startsWith('• ')).map(line => line.replace('• ', '')) || []).map((fact, idx) => (
+                                <div key={idx} className="flex items-center gap-3 bg-surface-2 p-3 rounded-xl border border-border group">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                                    <span className="text-sm text-foreground flex-1">{fact}</span>
+                                    <button 
+                                        onClick={() => {
+                                            const facts = settings.systemPrompt.split('\n').filter(line => line.startsWith('• ')).map(line => line.replace('• ', ''));
+                                            facts.splice(idx, 1);
+                                            setSettings({ ...settings, systemPrompt: facts.map(f => `• ${f}`).join('\n') });
                                         }}
-                                    />
-                                    <button
-                                        onClick={handleGenerateInstructions}
-                                        disabled={generating || !aiPromptInput.trim()}
-                                        className={clsx(
-                                            "w-full sm:w-auto px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 text-sm font-semibold transition-all press shrink-0",
-                                            generating
-                                                ? "bg-primary/10 text-primary/40"
-                                                : "bg-primary text-black hover:scale-[1.02]"
-                                        )}
+                                        className="p-1.5 text-muted-foreground hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
                                     >
-                                        {generating ? (
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                        ) : (
-                                            <Sparkles className="w-4 h-4" />
-                                        )}
-                                        {generating ? 'Writing...' : 'Generate AI System'}
+                                        <X className="w-4 h-4" />
                                     </button>
                                 </div>
-                            </div>
+                            ))}
 
-                            <textarea
-                                className="input-premium w-full h-52 resize-none text-sm"
-                                value={settings.systemPrompt}
-                                onChange={(e) => setSettings({ ...settings, systemPrompt: e.target.value })}
-                                placeholder="Example: We are an eco-friendly streetwear brand. Our shipping takes 3-5 days. Return policy is 30 days..."
-                            />
-                            <p className="text-[10px] text-muted-foreground ml-1">Most important field — tell the bot everything about your business.</p>
+                            <div className="flex gap-2 mt-4">
+                                <input
+                                    type="text"
+                                    id="new-fact-input"
+                                    className="input-premium flex-1 text-sm"
+                                    placeholder="e.g. We have free parking behind the shop..."
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            const val = (e.target as HTMLInputElement).value;
+                                            if (val.trim()) {
+                                                const facts = settings.systemPrompt.split('\n').filter(line => line.startsWith('• ')).map(line => line.replace('• ', ''));
+                                                setSettings({ ...settings, systemPrompt: [...facts, val.trim()].map(f => `• ${f}`).join('\n') });
+                                                (e.target as HTMLInputElement).value = '';
+                                            }
+                                        }
+                                    }}
+                                />
+                                <button 
+                                    onClick={() => {
+                                        const input = document.getElementById('new-fact-input') as HTMLInputElement;
+                                        if (input.value.trim()) {
+                                            const facts = settings.systemPrompt.split('\n').filter(line => line.startsWith('• ')).map(line => line.replace('• ', ''));
+                                            setSettings({ ...settings, systemPrompt: [...facts, input.value.trim()].map(f => `• ${f}`).join('\n') });
+                                            input.value = '';
+                                        }
+                                    }}
+                                    className="px-4 py-2 bg-primary text-black rounded-xl text-sm font-bold hover:scale-[1.02] transition-transform flex items-center gap-2"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Add Fact
+                                </button>
+                            </div>
                         </div>
 
-
+                        <div className="mt-8 pt-6 border-t border-border">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1 block mb-2">Raw Memory (Advanced)</label>
+                            <textarea
+                                className="input-premium w-full h-24 resize-none text-[11px] font-mono opacity-50 focus:opacity-100 transition-opacity"
+                                value={settings.systemPrompt}
+                                onChange={(e) => setSettings({ ...settings, systemPrompt: e.target.value })}
+                                placeholder="The itemized facts above are stored here..."
+                            />
+                        </div>
                     </div>
                 </motion.div>
             )}
