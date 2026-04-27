@@ -280,7 +280,7 @@ async function processEcommerceState(
                         .eq('id', orderId);
                     
                     if (!error) {
-                        await clearConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', input.platform, state);
+                        await clearConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', input.platform);
                         return { 
                             replyText: ECOMMERCE_TEMPLATES.CANCEL_SUCCESS, 
                             stateAfter: 'idle', 
@@ -462,10 +462,7 @@ Extract:
 - quantity
 
 BUSINESS FACTS (Treat these as absolute truth):
-${config.systemInstructions || 'No specific facts provided.'}
-
-MESSAGE CONTEXT:
-Today is ${timeCtx.dayName}, ${timeCtx.isoDate}. Current time is ${timeCtx.isoTime}.`;
+${config.systemInstructions || 'No specific facts provided.'}`;
 
     const userPrompt = `Message: "${message}"`;
 
