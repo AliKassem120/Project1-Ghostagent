@@ -119,12 +119,11 @@ export async function classifyWithLLM<T extends z.ZodTypeAny>(args: {
     }
 }
 
+import { ARABIZI_DICTIONARY } from './dictionaries';
+
 /**
  * Translate/polish a template reply into the target language.
- * Used only for non-English replies when the dashboard language
- * is set to a specific language or auto-detect picks non-English.
- *
- * If translation fails, returns the original English template.
+ * Uses a manual dictionary for Arabizi to ensure quality.
  */
 export async function translateReply(args: {
     reply: string;
@@ -133,21 +132,51 @@ export async function translateReply(args: {
 }): Promise<string> {
     const { reply, targetLanguage, tone = 'Professional' } = args;
 
-    // Don't translate if already English or target is English
+    // 1. Skip if already English
     if (targetLanguage === 'english' || targetLanguage === 'English' || targetLanguage === 'Auto-Detect') {
         return reply;
     }
 
+    // 2. Dictionary Lookup for Arabizi
+    if (targetLanguage.toLowerCase() === 'arabizi') {
+        // Try exact match first
+        if (ARABIZI_DICTIONARY[reply]) return ARABIZI_DICTIONARY[reply];
+
+        // Try fuzzy/pattern match for templates with placeholders
+        for (const [english, arabizi] of Object.entries(ARABIZI_DICTIONARY)) {
+            // Convert template like "Perfect — your {serviceName}..." 
+            // into regex "Perfect — your (.*)..."
+            const pattern = english.replace(/\{[a-zA-Z_]+\}/g, '(.*?)');
+            const regex = new RegExp(`^${pattern}$`, 'i');
+            const match = reply.match(regex);
+
+            if (match) {
+                // If we found a match, we need to extract the values from the English string
+                // and inject them into the Arabizi string.
+                let result = arabizi;
+                const placeholders = english.match(/\{[a-zA-Z_]+\}/g) || [];
+                
+                placeholders.forEach((placeholder, index) => {
+                    const value = match[index + 1];
+                    result = result.replace(placeholder, value || '');
+                });
+                
+                return result;
+            }
+        }
+    }
+
+    // 3. LLM Fallback (for non-dictionary items or other languages)
     const groq = getGroqClient();
     if (!groq) return reply;
 
     try {
         const result = await generateText({
-            model: groq(FALLBACK_MODEL), // Use fast model for translation
+            model: groq(FALLBACK_MODEL),
             system: `You are a translation assistant. Translate the following DM reply into ${targetLanguage}. 
 Keep it short (1-2 sentences max), natural, and DM-appropriate. 
 Tone: ${tone}. 
-Do NOT add extra information. Do NOT change the meaning. 
+If the target is Arabizi, use Lebanese dialect with Latin characters and numbers (3, 7, 5, etc.).
 Return ONLY the translated text, nothing else.`,
             prompt: reply,
             temperature: 0.1,
@@ -159,6 +188,6 @@ Return ONLY the translated text, nothing else.`,
         }
         return reply;
     } catch {
-        return reply; // Safe fallback: return original
+        return reply;
     }
 }
