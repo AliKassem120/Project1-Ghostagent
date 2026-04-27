@@ -423,6 +423,16 @@ async function finalizeReply(
     const targetLang = config.language === 'Auto-Detect' ? detectedLang : config.language;
     let final = await translateReply({ reply, targetLanguage: targetLang, tone: config.tone });
 
+    // ── SLANG INJECTION ──
+    if (config.useLocalSlang) {
+        if (targetLang.toLowerCase() === 'english') {
+            if (isConfirmed) final += ' Tekram! 🙏';
+            else if (final.includes('Hey') || final.includes('Hi')) final = final.replace(/Hey|Hi/, 'Hala! Ahla w sahla');
+        } else if (targetLang.toLowerCase() === 'arabizi') {
+            if (isConfirmed && !final.includes('Tekram')) final += ' Tekram! 🙏';
+        }
+    }
+
     const validation = validateReply(final, { isConfirmed, customerMessage: customerMsg });
     if (!validation.isValid) {
         v2log.warn('V2_ECOM_BRAIN', `Validation failed: ${validation.reason}.`, { reply: final });

@@ -569,11 +569,17 @@ async function finalizeReply(
     // 1. Translation / Polish
     // Use dashboard setting if fixed, otherwise auto-detect
     const targetLang = config.language === 'Auto-Detect' ? detectedLang : config.language;
-    let final = await translateReply({
-        reply,
-        targetLanguage: targetLang,
-        tone: config.tone,
-    });
+    let final = await translateReply({ reply, targetLanguage: targetLang, tone: config.tone });
+
+    // ── SLANG INJECTION ──
+    if (config.useLocalSlang) {
+        if (targetLang.toLowerCase() === 'english') {
+            if (isConfirmed) final += ' Tekram! 🙏';
+            else if (final.includes('Hey') || final.includes('Hi')) final = final.replace(/Hey|Hi/, 'Hala! Ahla w sahla');
+        } else if (targetLang.toLowerCase() === 'arabizi') {
+            if (isConfirmed && !final.includes('Tekram')) final += ' Tekram! 🙏';
+        }
+    }
 
     // 2. Validation
     const validation = validateReply(final, {
