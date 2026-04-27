@@ -18,6 +18,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { clsx } from "clsx";
 import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useToast } from "@/contexts/ToastContext";
 import { useRealtime } from "@/contexts/RealtimeContext";
 import { Plus, Search, Filter, Info, MapPin, ExternalLink, CalendarDays, ListFilter } from "lucide-react";
 
