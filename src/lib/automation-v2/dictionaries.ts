@@ -19,6 +19,8 @@ export const ARABIZI_DICTIONARY: Record<string, string> = {
     'That time is outside working hours ({openTime} – {closeTime}). Want a different time?': 'Hal wa2et barra dawemna ({openTime} – {closeTime}). Badek gheiro?',
     "I'm having trouble confirming the appointment right now. Please try again in a moment.": 'Fi meshkle bel 7ajez halla2. Jarreb kamen shway.',
     'Sorry, what would you like to book?': '3afwan, ayya service badek?',
+    'That slot is taken. Do you have another time in mind?': 'Hal wa2et ma7jouz. Fi gheiro bi balak?',
+    'That slot is already taken. Do you have another time in mind?': 'Hal wa2et ma7jouz. Fi gheiro bi balak?',
     'No problem. Let me know if you need anything else.': 'Ma fi meshkle. Eza badek shi tene khaberne.',
     'We offer: {serviceList}.': '3anna: {serviceList}.',
     '{serviceName} is {price}.': 'el {serviceName} bi {price}.',
