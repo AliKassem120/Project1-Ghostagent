@@ -83,7 +83,19 @@
   "Testimonials": {
     "title": "Empresas que confían en los DMs con GhostAgent",
     "description": "Desde tiendas online hasta negocios de servicios, GhostAgent ayuda a los equipos a responder más rápido, capturar más clientes y dejar de perder ingresos.",
-    "proofBar": "Automatizando DMs para tiendas e-commerce, salones, clínicas, estudios y negocios de servicios locales."
+    "proofBar": "Automatizando DMs para tiendas e-commerce, salones, clínicas, estudios y negocios de servicios locales.",
+    "t1Name": "Elena Rostova",
+    "t1Biz": "Clínica de belleza",
+    "t1Metric": "21 reservas capturadas este mes",
+    "t1Quote": "GhostAgent gestiona nuestras solicitudes nocturnas de citas, verifica disponibilidad y recopila nombres y teléfonos antes de confirmar. Dejamos de tener reservas dobles.",
+    "t2Name": "Julian Cortez",
+    "t2Biz": "Tienda de ropa",
+    "t2Metric": "38 pedidos capturados",
+    "t2Quote": "La sincronización de inventario lo cambió todo. Los clientes preguntan por talla o color, GhostAgent verifica el stock, responde al instante y ayuda a completar el pedido en los DMs.",
+    "t3Name": "Amira Hassan",
+    "t3Biz": "Estudio de maquillaje",
+    "t3Metric": "Respuestas en árabe + inglés",
+    "t3Quote": "Cambia naturalmente entre árabe e inglés, responde preguntas sobre servicios y reserva clientes sin que esté pegada al teléfono."
   },
   "FAQ": {
     "title": "Preguntas frecuentes",
@@ -174,6 +186,17 @@
     "resetPassword": "Restablecer contraseña",
     "sendResetLink": "Enviar enlace",
     "backToLogin": "Volver al inicio de sesión"
+  },
+  "Login": {
+    "title": "Tu agente IA de negocios",
+    "titleHighlight": "nunca duerme.",
+    "description": "Automatiza los DMs de Instagram con IA. Responde al instante, captura pedidos, reserva citas y mantén el control — 24/7.",
+    "feature1": "Respuestas IA instantáneas a DMs de Instagram",
+    "feature2": "Pedidos, reservas, bandeja de entrada y análisis",
+    "feature3": "Intervención humana en cualquier momento",
+    "welcomeBack": "Bienvenido de vuelta",
+    "signInToDashboard": "Inicia sesión en tu panel",
+    "or": "o"
   },
   "Dashboard": {
     "overview": "Resumen",

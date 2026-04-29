@@ -83,7 +83,19 @@
   "Testimonials": {
     "title": "Utilisé par les entreprises qui vivent des DMs",
     "description": "Des boutiques en ligne aux entreprises de services, GhostAgent aide les équipes à répondre plus vite, capturer plus de clients et arrêter de perdre du chiffre d'affaires.",
-    "proofBar": "Automatisation des DMs pour les boutiques e-commerce, salons, cliniques, studios et entreprises de services locales."
+    "proofBar": "Automatisation des DMs pour les boutiques e-commerce, salons, cliniques, studios et entreprises de services locales.",
+    "t1Name": "Elena Rostova",
+    "t1Biz": "Clinique beauté",
+    "t1Metric": "21 réservations capturées ce mois",
+    "t1Quote": "GhostAgent gère nos demandes de rendez-vous tardives, vérifie la disponibilité et collecte les noms et numéros avant de confirmer. Nous avons arrêté les doubles réservations.",
+    "t2Name": "Julian Cortez",
+    "t2Biz": "Boutique vêtements",
+    "t2Metric": "38 commandes capturées",
+    "t2Quote": "La synchronisation d'inventaire a tout changé. Les clients demandent la taille ou la couleur, GhostAgent vérifie le stock, répond instantanément et aide à finaliser la commande dans les DMs.",
+    "t3Name": "Amira Hassan",
+    "t3Biz": "Studio maquillage",
+    "t3Metric": "Réponses arabe + anglais",
+    "t3Quote": "Il passe naturellement de l'arabe à l'anglais, répond aux questions sur les services et réserve les clients sans que je sois collée à mon téléphone."
   },
   "FAQ": {
     "title": "Questions fréquentes",
@@ -174,6 +186,17 @@
     "resetPassword": "Réinitialiser le mot de passe",
     "sendResetLink": "Envoyer le lien",
     "backToLogin": "Retour à la connexion"
+  },
+  "Login": {
+    "title": "Votre agent IA",
+    "titleHighlight": "ne dort jamais.",
+    "description": "Automatisez vos DMs Instagram avec l'IA. Répondez instantanément, capturez les commandes, réservez les rendez-vous et gardez le contrôle — 24h/24.",
+    "feature1": "Réponses IA instantanées aux DMs Instagram",
+    "feature2": "Commandes, réservations, boîte de réception et analyses",
+    "feature3": "Intervention humaine à tout moment",
+    "welcomeBack": "Bon retour",
+    "signInToDashboard": "Connectez-vous à votre tableau de bord",
+    "or": "ou"
   },
   "Dashboard": {
     "overview": "Vue d'ensemble",
