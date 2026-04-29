@@ -106,8 +106,18 @@ export async function routeToV2Brain(input: AutomationInput): Promise<Automation
         };
     }
 
-    // Route to workspace-specific brain
-    // These will be implemented in PR 3 (appointments) and PR 5 (ecommerce)
+    // ── V3 Agent (Primary) ───────────────────────────────────
+    try {
+        const { runAgent } = await import('./agent');
+        v2log.info('V2_ROUTER', 'Routing to V3 Agent', { workspaceId: input.workspaceId });
+        return await runAgent(input, config);
+    } catch (agentErr: any) {
+        v2log.error('V2_ROUTER', 'V3 Agent failed, falling back to V2 brain', {
+            error: agentErr?.message || String(agentErr),
+        });
+    }
+
+    // ── V2 Brain Fallback ────────────────────────────────────
     if (config.businessType === 'appointments') {
         const { handleAppointmentMessage } = await import('./appointments/brain');
         return handleAppointmentMessage(input, config);
