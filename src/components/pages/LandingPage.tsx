@@ -140,6 +140,7 @@ function PhoneMockup() {
                 key={`msg-${msgIndex}`}
                 className={`chat-bubble shadow-sm ${msg.type === 'user' ? 'chat-bubble-user text-white' : 'chat-bubble-bot'}`}
                 style={{ animationDelay: '0s' }}
+                dir="ltr"
               >
                 {msg.text}
               </div>

@@ -187,6 +187,17 @@
     "sendResetLink": "Send Reset Link",
     "backToLogin": "Back to Login"
   },
+  "Login": {
+    "title": "Your AI business agent",
+    "titleHighlight": "never sleeps.",
+    "description": "Automate Instagram DMs with AI. Reply instantly, capture orders, book appointments, and stay in control — 24/7.",
+    "feature1": "Instant AI replies to Instagram DMs",
+    "feature2": "Orders, bookings, inbox, and analytics",
+    "feature3": "Human takeover at any time",
+    "welcomeBack": "Welcome back",
+    "signInToDashboard": "Sign in to your dashboard",
+    "or": "or"
+  },
   "Dashboard": {
     "overview": "Overview",
     "inbox": "Inbox",

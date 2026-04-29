@@ -10,8 +10,13 @@ import GhostLogo from '@/components/GhostLogo';
 import { supabase } from '@/lib/supabase';
 import GoogleSignInButton from '@/components/GoogleSignInButton';
 
+import { useTranslations } from 'next-intl';
+
 export default function LoginPage() {
     const router = useRouter();
+    const tLogin = useTranslations('Login');
+    const tAuth = useTranslations('Auth');
+    const tCommon = useTranslations('Common');
     const [loading, setLoading] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -79,10 +84,10 @@ export default function LoginPage() {
                             transition={{ delay: 0.2, duration: 0.6 }}
                             className="text-4xl lg:text-5xl font-black text-foreground leading-[1.1] tracking-tighter mb-6"
                         >
-                            Your AI business agent
+                            {tLogin('title')}
                             <br />
                             <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-violet-400">
-                                never sleeps.
+                                {tLogin('titleHighlight')}
                             </span>
                         </motion.h2>
 
@@ -92,7 +97,7 @@ export default function LoginPage() {
                             transition={{ delay: 0.4, duration: 0.6 }}
                             className="text-muted-foreground text-lg leading-relaxed mb-12 font-medium"
                         >
-                            Automate Instagram DMs with AI. Reply instantly, capture orders, book appointments, and stay in control — 24/7.
+                            {tLogin('description')}
                         </motion.p>
 
                         {/* Feature pills */}
@@ -103,9 +108,9 @@ export default function LoginPage() {
                             className="flex flex-col gap-4"
                         >
                             {[
-                                { icon: MessageSquare, text: 'Instant AI replies to Instagram DMs', color: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
-                                { icon: CalendarDays, text: 'Orders, bookings, inbox, and analytics', color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
-                                { icon: Shield, text: 'Human takeover at any time', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
+                                { icon: MessageSquare, text: tLogin('feature1'), color: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
+                                { icon: CalendarDays, text: tLogin('feature2'), color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
+                                { icon: Shield, text: tLogin('feature3'), color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
                             ].map((feature, i) => (
                                 <motion.div
                                     key={feature.text}
@@ -144,8 +149,8 @@ export default function LoginPage() {
                             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
 
                             <div className="text-center mb-8 lg:text-left mt-2">
-                                <h1 className="text-3xl font-black text-foreground mb-2 tracking-tight">Welcome back</h1>
-                                <p className="text-muted-foreground font-medium text-sm">Sign in to your dashboard</p>
+                                <h1 className="text-3xl font-black text-foreground mb-2 tracking-tight">{tLogin('welcomeBack')}</h1>
+                                <p className="text-muted-foreground font-medium text-sm">{tLogin('signInToDashboard')}</p>
                             </div>
 
                             <div className="mb-6 w-full">
@@ -161,7 +166,7 @@ export default function LoginPage() {
                                     <div className="w-full border-t border-border/60"></div>
                                 </div>
                                 <div className="relative flex justify-center text-xs">
-                                    <span className="bg-surface-1 px-4 text-muted-foreground/70 uppercase tracking-widest font-bold">or</span>
+                                    <span className="bg-surface-1 px-4 text-muted-foreground/70 uppercase tracking-widest font-bold">{tLogin('or')}</span>
                                 </div>
                             </div>
 
@@ -178,7 +183,7 @@ export default function LoginPage() {
 
                             <form onSubmit={handleLogin} className="space-y-4 w-full">
                                 <div className="space-y-1.5">
-                                    <label htmlFor="email" className="text-xs font-black text-muted-foreground/70 uppercase tracking-widest ml-1">Email</label>
+                                    <label htmlFor="email" className="text-xs font-black text-muted-foreground/70 uppercase tracking-widest ml-1">{tAuth('email')}</label>
                                     <div className="relative group">
                                         <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
                                         <input
@@ -189,14 +194,15 @@ export default function LoginPage() {
                                             onChange={(e) => setEmail(e.target.value)}
                                             className="w-full bg-surface-2 border border-border/50 rounded-2xl py-4 pl-12 pr-4 text-foreground text-sm placeholder:text-muted-foreground/30 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium"
                                             placeholder="you@company.com"
+                                            dir="ltr"
                                         />
                                     </div>
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <div className="flex items-center justify-between ml-1">
-                                        <label htmlFor="password" className="text-xs font-black text-muted-foreground/70 uppercase tracking-widest">Password</label>
-                                        <Link href="/forgot-password" className="text-xs text-muted-foreground hover:text-primary transition-colors font-bold">Forgot?</Link>
+                                    <div className="flex items-center justify-between ml-1 rtl:flex-row-reverse">
+                                        <label htmlFor="password" className="text-xs font-black text-muted-foreground/70 uppercase tracking-widest">{tAuth('password')}</label>
+                                        <Link href="/forgot-password" className="text-xs text-muted-foreground hover:text-primary transition-colors font-bold">{tAuth('forgotPassword')}</Link>
                                     </div>
                                     <div className="relative group">
                                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
@@ -208,6 +214,7 @@ export default function LoginPage() {
                                             onChange={(e) => setPassword(e.target.value)}
                                             className="w-full bg-surface-2 border border-border/50 rounded-2xl py-4 pl-12 pr-12 text-foreground text-sm placeholder:text-muted-foreground/30 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium"
                                             placeholder="••••••••"
+                                            dir="ltr"
                                         />
                                         <button 
                                             type="button"
@@ -225,13 +232,13 @@ export default function LoginPage() {
                                     disabled={loading || !email || !password}
                                     className="w-full bg-foreground text-background font-black py-4 rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-foreground/10 flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed mt-2 border border-transparent hover:border-foreground/20"
                                 >
-                                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Sign In"}
+                                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : tAuth('signIn')}
                                 </button>
                             </form>
 
                             <div className="mt-8 pt-6 border-t border-border/50 text-center">
                                 <p className="text-sm text-muted-foreground font-medium">
-                                    Don't have an account? <Link href="/register" className="text-foreground hover:text-primary font-bold transition-colors">Get Started Free</Link>
+                                    {tAuth('noAccount')} <Link href="/register" className="text-foreground hover:text-primary font-bold transition-colors">{tAuth('signUp')}</Link>
                                 </p>
                             </div>
                         </div>

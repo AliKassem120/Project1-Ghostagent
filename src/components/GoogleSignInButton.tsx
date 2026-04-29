@@ -56,7 +56,7 @@ export default function GoogleSignInButton({ onSuccess, onError }: GoogleSignInB
             onClick={handleGoogleLogin}
             disabled={isSigningIn}
             className={clsx(
-                "relative flex items-center justify-center gap-3 w-full sm:w-[400px] h-[52px]",
+                "relative flex items-center justify-center gap-3 w-full h-[52px]",
                 "bg-surface-1 hover:bg-surface-2 text-foreground font-bold text-[15px]",
                 "border border-border rounded-xl shadow-sm",
                 "transition-all duration-300 ease-in-out",
