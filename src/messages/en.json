@@ -83,7 +83,19 @@
   "Testimonials": {
     "title": "Trusted by Businesses That Run on DMs",
     "description": "From online stores to appointment-based businesses, GhostAgent helps teams reply faster, capture more customers, and stop missing revenue.",
-    "proofBar": "Automating DMs for e-commerce stores, salons, clinics, studios, and local service businesses."
+    "proofBar": "Automating DMs for e-commerce stores, salons, clinics, studios, and local service businesses.",
+    "t1Name": "Elena Rostova",
+    "t1Biz": "Beauty Clinic",
+    "t1Metric": "21 bookings captured this month",
+    "t1Quote": "GhostAgent handles our late-night appointment requests, checks availability, and collects names and phone numbers before confirming. We stopped double-booking clients.",
+    "t2Name": "Julian Cortez",
+    "t2Biz": "Apparel Store",
+    "t2Metric": "38 orders captured",
+    "t2Quote": "Inventory sync changed everything. Customers ask about size or color, GhostAgent checks stock, replies instantly, and helps complete the order inside the DM.",
+    "t3Name": "Amira Hassan",
+    "t3Biz": "Makeup Studio",
+    "t3Metric": "Arabic + English replies",
+    "t3Quote": "It switches naturally between Arabic and English, answers service questions, and books clients without me being glued to my phone."
   },
   "FAQ": {
     "title": "Frequently Asked Questions",

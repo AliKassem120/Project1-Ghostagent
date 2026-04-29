@@ -1042,33 +1042,30 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 relative z-10">
             {[
               {
-                name: 'Elena Rostova',
-                businessType: 'Beauty Clinic',
-                handle: '@elena_glowup',
-                initials: 'ER',
-                color: 'from-pink-500 to-rose-400',
-                metric: '21 bookings captured this month',
-                quote: 'GhostAgent handles our late-night appointment requests, checks availability, and collects names and phone numbers before confirming. We stopped double-booking clients.',
+                name: tTest('t1Name'),
+                businessType: tTest('t1Biz'),
+                handle: '@elena_g***',
+                image: 'https://randomuser.me/api/portraits/women/44.jpg',
+                metric: tTest('t1Metric'),
+                quote: tTest('t1Quote'),
                 stars: 5,
               },
               {
-                name: 'Julian Cortez',
-                businessType: 'Apparel Store',
-                handle: '@cortez_apparel',
-                initials: 'JC',
-                color: 'from-blue-600 to-cyan-400',
-                metric: '38 orders captured',
-                quote: 'Inventory sync changed everything. Customers ask about size or color, GhostAgent checks stock, replies instantly, and helps complete the order inside the DM.',
+                name: tTest('t2Name'),
+                businessType: tTest('t2Biz'),
+                handle: '@cortez_a***',
+                image: 'https://randomuser.me/api/portraits/men/32.jpg',
+                metric: tTest('t2Metric'),
+                quote: tTest('t2Quote'),
                 stars: 5,
               },
               {
-                name: 'Amira Hassan',
-                businessType: 'Makeup Studio',
-                handle: '@amira.studios',
-                initials: 'AH',
-                color: 'from-purple-600 to-fuchsia-500',
-                metric: 'Arabic + English replies',
-                quote: 'It switches naturally between Arabic and English, answers service questions, and books clients without me being glued to my phone.',
+                name: tTest('t3Name'),
+                businessType: tTest('t3Biz'),
+                handle: '@amira.s***',
+                image: 'https://randomuser.me/api/portraits/women/68.jpg',
+                metric: tTest('t3Metric'),
+                quote: tTest('t3Quote'),
                 stars: 5,
               },
             ].map((testimonial, i) => (
@@ -1087,10 +1084,8 @@ export default function LandingPage() {
                 
                 <div className="glass-frosted bg-surface-1/60 rounded-3xl p-6 md:p-8 flex flex-col h-full border border-border group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:shadow-[0_8px_30px_rgba(139,92,246,0.15)] transition-all duration-300 relative z-10">
                     <div className="flex items-center gap-4 mb-5">
-                      <div className="w-12 h-12 rounded-full overflow-hidden bg-surface-2 border border-border/50 shadow-sm shrink-0 relative">
-                         <div className={`absolute inset-0 bg-gradient-to-br ${testimonial.color} flex items-center justify-center`}>
-                             <span className="text-sm font-bold text-white tracking-wider">{testimonial.initials}</span>
-                         </div>
+                      <div className="w-12 h-12 rounded-full overflow-hidden border border-border/50 shadow-sm shrink-0 relative bg-surface-2">
+                          <img src={testimonial.image} alt={testimonial.name} className="w-full h-full object-cover" />
                       </div>
                       <div>
                         <p className="text-base font-bold text-foreground tracking-tight">{testimonial.name}</p>
