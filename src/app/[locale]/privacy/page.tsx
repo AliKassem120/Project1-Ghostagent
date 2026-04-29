@@ -6,38 +6,42 @@ import Footer from '@/components/Footer';
 import StarBackground from '@/components/StarBackground';
 import { Shield } from 'lucide-react';
 
-const sections = [
-    {
-        title: '1. Introduction',
-        content: `Welcome to GhostAgent ("we," "our," or "us"). We are committed to protecting your personal information and your right to privacy. This Privacy Policy explains how we collect, use, disclose, and shield your information when you use our automated Instagram DM service.`,
-    },
-    {
-        title: '2. Integration with Meta Platform Technologies',
-        content: `Our service integrates directly with Meta Platform Technologies (specifically Instagram and Facebook Graph APIs) to read and reply to direct messages on your behalf. By using GhostAgent, you acknowledge that your data is processed in accordance with Meta's Platform Terms and Developer Policies. We only access the data necessary to perform the automated response function.`,
-    },
-    {
-        title: '3. Data Storage and Processing',
-        content: `We use industry-standard providers to facilitate our service:`,
-        list: [
-            '<strong>Supabase:</strong> We use Supabase securely to store user account information, authentication data, and activity logs.',
-            '<strong>AI Processing:</strong> Incoming messages are processed by advanced AI models (such as OpenAI or Groq) to generate relevant responses. These third-party AI providers do not use your data for training their models without your explicit consent.',
-        ],
-    },
-    {
-        title: '4. Data Collection',
-        content: 'We collect the following types of information:',
-        list: [
-            '<strong>Account Information:</strong> Your email address and authentication tokens required to link your Instagram account.',
-            '<strong>Communication Data:</strong> Logs of incoming messages and outgoing AI-generated replies for the purpose of maintaining conversation history and improving service quality.',
-        ],
-    },
-    {
-        title: '6. Contact Us',
-        content: 'If you have questions about this Privacy Policy, please contact us at support@ghostagent.qzz.io.',
-    },
-];
+import { useTranslations } from 'next-intl';
 
 export default function PrivacyPolicy() {
+    const t = useTranslations('Privacy');
+
+    const sections = [
+        {
+            title: t('sec1Title'),
+            content: t('sec1Content'),
+        },
+        {
+            title: t('sec2Title'),
+            content: t('sec2Content'),
+        },
+        {
+            title: t('sec3Title'),
+            content: t('sec3Content'),
+            list: [
+                t('sec3List1'),
+                t('sec3List2'),
+            ],
+        },
+        {
+            title: t('sec4Title'),
+            content: t('sec4Content'),
+            list: [
+                t('sec4List1'),
+                t('sec4List2'),
+            ],
+        },
+        {
+            title: t('sec6Title'),
+            content: t('sec6Content'),
+        },
+    ];
+
     return (
         <main className="min-h-[100dvh] text-foreground overflow-x-clip relative selection:bg-primary/30">
             {/* Background */}
@@ -65,10 +69,10 @@ export default function PrivacyPolicy() {
                             </div>
                         </div>
                         <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight text-foreground">
-                            Privacy Policy
+                            {t('title')}
                         </h1>
                         <p className="text-muted-foreground text-sm font-medium">
-                            Last updated: February 2026
+                            {t('lastUpdated')}
                         </p>
                     </motion.div>
                 </div>
@@ -111,19 +115,19 @@ export default function PrivacyPolicy() {
                         className="bg-surface-1 border border-primary/20 shadow-sm rounded-2xl p-6 md:p-8"
                         style={{ borderColor: 'rgba(139,92,246,0.2)' }}
                     >
-                        <h2 className="text-xl font-bold text-foreground mb-4">5. Data Deletion Instructions</h2>
+                        <h2 className="text-xl font-bold text-foreground mb-4">{t('delTitle')}</h2>
                         <p className="text-muted-foreground leading-relaxed mb-4 font-medium">
-                            You have the right to request the complete deletion of your personal data stored on our servers at any time. To exercise this right:
+                            {t('delDesc')}
                         </p>
                         <ol className="space-y-3">
                             {[
-                                <>Send an email to <strong className="text-primary">support@ghostagent.qzz.io</strong> with the subject line &quot;Data Deletion Request&quot;.</>,
-                                'Include your registered email address and your connected Instagram handle.',
-                                'We will process your request within 30 days and permanently delete your account, authentication tokens, and all associated chat logs from our database.',
+                                t('del1'),
+                                t('del2'),
+                                t('del3'),
                             ].map((step, j) => (
                                 <li key={j} className="flex gap-3 text-muted-foreground leading-relaxed text-sm font-medium">
                                     <span className="text-primary font-bold shrink-0">{j + 1}.</span>
-                                    <span>{step}</span>
+                                    <span dangerouslySetInnerHTML={{ __html: step }} />
                                 </li>
                             ))}
                         </ol>

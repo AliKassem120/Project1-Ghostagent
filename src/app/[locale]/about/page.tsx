@@ -8,6 +8,7 @@ import Footer from '@/components/Footer';
 import StarBackground from '@/components/StarBackground';
 import DemoVideoModal from '@/components/demo/DemoVideoModal';
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 
 // Animations
 const fadeInUp: Variants = {
@@ -25,6 +26,8 @@ const staggerContainer: Variants = {
 
 export default function AboutPage() {
   const [showVideo, setShowVideo] = useState(false);
+  const t = useTranslations('About');
+  const tNavbar = useTranslations('Navbar');
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -52,15 +55,15 @@ export default function AboutPage() {
           variants={staggerContainer}
         >
           <motion.div variants={fadeInUp} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/20 bg-primary/10 text-primary text-xs font-semibold tracking-wide mb-6">
-            <MessageSquare className="w-4 h-4" /> The AI Business Agent
+            <MessageSquare className="w-4 h-4" /> {t('badge')}
           </motion.div>
           
-          <motion.h1 variants={fadeInUp} className="text-5xl md:text-7xl font-black tracking-tighter leading-[1.05] mb-6">
-            Built for businesses<br />that run on DMs.
+          <motion.h1 variants={fadeInUp} className="text-5xl md:text-7xl font-black tracking-tighter leading-[1.05] mb-6 whitespace-pre-line">
+            {t('title')}
           </motion.h1>
           
           <motion.p variants={fadeInUp} className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto lg:mx-0 leading-relaxed font-medium mb-10">
-            GhostAgent was created for the stores, salons, clinics, studios, and local brands losing sales because customer messages move faster than humans can reply.
+            {t('desc')}
           </motion.p>
           
           <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start">
@@ -68,7 +71,7 @@ export default function AboutPage() {
               href="/register"
               className="w-full sm:w-auto relative overflow-x-clip px-8 py-4 bg-primary text-primary-foreground font-bold rounded-full hover:scale-[1.03] transition-transform flex items-center justify-center gap-2 group shadow-[0_0_25px_rgba(139,92,246,0.3)]"
             >
-              Get Started Free
+              {tNavbar('getStarted')}
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
             <button
@@ -119,14 +122,14 @@ export default function AboutPage() {
             initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeInUp}
             className="text-3xl md:text-5xl font-bold tracking-tight mb-8"
           >
-            Our mission is simple: <br/>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-400">turn missed messages into revenue.</span>
+            {t('missionTitle')} <br/>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-400">{t('missionHighlight')}</span>
           </motion.h2>
           <motion.p 
             initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeInUp}
             className="text-lg md:text-2xl text-muted-foreground leading-relaxed font-medium"
           >
-            Most small businesses do not need another complicated CRM. They need someone to answer customers instantly, check the right information, and help close the sale or booking. GhostAgent gives every business a reliable AI assistant that works inside the conversations they already use.
+            {t('missionDesc')}
           </motion.p>
         </div>
       </section>
@@ -138,9 +141,9 @@ export default function AboutPage() {
             initial="hidden" whileInView="visible" viewport={{ once: true }} variants={staggerContainer}
         >
             {[
-                { icon: Clock, title: "Customers message after hours", desc: "Buyers expect instant answers at 2 AM. If you are asleep, they go to a competitor." },
-                { icon: MessageCircle, title: "Owners miss replies while working", desc: "You are busy fulfilling orders or serving clients, leaving new leads waiting in the inbox." },
-                { icon: ShieldCheck, title: "Generic chatbots guess", desc: "Basic bots hallucinate answers instead of checking real inventory or calendar data." }
+                { icon: Clock, title: t('p1Title'), desc: t('p1Desc') },
+                { icon: MessageCircle, title: t('p2Title'), desc: t('p2Desc') },
+                { icon: ShieldCheck, title: t('p3Title'), desc: t('p3Desc') }
             ].map((item, i) => (
                 <motion.div key={i} variants={fadeInUp} className="bg-surface-1/50 border border-border p-8 rounded-3xl flex flex-col gap-4">
                     <div className="w-12 h-12 rounded-2xl bg-surface-2 border border-border flex items-center justify-center text-primary mb-2 shadow-sm">
@@ -157,8 +160,8 @@ export default function AboutPage() {
       <section className="py-24 px-4 md:px-6 relative z-10 border-t border-border/50 bg-gradient-to-b from-surface-0 to-background">
         <div className="max-w-7xl mx-auto">
             <div className="mb-16">
-                <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-6">Why GhostAgent is different</h2>
-                <p className="text-xl text-muted-foreground max-w-3xl">GhostAgent is not just a chatbot. It is a workflow system that connects AI replies with business logic like inventory, services, calendar availability, and checkout details.</p>
+                <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-6">{t('diffTitle')}</h2>
+                <p className="text-xl text-muted-foreground max-w-3xl">{t('diffDesc')}</p>
             </div>
             
             <motion.div 
@@ -166,10 +169,10 @@ export default function AboutPage() {
                 initial="hidden" whileInView="visible" viewport={{ once: true }} variants={staggerContainer}
             >
                 {[
-                    { icon: MessageSquare, title: "Built for Instagram DMs", desc: "Sits exactly where your customers already are. No apps to download, no links to click." },
-                    { icon: Box, title: "Checks live business data", desc: "Connects to your real inventory. It never promises a product that is out of stock." },
-                    { icon: CalendarDays, title: "Handles orders & appointments", desc: "Actually drives conversions. Collects names, phones, addresses, and secures the booking." },
-                    { icon: HeartHandshake, title: "Speaks naturally in multiple languages", desc: "Fluently switches between Arabic, English, and French without sounding like a robot." }
+                    { icon: MessageSquare, title: t('d1Title'), desc: t('d1Desc') },
+                    { icon: Box, title: t('d2Title'), desc: t('d2Desc') },
+                    { icon: CalendarDays, title: t('d3Title'), desc: t('d3Desc') },
+                    { icon: HeartHandshake, title: t('d4Title'), desc: t('d4Desc') }
                 ].map((item, i) => (
                     <motion.div key={i} variants={fadeInUp} className="group glass-frosted bg-surface-1/60 border border-border p-8 rounded-3xl flex items-start gap-6 hover:border-primary/40 transition-colors">
                         <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0 group-hover:scale-110 transition-transform">
@@ -199,21 +202,21 @@ export default function AboutPage() {
                           <span className="text-white font-bold tracking-widest text-lg">AK</span>
                       </div>
                       <div>
-                          <h2 className="text-2xl font-bold">A note from the founder</h2>
+                          <h2 className="text-2xl font-bold">{t('founderNote')}</h2>
                       </div>
                   </div>
 
                   <div className="relative z-10 text-lg md:text-xl text-foreground/90 font-medium leading-relaxed italic space-y-6">
                       <p>
-                        “I built GhostAgent after seeing how many businesses lose customers simply because they cannot reply fast enough.
+                        {t('founderP1')}
                       </p>
                       <p>
-                        The goal is not to replace the human side of business — it is to protect it. GhostAgent handles the repetitive messages, checks the facts, and keeps conversations moving so owners can focus on the work only they can do.”
+                        {t('founderP2')}
                       </p>
                   </div>
                   
                   <div className="mt-8 pt-6 border-t border-border/50 relative z-10">
-                      <p className="font-bold text-primary">— Ali, Founder of GhostAgent</p>
+                      <p className="font-bold text-primary">{t('founderName')}</p>
                   </div>
               </motion.div>
           </div>
@@ -223,8 +226,8 @@ export default function AboutPage() {
       <section className="py-24 px-4 md:px-6 relative z-10 bg-surface-0/30 border-t border-border/50">
           <div className="max-w-7xl mx-auto">
               <div className="text-center mb-16">
-                  <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">Who uses GhostAgent?</h2>
-                  <p className="text-xl text-muted-foreground">The ultimate tool for the DM-first economy.</p>
+                  <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">{t('whoTitle')}</h2>
+                  <p className="text-xl text-muted-foreground">{t('whoDesc')}</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
@@ -234,10 +237,10 @@ export default function AboutPage() {
                   >
                       <div className="flex items-center gap-3 mb-8">
                           <div className="p-3 rounded-xl bg-blue-500/10 text-blue-500"><Box className="w-6 h-6" /></div>
-                          <h3 className="text-2xl font-bold">E-Commerce</h3>
+                          <h3 className="text-2xl font-bold">{t('ecomTitle')}</h3>
                       </div>
                       <ul className="space-y-4">
-                          {["Clothing stores", "Beauty products", "Accessories", "Local online shops", "Instagram sellers"].map((item, i) => (
+                          {[t('ecom1'), t('ecom2'), t('ecom3'), t('ecom4'), t('ecom5')].map((item, i) => (
                               <li key={i} className="flex items-center gap-3 text-lg font-medium">
                                   <CheckCircle2 className="w-5 h-5 text-blue-500" /> {item}
                               </li>
@@ -251,10 +254,10 @@ export default function AboutPage() {
                   >
                       <div className="flex items-center gap-3 mb-8">
                           <div className="p-3 rounded-xl bg-rose-500/10 text-rose-500"><CalendarDays className="w-6 h-6" /></div>
-                          <h3 className="text-2xl font-bold">Services & Appointments</h3>
+                          <h3 className="text-2xl font-bold">{t('apptTitle')}</h3>
                       </div>
                       <ul className="space-y-4">
-                          {["Salons", "Clinics", "Barbers", "Makeup artists", "Studios", "Consultants"].map((item, i) => (
+                          {[t('appt1'), t('appt2'), t('appt3'), t('appt4'), t('appt5'), t('appt6')].map((item, i) => (
                               <li key={i} className="flex items-center gap-3 text-lg font-medium">
                                   <CheckCircle2 className="w-5 h-5 text-rose-500" /> {item}
                               </li>
@@ -273,10 +276,10 @@ export default function AboutPage() {
                   initial="hidden" whileInView="visible" viewport={{ once: true }} variants={staggerContainer}
               >
                   {[
-                      { title: "Accuracy over guessing", desc: "Deterministic routing ensures we never hallucinate prices or stock." },
-                      { title: "Automation with control", desc: "You set the rules, inventory, and hours. The AI strictly follows them." },
-                      { title: "Fast replies, human tone", desc: "Professional, warm, and instantaneous responses 24/7." },
-                      { title: "Built for real businesses", desc: "Focused purely on driving revenue and completing bookings." }
+                      { title: t('val1Title'), desc: t('val1Desc') },
+                      { title: t('val2Title'), desc: t('val2Desc') },
+                      { title: t('val3Title'), desc: t('val3Desc') },
+                      { title: t('val4Title'), desc: t('val4Desc') }
                   ].map((item, i) => (
                       <motion.div key={i} variants={fadeInUp} className="text-center p-6">
                           <div className="w-12 h-12 rounded-full bg-surface-2 border border-border flex items-center justify-center text-primary mx-auto mb-4 shadow-sm">
@@ -297,13 +300,13 @@ export default function AboutPage() {
             initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
             className="text-4xl md:text-6xl font-black tracking-tight mb-6"
           >
-            Ready to stop missing customers in your DMs?
+            {t('ctaTitle')}
           </motion.h2>
           <motion.p 
             initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }}
             className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto"
           >
-            Launch your AI business agent and let GhostAgent handle replies, orders, and appointments around the clock.
+            {t('ctaDesc')}
           </motion.p>
           
           <motion.div 
@@ -314,13 +317,13 @@ export default function AboutPage() {
               href="/register"
               className="w-full sm:w-auto px-10 py-5 bg-primary text-white font-bold rounded-full hover:scale-105 transition-transform flex items-center justify-center shadow-[0_0_30px_rgba(139,92,246,0.4)]"
             >
-              Get Started Free
+              {tNavbar('getStarted')}
             </Link>
             <Link
               href="/contact"
               className="w-full sm:w-auto px-10 py-5 bg-surface-2 border border-border text-foreground font-bold rounded-full hover:bg-surface-3 transition-colors flex items-center justify-center"
             >
-              Contact Us
+              {t('contactUs')}
             </Link>
           </motion.div>
         </div>

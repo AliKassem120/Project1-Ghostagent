@@ -6,30 +6,33 @@ import Footer from '@/components/Footer';
 import StarBackground from '@/components/StarBackground';
 import { Scale } from 'lucide-react';
 
-const sections = [
-    {
-        title: '1. Acceptance of Terms',
-        content: `By accessing or using GhostAgent ("we," "our," or "us"), you agree to be bound by these Terms of Service. If you do not agree to these terms, you may not access or use our services.`,
-    },
-    {
-        title: '2. Description of Service',
-        content: 'GhostAgent provides an automated Instagram DM management platform powered by Artificial Intelligence (AI). We enable businesses to manage messaging workflows, inventory syncing, and automated replies.',
-    },
-    {
-        title: '4. User Responsibilities',
-        content: 'You agree to use the service in compliance with all applicable laws and Meta\'s Terms of Service. You are responsible for maintaining the security of your account credentials.',
-    },
-    {
-        title: '5. Termination',
-        content: 'We reserve the right to suspend or terminate your access to GhostAgent at our sole discretion, without notice, for conduct that we believe violates these Terms of Service or is harmful to other users, us, or third parties, or for any other reason.',
-    },
-    {
-        title: '6. Changes to Terms',
-        content: 'We reserve the right to modify these terms at any time. Your continued use of the service constitutes acceptance of the modified terms.',
-    },
-];
+import { useTranslations } from 'next-intl';
 
 export default function TermsOfService() {
+    const t = useTranslations('Terms');
+
+    const sections = [
+        {
+            title: t('s1t'),
+            content: t('s1c'),
+        },
+        {
+            title: t('s2t'),
+            content: t('s2c'),
+        },
+        {
+            title: t('s4t'),
+            content: t('s4c'),
+        },
+        {
+            title: t('s5t'),
+            content: t('s5c'),
+        },
+        {
+            title: t('s6t'),
+            content: t('s6c'),
+        },
+    ];
     return (
         <main className="min-h-[100dvh] text-foreground overflow-x-clip relative selection:bg-primary/30">
             {/* Background */}
@@ -57,10 +60,10 @@ export default function TermsOfService() {
                             </div>
                         </div>
                         <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight text-foreground">
-                            Terms of Service
+                            {t('title')}
                         </h1>
                         <p className="text-muted-foreground text-sm font-medium">
-                            Last updated: February 2026
+                            {t('lastUpdated')}
                         </p>
                     </motion.div>
                 </div>
@@ -94,17 +97,17 @@ export default function TermsOfService() {
                     >
                         <div className="flex items-center gap-3 mb-4">
                             <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-                            <h2 className="text-xl font-bold text-foreground">3. AI Liability Disclaimer</h2>
+                            <h2 className="text-xl font-bold text-foreground">{t('aiTitle')}</h2>
                         </div>
                         <p className="text-muted-foreground leading-relaxed mb-4 font-medium">
-                            <strong className="text-foreground">GhostAgent is an AI-powered tool.</strong> While we strive for accuracy, AI models may generate incorrect, misleading, or inappropriate responses (&quot;hallucinations&quot;).
+                            <span dangerouslySetInnerHTML={{ __html: t('aiDesc1') }} />
                         </p>
-                        <p className="text-muted-foreground font-semibold mb-3">You acknowledge and agree that:</p>
+                        <p className="text-muted-foreground font-semibold mb-3">{t('aiDesc2')}</p>
                         <ul className="space-y-3">
                             {[
-                                'You are solely responsible for reviewing and overseeing the AI\'s interactions with your customers.',
-                                'GhostAgent is not liable for any loss of business, reputation damage, or legal consequences arising from AI-generated content.',
-                                'You should regularly monitor the AI\'s performance and intervene when necessary.',
+                                t('aiList1'),
+                                t('aiList2'),
+                                t('aiList3'),
                             ].map((item, j) => (
                                 <li key={j} className="flex gap-3 text-muted-foreground leading-relaxed text-sm font-medium">
                                     <span className="text-red-400 mt-0.5 shrink-0">⚠</span>
