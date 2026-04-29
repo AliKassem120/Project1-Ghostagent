@@ -312,6 +312,8 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                 userName={userName}
                 userInitial={userInitial}
                 isGoogleUser={isGoogleUser}
+                userAvatarUrl={user?.user_metadata?.avatar_url || user?.user_metadata?.picture || null}
+                userCreatedAt={user?.created_at || null}
             />
 
             {/* Add Workspace Modal */}
