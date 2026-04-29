@@ -13,32 +13,32 @@ export default function PrivacyPolicy() {
 
     const sections = [
         {
-            title: t('sec1Title'),
-            content: t('sec1Content'),
+            title: t('s1t'),
+            content: t('s1c'),
         },
         {
-            title: t('sec2Title'),
-            content: t('sec2Content'),
+            title: t('s2t'),
+            content: t('s2c'),
         },
         {
-            title: t('sec3Title'),
-            content: t('sec3Content'),
+            title: t('s3t'),
+            content: t('s3c'),
             list: [
-                t('sec3List1'),
-                t('sec3List2'),
+                t('s3l1'),
+                t('s3l2'),
             ],
         },
         {
-            title: t('sec4Title'),
-            content: t('sec4Content'),
+            title: t('s4t'),
+            content: t('s4c'),
             list: [
-                t('sec4List1'),
-                t('sec4List2'),
+                t('s4l1'),
+                t('s4l2'),
             ],
         },
         {
-            title: t('sec6Title'),
-            content: t('sec6Content'),
+            title: t('s6t'),
+            content: t('s6c'),
         },
     ];
 
