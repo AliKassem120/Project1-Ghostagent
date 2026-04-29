@@ -197,8 +197,8 @@ function StepItem({
         className="absolute top-0 h-full w-full pointer-events-none"
         viewport={{ 
           once: false, 
-          amount: isMobile ? 0.2 : 0.4,
-          margin: isMobile ? "-45% 0px -45% 0px" : "-10% 0px -10% 0px" 
+          amount: 0.1,
+          margin: isMobile ? "-45% 0px -45% 0px" : "-40% 0px -40% 0px" 
         }}
         onViewportEnter={onInView}
       />
@@ -849,9 +849,9 @@ export default function LandingPage() {
               viewport={{ once: true }}
               transition={{ delay: 0.5, duration: 0.6 }}
               whileHover={{ y: -4 }}
-              className="glass-frosted border border-border rounded-[2.5rem] p-8 lg:col-span-2 group flex flex-col justify-between overflow-hidden relative"
+              className="glass-frosted border border-border rounded-[2.5rem] p-8 lg:col-span-3 group flex flex-col md:flex-row justify-between overflow-hidden relative"
             >
-              <div className="flex flex-col md:flex-row md:items-center gap-8">
+              <div className="flex flex-col md:flex-row md:items-center gap-8 w-full">
                 <div className="flex-1">
                   <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center mb-6 group-hover:bg-indigo-500/20 transition-colors">
                     <Zap className="w-6 h-6 text-indigo-500" />
