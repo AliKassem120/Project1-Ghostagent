@@ -183,7 +183,7 @@ export default function RegisterPage() {
                                 <>
                                     <div className="text-center mb-8">
                                         <h2 className="text-3xl font-black mb-2 text-foreground tracking-tighter">Get Started Free</h2>
-                                        <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">14-Day Free Trial • No Credit Card</p>
+                                        <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Try for free • No credit card needed</p>
                                     </div>
 
                                     <form onSubmit={handleRegister} className="space-y-5">

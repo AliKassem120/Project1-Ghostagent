@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { ArrowLeft, Loader2, Lock, Mail, Sparkles, Zap, MessageSquare, Shield } from 'lucide-react';
+import { Link } from '@/i18n/navigation';
+import { ArrowLeft, Loader2, Lock, Mail, MessageSquare, Shield, CalendarDays, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 import StarBackground from '@/components/StarBackground';
 import GhostLogo from '@/components/GhostLogo';
@@ -16,6 +16,7 @@ export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -42,220 +43,207 @@ export default function LoginPage() {
         }
     };
 
-    // Removed old handleGoogleLogin
     return (
-        <div className="min-h-[100dvh] flex relative overflow-x-clip">
+        <div className="min-h-[100dvh] flex flex-col relative overflow-hidden bg-background">
             <StarBackground />
 
-            {/* Back to Home */}
-            <div className="absolute top-6 left-6 z-20">
-                <Link href="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm font-medium">
+            {/* Back to Home - Cleaner Container */}
+            <div className="absolute top-0 left-0 p-4 lg:p-6 z-20">
+                <Link href="/" className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-surface-1/50 backdrop-blur-md border border-border/50 text-sm font-bold text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-all">
                     <ArrowLeft className="w-4 h-4" /> Back
                 </Link>
             </div>
 
-            {/* ─── Left Panel: Branding & Animation ─── */}
-            <div className="hidden lg:flex flex-1 flex-col justify-center items-center relative px-12">
-                {/* Animated floating elements */}
-                <div className="absolute inset-0 overflow-hidden">
-                    {[...Array(3)].map((_, i) => (
+            <div className="flex-1 flex flex-col lg:flex-row max-w-7xl w-full mx-auto relative z-10">
+                {/* ─── Left Panel: Branding & Animation ─── */}
+                <div className="hidden lg:flex flex-1 flex-col justify-center relative p-12 lg:p-20">
+                    {/* Subtle Background Glow */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] bg-primary/10 blur-[140px] rounded-full pointer-events-none -z-10" />
+
+                    <motion.div
+                        initial={{ opacity: 0, x: -30 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.8 }}
+                        className="max-w-md"
+                    >
+                        <div className="flex items-center gap-3 mb-10">
+                            <div className="p-3 bg-surface-1 border border-border/50 rounded-2xl shadow-sm">
+                                <GhostLogo className="w-8 h-8 text-primary" />
+                            </div>
+                            <span className="text-xl font-black text-foreground tracking-tighter">GhostAgent</span>
+                        </div>
+
+                        <motion.h2
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.2, duration: 0.6 }}
+                            className="text-4xl lg:text-5xl font-black text-foreground leading-[1.1] tracking-tighter mb-6"
+                        >
+                            Your AI business agent
+                            <br />
+                            <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-violet-400">
+                                never sleeps.
+                            </span>
+                        </motion.h2>
+
+                        <motion.p
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.4, duration: 0.6 }}
+                            className="text-muted-foreground text-lg leading-relaxed mb-12 font-medium"
+                        >
+                            Automate Instagram DMs with AI. Reply instantly, capture orders, book appointments, and stay in control — 24/7.
+                        </motion.p>
+
+                        {/* Feature pills */}
                         <motion.div
-                            key={i}
-                            className="absolute w-64 h-64 rounded-full"
-                            style={{
-                                background: `radial-gradient(circle, rgba(139, 92, 246, ${0.08 - i * 0.02}) 0%, transparent 70%)`,
-                                left: `${20 + i * 25}%`,
-                                top: `${20 + i * 20}%`,
-                            }}
-                            animate={{
-                                y: [0, -30, 0],
-                                x: [0, 15, 0],
-                                scale: [1, 1.1, 1],
-                            }}
-                            transition={{
-                                duration: 6 + i * 2,
-                                repeat: Infinity,
-                                ease: "easeInOut",
-                                delay: i * 0.5,
-                            }}
-                        />
-                    ))}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.6, duration: 0.6 }}
+                            className="flex flex-col gap-4"
+                        >
+                            {[
+                                { icon: MessageSquare, text: 'Instant AI replies to Instagram DMs', color: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
+                                { icon: CalendarDays, text: 'Orders, bookings, inbox, and analytics', color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
+                                { icon: Shield, text: 'Human takeover at any time', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
+                            ].map((feature, i) => (
+                                <motion.div
+                                    key={feature.text}
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: 0.7 + i * 0.15 }}
+                                    className="flex items-center gap-4 px-5 py-4 rounded-2xl glass-frosted border border-border/50 shadow-sm"
+                                >
+                                    <div className={`p-2 rounded-xl border ${feature.color}`}>
+                                        <feature.icon className="w-5 h-5" />
+                                    </div>
+                                    <span className="text-sm text-foreground font-semibold tracking-tight">{feature.text}</span>
+                                </motion.div>
+                            ))}
+                        </motion.div>
+                    </motion.div>
                 </div>
 
-                <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.8 }}
-                    className="relative z-10 max-w-md"
-                >
-                    <div className="flex items-center gap-3 mb-8">
-                        <div className="p-3 bg-primary/10 rounded-2xl">
-                            <GhostLogo className="w-10 h-10 text-primary" />
-                        </div>
-                        <span className="text-2xl font-bold text-foreground tracking-tight">GhostAgent</span>
-                    </div>
-
-                    <motion.h2
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2, duration: 0.6 }}
-                        className="text-4xl font-bold text-foreground leading-tight mb-4"
-                    >
-                        Your AI sales agent
-                        <br />
-                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-violet-400">
-                            never sleeps.
-                        </span>
-                    </motion.h2>
-
-                    <motion.p
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.4, duration: 0.6 }}
-                        className="text-muted-foreground text-lg leading-relaxed mb-10 font-medium"
-                    >
-                        Automate your Instagram DMs and comments with AI. Reply instantly, close sales, and grow your business — 24/7.
-                    </motion.p>
-
-                    {/* Feature pills */}
+                {/* ─── Right Panel: Login Form ─── */}
+                <div className="flex-1 flex flex-col justify-center items-center w-full px-4 sm:px-6 py-12 lg:p-12 relative">
                     <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.6, duration: 0.6 }}
-                        className="flex flex-col gap-3"
+                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                        className="w-full max-w-[420px]"
                     >
-                        {[
-                            { icon: Zap, text: 'Instant AI replies to DMs & comments', color: 'text-amber-400 bg-amber-500/10' },
-                            { icon: MessageSquare, text: 'Full conversation inbox & analytics', color: 'text-blue-400 bg-blue-500/10' },
-                            { icon: Shield, text: 'Human takeover at any time', color: 'text-emerald-400 bg-emerald-500/10' },
-                        ].map((feature, i) => (
-                            <motion.div
-                                key={feature.text}
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: 0.7 + i * 0.15 }}
-                                className="flex items-center gap-3 px-4 py-3 rounded-xl bg-surface-1 border border-border shadow-sm"
-                            >
-                                <div className={`p-1.5 rounded-lg ${feature.color}`}>
-                                    <feature.icon className="w-4 h-4" />
+                        {/* Mobile Header / Logo */}
+                        <div className="flex flex-col items-center mb-8 lg:hidden mt-8">
+                            <div className="p-3 bg-surface-1 border border-border/50 rounded-2xl shadow-sm mb-4">
+                                <GhostLogo className="w-8 h-8 text-primary" />
+                            </div>
+                        </div>
+
+                        <div className="bg-surface-1/80 backdrop-blur-xl p-6 sm:p-10 rounded-[2.5rem] border border-border/60 shadow-2xl relative">
+                            {/* Decorative top gradient */}
+                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+
+                            <div className="text-center mb-8 lg:text-left mt-2">
+                                <h1 className="text-3xl font-black text-foreground mb-2 tracking-tight">Welcome back</h1>
+                                <p className="text-muted-foreground font-medium text-sm">Sign in to your dashboard</p>
+                            </div>
+
+                            <div className="mb-6 w-full">
+                                <GoogleSignInButton
+                                    onSuccess={() => { window.location.href = '/dashboard'; }}
+                                    onError={(err) => { setError(err.message || 'Failed to sign in with Google'); }}
+                                />
+                            </div>
+
+                            {/* Divider */}
+                            <div className="relative my-6">
+                                <div className="absolute inset-0 flex items-center">
+                                    <div className="w-full border-t border-border/60"></div>
                                 </div>
-                                <span className="text-sm text-muted-foreground font-medium">{feature.text}</span>
-                            </motion.div>
-                        ))}
-                    </motion.div>
-                </motion.div>
-            </div>
+                                <div className="relative flex justify-center text-xs">
+                                    <span className="bg-surface-1 px-4 text-muted-foreground/70 uppercase tracking-widest font-bold">or</span>
+                                </div>
+                            </div>
 
-            {/* ─── Right Panel: Login Form ─── */}
-            <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
-                <motion.div
-                    initial={{ opacity: 0, y: 30, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
-                    className="w-full max-w-md"
-                >
-                    {/* Mobile Logo */}
-                    <div className="flex justify-center mb-8 lg:hidden">
-                        <div className="p-3 bg-primary/10 rounded-2xl">
-                            <GhostLogo className="w-10 h-10" />
-                        </div>
-                    </div>
+                            {error && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-sm font-medium flex items-start gap-3"
+                                >
+                                    <Shield className="w-5 h-5 shrink-0" />
+                                    {error}
+                                </motion.div>
+                            )}
 
-                    <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2 }}
-                        className="text-center mb-8 lg:text-left"
-                    >
-                        <h1 className="text-3xl font-bold text-foreground mb-2 tracking-tight">Welcome back</h1>
-                        <p className="text-muted-foreground font-medium">Sign in to your dashboard</p>
-                    </motion.div>
+                            <form onSubmit={handleLogin} className="space-y-4 w-full">
+                                <div className="space-y-1.5">
+                                    <label htmlFor="email" className="text-xs font-black text-muted-foreground/70 uppercase tracking-widest ml-1">Email</label>
+                                    <div className="relative group">
+                                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
+                                        <input
+                                            id="email"
+                                            type="email"
+                                            required
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            className="w-full bg-surface-2 border border-border/50 rounded-2xl py-4 pl-12 pr-4 text-foreground text-sm placeholder:text-muted-foreground/30 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium"
+                                            placeholder="you@company.com"
+                                        />
+                                    </div>
+                                </div>
 
-                    {/* Google Login — Primary action */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3 }}
-                        className="mb-6"
-                    >
-                        <GoogleSignInButton
-                            onSuccess={() => {
-                                window.location.href = '/dashboard';
-                            }}
-                            onError={(err) => {
-                                setError(err.message || 'Failed to sign in with Google');
-                            }}
-                        />
-                    </motion.div>
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between ml-1">
+                                        <label htmlFor="password" className="text-xs font-black text-muted-foreground/70 uppercase tracking-widest">Password</label>
+                                        <Link href="/forgot-password" className="text-xs text-muted-foreground hover:text-primary transition-colors font-bold">Forgot?</Link>
+                                    </div>
+                                    <div className="relative group">
+                                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
+                                        <input
+                                            id="password"
+                                            type={showPassword ? "text" : "password"}
+                                            required
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            className="w-full bg-surface-2 border border-border/50 rounded-2xl py-4 pl-12 pr-12 text-foreground text-sm placeholder:text-muted-foreground/30 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium"
+                                            placeholder="••••••••"
+                                        />
+                                        <button 
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-foreground transition-colors p-1"
+                                            aria-label={showPassword ? "Hide password" : "Show password"}
+                                        >
+                                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                        </button>
+                                    </div>
+                                </div>
 
-                    {/* Divider */}
-                    <div className="relative my-6">
-                        <div className="absolute inset-0 flex items-center">
-                            <div className="w-full border-t border-border"></div>
-                        </div>
-                        <div className="relative flex justify-center text-xs">
-                            <span className="bg-background px-4 text-muted-foreground uppercase tracking-wider font-bold">or sign in with email</span>
-                        </div>
-                    </div>
+                                <button
+                                    type="submit"
+                                    disabled={loading || !email || !password}
+                                    className="w-full bg-foreground text-background font-black py-4 rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-foreground/10 flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed mt-2 border border-transparent hover:border-foreground/20"
+                                >
+                                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Sign In"}
+                                </button>
+                            </form>
 
-                    {error && (
-                        <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm"
-                        >
-                            {error}
-                        </motion.div>
-                    )}
-
-                    <form onSubmit={handleLogin} className="space-y-4">
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Email</label>
-                            <div className="relative">
-                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
-                                <input
-                                    type="email"
-                                    required
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full bg-surface-1 border border-border rounded-xl py-3.5 pl-11 pr-4 text-foreground text-sm placeholder:text-muted-foreground/30 focus:outline-none focus:border-primary/40 focus:bg-surface-2 transition-all shadow-sm"
-                                    placeholder="you@company.com"
-                                />
+                            <div className="mt-8 pt-6 border-t border-border/50 text-center">
+                                <p className="text-sm text-muted-foreground font-medium">
+                                    Don't have an account? <Link href="/register" className="text-foreground hover:text-primary font-bold transition-colors">Get Started Free</Link>
+                                </p>
                             </div>
                         </div>
 
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Password</label>
-                            <div className="relative">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
-                                <input
-                                    type="password"
-                                    required
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full bg-surface-1 border border-border rounded-xl py-3.5 pl-11 pr-4 text-foreground text-sm placeholder:text-muted-foreground/30 focus:outline-none focus:border-primary/40 focus:bg-surface-2 transition-all shadow-sm"
-                                    placeholder="••••••••"
-                                />
-                            </div>
+                        {/* Footer Links */}
+                        <div className="mt-8 flex items-center justify-center gap-6 text-xs font-bold text-muted-foreground/50 uppercase tracking-widest">
+                            <Link href="/privacy" className="hover:text-muted-foreground transition-colors">Privacy</Link>
+                            <Link href="/terms" className="hover:text-muted-foreground transition-colors">Terms</Link>
+                            <Link href="/contact" className="hover:text-muted-foreground transition-colors">Contact</Link>
                         </div>
-
-                        <div className="flex items-center justify-end">
-                            <Link href="/forgot-password" className="text-xs text-primary/70 hover:text-primary transition-colors">Forgot password?</Link>
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full bg-primary/10 border border-primary/20 text-primary font-semibold py-3.5 rounded-xl hover:bg-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sign In"}
-                        </button>
-                    </form>
-
-                    <p className="mt-8 text-center text-sm text-muted-foreground font-medium">
-                        Don&apos;t have an account? <Link href="/register" className="text-primary hover:underline transition-colors">Start Free Trial</Link>
-                    </p>
-                </motion.div>
+                    </motion.div>
+                </div>
             </div>
         </div>
     );
