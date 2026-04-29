@@ -18,9 +18,11 @@ export async function searchProducts(args: {
     const { supabase, workspaceId, query, limit = 10 } = args;
 
     // 1. Search inventory table
+    // NOTE: inventory table columns are: id, user_id, workspace_id, item_name, price, stock_level, created_at
+    // There is NO 'description' or 'variants' column.
     let dbQuery = supabase
         .from('inventory')
-        .select('id, item_name, price, stock_level, description, variants')
+        .select('id, item_name, price, stock_level')
         .eq('workspace_id', workspaceId)
         .limit(limit);
 
@@ -38,8 +40,8 @@ export async function searchProducts(args: {
         itemName: i.item_name,
         price: Number(i.price),
         stockLevel: Number(i.stock_level),
-        description: i.description,
-        variants: i.variants || [],
+        description: null,
+        variants: [],
     }));
 
     // 2. Fallback to business_knowledge (CSV catalog)

@@ -149,7 +149,7 @@ export function createEcommerceTools(ctx: ToolContext) {
             parameters: z.object({ query: z.string().optional().describe('Product name or keyword') }),
             execute: async ({ query }: { query?: string }) => {
                 const products = await searchProducts({ supabase: ctx.supabase, workspaceId: ctx.workspaceId, query });
-                return { products: products.map(p => ({ name: p.itemName, price: p.price, inStock: p.stockLevel > 0, stock: p.stockLevel, description: p.description, hasVariants: (p.variants?.length || 0) > 0, variants: p.variants?.map((v: any) => v.label || v.name || v.variant).filter(Boolean) || [] })), count: products.length };
+                return { products: products.map(p => ({ name: p.itemName, price: p.price, inStock: p.stockLevel > 0, stock: p.stockLevel, description: p.description })), count: products.length };
             },
         },
         check_stock: {
@@ -160,7 +160,7 @@ export function createEcommerceTools(ctx: ToolContext) {
                 const match = findBestProductMatch(products, product_name);
                 if (!match) return { found: false, message: 'Product not found' };
                 const stock = checkProductStock(match, variant);
-                return { found: true, product: match.itemName, price: match.price, inStock: stock.inStock, available: stock.availableStock, variant: variant || null, variants: match.variants?.map((v: any) => v.label || v.name || v.variant).filter(Boolean) || [] };
+                return { found: true, product: match.itemName, price: match.price, inStock: stock.inStock, available: stock.availableStock };
             },
         },
         place_order: {
