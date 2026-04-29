@@ -6,56 +6,62 @@
  * translate or polish, but it never invents the reply.
  *
  * Placeholders: {serviceName}, {dateLabel}, {timeLabel}, etc.
+ *
+ * TONE RULES:
+ * - Sound like a real person texting, not a form or a robot
+ * - Keep it short (1-2 sentences max)
+ * - Use contractions (I'll, we're, you're, it's)
+ * - One emoji max per message — never more
  */
 
 // ── Template Definitions ─────────────────────────────────────
 
 export const APPOINTMENT_TEMPLATES = {
     GREETING: 'Hey 👋 how can I help?',
-    ASK_SERVICE: 'What service would you like to book?',
-    ASK_DATE_TIME: 'Sure — what day and time would you like?',
-    SLOT_AVAILABLE_NEED_DETAILS: '{dateLabel} at {timeLabel} is available. Send your name and phone number to confirm.',
-    NEED_NAME_PHONE: 'Send your name and phone number to confirm.',
-    CONFIRMED: 'Perfect — your {serviceName} is confirmed for {dateLabel} at {timeLabel}. ✅',
-    CLOSED_DAY: "We're closed on {dayLabel}.",
-    OUTSIDE_HOURS: 'That time is outside working hours ({openTime} – {closeTime}). Want a different time?',
-    BOOKING_ERROR: "I'm having trouble confirming the appointment right now. Please try again in a moment.",
-    UNCLEAR: 'Sorry, what would you like to book?',
-    REJECTION_ACK: 'No problem. Let me know if you need anything else.',
-    SERVICE_LIST: 'We offer: {serviceList}.',
-    SERVICE_PRICE: '{serviceName} is {price}.',
-    BUSINESS_HOURS: "We're open {hoursSummary}.",
-    LOCATION: "We're located at {location}.",
-    GRATITUDE: "You're welcome! 🙏",
-    CANCEL_CONFIRM: "Do you want to cancel the {serviceName} on {dateLabel} at {timeLabel}?",
-    CANCEL_SUCCESS: "Got it — your appointment has been cancelled. No problem.",
-    CANCEL_NOT_FOUND: "I couldn't find an appointment to cancel. Is there anything else I can help with?",
+    ASK_SERVICE: 'What are you looking to get done?',
+    ASK_DATE_TIME: 'When works for you? Just send a day and time',
+    SLOT_AVAILABLE_NEED_DETAILS: '{dateLabel} at {timeLabel} works! Just send me your name and phone number to lock it in',
+    NEED_NAME_PHONE: 'I just need your name and phone number to book this for you',
+    CONFIRMED: 'You\'re all set — {serviceName} on {dateLabel} at {timeLabel} ✅',
+    CLOSED_DAY: 'We\'re closed on {dayLabel} unfortunately — want to pick another day?',
+    OUTSIDE_HOURS: 'That\'s outside our hours ({openTime} – {closeTime}). What other time works?',
+    BOOKING_ERROR: 'Something went wrong on my end — can you try again in a sec?',
+    UNCLEAR: 'Not sure I got that — what are you looking to book?',
+    REJECTION_ACK: 'No worries! Let me know if you need anything',
+    SERVICE_LIST: 'We offer: {serviceList}',
+    SERVICE_PRICE: '{serviceName} is {price}',
+    BUSINESS_HOURS: 'We\'re open {hoursSummary}',
+    LOCATION: 'We\'re at {location}',
+    GRATITUDE: 'Anytime! 🙏',
+    CANCEL_CONFIRM: 'Want me to cancel your {serviceName} on {dateLabel} at {timeLabel}?',
+    CANCEL_SUCCESS: 'Done — your appointment\'s been cancelled, no worries',
+    CANCEL_NOT_FOUND: 'I don\'t see any upcoming appointments to cancel. Anything else I can help with?',
 } as const;
 
 export const ECOMMERCE_TEMPLATES = {
     GREETING: 'Hey 👋 what are you looking for?',
-    ASK_PRODUCT: 'Which product are you interested in?',
-    ASK_VARIANT: 'What size and color would you like?',
-    PRODUCT_AVAILABLE: 'Yes, {variantLabel} is available. {priceInfo}',
-    PRODUCT_UNAVAILABLE: '{variantLabel} is sold out. {alternatives}',
-    NEED_ORDER_DETAILS: 'Send your name, phone number, and delivery address to place the order.',
-    NEED_ADDRESS: 'Send your delivery address to place the order.',
-    ORDER_CONFIRMED: 'Perfect — your order is confirmed. ✅',
-    ORDER_ERROR: "I'm having trouble creating the order right now. Please try again in a moment.",
-    UNCLEAR: 'Sorry, which product are you looking for?',
-    REJECTION_ACK: 'No problem. Let me know if you need anything else.',
-    PRODUCT_PRICE: '{productName} is {price}.',
+    ASK_PRODUCT: 'Which product caught your eye?',
+    ASK_VARIANT: 'What size and color do you want?',
+    PRODUCT_AVAILABLE: 'Yeah {variantLabel} is in stock — {priceInfo}',
+    PRODUCT_UNAVAILABLE: '{variantLabel} is sold out right now. {alternatives}',
+    NEED_ORDER_DETAILS: 'Just send me your name, phone, and delivery address and I\'ll get this sorted for you',
+    NEED_ADDRESS: 'Where should I send it? Drop your delivery address',
+    ORDER_CONFIRMED: 'You\'re all set — order confirmed ✅',
+    ORDER_ERROR: 'Something went wrong on my end — try again in a sec?',
+    UNCLEAR: 'Which product are you asking about?',
+    REJECTION_ACK: 'No worries! Let me know if you need anything',
+    PRODUCT_PRICE: '{productName} is {price}',
     SHIPPING_INFO: '{shippingRules}',
-    LOCATION: "We're located at {location}.",
-    GRATITUDE: "You're welcome! 🙏",
-    CANCEL_CONFIRM: "Do you want to cancel your order for {itemName}?",
-    CANCEL_SUCCESS: "Got it — your order has been cancelled.",
-    CANCEL_NOT_FOUND: "I couldn't find a pending order to cancel.",
+    LOCATION: 'We\'re at {location}',
+    GRATITUDE: 'Anytime! 🙏',
+    CANCEL_CONFIRM: 'Want me to cancel your order for {itemName}?',
+    CANCEL_SUCCESS: 'Done — your order\'s been cancelled',
+    CANCEL_NOT_FOUND: 'I don\'t see a pending order to cancel',
 } as const;
 
 // ── Safe Fallback Reply ──────────────────────────────────────
 
-export const SAFE_FALLBACK = "I'm having trouble right now. Please try again in a moment.";
+export const SAFE_FALLBACK = "Something went wrong on my end — try again in a sec?";
 
 // ── Template Application ─────────────────────────────────────
 

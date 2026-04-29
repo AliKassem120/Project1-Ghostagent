@@ -123,7 +123,9 @@ import { ARABIZI_DICTIONARY, LEBANESE_VOCABULARY } from './dictionaries';
 
 /**
  * Translate/polish a template reply into the target language.
- * Uses a manual dictionary for Arabizi to ensure quality.
+ * For English: applies a lightweight humanization pass.
+ * For Arabizi: uses dictionary-first, then LLM fallback.
+ * For others: pure LLM translation.
  */
 export async function translateReply(args: {
     reply: string;
@@ -132,27 +134,56 @@ export async function translateReply(args: {
 }): Promise<string> {
     const { reply, targetLanguage, tone = 'Professional' } = args;
 
-    // 1. Skip if already English
+    // ── 1. English: Humanize (don't just return verbatim) ────
     if (targetLanguage === 'english' || targetLanguage === 'English' || targetLanguage === 'Auto-Detect') {
+        // Short replies (< 40 chars) are already casual enough
+        if (reply.length < 40) return reply;
+
+        const groq = getGroqClient();
+        if (!groq) return reply;
+
+        try {
+            const result = await generateText({
+                model: groq(FALLBACK_MODEL),
+                system: `You are rewriting a chatbot DM reply to sound like a real person texting a customer.
+
+RULES:
+- Keep the EXACT same meaning and information — do NOT add or remove any facts
+- Make it sound natural, casual, and warm — like a real employee texting
+- Use contractions (I'll, we're, you're, it's, that's)
+- Maximum 1-2 sentences. NEVER write more than 2 sentences.
+- Maximum 1 emoji. If the original has an emoji, keep it. Don't add new ones.
+- Do NOT add greetings, pleasantries, or sign-offs that aren't in the original
+- Do NOT repeat information the customer already knows
+- Tone: ${tone}
+- Return ONLY the rewritten text, nothing else`,
+                prompt: reply,
+                temperature: 0.3,
+            });
+
+            const humanized = result.text.trim();
+            // Sanity: reject if LLM went off the rails
+            if (humanized && humanized.length > 0 && humanized.length < 300) {
+                return humanized;
+            }
+        } catch {
+            // Humanization failed — template is fine
+        }
         return reply;
     }
 
-    // 2. Dictionary Lookup for Arabizi
+    // ── 2. Dictionary Lookup for Arabizi ─────────────────────
     if (targetLanguage.toLowerCase() === 'arabizi') {
         // Try exact match first
         if (ARABIZI_DICTIONARY[reply]) return ARABIZI_DICTIONARY[reply];
 
         // Try fuzzy/pattern match for templates with placeholders
         for (const [english, arabizi] of Object.entries(ARABIZI_DICTIONARY)) {
-            // Convert template like "Perfect — your {serviceName}..." 
-            // into regex "Perfect — your (.*)..."
             const pattern = english.replace(/\{[a-zA-Z_]+\}/g, '(.*?)');
             const regex = new RegExp(`^${pattern}$`, 'i');
             const match = reply.match(regex);
 
             if (match) {
-                // If we found a match, we need to extract the values from the English string
-                // and inject them into the Arabizi string.
                 let result = arabizi;
                 const placeholders = english.match(/\{[a-zA-Z_]+\}/g) || [];
                 
@@ -166,7 +197,7 @@ export async function translateReply(args: {
         }
     }
 
-    // 3. LLM Fallback (for non-dictionary items or other languages)
+    // ── 3. LLM Fallback (Arabizi without dictionary hit, or other languages)
     const groq = getGroqClient();
     if (!groq) return reply;
 

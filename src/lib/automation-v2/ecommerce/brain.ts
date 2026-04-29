@@ -125,9 +125,15 @@ async function processEcommerceState(
     state: ConversationStateV2
 ): Promise<Partial<AutomationResult> | null> {
     const { message, supabase, userId, workspaceId, chatId } = input;
+    const normalized = message.toLowerCase().trim();
+    const wordCount = normalized.split(/\s+/).length;
 
-    // Global cancel
-    if (detectYesNo(message) === 'no' || message.toLowerCase().includes('cancel')) {
+    // Smart cancel/rejection: only trigger on SHORT standalone messages.
+    // "no" or "cancel" → reset. "no I meant the other color" → don't reset.
+    const isStandaloneNo = detectYesNo(message) === 'no' && wordCount <= 3;
+    const isStandaloneCancel = normalized === 'cancel' || normalized === 'nevermind' || normalized === 'never mind';
+
+    if (isStandaloneNo || isStandaloneCancel) {
         await clearConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', input.platform);
         return { replyText: ECOMMERCE_TEMPLATES.REJECTION_ACK, stateAfter: 'idle', actions: ['flow_cancelled'] };
     }
@@ -361,7 +367,7 @@ async function processEcommerceIntent(
                     };
                     await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'ecommerce', input.platform, newState);
                     return {
-                        replyText: `Tmm — I have your details: ${knownCustomer.name}, ${knownCustomer.phone}, ${knownCustomer.address}. Confirm order for ${match.itemName}${intent.variant ? ` (${intent.variant})` : ''}?`,
+                        replyText: `I already have your info — ${knownCustomer.name}, ${knownCustomer.phone}, ${knownCustomer.address}. Want me to confirm the order for ${match.itemName}${intent.variant ? ` (${intent.variant})` : ''}?`,
                         stateAfter: 'awaiting_checkout_confirmation',
                         actions: ['flow_started', 'memory_used'],
                         debug: { intent: intent.intent } as any
@@ -442,24 +448,33 @@ async function classifyEcommerceIntent(
     config: WorkspaceConfig
 ): Promise<EcommerceIntent> {
     const systemPrompt = `You are an AI assistant for "${config.businessName}", an e-commerce store.
+
+IMPORTANT: The message below may contain MULTIPLE messages sent in quick succession, joined by newlines.
+Treat them as ONE conversation turn. Focus on the MOST ACTIONABLE intent:
+  purchase > cancellation > price question > shipping > greeting > unclear
+
 Classify the user's intent and extract fields.
 
 Intents:
-- greeting
+- greeting: Simple hello (ONLY if the message contains nothing else actionable)
 - purchase_intent: User wants to buy/order
 - product_availability: User asking if item is in stock
-- price_question
-- shipping_question
+- price_question: Asking about price
+- shipping_question: Asking about shipping/delivery
 - location_question: Asking where you are
 - cancel_order: User wants to cancel an existing order
 - human_handoff: Asking for a human
-- gratitude
-- unclear
+- gratitude: Thank you
+- unclear: Unknown
 
 Extract:
-- productName
-- variant (size, color)
-- quantity
+- productName: the specific product mentioned (if any)
+- variant: size, color, or other variant (if mentioned)
+- quantity: number of items (if mentioned)
+
+RULES:
+- If the message contains a greeting AND a product question, classify by the product question — NOT as greeting
+- Extract product names from ANY part of the batched messages
 
 BUSINESS FACTS (Treat these as absolute truth):
 ${config.systemInstructions || 'No specific facts provided.'}`;

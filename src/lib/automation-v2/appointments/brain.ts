@@ -152,10 +152,15 @@ async function processAppointmentState(
     timeCtx: any
 ): Promise<Partial<AutomationResult> | null> {
     const { message, supabase, userId, workspaceId, chatId } = input;
+    const normalized = message.toLowerCase().trim();
+    const wordCount = normalized.split(/\s+/).length;
 
-    // Global cancel/rejection check
-    const isNo = detectYesNo(message) === 'no';
-    if (isNo || message.toLowerCase().includes('cancel')) {
+    // Smart cancel/rejection: only trigger on SHORT standalone messages.
+    // "no" or "cancel" → reset. "no I meant the other one" → don't reset.
+    const isStandaloneNo = detectYesNo(message) === 'no' && wordCount <= 3;
+    const isStandaloneCancel = normalized === 'cancel' || normalized === 'nevermind' || normalized === 'never mind';
+
+    if (isStandaloneNo || isStandaloneCancel) {
         await clearConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', input.platform);
         return {
             replyText: APPOINTMENT_TEMPLATES.REJECTION_ACK,
@@ -460,7 +465,7 @@ async function processAppointmentIntent(
                     };
                     await updateConversationStateV2(supabase, userId, workspaceId, chatId, 'appointments', input.platform, newState);
                     return {
-                        replyText: `Tmm — I have your details: ${knownCustomer.name} (${knownCustomer.phone}). Should I go ahead and book it?`,
+                        replyText: `I already have your info — ${knownCustomer.name} (${knownCustomer.phone}). Want me to go ahead and book it?`,
                         stateAfter: 'awaiting_booking_confirmation',
                         actions: ['flow_started', 'slot_resolved', 'memory_used'],
                     };
@@ -586,12 +591,17 @@ If the user says "after mine", "right after", "immediately following", or simila
     }
 
     const systemPrompt = `You are a highly precise intent classifier for "${config.businessName}", a service-based business.
+
+IMPORTANT: The message below may contain MULTIPLE messages sent in quick succession, joined by newlines.
+Treat them as ONE conversation turn. Focus on the MOST ACTIONABLE intent:
+  booking > cancellation > price question > service question > hours > greeting > unclear
+
 Classify the user's intent and extract the service name, date, and time.
 
 ${contextInstructions}
 
-IntENTS:
-- greeting: Simple hello
+INTENTS:
+- greeting: Simple hello (ONLY if the message contains nothing else actionable)
 - book_appointment: User wants to schedule or book a service (even if for someone else)
 - business_hours: Asking about opening times
 - service_question: Asking about available services
@@ -607,6 +617,7 @@ EXTRACTION RULES:
 1. serviceName: Extract the service they want (e.g. "haircut"). If they say "same as mine", use the service from RECENT CONTEXT if available.
 2. date: Return the date in YYYY-MM-DD format. If they say "after mine", use the date from RECENT CONTEXT.
 3. time: Return the time in HH:mm format. If they say "after mine", use the end_time from RECENT CONTEXT.
+4. If the message contains a greeting AND a question, classify by the question — NOT as greeting.
 
 BUSINESS FACTS (Treat these as absolute truth):
 ${config.systemInstructions || 'No specific facts provided.'}

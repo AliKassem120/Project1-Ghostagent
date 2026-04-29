@@ -95,15 +95,15 @@ export function validateReply(reply: string, context: ValidationContext = {}): V
     const trimmed = reply.trim();
     const lower = trimmed.toLowerCase();
 
-    // Length check
-    const maxLen = isSummary ? 300 : 220;
+    // Length check — generous enough for combined replies
+    const maxLen = isSummary ? 400 : 280;
     if (trimmed.length > maxLen) {
         return { isValid: false, reason: `Reply too long (${trimmed.length} chars, max ${maxLen})` };
     }
 
-    // Sentence count (max 2 for normal, max 3 for summary)
+    // Sentence count (max 3 for normal, max 5 for summary)
     const sentences = trimmed.split(/[.!?]+/).filter(s => s.trim().length > 3);
-    const maxSentences = isSummary ? 4 : 2;
+    const maxSentences = isSummary ? 5 : 3;
     if (sentences.length > maxSentences) {
         return { isValid: false, reason: `Too many sentences (${sentences.length}, max ${maxSentences})` };
     }
