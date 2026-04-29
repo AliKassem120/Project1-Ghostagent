@@ -54,9 +54,9 @@ export async function handleAutomationMessage(input: AutomationInput): Promise<A
             await input.supabase.from('activity_log').insert({
                 user_id: input.userId,
                 workspace_id: input.workspaceId,
-                event_type: 'automation_v2',
+                event_type: 'AI_REPLY',
                 description: result.replyText 
-                    ? `Replied to "${input.message.slice(0, 30)}..." with "${result.replyText.slice(0, 30)}..."`
+                    ? `Sent: "${result.replyText.slice(0, 80)}"`
                     : `Processed message: "${input.message.slice(0, 30)}..." (No reply)`,
                 metadata: {
                     requestId,

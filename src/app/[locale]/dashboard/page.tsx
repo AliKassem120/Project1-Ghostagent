@@ -135,6 +135,7 @@ function EngagementOverview({ data, metrics }: EngagementChartProps) {
 function EventBadge({ type }: { type: string }) {
     const config: Record<string, { label: string; class: string }> = {
         'AI_REPLY': { label: 'AI Reply', class: 'badge-success' },
+        'automation_v2': { label: 'AI Reply', class: 'badge-success' },
         'MANUAL_REPLY': { label: 'Manual', class: 'badge-info' },
         'SALE': { label: 'Sale', class: 'badge-success' },
         'IG_SALE': { label: 'Sale', class: 'badge-success' },
@@ -146,6 +147,7 @@ function EventBadge({ type }: { type: string }) {
         'COMMENT_REPLY': { label: 'Replied', class: 'badge-success' },
         'RESTOCK': { label: 'Restock', class: 'badge-warning' },
         'NEW_ITEM': { label: 'New Item', class: 'badge-purple' },
+        'INVENTORY_ADD': { label: 'Inventory Add', class: 'badge-warning' },
     };
     const c = config[type] || { label: type.replace(/_/g, ' '), class: 'badge-purple' };
     return <span className={c.class}>{c.label}</span>;
@@ -333,7 +335,7 @@ export default function DashboardPage() {
                 const match = log.description.match(/\$([\d.]+)/);
                 if (match) moneySaved += parseFloat(match[1]);
             }
-            if (log.event_type === 'AI_REPLY' || log.event_type === 'COMMENT_REPLY') aiReplies++;
+            if (log.event_type === 'AI_REPLY' || log.event_type === 'COMMENT_REPLY' || log.event_type === 'automation_v2') aiReplies++;
             if (log.event_type === 'MANUAL_REPLY') manualReplies++;
             if (log.event_type === 'INCOMING_COMMENT') comments++;
             if (log.event_type === 'INCOMING_DM' || log.event_type === 'INCOMING_MESSAGE') dms++;
@@ -360,7 +362,7 @@ export default function DashboardPage() {
 
     const getEventColor = (eventType: string) => {
         if (eventType === 'SYSTEM_WARNING') return 'text-red-400 bg-red-500/10';
-        if (eventType === 'SALE' || eventType === 'IG_SALE' || eventType === 'AI_REPLY' || eventType === 'MANUAL_REPLY' || eventType === 'COMMENT_REPLY') return 'text-emerald-400 bg-emerald-500/10';
+        if (eventType === 'SALE' || eventType === 'IG_SALE' || eventType === 'AI_REPLY' || eventType === 'MANUAL_REPLY' || eventType === 'COMMENT_REPLY' || eventType === 'automation_v2') return 'text-emerald-400 bg-emerald-500/10';
         if (eventType === 'RESTOCK' || eventType === 'NEW_ITEM' || eventType === 'DRAFT_REPLY' || eventType === 'DRAFT_COMMENT_REPLY') return 'text-amber-400 bg-amber-500/10';
         if (eventType === 'INCOMING_MESSAGE' || eventType === 'INCOMING_DM' || eventType === 'INCOMING_COMMENT') return 'text-blue-400 bg-blue-500/10';
         return 'text-violet-400 bg-violet-500/10';
