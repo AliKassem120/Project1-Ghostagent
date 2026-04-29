@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     X, Lock, Mail, Eye, EyeOff, Check, Loader2, AlertCircle, Shield, User,
-    ChevronRight, Bell, Palette, Database, Calendar, Package, MessageSquare,
-    ExternalLink, Trash2, Download, LogOut, Moon, Sun, Monitor
+    ChevronRight, Palette, Database,
+    ExternalLink, Trash2, LogOut, Moon, Sun, Monitor
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useTheme } from 'next-themes';
@@ -26,13 +26,12 @@ interface AccountPanelProps {
 type FormState = { loading: boolean; success: string | null; error: string | null };
 const initialForm: FormState = { loading: false, success: null, error: null };
 
-type TabId = 'profile' | 'security' | 'preferences' | 'notifications' | 'data';
+type TabId = 'profile' | 'security' | 'preferences' | 'data';
 
 const tabs: { id: TabId; label: string; icon: any }[] = [
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'security', label: 'Security', icon: Shield },
     { id: 'preferences', label: 'Preferences', icon: Palette },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'data', label: 'Data & Privacy', icon: Database },
 ];
 
@@ -51,10 +50,6 @@ export default function AccountPanel({
     const [showPassword, setShowPassword] = useState(false);
     const [passwordForm, setPasswordForm] = useState<FormState>(initialForm);
 
-    // Notifications (local state — no backend yet)
-    const [notifs, setNotifs] = useState({
-        email: true, orders: true, appointments: true, whatsapp: false,
-    });
 
     // Data actions
     const [deleteForm, setDeleteForm] = useState<FormState>(initialForm);
@@ -282,20 +277,6 @@ export default function AccountPanel({
                                 </motion.div>
                             )}
 
-                            {/* ═══ NOTIFICATIONS TAB ═══ */}
-                            {activeTab === 'notifications' && (
-                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-                                    <div className="p-4 rounded-xl bg-surface-1 border border-border space-y-4">
-                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Alert Preferences</p>
-                                        <ToggleRow icon={Mail} label="Email Notifications" desc="Receive updates via email" checked={notifs.email} onChange={v => setNotifs(p => ({ ...p, email: v }))} />
-                                        <ToggleRow icon={Package} label="Order Alerts" desc="New order notifications" checked={notifs.orders} onChange={v => setNotifs(p => ({ ...p, orders: v }))} />
-                                        <ToggleRow icon={Calendar} label="Appointment Alerts" desc="New booking notifications" checked={notifs.appointments} onChange={v => setNotifs(p => ({ ...p, appointments: v }))} />
-                                        <ToggleRow icon={MessageSquare} label="WhatsApp Alerts" desc="Requires Pro or Empire plan" checked={notifs.whatsapp} onChange={v => setNotifs(p => ({ ...p, whatsapp: v }))} disabled />
-                                    </div>
-                                    <p className="text-[10px] text-muted-foreground text-center">Notification preferences are saved automatically.</p>
-                                </motion.div>
-                            )}
-
                             {/* ═══ DATA & PRIVACY TAB ═══ */}
                             {activeTab === 'data' && (
                                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
@@ -310,15 +291,6 @@ export default function AccountPanel({
                                             <span className="text-sm font-medium text-foreground">Terms of Service</span>
                                             <ExternalLink className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
                                         </Link>
-                                    </div>
-
-                                    {/* Export */}
-                                    <div className="p-4 rounded-xl bg-surface-1 border border-border space-y-3">
-                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Your Data</p>
-                                        <button className="flex items-center gap-2.5 w-full px-4 py-3 rounded-xl text-sm font-medium text-foreground bg-surface-2 border border-border hover:bg-surface-3 transition-colors">
-                                            <Download className="w-4 h-4 text-primary" /> Request Data Export
-                                        </button>
-                                        <p className="text-[10px] text-muted-foreground">We'll email you a copy of your data within 48 hours.</p>
                                     </div>
 
                                     {/* Delete Account */}
@@ -364,25 +336,8 @@ function InfoField({ label, value, readOnly, note }: { label: string; value: str
     );
 }
 
-function ToggleRow({ icon: Icon, label, desc, checked, onChange, disabled }: {
-    icon: any; label: string; desc: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean;
-}) {
-    return (
-        <div className={clsx('flex items-center justify-between py-2', disabled && 'opacity-50')}>
-            <div className="flex items-center gap-3">
-                <Icon className="w-4 h-4 text-muted-foreground" />
-                <div>
-                    <p className="text-xs font-semibold text-foreground">{label}</p>
-                    <p className="text-[10px] text-muted-foreground">{desc}</p>
-                </div>
-            </div>
-            <button onClick={() => !disabled && onChange(!checked)} disabled={disabled}
-                className={clsx('relative w-10 h-[22px] rounded-full transition-all', checked ? 'bg-primary' : 'bg-surface-3', disabled && 'cursor-not-allowed')}>
-                <div className={clsx('absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white shadow-sm transition-transform', checked ? 'translate-x-[20px]' : 'translate-x-[2px]')} />
-            </button>
-        </div>
-    );
-}
+
+
 
 function FeedbackMessage({ state }: { state: FormState }) {
     if (!state.success && !state.error) return null;
