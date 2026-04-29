@@ -27,10 +27,10 @@ export default function Footer() {
                             {t('tagline')}
                         </p>
                         <div className="flex items-center gap-4">
-                            <a href="#" className="w-9 h-9 rounded-lg bg-surface-1 border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/30 transition-all">
+                            <a href="https://instagram.com/ghostagent.ai" target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-lg bg-surface-1 border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/30 transition-all">
                                 <Instagram className="w-4 h-4" />
                             </a>
-                            <a href="mailto:hello@ghostagent.ai" className="w-9 h-9 rounded-lg bg-surface-1 border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/30 transition-all">
+                            <a href="mailto:support@ghostagent.qzz.io" className="w-9 h-9 rounded-lg bg-surface-1 border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/30 transition-all">
                                 <Mail className="w-4 h-4" />
                             </a>
                         </div>
@@ -61,7 +61,7 @@ export default function Footer() {
                     <div className="space-y-6">
                         <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">{t('legal')}</h4>
                         <ul className="space-y-4">
-                            <li><a href="mailto:support@ghostagent.ai" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors flex items-center gap-2"><HelpCircle className="w-3 h-3" /> support@ghostagent.ai</a></li>
+                            <li><a href="mailto:support@ghostagent.qzz.io" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors flex items-center gap-2"><HelpCircle className="w-3 h-3" /> support@ghostagent.qzz.io</a></li>
                         </ul>
                     </div>
                 </div>
