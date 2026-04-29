@@ -1,8 +1,13 @@
-import Link from 'next/link';
+'use client';
+
+import { Link } from '@/i18n/navigation';
 import GhostLogo from '@/components/GhostLogo';
 import { Instagram, Mail, HelpCircle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 export default function Footer() {
+    const t = useTranslations('Footer');
+
     return (
         <footer className="relative z-10 border-t border-border bg-background pt-20 pb-10 overflow-hidden">
             {/* Background Glow */}
@@ -19,7 +24,7 @@ export default function Footer() {
                             <span className="text-xl font-black tracking-tighter text-foreground">GhostAgent</span>
                         </Link>
                         <p className="text-muted-foreground text-sm font-medium leading-relaxed max-w-xs">
-                            The enterprise-grade AI business agent for Instagram DMs. Sell products and book appointments on autopilot.
+                            {t('tagline')}
                         </p>
                         <div className="flex items-center gap-4">
                             <a href="#" className="w-9 h-9 rounded-lg bg-surface-1 border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/30 transition-all">
@@ -33,31 +38,30 @@ export default function Footer() {
 
                     {/* Product Links */}
                     <div className="space-y-6">
-                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">Product</h4>
+                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">{t('product')}</h4>
                         <ul className="space-y-4">
-                            <li><Link href="/#features" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">Features</Link></li>
-                            <li><Link href="/#pricing" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">Pricing</Link></li>
-                            <li><Link href="/demo" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">Watch Demo</Link></li>
-                            <li><Link href="/about" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">About</Link></li>
+                            <li><Link href="/#features" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">{t('features')}</Link></li>
+                            <li><Link href="/#pricing" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">{t('pricing')}</Link></li>
+                            <li><Link href="/how-to-connect" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">{t('howToConnect')}</Link></li>
+                            <li><Link href="/about" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">{t('about')}</Link></li>
                         </ul>
                     </div>
 
                     {/* Company Links */}
                     <div className="space-y-6">
-                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">Company</h4>
+                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">{t('company')}</h4>
                         <ul className="space-y-4">
-                            <li><Link href="/contact" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">Contact</Link></li>
-                            <li><Link href="/privacy" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">Privacy Policy</Link></li>
-                            <li><Link href="/terms" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">Terms of Service</Link></li>
+                            <li><Link href="/contact" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">{t('contact')}</Link></li>
+                            <li><Link href="/privacy" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">{t('privacy')}</Link></li>
+                            <li><Link href="/terms" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">{t('terms')}</Link></li>
                         </ul>
                     </div>
 
-                    {/* Support Links */}
+                    {/* Legal Links */}
                     <div className="space-y-6">
-                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">Support</h4>
+                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">{t('legal')}</h4>
                         <ul className="space-y-4">
-                            <li><Link href="/help" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors flex items-center gap-2">Help Center <HelpCircle className="w-3 h-3" /></Link></li>
-                            <li><a href="mailto:support@ghostagent.ai" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">Email Support</a></li>
+                            <li><a href="mailto:support@ghostagent.ai" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors flex items-center gap-2"><HelpCircle className="w-3 h-3" /> support@ghostagent.ai</a></li>
                         </ul>
                     </div>
                 </div>
@@ -65,7 +69,7 @@ export default function Footer() {
                 {/* Bottom Bar */}
                 <div className="pt-8 border-t border-border/50 flex flex-col md:flex-row items-center justify-between gap-6">
                     <p className="text-xs font-bold text-muted-foreground/50 tracking-widest uppercase">
-                        &copy; {new Date().getFullYear()} GhostAgent. All rights reserved.
+                        &copy; {new Date().getFullYear()} GhostAgent. {t('rights')}
                     </p>
                     <div className="flex items-center gap-8">
                         <span className="text-[10px] font-black text-muted-foreground/30 tracking-widest uppercase">Built with Meta API</span>

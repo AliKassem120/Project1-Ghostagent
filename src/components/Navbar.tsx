@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import GhostLogo from '@/components/GhostLogo';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useTheme } from 'next-themes';
+import { useTranslations } from 'next-intl';
 
 export default function Navbar() {
     const [isOpen, setIsOpen] = useState(false);
@@ -15,6 +17,7 @@ export default function Navbar() {
     const { theme, setTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
     const navRef = useRef<HTMLDivElement>(null);
+    const t = useTranslations('Navbar');
 
     useEffect(() => { setMounted(true); }, []);
 
@@ -37,14 +40,16 @@ export default function Navbar() {
     }, []);
 
     const links = [
-        { name: 'Features', href: '/#features', section: 'features' },
-        { name: 'Pricing', href: '/#pricing', section: 'pricing' },
-        { name: 'About', href: '/about', section: null },
-        { name: 'Contact', href: '/contact', section: null },
+        { name: t('features'), href: '/#features', section: 'features' },
+        { name: t('pricing'), href: '/#pricing', section: 'pricing' },
+        { name: t('about'), href: '/about', section: null },
+        { name: t('contact'), href: '/contact', section: null },
     ];
 
     useEffect(() => {
-        if (pathname !== '/') return;
+        // Strip locale prefix for section detection
+        const basePath = pathname.replace(/^\/(en|ar|fr|es)/, '') || '/';
+        if (basePath !== '/') return;
         const handleScroll = () => {
             const sections = ['features', 'pricing'];
             const scrollPosition = window.scrollY + 100;
@@ -66,7 +71,9 @@ export default function Navbar() {
     }, [pathname]);
 
     const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-        if (pathname === '/' && href.startsWith('/#')) {
+        // Strip locale prefix for comparison
+        const basePath = pathname.replace(/^\/(en|ar|fr|es)/, '') || '/';
+        if (basePath === '/' && href.startsWith('/#')) {
             e.preventDefault();
             const element = document.getElementById(href.slice(2));
             if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -74,7 +81,7 @@ export default function Navbar() {
         setIsOpen(false);
     };
 
-    // 3-line hamburger icon (not an X icon from lucide, matches the screenshot style)
+    // 3-line hamburger icon
     const HamburgerIcon = () => (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
             <line x1="3" y1="6" x2="21" y2="6" />
@@ -116,6 +123,7 @@ export default function Navbar() {
 
                 {/* Desktop Right */}
                 <div className="hidden md:flex items-center gap-3">
+                    <LanguageSwitcher />
                     {mounted && (
                         <button
                             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
@@ -129,14 +137,14 @@ export default function Navbar() {
                         </button>
                     )}
                     <Link href="/login" className="text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors">
-                        Log In
+                        {t('login')}
                     </Link>
                     <Link
                         href="/register"
                         className="px-5 py-2.5 rounded-full text-sm font-bold text-white transition-all shadow-[0_0_20px_rgba(139,92,246,0.25)] hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:scale-[1.03]"
                         style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 100%)' }}
                     >
-                        Get Started Free
+                        {t('getStarted')}
                     </Link>
                 </div>
 
@@ -150,7 +158,7 @@ export default function Navbar() {
                 </button>
             </div>
 
-            {/* ── Mobile Dropdown (drops straight down from the nav bar) ── */}
+            {/* ── Mobile Dropdown ── */}
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
@@ -160,7 +168,6 @@ export default function Navbar() {
                         transition={{ duration: 0.18, ease: 'easeOut' }}
                         className="md:hidden bg-background border-b border-border shadow-xl"
                     >
-                        {/* Nav links — centered, bold, spaced like Chatrace screenshot */}
                         <div className="flex flex-col items-center py-6 gap-1">
                             {links.map((item) => (
                                 <Link
@@ -179,7 +186,7 @@ export default function Navbar() {
                                 onClick={() => setIsOpen(false)}
                                 className="w-full text-center py-4 text-base font-bold uppercase tracking-widest text-foreground hover:text-primary transition-colors"
                             >
-                                Log In
+                                {t('login')}
                             </Link>
 
                             {/* CTA Button */}
@@ -190,8 +197,13 @@ export default function Navbar() {
                                     className="block text-center w-full py-4 rounded-full text-sm font-extrabold text-white uppercase tracking-widest shadow-lg hover:scale-[1.02] transition-all active:scale-95"
                                     style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 100%)' }}
                                 >
-                                    Get Started Free
+                                    {t('getStarted')}
                                 </Link>
+                            </div>
+
+                            {/* Language Switcher (Mobile) */}
+                            <div className="py-2">
+                                <LanguageSwitcher />
                             </div>
 
                             {/* Mobile Theme Switch */}
