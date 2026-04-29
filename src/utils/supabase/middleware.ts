@@ -35,20 +35,23 @@ export async function updateSession(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser()
 
-    if (
-        !user &&
-        !request.nextUrl.pathname.startsWith('/login') &&
-        !request.nextUrl.pathname.startsWith('/auth') &&
-        !request.nextUrl.pathname.startsWith('/register') &&
-        !request.nextUrl.pathname.startsWith('/forgot-password') &&
-        request.nextUrl.pathname !== '/' &&
-        !request.nextUrl.pathname.startsWith('/privacy') &&
-        !request.nextUrl.pathname.startsWith('/terms') &&
-        !request.nextUrl.pathname.startsWith('/contact') &&
-        !request.nextUrl.pathname.startsWith('/about') &&
-        !request.nextUrl.pathname.startsWith('/demo-recording') &&
-        !request.nextUrl.pathname.startsWith('/demo')
-    ) {
+    // Strip locale prefix to check routes correctly
+    const cleanPath = request.nextUrl.pathname.replace(/^\/(en|ar|fr|es)/, '') || '/';
+    
+    const isPublicRoute = 
+        cleanPath === '/' ||
+        cleanPath.startsWith('/login') ||
+        cleanPath.startsWith('/auth') ||
+        cleanPath.startsWith('/register') ||
+        cleanPath.startsWith('/forgot-password') ||
+        cleanPath.startsWith('/privacy') ||
+        cleanPath.startsWith('/terms') ||
+        cleanPath.startsWith('/contact') ||
+        cleanPath.startsWith('/about') ||
+        cleanPath.startsWith('/demo-recording') ||
+        cleanPath.startsWith('/demo');
+
+    if (!user && !isPublicRoute) {
         // no user, potentially respond by redirecting the user to the login page
         const url = request.nextUrl.clone()
         url.pathname = '/login'
