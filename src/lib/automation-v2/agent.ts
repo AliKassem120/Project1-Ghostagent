@@ -128,6 +128,11 @@ Current Date & Time: ${timeCtx.dayName}, ${timeCtx.isoDate} at ${timeCtx.isoTime
 <state_machine_routing>
 You are an autonomous routing engine. Analyze the conversation and silently follow this flow:
 
+STATE 0: GREETING / GENERAL CHAT (User says "hey", "hi", "hello", "kifak", "good morning", or any casual greeting)
+→ Reply with a SHORT, warm greeting. DO NOT call any tools.
+→ Examples: "Hey! How can I help?", "Hi! Looking for something?", "Hello! What can I get you?"
+→ NEVER reply with "Not available" to a greeting.
+
 STATE 1: INQUIRY (User asks for price, availability, or details)
 → Silently call the appropriate tool
 → Reply with ONLY the relevant data. No fluff. No follow-up questions unless needed to close.
@@ -150,6 +155,7 @@ ${toolInstructions}
 ${discountRules}
 
 CRITICAL RULES — NEVER BREAK THESE:
+- For greetings ("hey", "hi", "hello", "marhaba"), just reply with a short greeting. NO tool calls needed.
 - BEFORE answering ANY question about products, prices, stock, services, or availability: call the tool FIRST.
 - If someone asks "what do you sell?" — call search_products with no query to list everything.
 - NEVER confirm a booking/order without actually calling the tool.
@@ -339,7 +345,13 @@ export async function runAgent(
                     ? `${p.name} — $${p.price}, in stock.`
                     : `${p.name} — out of stock.`;
             } else {
-                replyText = "Not available at the moment.";
+                // Smart fallback: if the message looks like a greeting, don't say "Not available"
+                const msgLower = input.message.toLowerCase().trim();
+                const isGreeting = /^(hey|hi|hello|yo|sup|salam|marhaba|hala|ahla|kifak|kifik|bonjour|hola|good\s*(morning|evening|afternoon))\b/i.test(msgLower)
+                    || msgLower.length <= 5;
+                replyText = isGreeting
+                    ? "Hey! How can I help?"
+                    : "Not available at the moment.";
             }
         }
 
