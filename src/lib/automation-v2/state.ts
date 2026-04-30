@@ -20,7 +20,7 @@ export async function getConversationStateV2(
 ): Promise<ConversationStateV2> {
     const { data, error } = await supabase
         .from('conversation_states')
-        .select('stage, data')
+        .select('stage, data, updated_at')
         .eq('user_id', userId)
         .eq('workspace_id', workspaceId)
         .eq('chat_id', chatId)
@@ -35,6 +35,19 @@ export async function getConversationStateV2(
 
     if (!data) {
         return { stage: 'idle' };
+    }
+
+    // Auto-clear stale states older than 1 hour to prevent stuck conversations
+    if (data.updated_at) {
+        const ageMs = Date.now() - new Date(data.updated_at).getTime();
+        const ONE_HOUR = 60 * 60 * 1000;
+        if (ageMs > ONE_HOUR && data.stage !== 'idle') {
+            v2log.info('V2_STATE', `Auto-clearing stale state (age: ${Math.round(ageMs / 60000)}min)`, { 
+                workspaceId, chatId, staleStage: data.stage 
+            });
+            await clearConversationStateV2(supabase, userId, workspaceId, chatId, workspaceType, platform);
+            return { stage: 'idle' };
+        }
     }
 
     return {
