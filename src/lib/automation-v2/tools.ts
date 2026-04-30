@@ -151,6 +151,16 @@ export function createEcommerceTools(ctx: ToolContext) {
                 return { products: products.map(p => ({ name: p.itemName, price: p.price, inStock: p.stockLevel > 0, stock: p.stockLevel })), count: products.length };
             },
         },
+        get_business_hours: {
+            description: 'Get store operating hours for each day of the week. Use when customer asks "when are you open?", "working hours?", "are you open today?".',
+            parameters: z.object({}),
+            execute: async () => {
+                const hours = await loadBusinessHours(ctx.supabase, ctx.workspaceId);
+                if (hours.length === 0) return { message: 'Working hours not configured.' };
+                const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                return { hours: hours.map(h => ({ day: dayNames[h.dayOfWeek], isOpen: h.isOpen, open: h.isOpen ? formatTime12(h.openTime) : null, close: h.isOpen ? formatTime12(h.closeTime) : null })) };
+            },
+        },
         place_order: {
             description: 'Create an order. Call ONLY after product is in stock and customer confirmed.',
             parameters: z.object({

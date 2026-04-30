@@ -64,7 +64,9 @@ function buildSystemPrompt(
 4. Use lookup_customer first — if they're returning, skip asking for info you already have
 5. When customer says "I want it" / "deal" / "yes" — collect name, phone, AND delivery address in ONE single message
 6. Use place_order ONLY after the customer explicitly confirms
-7. NEVER say an order is "placed" or "confirmed" unless place_order returned success: true`;
+7. NEVER say an order is "placed" or "confirmed" unless place_order returned success: true
+8. If they ask "when are you open?" / "working hours?" / "are you open?" — call get_business_hours
+9. If they want to cancel an order — call cancel_order`;
 
     // ── Tone Personality ─────────────────────────────────────
     const toneMap: Record<string, string> = {
