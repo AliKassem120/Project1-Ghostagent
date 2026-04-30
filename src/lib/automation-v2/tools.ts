@@ -28,7 +28,6 @@ import { formatTime12, minutesToTime } from './time';
 
 // ── E-Commerce imports ───────────────────────────────────────
 import { searchProducts, findBestProductMatch } from './ecommerce/products';
-import { checkProductStock } from './ecommerce/inventory';
 import { createOrderV2 } from './ecommerce/orders';
 
 // ── Shared imports ───────────────────────────────────────────
@@ -145,22 +144,11 @@ export function createAppointmentTools(ctx: ToolContext) {
 export function createEcommerceTools(ctx: ToolContext) {
     return {
         search_products: {
-            description: 'Search for products in the store inventory.',
-            parameters: z.object({ query: z.string().optional().describe('Product name or keyword') }),
+            description: 'Search for products in the store. Returns name, price, stock count, and whether in stock. Use this for ALL product/stock/price questions — no need for a separate stock check.',
+            parameters: z.object({ query: z.string().optional().describe('Product name or keyword. Leave empty to list all products.') }),
             execute: async ({ query }: { query?: string }) => {
                 const products = await searchProducts({ supabase: ctx.supabase, workspaceId: ctx.workspaceId, query });
-                return { products: products.map(p => ({ name: p.itemName, price: p.price, inStock: p.stockLevel > 0, stock: p.stockLevel, description: p.description })), count: products.length };
-            },
-        },
-        check_stock: {
-            description: 'Check if a product (and optionally a variant) is in stock.',
-            parameters: z.object({ product_name: z.string(), variant: z.string().optional() }),
-            execute: async ({ product_name, variant }: { product_name: string; variant?: string }) => {
-                const products = await searchProducts({ supabase: ctx.supabase, workspaceId: ctx.workspaceId, query: product_name });
-                const match = findBestProductMatch(products, product_name);
-                if (!match) return { found: false, message: 'Product not found' };
-                const stock = checkProductStock(match, variant);
-                return { found: true, product: match.itemName, price: match.price, inStock: stock.inStock, available: stock.availableStock };
+                return { products: products.map(p => ({ name: p.itemName, price: p.price, inStock: p.stockLevel > 0, stock: p.stockLevel })), count: products.length };
             },
         },
         place_order: {

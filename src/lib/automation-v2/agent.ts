@@ -59,12 +59,13 @@ function buildSystemPrompt(
 7. NEVER say an appointment is "booked" or "confirmed" unless book_appointment returned success: true`
         : `WORKFLOW FOR ORDERS:
 1. When someone wants to buy, figure out: which product, what variant (if applicable)
-2. Use search_products to find items and check prices — NEVER guess prices
-3. Use check_stock to verify availability before promising anything
+2. Use search_products to find items — it returns name, price, AND stock level all in one call
+3. NEVER guess prices or stock — always call search_products first
 4. You need the customer's name, phone, and delivery address before placing an order
 5. Use lookup_customer first — if they're a returning customer, skip asking for info you already have
 6. Use place_order ONLY after the customer explicitly confirms
-7. NEVER say an order is "placed" or "confirmed" unless place_order returned success: true`;
+7. NEVER say an order is "placed" or "confirmed" unless place_order returned success: true
+8. ONE call to search_products is enough — do NOT call it multiple times for the same product`;
 
     return `You are ${config.businessName}'s assistant on Instagram DM. You work for ${businessTypeDesc}.
 
@@ -253,7 +254,7 @@ export async function runAgent(
                             input.chatId, config.businessType as 'appointments' | 'ecommerce', input.platform
                         );
                     }
-                } else if (toolName === 'check_slot' || toolName === 'search_products' || toolName === 'check_stock') {
+                } else if (toolName === 'check_slot' || toolName === 'search_products') {
                     actions.push('tool_' + toolName);
                 } else if (toolName === 'lookup_customer') {
                     if (resultData?.found) actions.push('memory_used');
@@ -268,15 +269,12 @@ export async function runAgent(
                 lastToolResult: JSON.stringify(lastToolResult)?.slice(0, 200),
                 finishReason: result.finishReason,
             });
-            // If search returned products, build a helpful reply
-            if (lastToolResult?.toolName === 'search_products' && lastToolResult?.data?.products?.length > 0) {
+            // If search returned products, build a helpful reply from the data
+            if (lastToolResult?.data?.products?.length > 0) {
                 const p = lastToolResult.data.products[0];
-                replyText = `Yes! We have ${p.name} for $${p.price}${p.inStock ? ' — it\'s in stock!' : ' but it\'s currently out of stock.'}`;
-            } else if (lastToolResult?.toolName === 'check_stock' && lastToolResult?.data?.found) {
-                const d = lastToolResult.data;
-                replyText = d.inStock
-                    ? `Yes, ${d.product} is in stock! It's $${d.price}. Want to order?`
-                    : `Sorry, ${d.product} is currently out of stock.`;
+                replyText = p.inStock
+                    ? `Yes! We have ${p.name} for $${p.price} — it's in stock! Would you like to order?`
+                    : `We have ${p.name} for $${p.price}, but it's currently out of stock.`;
             } else {
                 replyText = "Something went wrong on my end \u2014 try again in a sec?";
             }
