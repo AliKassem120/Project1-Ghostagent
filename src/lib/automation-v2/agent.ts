@@ -15,7 +15,7 @@
  * replies directly — no template→humanize pipeline.
  */
 
-import { generateText, stepCountIs } from 'ai';
+import { generateText } from 'ai';
 import { createGroq } from '@ai-sdk/groq';
 import type { AutomationInput, AutomationResult, WorkspaceConfig } from './types';
 import { loadConversationHistory, type HistoryMessage } from './history';
@@ -199,7 +199,7 @@ export async function runAgent(
             system: systemPrompt,
             messages,
             tools: tools as any,
-            stopWhen: stepCountIs(5),
+            maxSteps: 8,
             temperature: 0.3,
         });
 
@@ -220,11 +220,18 @@ export async function runAgent(
         const actions: string[] = [];
         let dbWriteAttempted = false;
         let dbWriteSuccess = false;
+        let lastToolResult: any = null;
 
         for (const step of result.steps || []) {
             for (const tr of step.toolResults || []) {
                 const toolName = (tr as any).toolName as string;
-                const resultData = (tr as any).output;
+                const resultData = (tr as any).result ?? (tr as any).output;
+
+                // Log tool results for debugging
+                v2log.info('V3_AGENT', `Tool result: ${toolName}`, {
+                    result: JSON.stringify(resultData)?.slice(0, 200),
+                });
+                lastToolResult = { toolName, data: resultData };
 
                 if (toolName === 'book_appointment' || toolName === 'place_order') {
                     dbWriteAttempted = true;
@@ -254,9 +261,25 @@ export async function runAgent(
             }
         }
 
-        // 8. If no reply text but tools were called, something went wrong
+        // 8. If no reply text but tools were called, try to generate a fallback from tool data
         if (!replyText) {
-            replyText = "Something went wrong on my end — try again in a sec?";
+            v2log.warn('V3_AGENT', 'No reply text generated after tool calls', {
+                steps: result.steps?.length,
+                lastToolResult: JSON.stringify(lastToolResult)?.slice(0, 200),
+                finishReason: result.finishReason,
+            });
+            // If search returned products, build a helpful reply
+            if (lastToolResult?.toolName === 'search_products' && lastToolResult?.data?.products?.length > 0) {
+                const p = lastToolResult.data.products[0];
+                replyText = `Yes! We have ${p.name} for $${p.price}${p.inStock ? ' — it\'s in stock!' : ' but it\'s currently out of stock.'}`;
+            } else if (lastToolResult?.toolName === 'check_stock' && lastToolResult?.data?.found) {
+                const d = lastToolResult.data;
+                replyText = d.inStock
+                    ? `Yes, ${d.product} is in stock! It's $${d.price}. Want to order?`
+                    : `Sorry, ${d.product} is currently out of stock.`;
+            } else {
+                replyText = "Something went wrong on my end \u2014 try again in a sec?";
+            }
         }
 
         // 9. Translation layer (for non-English users)
