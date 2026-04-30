@@ -15,7 +15,7 @@
  * replies directly — no template→humanize pipeline.
  */
 
-import { generateText } from 'ai';
+import { generateText, stepCountIs } from 'ai';
 import { createGroq } from '@ai-sdk/groq';
 import type { AutomationInput, AutomationResult, WorkspaceConfig } from './types';
 import { loadConversationHistory, type HistoryMessage } from './history';
@@ -199,7 +199,7 @@ export async function runAgent(
             system: systemPrompt,
             messages,
             tools: tools as any,
-            maxSteps: 8,
+            stopWhen: stepCountIs(8),
             temperature: 0.3,
         });
 
