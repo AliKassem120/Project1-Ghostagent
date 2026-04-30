@@ -18,7 +18,7 @@ export interface HistoryMessage {
     content: string;
 }
 
-const MAX_HISTORY = 8;
+const MAX_HISTORY = 4;
 
 /**
  * Fetch the most recent conversation messages for a specific chat.
