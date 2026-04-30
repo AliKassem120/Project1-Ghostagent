@@ -136,8 +136,8 @@ export async function translateReply(args: {
 
     // ── 1. English: Humanize (don't just return verbatim) ────
     if (targetLanguage === 'english' || targetLanguage === 'English' || targetLanguage === 'Auto-Detect') {
-        // Short replies (< 40 chars) are already casual enough
-        if (reply.length < 40) return reply;
+        // Ultra-short replies (< 80 chars) are already tight enough — skip humanization
+        if (reply.length < 80) return reply;
 
         const groq = getGroqClient();
         if (!groq) return reply;
@@ -145,29 +145,27 @@ export async function translateReply(args: {
         try {
             const result = await generateText({
                 model: groq(FALLBACK_MODEL),
-                system: `You are rewriting a chatbot DM reply to sound like a real person texting a customer.
+                system: `You are shortening a DM reply to sound like a real person texting.
 
 RULES:
-- Keep the EXACT same meaning and information — do NOT add or remove any facts
-- Make it sound natural, casual, and warm — like a real employee texting
-- Use contractions (I'll, we're, you're, it's, that's)
-- Maximum 1-2 sentences. NEVER write more than 2 sentences.
-- Maximum 1 emoji. If the original has an emoji, keep it. Don't add new ones.
-- Do NOT add greetings, pleasantries, or sign-offs that aren't in the original
-- Do NOT repeat information the customer already knows
+- Keep the EXACT same meaning — do NOT add or remove facts
+- Make it shorter and more natural. Target: 1-8 words if possible.
+- NEVER make it longer than the original
+- Maximum 1 emoji. Don't add new ones.
+- Do NOT add greetings or sign-offs
 - Tone: ${tone}
-- Return ONLY the rewritten text, nothing else`,
+- Return ONLY the rewritten text`,
                 prompt: reply,
                 temperature: 0.3,
             });
 
             const humanized = result.text.trim();
-            // Sanity: reject if LLM went off the rails
-            if (humanized && humanized.length > 0 && humanized.length < 300) {
+            // Sanity: reject if LLM went off the rails or made it longer
+            if (humanized && humanized.length > 0 && humanized.length <= reply.length + 10) {
                 return humanized;
             }
         } catch {
-            // Humanization failed — template is fine
+            // Humanization failed — original is fine
         }
         return reply;
     }

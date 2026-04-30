@@ -38,15 +38,25 @@ function hasLatinLetters(msg: string): boolean {
 // ── Signal Word Banks ────────────────────────────────────────
 
 const ARABIZI_SIGNALS = [
-    'bde', 'bade', 'baddi', 'badde', 'e5od', 'e5ud', 'ekhod',
+    'bde', 'bade', 'baddi', 'badde', 'baddak', 'baddik', 'e5od', 'e5ud', 'ekhod',
     'maw3ed', 'mawed', '7ajez', 'hajez', 'se3a', 'sa3a',
     'shu', 'wen', 'wain', 'ade', 'adde', 'addesh',
-    'btefta7', 'btfta7', 'msakrin', 'fet7in',
+    'btefta7', 'btfta7', 'msakrin', 'fet7in', 'fethin',
     'bukra', 'bokra', 'lyom', 'elyoum', 'sobo7', 'masa',
-    'tamem', 'tayeb', 'akid', 'tekram', 'yalla',
+    'tamem', 'tayeb', 'akid', 'tekram', 'yalla', 'sah',
     'mish', 'la2', 'fi', 'mawjud', 'mawjoud',
     'se3r', 'se3ro', 'ra2m', '3nwen', 'towsil',
     'kifak', 'kifik', 'kif halak',
+    // Shopping/Commerce
+    'kholsan', '2yes', 'lon', 'alwen', 'z8ir', 'kbir', 'makfule', 'balesh', 'asle',
+    // Logistics
+    'manta2a', 'bineye', 'bser3a', 'd8re', 'halla2',
+    // Complaints
+    't2a5arto', 'ma woselne', '8alat', 'bade badela', 'el8iya',
+    // Digital
+    'mnfa3el', 'bteb3at', 'b3atle', 'saf7a',
+    // Casual
+    'khaye', 'e5te', 'enshalla', 'basita', 'wala yhemak', '3a rase',
 ];
 
 const FRENCH_SIGNALS = [

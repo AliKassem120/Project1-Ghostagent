@@ -81,6 +81,27 @@ Digital,Saf7a,Page
 `;
 
 export const ARABIZI_DICTIONARY: Record<string, string> = {
+    // --- Ultra-Short (1-8 word style) ---
+    'Yes, available.': 'Eh mawjoud.',
+    'Yes available': 'Eh mawjoud',
+    'Yes, in stock.': 'Eh mawjoud.',
+    'Yes, in stock': 'Eh mawjoud',
+    'Out of stock.': 'Ma fi halla2.',
+    'Out of stock': 'Ma fi halla2',
+    'Not available at the moment.': 'Ma fi halla2.',
+    'Not available.': 'Msh mawjoud.',
+    'Order confirmed.': 'Tmm t2akkad el order. ✅',
+    'Booking confirmed.': 'Tmm t2akkad el 7ajez. ✅',
+    'Send your name, phone, and delivery address.': 'B3atle ismak, ra2mak w el 3nwen.',
+    'Send your name and phone number.': 'B3atle ismak w ra2mak.',
+    'What size?': 'Aya 2yes?',
+    'What color?': 'Aya lon?',
+    'What size and color?': 'Aya 2yes w lon?',
+    'Yes, delivery available.': 'Eh fi delivery.',
+    'Where is the location?': 'Wen l location?',
+    'One moment.': 'Lahza.',
+    'Thank you.': 'Shokran.',
+
     // --- Appointments ---
     'Hey 👋 how can I help?': 'Hala 👋 Kif fiyi se3dak?',
     'What service would you like to book?': 'Aya service badek te7jez?',
@@ -115,6 +136,12 @@ export const ARABIZI_DICTIONARY: Record<string, string> = {
     '{productName} is {price}.': 'el {productName} 7a2o {price}.',
     '{shippingRules}': '{shippingRules}',
 
+    // --- Pricing (ultra-short) ---
+    'Hello {price}': 'Hala {price}',
+    '{productName} — {price}, in stock.': '{productName} — {price}, mawjoud.',
+    '{productName} — out of stock.': '{productName} — ma fi halla2.',
+
     // --- Fallbacks ---
-    "I'm having trouble right now. Please try again in a moment.": 'Fi 8alat halla2. Jarreb kamen shway.'
+    "I'm having trouble right now. Please try again in a moment.": 'Fi 8alat halla2. Jarreb kamen shway.',
+    'Sorry, I cannot help with that.': 'Be3tezer, ma fiyi se3dak bhal shi.',
 };
