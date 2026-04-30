@@ -66,6 +66,34 @@ function buildSystemPrompt(
 6. Use place_order ONLY after the customer explicitly confirms
 7. NEVER say an order is "placed" or "confirmed" unless place_order returned success: true`;
 
+    // ── Tone Personality ─────────────────────────────────────
+    const toneMap: Record<string, string> = {
+        'Casual': `Tone: Casual & Friendly. Sound like a cool store employee texting a friend. Use contractions freely (we've, it's, you're). Warm but efficient. A bit playful. Example: "Yep it's in stock! Want it?"`,
+        'Professional': `Tone: Professional & Polished. Sound like a highly-paid concierge. Courteous, precise, zero slang. Use proper grammar. Example: "Yes, currently in stock for $500."`,
+        'Luxury': `Tone: Luxury & Premium. Sound like a private boutique consultant. Elegant, refined, exclusive language. Use words like "exquisite", "curated", "exclusive". Example: "An excellent selection — available at $500."`,
+        'Sarcastic': `Tone: Sarcastic & Witty. Sound like a confident store owner with dry humor. Be helpful but add a pinch of sarcasm. Keep it light, never rude. Example: "Yeah we've got it. Shocking, right? 500$"`,
+    };
+    const toneDirective = toneMap[config.tone] || toneMap['Professional'];
+
+    // ── Emoji Rule ───────────────────────────────────────────
+    const emojiRule = config.useEmojis
+        ? 'EMOJIS: You may use up to 1 emoji per message, only if it feels natural. Never force emojis.'
+        : 'EMOJIS: Do NOT use any emojis in your replies. Zero emojis. No exceptions.';
+
+    // ── Discount / Negotiation Rules ─────────────────────────
+    let discountRules = '';
+    if (config.maxDiscount && config.maxDiscount > 0) {
+        discountRules = `\nNEGOTIATION RULES:
+- Maximum discount you can offer: ${config.maxDiscount}%
+${config.minOrderForDiscount ? `- Only offer discounts on orders above $${config.minOrderForDiscount}` : '- You may offer discounts on any order'}
+- If they ask for a discount, you may offer up to ${config.maxDiscount}% off. Say: "${config.maxDiscount}% off — best I can do."
+- If they ask for MORE than ${config.maxDiscount}%, say: "Sorry, that's the best price."
+- NEVER offer a discount unless the customer asks for one.`;
+    } else {
+        discountRules = `\nNEGOTIATION RULES:
+- Do NOT offer any discounts. If they ask, say: "Sorry, prices are fixed." or "ekhir se3er" (final price).`;
+    }
+
     return `<system_identity>
 You are the highly professional, efficient, and courteous human manager of ${config.businessName}, ${businessTypeDesc}.
 You are assisting clients directly via Instagram DMs.
@@ -79,10 +107,11 @@ Current Date & Time: ${timeCtx.dayName}, ${timeCtx.isoDate} at ${timeCtx.isoTime
    - Price question ("how much?", "price?", "ade?") → Reply ONLY the price: "Hello 50$" or just "50$". No preamble.
    - Availability question → "Yes available" or "Out of stock". Done.
    - Only ask a follow-up question to ADVANCE THE SALE (e.g., "What size?" or "Where's the location?").
-2. PROFESSIONAL TONE: Courteous but highly transactional. NEVER use excessive emojis (max 1 per message, only if natural). No corporate fluff.
-3. ZERO ECHOING: Never repeat the user's exact phrasing. Never repeat a price you just stated.
-4. NO HALLUCINATIONS: You MUST use your tools to check prices, stock, or availability. Do not invent data. If a tool returns no data, say: "Not available at the moment."
-5. Respond in ENGLISH only. The system handles translation automatically.
+2. ${toneDirective}
+3. ${emojiRule}
+4. ZERO ECHOING: Never repeat the user's exact phrasing. Never repeat a price you just stated.
+5. NO HALLUCINATIONS: You MUST use your tools to check prices, stock, or availability. Do not invent data. If a tool returns no data, say: "Not available at the moment."
+6. Respond in ENGLISH only. The system handles translation automatically.
 </core_directives>
 
 <reply_style_rules>
@@ -116,6 +145,7 @@ STATE 4: COMPLAINT (User complains about delay, quality, or issue)
 </state_machine_routing>
 
 ${toolInstructions}
+${discountRules}
 
 CRITICAL RULES — NEVER BREAK THESE:
 - BEFORE answering ANY question about products, prices, stock, services, or availability: call the tool FIRST.
@@ -325,10 +355,15 @@ export async function runAgent(
         if (config.useLocalSlang && config.tone?.toLowerCase() !== 'professional') {
             const isConfirmed = actions.includes('appointment_created') || actions.includes('order_created');
             if (targetLang.toLowerCase() === 'english') {
-                if (isConfirmed) replyText += ' Tekram! 🙏';
+                if (isConfirmed) replyText += config.useEmojis ? ' Tekram! 🙏' : ' Tekram!';
             } else if (targetLang.toLowerCase() === 'arabizi') {
-                if (isConfirmed && !replyText.includes('Tekram')) replyText += ' Tekram! 🙏';
+                if (isConfirmed && !replyText.includes('Tekram')) replyText += config.useEmojis ? ' Tekram! 🙏' : ' Tekram!';
             }
+        }
+
+        // 11. Emoji strip (safety net — if useEmojis is OFF, remove any LLM-added emojis)
+        if (!config.useEmojis) {
+            replyText = replyText.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{200D}\u{20E3}]/gu, '').replace(/\s{2,}/g, ' ').trim();
         }
 
         v2log.info('V3_AGENT', `Agent completed in ${Date.now() - startTime}ms`, {
