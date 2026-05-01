@@ -65,7 +65,7 @@ const ORDER_PATTERNS = /\b(i\s*want|i('ll|\s*will)\s*(take|buy|get|order)|deal|a
 
 const SERVICE_PATTERNS = /\b(services?|what\s*do\s*you\s*(do|offer)|treatments?|packages?|menu|list|options|shu\s*btaaemlo|shu\s*bt3amlo|shu\s*3andkon|what\s*can\s*you\s*do)\b/i;
 
-const BOOKING_PATTERNS = /\b(book|reserve|appointment|schedule|booking|slot|bade\s*e7joz|bade\s*a7joz|badde\s*e7jez|7ajez|7ejiz|reserve\s*(a\s*)?spot)\b/i;
+const BOOKING_PATTERNS = /\b(book|reserve|appointment|schedule|booking|slot|bade\s*e7joz|bade\s*a7joz|badde\s*e7jez|7ajez|7ejiz|reserve\s*(a\s*)?spot|i\s*want|i\s*need|can\s*i\s*(get|have)|bade|badde|bde|bedde|bdee)\b/i;
 
 // ── Main Classifier ──────────────────────────────────────────
 
