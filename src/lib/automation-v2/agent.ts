@@ -1,33 +1,40 @@
 /**
  * ═══════════════════════════════════════════════════════════════
- * GhostAgent — V3 Agent: Core
+ * GhostAgent — V4 Agent: Specialist Workers
  * ═══════════════════════════════════════════════════════════════
- * The intelligent agent that replaces the rigid state machine.
+ * 
+ * Architecture: Classifier-First Intent Routing
+ * 
+ * Instead of one giant brain with all tools, we have:
+ *   1. Classifier (classifier.ts) → Tags the intent (regex, 0 tokens)
+ *   2. Router (router.ts) → Dispatches to the correct worker
+ *   3. Workers (this file) → Tiny focused agents, each with ONLY
+ *      the tools they need and a minimal prompt
  *
- * Architecture:
- *   1. Load conversation history (last 8 messages)
- *   2. Build system prompt with personality + business context
- *   3. Single LLM call with tool access
- *   4. LLM decides what to do: answer, call tools, or both
- *   5. Translation layer for non-English
- *
- * The agent has FULL conversation context and generates natural
- * replies directly — no template→humanize pipeline.
+ * Workers:
+ *   handleGreeting()       → Pure code, zero LLM tokens
+ *   handleComplaint()      → Pure code, [HANDOFF]
+ *   handleHoursInquiry()   → Pure DB call, zero LLM tokens
+ *   handleCancelRequest()  → Pure DB call + tiny formatter
+ *   handleProductInquiry() → LLM with ONLY search_products
+ *   handleOrderIntent()    → LLM with search_products + place_order + lookup_customer
+ *   handleServiceInquiry() → LLM with ONLY get_services
+ *   handleBookingIntent()  → LLM with all booking tools
+ *   handleGeneralChat()    → LLM with NO tools (just conversation)
  */
 
 import { generateText, stepCountIs } from 'ai';
 import { createGroq } from '@ai-sdk/groq';
-import type { AutomationInput, AutomationResult, WorkspaceConfig } from './types';
-import { loadConversationHistory, type HistoryMessage } from './history';
+import type { AutomationInput, AutomationResult, WorkspaceConfig, DetectedLanguage } from './types';
+import { loadConversationHistory } from './history';
 import { createAppointmentTools, createEcommerceTools, type ToolContext } from './tools';
-import { loadWorkspaceConfig } from './router';
-import { getConversationStateV2, updateConversationStateV2, clearConversationStateV2 } from './state';
-import { detectLanguage } from './language';
+import { getConversationStateV2, clearConversationStateV2 } from './state';
 import { translateReply } from './model';
 import { buildTimeContext } from './time';
 import { v2log } from './logger';
+import type { Intent } from './classifier';
 
-// ── Model Configuration ──────────────────────────────────────
+// ── Models ───────────────────────────────────────────────────
 
 const AGENT_MODEL = 'llama-3.3-70b-versatile';
 
@@ -37,215 +44,10 @@ function getGroqClient() {
     return createGroq({ apiKey });
 }
 
-// ── System Prompt Builder ────────────────────────────────────
+// ── Shared Context Builder ───────────────────────────────────
 
-function buildSystemPrompt(
-    config: WorkspaceConfig,
-    stateDescription: string,
-    timeCtx: any
-): string {
-    const businessTypeDesc = config.businessType === 'appointments'
-        ? 'a premium service-based business that takes appointments'
-        : 'a premium online store that sells products';
-
-    const toolInstructions = config.businessType === 'appointments'
-        ? `TOOL WORKFLOW FOR BOOKING:
-1. When someone wants to book, figure out: which service, what date/time
-2. Use resolve_date_time to parse natural language dates ("tomorrow 3pm", "next friday")
-3. Use check_slot to verify availability BEFORE confirming anything
-4. Use lookup_customer first — if they're returning, skip asking for info you already have
-5. Collect full name + phone in ONE message when ready to book
-6. Use book_appointment ONLY after the customer explicitly confirms
-7. NEVER say an appointment is "booked" or "confirmed" unless book_appointment returned success: true`
-        : `TOOL WORKFLOW FOR ORDERS:
-1. Use search_products to find items — it returns name, price, AND stock level all in one call
-2. NEVER guess prices or stock — always call search_products first
-3. ONE call to search_products is enough — do NOT call it multiple times for the same product
-4. Use lookup_customer first — if they're returning, skip asking for info you already have
-5. When customer says "I want it" / "deal" / "yes" — collect name, phone, AND delivery address in ONE single message
-6. Use place_order ONLY after the customer explicitly confirms
-7. NEVER say an order is "placed" or "confirmed" unless place_order returned success: true
-8. If they ask "when are you open?" / "working hours?" / "are you open?" — call get_business_hours
-9. If they want to cancel an order — call cancel_order`;
-
-    // ── Tone Personality ─────────────────────────────────────
-    const toneMap: Record<string, string> = {
-        'Casual': `Tone: Casual & Friendly. Sound like a cool store employee texting a friend. Use contractions freely (we've, it's, you're). Warm but efficient. A bit playful. Example: "Yep it's in stock! Want it?"`,
-        'Professional': `Tone: Professional & Polished. Sound like a highly-paid concierge. Courteous, precise, zero slang. Use proper grammar. Example: "Yes, currently in stock for $500."`,
-        'Luxury': `Tone: Luxury & Premium. Sound like a private boutique consultant. Elegant, refined, exclusive language. Use words like "exquisite", "curated", "exclusive". Example: "An excellent selection — available at $500."`,
-        'Sarcastic': `Tone: Sarcastic & Witty. Sound like a confident store owner with dry humor. Be helpful but add a pinch of sarcasm. Keep it light, never rude. Example: "Yeah we've got it. Shocking, right? 500$"`,
-    };
-    const toneDirective = toneMap[config.tone] || toneMap['Professional'];
-
-    // ── Emoji Rule ───────────────────────────────────────────
-    const emojiRule = config.useEmojis
-        ? 'EMOJIS: You may use up to 1 emoji per message, only if it feels natural. Never force emojis.'
-        : 'EMOJIS: Do NOT use any emojis in your replies. Zero emojis. No exceptions.';
-
-    // ── Discount / Negotiation Rules ─────────────────────────
-    let discountRules = '';
-    if (config.maxDiscount && config.maxDiscount > 0) {
-        discountRules = `\nNEGOTIATION RULES:
-- Maximum discount you can offer: ${config.maxDiscount}%
-${config.minOrderForDiscount ? `- Only offer discounts on orders above $${config.minOrderForDiscount}` : '- You may offer discounts on any order'}
-- If they ask for a discount, you may offer up to ${config.maxDiscount}% off. Say: "${config.maxDiscount}% off — best I can do."
-- If they ask for MORE than ${config.maxDiscount}%, say: "Sorry, that's the best price."
-- NEVER offer a discount unless the customer asks for one.`;
-    } else {
-        discountRules = `\nNEGOTIATION RULES:
-- Do NOT offer any discounts. If they ask, say: "Sorry, prices are fixed." or "ekhir se3er" (final price).`;
-    }
-
-    return `<system_identity>
-You are the highly professional, efficient, and courteous human manager of ${config.businessName}, ${businessTypeDesc}.
-You are assisting clients directly via Instagram DMs.
-Your goal is to provide exceptional, seamless service and guide customers to a booking or purchase effortlessly.
-You are a human representative. DO NOT refer to yourself as an AI, bot, or virtual assistant.
-Current Date & Time: ${timeCtx.dayName}, ${timeCtx.isoDate} at ${timeCtx.isoTime}.
-</system_identity>
-
-<core_directives>
-1. ULTRA-SHORT REPLIES: Maximum 1 to 8 words per reply. Zero fluff. DM users want instant answers, not paragraphs.
-   - Price question ("how much?", "price?", "ade?") → Reply ONLY the price: "Hello 50$" or just "50$". No preamble.
-   - Availability question → "Yes available" or "Out of stock". Done.
-   - Only ask a follow-up question to ADVANCE THE SALE (e.g., "What size?" or "Where's the location?").
-2. ${toneDirective}
-3. ${emojiRule}
-4. ZERO ECHOING: Never repeat the user's exact phrasing. Never repeat a price you just stated.
-5. NO HALLUCINATIONS: You MUST use your tools to check prices, stock, or availability. Do not invent data. If a tool returns no data, say: "Not available at the moment."
-6. Respond in ENGLISH only. The system handles translation automatically.
-</core_directives>
-
-<reply_style_rules>
-- If they ask ONLY about price → give ONLY the price. "50$" not "The PS5 is currently priced at $500 and is in stock."
-- If they ask availability → "Yes, in stock" or "Out of stock". No extra words.
-- If they ask availability AND price → combine: "Yes, 500$"
-- If they say "I want it" → go straight to collecting info. ONE message.
-- If they provide info (name/phone/address) → place order IMMEDIATELY, confirm in 1 sentence.
-- NEVER explain how something works unless explicitly asked.
-</reply_style_rules>
-
-<state_machine_routing>
-You are an autonomous routing engine. Analyze the conversation and silently follow this flow:
-
-STATE 0: GREETING / GENERAL CHAT (User says "hey", "hi", "hello", "kifak", "good morning", or any casual greeting)
-→ Reply with a SHORT, warm greeting. DO NOT call any tools.
-→ Examples: "Hey! How can I help?", "Hi! Looking for something?", "Hello! What can I get you?"
-→ NEVER reply with "Not available" to a greeting.
-
-STATE 1: INQUIRY (User asks for price, availability, or details)
-→ Silently call the appropriate tool
-→ Reply with ONLY the relevant data. No fluff. No follow-up questions unless needed to close.
-
-STATE 2: THE CLOSE (User says "I want it", "deal", "book it", "bde", "yes")
-→ Collect ALL required details in ONE SINGLE MESSAGE
-→ ${config.businessType === 'ecommerce' 
-    ? '"Send your name, phone, and delivery address."'
-    : '"Send your name and phone number."'}
-
-STATE 3: LEAD CAPTURE (User provides their details)
-→ IMMEDIATELY call the booking/order tool
-→ Confirm: "Order confirmed." or "Booking confirmed." That's it.
-
-STATE 4: COMPLAINT (User complains about delay, quality, or issue)
-→ RESPOND WITH EXACTLY: [HANDOFF]
-</state_machine_routing>
-
-${toolInstructions}
-${discountRules}
-
-CRITICAL RULES — NEVER BREAK THESE:
-- For greetings ("hey", "hi", "hello", "marhaba"), just reply with a short greeting. NO tool calls needed.
-- BEFORE answering ANY question about products, prices, stock, services, or availability: call the tool FIRST.
-- AFTER a tool returns data (or empty data), you MUST generate a text reply to the user. Do not stay silent.
-- If search_products returns no products, do NOT call any other tools. Just reply "Not available" or "Out of stock".
-- If someone asks "what do you sell?" — call search_products with no query to list everything.
-- NEVER confirm a booking/order without actually calling the tool.
-- If they want a real person ("human", "manager", "speak to someone") → RESPOND WITH EXACTLY: [HANDOFF]
-- If they complain ("late", "broken", "wrong item", "t2a5arto", "ma woselne") → RESPOND WITH EXACTLY: [HANDOFF]
-- If the message contains multiple topics (greeting + question), address the question — don't just reply to the greeting.
-
-${stateDescription ? `CUSTOMER CONTEXT:\n${stateDescription}` : ''}
-
-BUSINESS INFO:
-${config.systemInstructions || 'No specific business info provided.'}
-${config.storeLocation ? `LOCATION: ${config.storeLocation}` : ''}
-${config.contactInfo ? `CONTACT: ${config.contactInfo}` : ''}
-${config.shippingRules ? `SHIPPING/DELIVERY: ${config.shippingRules}` : ''}
-
-<error_handling>
-If a tool returns an error or fails, DO NOT output system errors.
-Reply: "Not available at the moment." — nothing more.
-</error_handling>`;
-}
-
-// ── State Description Builder ────────────────────────────────
-
-function describeState(state: any, businessType: string): string {
-    if (!state || state.stage === 'idle') return '';
-
-    const parts: string[] = [];
-
-    if (state.stage && state.stage !== 'idle') {
-        parts.push(`Current flow stage: ${state.stage}`);
-    }
-
-    if (state.appointment) {
-        const a = state.appointment;
-        if (a.serviceName) parts.push(`Service selected: ${a.serviceName} ($${a.servicePrice || '?'})`);
-        if (a.date) parts.push(`Date: ${a.date}`);
-        if (a.startTime) parts.push(`Time: ${a.startTime}`);
-    }
-
-    if (state.order) {
-        const o = state.order;
-        if (o.productName) parts.push(`Product selected: ${o.productName} ($${o.unitPrice || '?'})`);
-        if (o.variantLabel) parts.push(`Variant: ${o.variantLabel}`);
-        if (o.quantity && o.quantity > 1) parts.push(`Quantity: ${o.quantity}`);
-    }
-
-    if (state.customer) {
-        const c = state.customer;
-        if (c.name) parts.push(`Customer name: ${c.name}`);
-        if (c.phone) parts.push(`Customer phone: ${c.phone}`);
-        if (c.address) parts.push(`Delivery address: ${c.address}`);
-    }
-
-    return parts.length > 0 ? parts.join('\n') : '';
-}
-
-// ── Main Agent Function ──────────────────────────────────────
-
-export async function runAgent(
-    input: AutomationInput,
-    config: WorkspaceConfig
-): Promise<AutomationResult> {
-    const startTime = Date.now();
-    const language = detectLanguage(input.message);
-    const timeCtx = buildTimeContext(config.timezone);
-
-    // 1. Load conversation state and history
-    const state = await getConversationStateV2(
-        input.supabase, input.userId, input.workspaceId,
-        input.chatId, config.businessType as 'appointments' | 'ecommerce', input.platform
-    );
-    const history = await loadConversationHistory(
-        input.supabase, input.userId, input.workspaceId, input.chatId
-    );
-
-    const stateDescription = describeState(state, config.businessType);
-
-    // 2. Build system prompt
-    const systemPrompt = buildSystemPrompt(config, stateDescription, timeCtx);
-
-    // 3. Build message array (history + current message)
-    const messages: { role: 'user' | 'assistant'; content: string }[] = [
-        ...history,
-        { role: 'user' as const, content: input.message },
-    ];
-
-    // 4. Build tools based on business type
-    const toolCtx: ToolContext = {
+function buildToolContext(input: AutomationInput, config: WorkspaceConfig): ToolContext {
+    return {
         supabase: input.supabase,
         userId: input.userId,
         workspaceId: input.workspaceId,
@@ -253,201 +55,531 @@ export async function runAgent(
         config,
         platform: input.platform,
     };
-
-    const tools = config.businessType === 'appointments'
-        ? createAppointmentTools(toolCtx)
-        : createEcommerceTools(toolCtx);
-
-    // 5. Run the agent
-    const groq = getGroqClient();
-    if (!groq) {
-        v2log.error('V3_AGENT', 'No GROQ_API_KEY configured');
-        return makeErrorResult(input, startTime, 'No API key');
-    }
-
-    try {
-        const result = await generateText({
-            model: groq(AGENT_MODEL),
-            system: systemPrompt,
-            messages,
-            tools: tools as any,
-            stopWhen: stepCountIs(8),
-            temperature: 0.3,
-        });
-
-        let replyText = result.text?.trim() || '';
-
-        // 6. Handle handoff signal
-        if (replyText.includes('[HANDOFF]')) {
-            return {
-                shouldReply: false,
-                actions: ['handoff'],
-                stateBefore: state.stage,
-                stateAfter: 'handoff',
-                debug: makeDebug(input, language, Date.now() - startTime, 'handoff'),
-            };
-        }
-
-        // 7. Parse tool calls to extract actions and state updates
-        const actions: string[] = [];
-        let dbWriteAttempted = false;
-        let dbWriteSuccess = false;
-        let lastToolResult: any = null;
-
-        for (const step of result.steps || []) {
-            for (const tr of step.toolResults || []) {
-                const toolName = (tr as any).toolName as string;
-                const resultData = (tr as any).result ?? (tr as any).output;
-
-                // Log tool results for debugging
-                v2log.info('V3_AGENT', `Tool result: ${toolName}`, {
-                    result: JSON.stringify(resultData)?.slice(0, 200),
-                });
-                lastToolResult = { toolName, data: resultData };
-
-                if (toolName === 'book_appointment' || toolName === 'place_order') {
-                    dbWriteAttempted = true;
-                    if (resultData?.success) {
-                        dbWriteSuccess = true;
-                        actions.push(toolName === 'book_appointment' ? 'appointment_created' : 'order_created');
-                        await clearConversationStateV2(
-                            input.supabase, input.userId, input.workspaceId,
-                            input.chatId, config.businessType as 'appointments' | 'ecommerce', input.platform
-                        );
-                    } else {
-                        actions.push(toolName === 'book_appointment' ? 'appointment_failed' : 'order_failed');
-                    }
-                } else if (toolName === 'cancel_appointment' || toolName === 'cancel_order') {
-                    if (resultData?.success) {
-                        actions.push(toolName === 'cancel_appointment' ? 'appointment_cancelled' : 'order_cancelled');
-                        await clearConversationStateV2(
-                            input.supabase, input.userId, input.workspaceId,
-                            input.chatId, config.businessType as 'appointments' | 'ecommerce', input.platform
-                        );
-                    }
-                } else if (toolName === 'check_slot' || toolName === 'search_products') {
-                    actions.push('tool_' + toolName);
-                } else if (toolName === 'lookup_customer') {
-                    if (resultData?.found) actions.push('memory_used');
-                }
-            }
-        }
-
-        // 8. If no reply text but tools were called, try to generate a fallback from tool data
-        if (!replyText) {
-            v2log.warn('V3_AGENT', 'No reply text generated after tool calls', {
-                steps: result.steps?.length,
-                lastToolResult: JSON.stringify(lastToolResult)?.slice(0, 200),
-                finishReason: result.finishReason,
-            });
-            
-            // Smart fallback based on last tool called
-            if (lastToolResult?.toolName === 'search_products') {
-                if (lastToolResult.data?.products?.length > 0) {
-                    const p = lastToolResult.data.products[0];
-                    replyText = p.inStock
-                        ? `${p.name} — $${p.price}, in stock.`
-                        : `${p.name} — out of stock.`;
-                } else {
-                    replyText = "Out of stock.";
-                }
-            } else {
-                // If it wasn't a product search, check if it was a greeting
-                const msgLower = input.message.toLowerCase().trim();
-                const isGreeting = /^(hey|hi|hello|yo|sup|salam|marhaba|hala|ahla|kifak|kifik|bonjour|hola|good\s*(morning|evening|afternoon))\b/i.test(msgLower)
-                    || msgLower.length <= 5;
-                replyText = isGreeting
-                    ? "Hey! How can I help?"
-                    : "Not available at the moment.";
-            }
-        }
-
-        // 9. Translation layer (for non-English users)
-        const targetLang = config.language === 'Auto-Detect' ? language : config.language;
-        if (targetLang.toLowerCase() !== 'english' && targetLang !== 'Auto-Detect') {
-            replyText = await translateReply({
-                reply: replyText,
-                targetLanguage: targetLang,
-                tone: config.tone,
-            });
-        }
-
-        // 10. Slang injection (if enabled and tone supports it)
-        if (config.useLocalSlang && config.tone?.toLowerCase() !== 'professional') {
-            const isConfirmed = actions.includes('appointment_created') || actions.includes('order_created');
-            if (targetLang.toLowerCase() === 'english') {
-                if (isConfirmed) replyText += config.useEmojis ? ' Tekram! 🙏' : ' Tekram!';
-            } else if (targetLang.toLowerCase() === 'arabizi') {
-                if (isConfirmed && !replyText.includes('Tekram')) replyText += config.useEmojis ? ' Tekram! 🙏' : ' Tekram!';
-            }
-        }
-
-        // 11. Emoji strip (safety net — if useEmojis is OFF, remove any LLM-added emojis)
-        if (!config.useEmojis) {
-            replyText = replyText.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{200D}\u{20E3}]/gu, '').replace(/\s{2,}/g, ' ').trim();
-        }
-
-        v2log.info('V3_AGENT', `Agent completed in ${Date.now() - startTime}ms`, {
-            steps: result.steps?.length || 0,
-            toolCalls: result.steps?.reduce((sum, s) => sum + (s.toolCalls?.length || 0), 0) || 0,
-            actions,
-            replyPreview: replyText.slice(0, 60),
-        });
-
-        return {
-            shouldReply: true,
-            replyText,
-            actions,
-            stateBefore: state.stage,
-            stateAfter: dbWriteSuccess ? 'idle' : state.stage,
-            debug: {
-                requestId: '',
-                engineVersion: 'v2',
-                workspaceId: input.workspaceId,
-                workspaceType: config.businessType as 'appointments' | 'ecommerce',
-                chatId: input.chatId,
-                language,
-                intent: actions[0] || 'conversation',
-                dbWriteAttempted,
-                dbWriteSuccess,
-                durationMs: Date.now() - startTime,
-            },
-        };
-
-    } catch (err: any) {
-        v2log.error('V3_AGENT', 'Agent LLM call failed', {
-            error: err?.message || String(err),
-            model: AGENT_MODEL,
-        });
-        return makeErrorResult(input, startTime, err?.message || 'Agent call failed');
-    }
 }
 
-// ── Helpers ──────────────────────────────────────────────────
+function buildBasePrompt(config: WorkspaceConfig, timeCtx: any): string {
+    const toneMap: Record<string, string> = {
+        'Casual': 'casual and friendly, like texting a friend',
+        'Professional': 'polished and courteous, like a concierge',
+        'Luxury': 'elegant and refined, like a boutique consultant',
+        'Sarcastic': 'witty with dry humor, but still helpful',
+    };
+    const tone = toneMap[config.tone] || toneMap['Professional'];
+    const emojiRule = config.useEmojis ? 'Max 1 emoji if natural.' : 'NO emojis.';
 
-function makeErrorResult(input: AutomationInput, startTime: number, error: string): AutomationResult {
+    return `You are the human manager of ${config.businessName}. Tone: ${tone}. ${emojiRule}
+Reply in 1-8 words max. English only. Never say you are an AI.
+Current: ${timeCtx.dayName}, ${timeCtx.isoDate} ${timeCtx.isoTime}.
+${config.systemInstructions || ''}`;
+}
+
+function buildResult(
+    input: AutomationInput,
+    config: WorkspaceConfig,
+    replyText: string,
+    language: DetectedLanguage,
+    intent: string,
+    actions: string[],
+    startTime: number,
+    opts: { dbWriteAttempted?: boolean; dbWriteSuccess?: boolean; shouldReply?: boolean; stateAfter?: string } = {}
+): AutomationResult {
     return {
-        shouldReply: true,
-        replyText: "Not available at the moment.",
-        actions: ['agent_error'],
+        shouldReply: opts.shouldReply ?? true,
+        replyText: opts.shouldReply === false ? undefined : replyText,
+        actions,
         stateBefore: 'idle',
-        stateAfter: 'idle',
-        debug: makeDebug(input, 'unknown', Date.now() - startTime, 'error'),
-        error,
+        stateAfter: (opts.stateAfter || 'idle') as any,
+        debug: {
+            requestId: '',
+            engineVersion: 'v2',
+            workspaceId: input.workspaceId,
+            workspaceType: config.businessType as 'appointments' | 'ecommerce',
+            chatId: input.chatId,
+            language,
+            intent,
+            dbWriteAttempted: opts.dbWriteAttempted ?? false,
+            dbWriteSuccess: opts.dbWriteSuccess ?? false,
+            durationMs: Date.now() - startTime,
+        },
     };
 }
 
-function makeDebug(input: AutomationInput, language: string, durationMs: number, intent: string) {
-    return {
-        requestId: '',
-        engineVersion: 'v2' as const,
-        workspaceId: input.workspaceId,
-        workspaceType: input.workspaceType,
-        chatId: input.chatId,
-        language: language as any,
-        intent,
-        dbWriteAttempted: false,
-        dbWriteSuccess: false,
-        durationMs,
-    };
+// ── Post-Processing Pipeline ─────────────────────────────────
+
+async function postProcess(
+    reply: string,
+    language: DetectedLanguage,
+    config: WorkspaceConfig,
+    actions: string[]
+): Promise<string> {
+    let text = reply;
+
+    // 1. Translation
+    const targetLang = config.language === 'Auto-Detect' ? language : config.language;
+    if (targetLang.toLowerCase() !== 'english' && targetLang !== 'Auto-Detect') {
+        text = await translateReply({ reply: text, targetLanguage: targetLang, tone: config.tone });
+    }
+
+    // 2. Slang injection
+    if (config.useLocalSlang && config.tone?.toLowerCase() !== 'professional') {
+        const isConfirmed = actions.includes('order_created') || actions.includes('appointment_created');
+        if (isConfirmed) {
+            text += config.useEmojis ? ' Tekram! 🙏' : ' Tekram!';
+        }
+    }
+
+    // 3. Emoji strip safety net
+    if (!config.useEmojis) {
+        text = text.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{200D}\u{20E3}]/gu, '').replace(/\s{2,}/g, ' ').trim();
+    }
+
+    return text;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// WORKER: GREETING (Zero tokens)
+// ═══════════════════════════════════════════════════════════════
+
+export async function handleGreeting(
+    input: AutomationInput,
+    config: WorkspaceConfig,
+    language: DetectedLanguage
+): Promise<AutomationResult> {
+    const startTime = Date.now();
+    v2log.info('V4_WORKER', 'Greeting → pure code reply');
+
+    const greetings: Record<string, string[]> = {
+        'Casual': ["Hey! What can I get you?", "Hi! Looking for something?", "Hey! How can I help?"],
+        'Professional': ["Hello! How may I assist you?", "Welcome! How can I help?", "Good to hear from you! How may I help?"],
+        'Luxury': ["Welcome! How may I be of service?", "A pleasure to hear from you. How may I assist?"],
+        'Sarcastic': ["Hey! Ready to spend some money?", "Oh hi! What are we looking for today?"],
+    };
+    const options = greetings[config.tone] || greetings['Professional'];
+    let reply = options[Math.floor(Math.random() * options.length)];
+    reply = await postProcess(reply, language, config, []);
+
+    return buildResult(input, config, reply, language, 'greeting', ['greeting'], startTime);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WORKER: COMPLAINT / HANDOFF (Zero tokens)
+// ═══════════════════════════════════════════════════════════════
+
+export async function handleComplaint(
+    input: AutomationInput,
+    config: WorkspaceConfig,
+    language: DetectedLanguage
+): Promise<AutomationResult> {
+    const startTime = Date.now();
+    v2log.info('V4_WORKER', 'Complaint/Handoff → [HANDOFF]');
+
+    return buildResult(input, config, '', language, 'complaint', ['handoff'], startTime, {
+        shouldReply: false,
+        stateAfter: 'handoff',
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WORKER: HOURS INQUIRY (Zero tokens — pure DB)
+// ═══════════════════════════════════════════════════════════════
+
+export async function handleHoursInquiry(
+    input: AutomationInput,
+    config: WorkspaceConfig,
+    language: DetectedLanguage
+): Promise<AutomationResult> {
+    const startTime = Date.now();
+    v2log.info('V4_WORKER', 'Hours inquiry → pure DB lookup');
+
+    const { loadBusinessHours } = await import('./appointments/hours');
+    const { formatTime12 } = await import('./time');
+    const hours = await loadBusinessHours(input.supabase, input.workspaceId);
+
+    if (hours.length === 0) {
+        const reply = await postProcess("Working hours not set up yet.", language, config, []);
+        return buildResult(input, config, reply, language, 'hours_inquiry', ['hours_checked'], startTime);
+    }
+
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const lines = hours
+        .filter(h => h.isOpen)
+        .map(h => `${dayNames[h.dayOfWeek]}: ${formatTime12(h.openTime)}-${formatTime12(h.closeTime)}`);
+
+    let reply = lines.length > 0 ? lines.join(', ') : 'Currently closed.';
+    reply = await postProcess(reply, language, config, []);
+
+    return buildResult(input, config, reply, language, 'hours_inquiry', ['hours_checked'], startTime);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WORKER: CANCEL REQUEST (Minimal DB call)
+// ═══════════════════════════════════════════════════════════════
+
+export async function handleCancelRequest(
+    input: AutomationInput,
+    config: WorkspaceConfig,
+    language: DetectedLanguage
+): Promise<AutomationResult> {
+    const startTime = Date.now();
+    v2log.info('V4_WORKER', 'Cancel request → DB lookup');
+
+    let reply: string;
+    let actions: string[] = [];
+
+    if (config.businessType === 'ecommerce') {
+        const { data: recent } = await input.supabase.from('orders')
+            .select('id, item_requested')
+            .eq('workspace_id', input.workspaceId)
+            .eq('instagram_user_id', input.chatId)
+            .eq('status', 'Pending')
+            .order('created_at', { ascending: false })
+            .limit(1).maybeSingle();
+
+        if (!recent) {
+            reply = "No pending order to cancel.";
+        } else {
+            await input.supabase.from('orders').update({ status: 'Cancelled' }).eq('id', recent.id);
+            reply = `Order cancelled: ${recent.item_requested}`;
+            actions = ['order_cancelled'];
+            await clearConversationStateV2(input.supabase, input.userId, input.workspaceId, input.chatId, 'ecommerce', input.platform);
+        }
+    } else {
+        const { formatTime12 } = await import('./time');
+        const { data: upcoming } = await input.supabase.from('appointments')
+            .select('id, service, appointment_date, start_time')
+            .eq('workspace_id', input.workspaceId)
+            .eq('instagram_user_id', input.chatId)
+            .eq('status', 'Confirmed')
+            .order('appointment_date', { ascending: true })
+            .limit(1).maybeSingle();
+
+        if (!upcoming) {
+            reply = "No upcoming appointment to cancel.";
+        } else {
+            await input.supabase.from('appointments').update({ status: 'Cancelled' }).eq('id', upcoming.id);
+            reply = `Cancelled: ${upcoming.service} on ${upcoming.appointment_date}`;
+            actions = ['appointment_cancelled'];
+            await clearConversationStateV2(input.supabase, input.userId, input.workspaceId, input.chatId, 'appointments', input.platform);
+        }
+    }
+
+    reply = await postProcess(reply, language, config, actions);
+    return buildResult(input, config, reply, language, 'cancel_request', actions, startTime);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WORKER: PRODUCT INQUIRY (search_products ONLY)
+// ═══════════════════════════════════════════════════════════════
+
+export async function handleProductInquiry(
+    input: AutomationInput,
+    config: WorkspaceConfig,
+    language: DetectedLanguage
+): Promise<AutomationResult> {
+    const startTime = Date.now();
+    v2log.info('V4_WORKER', 'Product inquiry → search_products agent');
+
+    const groq = getGroqClient();
+    if (!groq) return makeErrorResult(input, config, startTime, language, 'No API key');
+
+    const timeCtx = buildTimeContext(config.timezone);
+    const toolCtx = buildToolContext(input, config);
+    const allTools = createEcommerceTools(toolCtx);
+    const history = await loadConversationHistory(input.supabase, input.userId, input.workspaceId, input.chatId);
+
+    // ONLY give it search_products — nothing else
+    const tools = { search_products: allTools.search_products };
+
+    // Discount rules (injected only for product inquiries)
+    let discountLine = '';
+    if (config.maxDiscount && config.maxDiscount > 0) {
+        discountLine = `If they ask for discount: max ${config.maxDiscount}% off. Never offer unless asked.`;
+    } else {
+        discountLine = `No discounts. If asked, say "prices are fixed".`;
+    }
+
+    const result = await generateText({
+        model: groq(AGENT_MODEL),
+        system: `${buildBasePrompt(config, timeCtx)}
+You answer product questions. Call search_products to check price and stock.
+After the tool returns, reply with ONLY the price/availability. 1-8 words max.
+If the product is not found, say "We don't have that." — nothing more.
+${discountLine}
+${config.storeLocation ? `Location: ${config.storeLocation}` : ''}
+${config.shippingRules ? `Shipping: ${config.shippingRules}` : ''}`,
+        messages: [...history, { role: 'user' as const, content: input.message }],
+        tools: tools as any,
+        stopWhen: stepCountIs(3),
+        temperature: 0.2,
+    });
+
+    let replyText = result.text?.trim() || '';
+
+    // Fallback if LLM didn't generate text
+    if (!replyText) {
+        const toolResult = result.steps?.[0]?.toolResults?.[0] as any;
+        const data = toolResult?.result ?? toolResult?.output;
+        if (data?.products?.length > 0) {
+            const p = data.products[0];
+            replyText = p.inStock ? `${p.name} — $${p.price}` : `${p.name} — out of stock.`;
+        } else {
+            replyText = "We don't carry that.";
+        }
+    }
+
+    replyText = await postProcess(replyText, language, config, ['tool_search_products']);
+    return buildResult(input, config, replyText, language, 'product_inquiry', ['tool_search_products'], startTime);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WORKER: ORDER INTENT (search + place_order + lookup)
+// ═══════════════════════════════════════════════════════════════
+
+export async function handleOrderIntent(
+    input: AutomationInput,
+    config: WorkspaceConfig,
+    language: DetectedLanguage
+): Promise<AutomationResult> {
+    const startTime = Date.now();
+    v2log.info('V4_WORKER', 'Order intent → checkout agent');
+
+    const groq = getGroqClient();
+    if (!groq) return makeErrorResult(input, config, startTime, language, 'No API key');
+
+    const timeCtx = buildTimeContext(config.timezone);
+    const toolCtx = buildToolContext(input, config);
+    const allTools = createEcommerceTools(toolCtx);
+    const history = await loadConversationHistory(input.supabase, input.userId, input.workspaceId, input.chatId);
+
+    // Give it search + place_order + lookup — NO cancel, NO hours
+    const tools = {
+        search_products: allTools.search_products,
+        place_order: allTools.place_order,
+        lookup_customer: allTools.lookup_customer,
+    };
+
+    const result = await generateText({
+        model: groq(AGENT_MODEL),
+        system: `${buildBasePrompt(config, timeCtx)}
+The customer wants to buy something. Your job:
+1. If you don't know what product, call search_products first.
+2. If product found and in stock, ask for: name, phone, delivery address — in ONE message.
+3. If they already provided details, call place_order immediately.
+4. Call lookup_customer first to check if they're a returning customer (skip asking for saved info).
+5. After place_order returns success, say "Order confirmed." and stop.
+6. If place_order fails, say "Order couldn't be placed, try again."
+7. NEVER confirm an order without calling place_order first.`,
+        messages: [...history, { role: 'user' as const, content: input.message }],
+        tools: tools as any,
+        stopWhen: stepCountIs(6),
+        temperature: 0.2,
+    });
+
+    let replyText = result.text?.trim() || '';
+    const actions: string[] = [];
+    let dbWriteAttempted = false;
+    let dbWriteSuccess = false;
+
+    // Parse tool results
+    for (const step of result.steps || []) {
+        for (const tr of step.toolResults || []) {
+            const toolName = (tr as any).toolName as string;
+            const data = (tr as any).result ?? (tr as any).output;
+            v2log.info('V4_WORKER', `Tool: ${toolName}`, { result: JSON.stringify(data)?.slice(0, 200) });
+
+            if (toolName === 'place_order') {
+                dbWriteAttempted = true;
+                if (data?.success) {
+                    dbWriteSuccess = true;
+                    actions.push('order_created');
+                    await clearConversationStateV2(input.supabase, input.userId, input.workspaceId, input.chatId, 'ecommerce', input.platform);
+                }
+            }
+        }
+    }
+
+    if (!replyText) {
+        replyText = dbWriteSuccess
+            ? "Order confirmed!"
+            : "Send your name, phone, and delivery address.";
+    }
+
+    replyText = await postProcess(replyText, language, config, actions);
+    return buildResult(input, config, replyText, language, 'order_intent', actions, startTime, { dbWriteAttempted, dbWriteSuccess });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WORKER: SERVICE INQUIRY (get_services ONLY)
+// ═══════════════════════════════════════════════════════════════
+
+export async function handleServiceInquiry(
+    input: AutomationInput,
+    config: WorkspaceConfig,
+    language: DetectedLanguage
+): Promise<AutomationResult> {
+    const startTime = Date.now();
+    v2log.info('V4_WORKER', 'Service inquiry → get_services agent');
+
+    const groq = getGroqClient();
+    if (!groq) return makeErrorResult(input, config, startTime, language, 'No API key');
+
+    const timeCtx = buildTimeContext(config.timezone);
+    const toolCtx = buildToolContext(input, config);
+    const allTools = createAppointmentTools(toolCtx);
+    const history = await loadConversationHistory(input.supabase, input.userId, input.workspaceId, input.chatId);
+
+    // ONLY get_services
+    const tools = { get_services: allTools.get_services };
+
+    const result = await generateText({
+        model: groq(AGENT_MODEL),
+        system: `${buildBasePrompt(config, timeCtx)}
+You answer questions about available services. Call get_services to check.
+List services with prices briefly. Keep reply short.
+If they ask about a specific service, show its price and duration.`,
+        messages: [...history, { role: 'user' as const, content: input.message }],
+        tools: tools as any,
+        stopWhen: stepCountIs(3),
+        temperature: 0.2,
+    });
+
+    let replyText = result.text?.trim() || "Check our services page for details.";
+    replyText = await postProcess(replyText, language, config, ['tool_get_services']);
+    return buildResult(input, config, replyText, language, 'service_inquiry', ['tool_get_services'], startTime);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WORKER: BOOKING INTENT (full appointment tools)
+// ═══════════════════════════════════════════════════════════════
+
+export async function handleBookingIntent(
+    input: AutomationInput,
+    config: WorkspaceConfig,
+    language: DetectedLanguage
+): Promise<AutomationResult> {
+    const startTime = Date.now();
+    v2log.info('V4_WORKER', 'Booking intent → appointment agent');
+
+    const groq = getGroqClient();
+    if (!groq) return makeErrorResult(input, config, startTime, language, 'No API key');
+
+    const timeCtx = buildTimeContext(config.timezone);
+    const toolCtx = buildToolContext(input, config);
+    const allTools = createAppointmentTools(toolCtx);
+    const history = await loadConversationHistory(input.supabase, input.userId, input.workspaceId, input.chatId);
+
+    // Full booking toolset — but NO cancel (handled separately)
+    const tools = {
+        get_services: allTools.get_services,
+        get_business_hours: allTools.get_business_hours,
+        check_slot: allTools.check_slot,
+        resolve_date_time: allTools.resolve_date_time,
+        book_appointment: allTools.book_appointment,
+        lookup_customer: allTools.lookup_customer,
+    };
+
+    const result = await generateText({
+        model: groq(AGENT_MODEL),
+        system: `${buildBasePrompt(config, timeCtx)}
+The customer wants to book an appointment. Your job:
+1. Figure out: which service, what date/time.
+2. Use resolve_date_time for natural language dates ("tomorrow 3pm").
+3. Call check_slot BEFORE confirming.
+4. Use lookup_customer — if returning, skip asking saved info.
+5. Collect full name + phone in ONE message.
+6. Call book_appointment ONLY after customer confirms.
+7. NEVER say "booked" unless book_appointment returned success.`,
+        messages: [...history, { role: 'user' as const, content: input.message }],
+        tools: tools as any,
+        stopWhen: stepCountIs(6),
+        temperature: 0.2,
+    });
+
+    let replyText = result.text?.trim() || '';
+    const actions: string[] = [];
+    let dbWriteAttempted = false;
+    let dbWriteSuccess = false;
+
+    for (const step of result.steps || []) {
+        for (const tr of step.toolResults || []) {
+            const toolName = (tr as any).toolName as string;
+            const data = (tr as any).result ?? (tr as any).output;
+            v2log.info('V4_WORKER', `Tool: ${toolName}`, { result: JSON.stringify(data)?.slice(0, 200) });
+
+            if (toolName === 'book_appointment') {
+                dbWriteAttempted = true;
+                if (data?.success) {
+                    dbWriteSuccess = true;
+                    actions.push('appointment_created');
+                    await clearConversationStateV2(input.supabase, input.userId, input.workspaceId, input.chatId, 'appointments', input.platform);
+                }
+            }
+        }
+    }
+
+    if (!replyText) {
+        replyText = dbWriteSuccess
+            ? "Booking confirmed!"
+            : "What service and when would you like?";
+    }
+
+    replyText = await postProcess(replyText, language, config, actions);
+    return buildResult(input, config, replyText, language, 'booking_intent', actions, startTime, { dbWriteAttempted, dbWriteSuccess });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WORKER: GENERAL CHAT (No tools, just conversation)
+// ═══════════════════════════════════════════════════════════════
+
+export async function handleGeneralChat(
+    input: AutomationInput,
+    config: WorkspaceConfig,
+    language: DetectedLanguage
+): Promise<AutomationResult> {
+    const startTime = Date.now();
+    v2log.info('V4_WORKER', 'General chat → no-tool agent');
+
+    const groq = getGroqClient();
+    if (!groq) return makeErrorResult(input, config, startTime, language, 'No API key');
+
+    const timeCtx = buildTimeContext(config.timezone);
+    const history = await loadConversationHistory(input.supabase, input.userId, input.workspaceId, input.chatId);
+
+    const result = await generateText({
+        model: groq(AGENT_MODEL),
+        system: `${buildBasePrompt(config, timeCtx)}
+You are having a casual DM conversation. Be helpful, short, and friendly.
+If they seem like they want to ${config.businessType === 'ecommerce' ? 'buy something' : 'book an appointment'},
+ask what they're looking for. Keep replies to 1-8 words.
+${config.storeLocation ? `Location: ${config.storeLocation}` : ''}
+${config.contactInfo ? `Contact: ${config.contactInfo}` : ''}`,
+        messages: [...history, { role: 'user' as const, content: input.message }],
+        temperature: 0.4,
+        // NO tools — pure conversation
+    });
+
+    let replyText = result.text?.trim() || "How can I help?";
+    replyText = await postProcess(replyText, language, config, []);
+    return buildResult(input, config, replyText, language, 'general_chat', ['conversation'], startTime);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ERROR HELPER
+// ═══════════════════════════════════════════════════════════════
+
+function makeErrorResult(
+    input: AutomationInput,
+    config: WorkspaceConfig,
+    startTime: number,
+    language: DetectedLanguage,
+    error: string
+): AutomationResult {
+    v2log.error('V4_WORKER', 'Worker error', { error });
+    return buildResult(input, config, "Not available at the moment.", language, 'error', ['agent_error'], startTime);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LEGACY EXPORT (keeps index.ts / router.ts import working)
+// ═══════════════════════════════════════════════════════════════
+
+export { handleGeneralChat as runAgent };
