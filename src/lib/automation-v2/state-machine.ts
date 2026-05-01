@@ -62,8 +62,12 @@ export async function runBookingStateMachine(
             schema: BookingExtractionSchema,
             systemPrompt: `Extract booking info from this customer message.
 Our known services are: ${serviceList || 'none configured'}.
-If they mention a service (even with typos or variations), extract it exactly as they wrote it into "service_name".
-If they don't mention any service, leave it null.
+Rules:
+1. If they mention a service (even with typos), extract it into "service_name".
+2. If they mention a date, day, or time (e.g. "Monday at 11am", "tomorrow"), extract it exactly into "date_text".
+3. If they provide a name or phone number, extract those into "customer_name" and "customer_phone".
+4. If they say "yes" to confirm a booking, set "wants_to_confirm" to true.
+If a piece of information is missing, leave its field as null.
 Known customer: ${known ? `name=${known.name}, phone=${known.phone}` : 'new customer'}.`,
             userPrompt: `Customer said: "${input.message}"`,
             temperature: 0.1,
@@ -232,8 +236,11 @@ export async function runOrderStateMachine(
             schema: OrderExtractionSchema,
             systemPrompt: `Extract order info from this customer message.
 Our known products are: ${catalog || 'none'}.
-If they mention a product (even with typos or variations), extract it exactly as they wrote it into "product_name".
-If they don't mention any product, leave it null.
+Rules:
+1. If they mention a product (even with typos), extract it into "product_name".
+2. If they provide a name, phone number, or delivery address, extract those into "customer_name", "customer_phone", and "customer_address".
+3. If they say "yes" to confirm an order, set "wants_to_confirm" to true.
+If a piece of information is missing, leave its field as null.
 Known customer: ${known ? `name=${known.name}, phone=${known.phone}, address=${known.address}` : 'new'}.`,
             userPrompt: `Customer said: "${input.message}"`,
             temperature: 0.1,
