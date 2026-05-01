@@ -35,12 +35,12 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Failed to create transaction' }, { status: 500 });
         }
 
-        const isProd = process.env.NODE_ENV === 'production';
-        const baseUrl = isProd 
-            ? 'https://api.whish.money/itel-service/api'
-            : 'https://api.sandbox.whish.money/itel-service/api';
+        // Always use sandbox until production credentials are provided by Whish
+        const baseUrl = 'https://api.sandbox.whish.money/itel-service/api';
 
         const whishExternalId = Math.floor(Math.random() * 1000000000);
+
+        console.log('[Whish] Calling POST /payment/whish with externalId:', whishExternalId, 'amount:', amount);
 
         const whishResponse = await fetch(`${baseUrl}/payment/whish`, {
             method: 'POST',
@@ -64,10 +64,11 @@ export async function POST(req: Request) {
         });
 
         const whishJson = await whishResponse.json();
+        console.log('[Whish] Response status:', whishResponse.status, 'body:', JSON.stringify(whishJson));
 
         if (whishJson.status !== true || !whishJson.data || !whishJson.data.collectUrl) {
-            console.error('Whish API Error:', whishJson);
-            return NextResponse.json({ error: 'Failed to generate payment link from Whish' }, { status: 500 });
+            console.error('[Whish] API Error — full response:', JSON.stringify(whishJson, null, 2));
+            return NextResponse.json({ error: 'Failed to generate payment link from Whish', details: whishJson }, { status: 500 });
         }
 
         const checkoutUrl = whishJson.data.collectUrl;
