@@ -31,11 +31,11 @@ const AGENT_MODEL = 'llama-3.3-70b-versatile';
 // ═══════════════════════════════════════════════════════════════
 
 const BookingExtractionSchema = z.object({
-    service_name: z.string().nullable().describe('Exact service name the customer wants, or null if not mentioned'),
-    date_text: z.string().nullable().describe('Date/time text like "tomorrow 3pm", "monday 11am", or null'),
-    customer_name: z.string().nullable().describe('Customer full name, or null if not provided'),
-    customer_phone: z.string().nullable().describe('Customer phone number, or null if not provided'),
-    wants_to_confirm: z.boolean().describe('True if customer said yes/confirm/book it/go ahead'),
+    service_name: z.string().optional().nullable().default(null),
+    date_text: z.string().optional().nullable().default(null),
+    customer_name: z.string().optional().nullable().default(null),
+    customer_phone: z.string().optional().nullable().default(null),
+    wants_to_confirm: z.boolean().optional().default(false),
 });
 
 export async function runBookingStateMachine(
@@ -118,29 +118,29 @@ Known customer: ${known ? `name=${known.name}, phone=${known.phone}` : 'new cust
         // Service not found
         if (extracted.service_name) {
             reply = services.length > 0
-                ? `We don't offer that. We have: ${serviceList}.`
-                : "No services set up yet.";
+                ? `Hmm we don't have that one! Here's what we offer: ${serviceList}`
+                : "We don't have any services set up yet, sorry!";
         } else {
             reply = services.length > 0
-                ? `What service? We have: ${serviceList}.`
-                : "No services available right now.";
+                ? `Sure! Which one would you like? We have: ${serviceList}`
+                : "No services available at the moment.";
         }
         await updateConversationStateV2(input.supabase, input.userId, input.workspaceId, input.chatId, 'appointments', input.platform,
             { stage: 'awaiting_service', appointment: appt, customer: cust });
 
     } else if (!appt.date || !appt.startTime) {
-        reply = `${appt.serviceName} is $${appt.servicePrice}. When would you like to come?`;
+        reply = `${appt.serviceName} — $${appt.servicePrice}! When works for you?`;
         await updateConversationStateV2(input.supabase, input.userId, input.workspaceId, input.chatId, 'appointments', input.platform,
             { stage: 'awaiting_date_time', appointment: appt, customer: cust });
 
     } else if (!cust.name || !cust.phone) {
-        reply = `${appt.serviceName} on ${appt.date} at ${formatTime12(appt.startTime!)}. Can I get your name and phone?`;
+        reply = `Perfect, ${appt.serviceName} on ${appt.date} at ${formatTime12(appt.startTime!)}. Just need your name and phone number!`;
         await updateConversationStateV2(input.supabase, input.userId, input.workspaceId, input.chatId, 'appointments', input.platform,
             { stage: 'awaiting_customer_details', appointment: appt, customer: cust });
 
     } else if (!extracted.wants_to_confirm && state.stage !== 'awaiting_booking_confirmation') {
         // All data collected, ask for confirmation
-        reply = `Book ${appt.serviceName} on ${appt.date} at ${formatTime12(appt.startTime!)} for ${cust.name}? (Yes/No)`;
+        reply = `Got it! ${appt.serviceName} on ${appt.date} at ${formatTime12(appt.startTime!)} for ${cust.name}. Should I confirm this?`;
         await updateConversationStateV2(input.supabase, input.userId, input.workspaceId, input.chatId, 'appointments', input.platform,
             { stage: 'awaiting_booking_confirmation', appointment: appt, customer: cust });
 
@@ -156,9 +156,9 @@ Known customer: ${known ? `name=${known.name}, phone=${known.phone}` : 'new cust
         });
 
         if (!slotCheck.available) {
-            reply = slotCheck.reason === 'closed' ? "We're closed that day. Pick another?"
-                : slotCheck.reason === 'outside_hours' ? "That's outside our hours. Try a different time?"
-                : "That slot is taken. Try another time?";
+            reply = slotCheck.reason === 'closed' ? "We're closed that day unfortunately. Any other day work?"
+                : slotCheck.reason === 'outside_hours' ? "That time is outside our hours. Can you try a different one?"
+                : "That slot is already taken. Would another time work?";
             // Keep state but reset to date selection
             await updateConversationStateV2(input.supabase, input.userId, input.workspaceId, input.chatId, 'appointments', input.platform,
                 { stage: 'awaiting_date_time', appointment: { ...appt, date: undefined, startTime: undefined }, customer: cust });
@@ -183,11 +183,11 @@ Known customer: ${known ? `name=${known.name}, phone=${known.phone}` : 'new cust
 
             if (success) {
                 dbWriteSuccess = true;
-                reply = `Booked! ${appt.serviceName} on ${appt.date} at ${formatTime12(appt.startTime!)}. See you then!`;
+                reply = `You're all set! ${appt.serviceName} on ${appt.date} at ${formatTime12(appt.startTime!)} ✅ See you then!`;
                 actions = ['appointment_created'];
                 await clearConversationStateV2(input.supabase, input.userId, input.workspaceId, input.chatId, 'appointments', input.platform);
             } else {
-                reply = "Booking failed. Please try again.";
+                reply = "Something went wrong with the booking. Can you try again?";
             }
         }
     }
@@ -200,11 +200,11 @@ Known customer: ${known ? `name=${known.name}, phone=${known.phone}` : 'new cust
 // ═══════════════════════════════════════════════════════════════
 
 const OrderExtractionSchema = z.object({
-    product_name: z.string().nullable().describe('Product name the customer wants, or null'),
-    customer_name: z.string().nullable().describe('Customer full name, or null'),
-    customer_phone: z.string().nullable().describe('Customer phone number, or null'),
-    customer_address: z.string().nullable().describe('Delivery address, or null'),
-    wants_to_confirm: z.boolean().describe('True if customer said yes/confirm/go ahead'),
+    product_name: z.string().optional().nullable().default(null),
+    customer_name: z.string().optional().nullable().default(null),
+    customer_phone: z.string().optional().nullable().default(null),
+    customer_address: z.string().optional().nullable().default(null),
+    wants_to_confirm: z.boolean().optional().default(false),
 });
 
 export async function runOrderStateMachine(
@@ -270,16 +270,16 @@ Known customer: ${known ? `name=${known.name}, phone=${known.phone}, address=${k
         if (extracted.product_name) {
             const match = findBestProductMatch(products, extracted.product_name);
             if (match && match.stockLevel <= 0) {
-                reply = `${match.itemName} is out of stock.`;
+                reply = `${match.itemName} is out of stock right now, sorry!`;
             } else {
                 reply = products.length > 0
-                    ? `We don't have that. We carry: ${catalog}.`
-                    : "No products available right now.";
+                    ? `We don't carry that one. Here's what we have: ${catalog}`
+                    : "We don't have any products listed at the moment.";
             }
         } else {
             reply = products.length > 0
-                ? `What would you like? We have: ${catalog}.`
-                : "No products available.";
+                ? `What are you looking for? Here's what we have: ${catalog}`
+                : "No products available at the moment.";
         }
         await updateConversationStateV2(input.supabase, input.userId, input.workspaceId, input.chatId, 'ecommerce', input.platform,
             { stage: 'awaiting_product', order, customer: cust });
@@ -289,12 +289,12 @@ Known customer: ${known ? `name=${known.name}, phone=${known.phone}, address=${k
         if (!cust.name) need.push('name');
         if (!cust.phone) need.push('phone');
         if (!cust.address) need.push('delivery address');
-        reply = `${order.productName} — $${order.unitPrice}. Send your ${need.join(', ')}.`;
+        reply = `Great choice! ${order.productName} — $${order.unitPrice}. Just need your ${need.join(' and ')} to proceed!`;
         await updateConversationStateV2(input.supabase, input.userId, input.workspaceId, input.chatId, 'ecommerce', input.platform,
             { stage: 'awaiting_order_details', order, customer: cust });
 
     } else if (!extracted.wants_to_confirm && state.stage !== 'awaiting_checkout_confirmation') {
-        reply = `Order: ${order.productName} ($${order.unitPrice}) to ${cust.address}. Confirm? (Yes/No)`;
+        reply = `Here's your order: ${order.productName} ($${order.unitPrice}) delivering to ${cust.address}. Should I confirm?`;
         await updateConversationStateV2(input.supabase, input.userId, input.workspaceId, input.chatId, 'ecommerce', input.platform,
             { stage: 'awaiting_checkout_confirmation', order, customer: cust });
 
@@ -318,11 +318,11 @@ Known customer: ${known ? `name=${known.name}, phone=${known.phone}, address=${k
 
         if (success) {
             dbWriteSuccess = true;
-            reply = "Order confirmed!";
+            reply = "Order placed! ✅ We'll get it to you soon!";
             actions = ['order_created'];
             await clearConversationStateV2(input.supabase, input.userId, input.workspaceId, input.chatId, 'ecommerce', input.platform);
         } else {
-            reply = "Order failed. Try again.";
+            reply = "Something went wrong placing the order. Can you try again?";
         }
     }
 
