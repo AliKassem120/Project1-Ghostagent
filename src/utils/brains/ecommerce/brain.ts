@@ -201,7 +201,7 @@ export async function generateEcommerceGhostReply(
 
             const generate = async () => {
                 const final = await generateText({
-                    model: groq('llama-3.1-70b-versatile'),
+                    model: groq('llama-3.3-70b-versatile'),
                     system: buildEnterpriseFinalReplyPrompt({ business, intent, constraints: baseConstraints }),
                     prompt: buildFinalReplyUserPrompt({
                         customerMessage: cleanMessage,
