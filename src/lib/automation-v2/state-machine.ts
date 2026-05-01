@@ -9,9 +9,8 @@
  * tightly constrained by what data is missing.
  */
 
-import { generateObject } from 'ai';
-import { createGroq } from '@ai-sdk/groq';
 import { z } from 'zod';
+import { classifyWithLLM } from './model';
 import type { AutomationInput, WorkspaceConfig, DetectedLanguage, ConversationStateV2 } from './types';
 import { getConversationStateV2, updateConversationStateV2, clearConversationStateV2 } from './state';
 import { loadActiveServices, findBestServiceMatch } from './appointments/services';
@@ -56,20 +55,17 @@ export async function runBookingStateMachine(
         input.chatId, 'appointments', input.platform
     );
 
-    // ── 2. Use LLM ONLY to extract data (generateObject) ────
-    const groq = createGroq({ apiKey: process.env.GROQ_API_KEY! });
-
+    // ── 2. Use LLM ONLY to extract data (classifyWithLLM) ────
     let extracted;
     try {
-        const result = await generateObject({
-            model: groq(AGENT_MODEL),
+        const result = await classifyWithLLM({
             schema: BookingExtractionSchema,
-            prompt: `Extract booking info from this customer message. Our services: ${serviceList || 'none configured'}.
-Known customer: ${known ? `name=${known.name}, phone=${known.phone}` : 'new customer'}.
-Customer said: "${input.message}"`,
+            systemPrompt: `Extract booking info from this customer message. Our services: ${serviceList || 'none configured'}.
+Known customer: ${known ? `name=${known.name}, phone=${known.phone}` : 'new customer'}.`,
+            userPrompt: `Customer said: "${input.message}"`,
             temperature: 0.1,
         });
-        extracted = result.object;
+        extracted = result || { service_name: null, date_text: null, customer_name: null, customer_phone: null, wants_to_confirm: false };
     } catch (e: any) {
         v2log.error('V6_BOOKING', 'Extraction failed', { error: e?.message });
         extracted = { service_name: null, date_text: null, customer_name: null, customer_phone: null, wants_to_confirm: false };
@@ -226,19 +222,16 @@ export async function runOrderStateMachine(
         input.chatId, 'ecommerce', input.platform
     );
 
-    const groq = createGroq({ apiKey: process.env.GROQ_API_KEY! });
-
     let extracted;
     try {
-        const result = await generateObject({
-            model: groq(AGENT_MODEL),
+        const result = await classifyWithLLM({
             schema: OrderExtractionSchema,
-            prompt: `Extract order info from this customer message. Our products: ${catalog || 'none'}.
-Known customer: ${known ? `name=${known.name}, phone=${known.phone}, address=${known.address}` : 'new'}.
-Customer said: "${input.message}"`,
+            systemPrompt: `Extract order info from this customer message. Our products: ${catalog || 'none'}.
+Known customer: ${known ? `name=${known.name}, phone=${known.phone}, address=${known.address}` : 'new'}.`,
+            userPrompt: `Customer said: "${input.message}"`,
             temperature: 0.1,
         });
-        extracted = result.object;
+        extracted = result || { product_name: null, customer_name: null, customer_phone: null, customer_address: null, wants_to_confirm: false };
     } catch (e: any) {
         v2log.error('V6_ORDER', 'Extraction failed', { error: e?.message });
         extracted = { product_name: null, customer_name: null, customer_phone: null, customer_address: null, wants_to_confirm: false };
