@@ -60,7 +60,10 @@ export async function runBookingStateMachine(
     try {
         const result = await classifyWithLLM({
             schema: BookingExtractionSchema,
-            systemPrompt: `Extract booking info from this customer message. Our services: ${serviceList || 'none configured'}.
+            systemPrompt: `Extract booking info from this customer message.
+Our known services are: ${serviceList || 'none configured'}.
+If they mention a service (even with typos or variations), extract it exactly as they wrote it into "service_name".
+If they don't mention any service, leave it null.
 Known customer: ${known ? `name=${known.name}, phone=${known.phone}` : 'new customer'}.`,
             userPrompt: `Customer said: "${input.message}"`,
             temperature: 0.1,
@@ -227,7 +230,10 @@ export async function runOrderStateMachine(
     try {
         const result = await classifyWithLLM({
             schema: OrderExtractionSchema,
-            systemPrompt: `Extract order info from this customer message. Our products: ${catalog || 'none'}.
+            systemPrompt: `Extract order info from this customer message.
+Our known products are: ${catalog || 'none'}.
+If they mention a product (even with typos or variations), extract it exactly as they wrote it into "product_name".
+If they don't mention any product, leave it null.
 Known customer: ${known ? `name=${known.name}, phone=${known.phone}, address=${known.address}` : 'new'}.`,
             userPrompt: `Customer said: "${input.message}"`,
             temperature: 0.1,
