@@ -86,7 +86,14 @@ export default function BillingPage() {
                 // ─── PRODUCTION: Redirect to Whish Checkout ───
                 window.location.href = `/checkout?user_id=${user.id}&amount=${planPrice}&plan=${encodeURIComponent(planName)}`;
             } else {
-                // Downgrade to Starter — direct DB update
+                // Downgrade to Starter — ask for confirmation first
+                const confirmed = window.confirm(`Are you sure you want to downgrade to ${planName}? You will lose access to premium features.`);
+                if (!confirmed) {
+                    setIsUpdating(false);
+                    return;
+                }
+
+                // Proceed with direct DB update
                 const { error } = await supabase
                     .from('users')
                     .update({ plan_tier: 'starter' })
