@@ -1,21 +1,23 @@
 /**
  * ═══════════════════════════════════════════════════════════════
- * GhostAgent — V4 Router: Classifier-First Dispatch
+ * GhostAgent — V6 Router: State-Aware Dispatch
  * ═══════════════════════════════════════════════════════════════
  * 
- * This is the new brain. Instead of passing everything to one
- * giant LLM call, it:
+ * KEY CHANGE from V4/V5: We check conversation state BEFORE
+ * the regex classifier. If the user is mid-flow (booking or
+ * ordering), we skip classification entirely and route straight
+ * to the active worker. This fixes the "amnesia" bug where
+ * "Yes" was misclassified as a greeting.
  *
- *   1. Loads workspace config (same as before)
- *   2. Classifies intent using REGEX (zero tokens)
- *   3. Dispatches to the correct SPECIALIST WORKER
- *   4. Each worker has ONLY the tools it needs
- *
- * Result: No random tool calls, no hallucinations, minimal tokens.
+ *   1. Load workspace config
+ *   2. Check conversation state in DB
+ *   3. If mid-flow → route to active worker (skip classifier)
+ *   4. If idle → classify with regex → dispatch to worker
  */
 
 import type { AutomationInput, AutomationResult, WorkspaceConfig } from './types';
 import { classifyIntent, type ClassificationResult } from './classifier';
+import { getConversationStateV2 } from './state';
 import {
     handleGreeting,
     handleComplaint,
@@ -27,6 +29,7 @@ import {
     handleBookingIntent,
     handleGeneralChat,
 } from './agent';
+import { detectLanguage } from './language';
 import { v2log } from './logger';
 
 // ── Load workspace config from ai_settings ───────────────────
@@ -48,7 +51,7 @@ export async function loadWorkspaceConfig(
         .maybeSingle();
 
     if (error || !data) {
-        v2log.error('V4_ROUTER', 'Failed to load workspace config', { workspaceId, error });
+        v2log.error('V6_ROUTER', 'Failed to load workspace config', { workspaceId, error });
         return null;
     }
 
@@ -72,6 +75,18 @@ export async function loadWorkspaceConfig(
         slotDurationMinutes: data.slot_duration_minutes || 60,
     };
 }
+
+// ── Stages that mean "user is mid-booking" ───────────────────
+const BOOKING_STAGES = new Set([
+    'awaiting_service', 'awaiting_date_time',
+    'awaiting_customer_details', 'awaiting_booking_confirmation',
+]);
+
+// ── Stages that mean "user is mid-order" ─────────────────────
+const ORDER_STAGES = new Set([
+    'awaiting_product', 'awaiting_variant',
+    'awaiting_order_details', 'awaiting_checkout_confirmation',
+]);
 
 // ── Main Router ──────────────────────────────────────────────
 
@@ -101,21 +116,51 @@ export async function routeToV2Brain(input: AutomationInput): Promise<Automation
         };
     }
 
-    // 2. Classify intent (REGEX — zero tokens)
+    // 2. CHECK CONVERSATION STATE BEFORE CLASSIFIER
+    const state = await getConversationStateV2(
+        input.supabase, input.userId, input.workspaceId,
+        input.chatId, config.businessType as 'appointments' | 'ecommerce',
+        input.platform
+    );
+
+    const language = detectLanguage(input.message);
+
+    // 3. If mid-flow, bypass classifier entirely
+    if (state.stage !== 'idle') {
+        v2log.info('V6_ROUTER', `State override: ${state.stage} → routing to active worker`, {
+            workspaceId: input.workspaceId, chatId: input.chatId,
+        });
+
+        try {
+            if (BOOKING_STAGES.has(state.stage)) {
+                return await handleBookingIntent(input, config, language);
+            }
+            if (ORDER_STAGES.has(state.stage)) {
+                return await handleOrderIntent(input, config, language);
+            }
+            // For handoff or other non-idle states, use general chat
+            return await handleGeneralChat(input, config, language);
+        } catch (err: any) {
+            v2log.error('V6_ROUTER', 'State-routed worker failed', { error: err?.message });
+            // Fall through to classifier
+        }
+    }
+
+    // 4. Classify intent (REGEX — zero tokens)
     const classification: ClassificationResult = classifyIntent(
         input.message,
         config.businessType as 'appointments' | 'ecommerce',
         config.handoffKeywords
     );
 
-    v2log.info('V4_ROUTER', `Intent: ${classification.intent} (${classification.confidence})`, {
+    v2log.info('V6_ROUTER', `Intent: ${classification.intent} (${classification.confidence})`, {
         workspaceId: input.workspaceId,
         chatId: input.chatId,
         language: classification.language,
         subject: classification.subject,
     });
 
-    // 3. Dispatch to specialist worker
+    // 5. Dispatch to specialist worker
     try {
         switch (classification.intent) {
             case 'greeting':
@@ -148,7 +193,7 @@ export async function routeToV2Brain(input: AutomationInput): Promise<Automation
                 return await handleGeneralChat(input, config, classification.language);
         }
     } catch (err: any) {
-        v2log.error('V4_ROUTER', 'Worker failed', {
+        v2log.error('V6_ROUTER', 'Worker failed', {
             intent: classification.intent,
             error: err?.message || String(err),
         });
@@ -157,7 +202,7 @@ export async function routeToV2Brain(input: AutomationInput): Promise<Automation
         try {
             return await handleGeneralChat(input, config, classification.language);
         } catch (fallbackErr: any) {
-            v2log.error('V4_ROUTER', 'General chat fallback also failed', {
+            v2log.error('V6_ROUTER', 'General chat fallback also failed', {
                 error: fallbackErr?.message || String(fallbackErr),
             });
 

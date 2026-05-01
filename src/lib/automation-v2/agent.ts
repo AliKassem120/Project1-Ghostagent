@@ -34,6 +34,7 @@ import { translateReply } from './model';
 import { buildTimeContext, formatTime12 } from './time';
 import { v2log } from './logger';
 import type { Intent } from './classifier';
+import { runBookingStateMachine, runOrderStateMachine } from './state-machine';
 
 // ── Data layer imports (for pre-fetching) ────────────────────
 import { loadActiveServices, findBestServiceMatch } from './appointments/services';
@@ -75,7 +76,7 @@ function buildBasePrompt(config: WorkspaceConfig, timeCtx: any): string {
     const emojiRule = config.useEmojis ? 'Max 1 emoji if natural.' : 'NO emojis.';
 
     return `You are the human manager of ${config.businessName}. Tone: ${tone}. ${emojiRule}
-Reply in 1-2 short sentences max. English only. Never say you are an AI.
+MAXIMUM 10 WORDS per reply. Be aggressively brief. English only. Never say you are an AI.
 Current: ${timeCtx.dayName}, ${timeCtx.isoDate} ${timeCtx.isoTime}.
 ${config.systemInstructions || ''}`;
 }
@@ -334,80 +335,15 @@ export async function handleOrderIntent(
     language: DetectedLanguage
 ): Promise<AutomationResult> {
     const startTime = Date.now();
-    v2log.info('V5_WORKER', 'Order intent → pre-fetched + place_order only');
+    v2log.info('V6_WORKER', 'Order intent → STATE MACHINE');
 
-    const groq = getGroqClient();
-    if (!groq) return makeErrorResult(input, config, startTime, language, 'No API key');
+    if (!process.env.GROQ_API_KEY) return makeErrorResult(input, config, startTime, language, 'No API key');
 
-    // ── PRE-FETCH: products + customer history ───────────────
-    const products = await searchProducts({ supabase: input.supabase, workspaceId: input.workspaceId });
-    const catalog = products.map(p => `• ${p.itemName} — $${p.price} (${p.stockLevel > 0 ? `${p.stockLevel} in stock` : 'OUT OF STOCK'})`).join('\n');
-
-    const known = await getKnownCustomerDetails(input.supabase, input.workspaceId, input.chatId);
-    let customerLine = '';
-    if (known) {
-        const parts: string[] = [];
-        if (known.name) parts.push(`Name: ${known.name}`);
-        if (known.phone) parts.push(`Phone: ${known.phone}`);
-        if (known.address) parts.push(`Address: ${known.address}`);
-        customerLine = `RETURNING CUSTOMER (do NOT ask for these again): ${parts.join(', ')}`;
-    }
-
-    const timeCtx = buildTimeContext(config.timezone);
-    const toolCtx = buildToolContext(input, config);
-    const allTools = createEcommerceTools(toolCtx);
-    const history = await loadConversationHistory(input.supabase, input.userId, input.workspaceId, input.chatId);
-
-    // ONLY give it place_order — no search, no lookup
-    const tools = { place_order: allTools.place_order };
-
-    const result = await generateText({
-        model: groq(AGENT_MODEL),
-        system: `${buildBasePrompt(config, timeCtx)}
-HERE ARE THE ONLY PRODUCTS WE SELL:
-${catalog || '(No products configured)'}
-${customerLine ? '\n' + customerLine : ''}
-
-The customer wants to buy. To complete an order you need: product name, customer name, phone, delivery address.
-Use ONLY the product list above. If they ask for something not listed, say "We don't carry that."
-If you have all 4 fields, call place_order. Otherwise ask for the missing info.
-Never invent products, prices, phone numbers, or addresses.`,
-        messages: [...history, { role: 'user' as const, content: input.message }],
-        tools: tools as any,
-        stopWhen: stepCountIs(4),
-        temperature: 0.2,
+    const sm = await runOrderStateMachine(input, config, language);
+    let replyText = await postProcess(sm.reply, language, config, sm.actions);
+    return buildResult(input, config, replyText, language, 'order_intent', sm.actions, startTime, {
+        dbWriteAttempted: sm.dbWriteAttempted, dbWriteSuccess: sm.dbWriteSuccess,
     });
-
-    let replyText = result.text?.trim() || '';
-    const actions: string[] = [];
-    let dbWriteAttempted = false;
-    let dbWriteSuccess = false;
-
-    for (const step of result.steps || []) {
-        for (const tr of step.toolResults || []) {
-            const toolName = (tr as any).toolName as string;
-            const data = (tr as any).result ?? (tr as any).output;
-            v2log.info('V5_WORKER', `Tool: ${toolName}`, { result: JSON.stringify(data)?.slice(0, 200) });
-
-            if (toolName === 'place_order') {
-                dbWriteAttempted = true;
-                if (data?.success) {
-                    dbWriteSuccess = true;
-                    actions.push('order_created');
-                    await clearConversationStateV2(input.supabase, input.userId, input.workspaceId, input.chatId, 'ecommerce', input.platform);
-                }
-            }
-        }
-    }
-
-    if (!replyText) {
-        replyText = dbWriteSuccess
-            ? "Order confirmed!"
-            : "Send your name, phone, and delivery address.";
-    }
-
-    replyText = await postProcess(replyText, language, config, actions);
-    return buildResult(input, config, replyText, language, 'order_intent', actions, startTime, { dbWriteAttempted, dbWriteSuccess });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -461,90 +397,15 @@ export async function handleBookingIntent(
     language: DetectedLanguage
 ): Promise<AutomationResult> {
     const startTime = Date.now();
-    v2log.info('V5_WORKER', 'Booking intent → pre-fetched + write-only tools');
+    v2log.info('V6_WORKER', 'Booking intent → STATE MACHINE');
 
-    const groq = getGroqClient();
-    if (!groq) return makeErrorResult(input, config, startTime, language, 'No API key');
+    if (!process.env.GROQ_API_KEY) return makeErrorResult(input, config, startTime, language, 'No API key');
 
-    // ── PRE-FETCH: services + hours + customer ───────────────
-    const services = await loadActiveServices(input.supabase, input.workspaceId);
-    const serviceList = services.map(s => `• ${s.name} — $${s.price} (${s.durationMinutes} min)`).join('\n');
-
-    const hours = await loadBusinessHours(input.supabase, input.workspaceId);
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const hoursStr = hours.filter(h => h.isOpen).map(h => `${dayNames[h.dayOfWeek]}: ${formatTime12(h.openTime)}-${formatTime12(h.closeTime)}`).join(', ');
-
-    const known = await getKnownCustomerDetails(input.supabase, input.workspaceId, input.chatId);
-    let customerLine = '';
-    if (known) {
-        const parts: string[] = [];
-        if (known.name) parts.push(`Name: ${known.name}`);
-        if (known.phone) parts.push(`Phone: ${known.phone}`);
-        customerLine = `RETURNING CUSTOMER (do NOT ask for these again): ${parts.join(', ')}`;
-    }
-
-    const timeCtx = buildTimeContext(config.timezone);
-    const toolCtx = buildToolContext(input, config);
-    const allTools = createAppointmentTools(toolCtx);
-    const history = await loadConversationHistory(input.supabase, input.userId, input.workspaceId, input.chatId);
-
-    // Only write-tools + date resolver + slot checker
-    const tools = {
-        check_slot: allTools.check_slot,
-        resolve_date_time: allTools.resolve_date_time,
-        book_appointment: allTools.book_appointment,
-    };
-
-    const result = await generateText({
-        model: groq(AGENT_MODEL),
-        system: `${buildBasePrompt(config, timeCtx)}
-HERE ARE THE ONLY SERVICES WE OFFER:
-${serviceList || '(No services configured)'}
-
-BUSINESS HOURS: ${hoursStr || 'Not configured'}
-${customerLine ? '\n' + customerLine : ''}
-
-The customer wants to book. To complete a booking you need: service name, date/time, customer name, phone.
-Use ONLY the service list above. If they ask for something not listed, say "We don't offer that" and show what we DO offer.
-Use resolve_date_time for natural language like "tomorrow 3pm".
-Call check_slot before confirming. Call book_appointment only after customer confirms.
-Never invent services, phone numbers, or times. Never say "booked" unless book_appointment returned success.`,
-        messages: [...history, { role: 'user' as const, content: input.message }],
-        tools: tools as any,
-        stopWhen: stepCountIs(6),
-        temperature: 0.2,
+    const sm = await runBookingStateMachine(input, config, language);
+    let replyText = await postProcess(sm.reply, language, config, sm.actions);
+    return buildResult(input, config, replyText, language, 'booking_intent', sm.actions, startTime, {
+        dbWriteAttempted: sm.dbWriteAttempted, dbWriteSuccess: sm.dbWriteSuccess,
     });
-
-    let replyText = result.text?.trim() || '';
-    const actions: string[] = [];
-    let dbWriteAttempted = false;
-    let dbWriteSuccess = false;
-
-    for (const step of result.steps || []) {
-        for (const tr of step.toolResults || []) {
-            const toolName = (tr as any).toolName as string;
-            const data = (tr as any).result ?? (tr as any).output;
-            v2log.info('V5_WORKER', `Tool: ${toolName}`, { result: JSON.stringify(data)?.slice(0, 200) });
-
-            if (toolName === 'book_appointment') {
-                dbWriteAttempted = true;
-                if (data?.success) {
-                    dbWriteSuccess = true;
-                    actions.push('appointment_created');
-                    await clearConversationStateV2(input.supabase, input.userId, input.workspaceId, input.chatId, 'appointments', input.platform);
-                }
-            }
-        }
-    }
-
-    if (!replyText) {
-        replyText = dbWriteSuccess
-            ? "Booking confirmed!"
-            : "What service and when would you like?";
-    }
-
-    replyText = await postProcess(replyText, language, config, actions);
-    return buildResult(input, config, replyText, language, 'booking_intent', actions, startTime, { dbWriteAttempted, dbWriteSuccess });
 }
 
 // ═══════════════════════════════════════════════════════════════
