@@ -157,6 +157,8 @@ ${discountRules}
 CRITICAL RULES — NEVER BREAK THESE:
 - For greetings ("hey", "hi", "hello", "marhaba"), just reply with a short greeting. NO tool calls needed.
 - BEFORE answering ANY question about products, prices, stock, services, or availability: call the tool FIRST.
+- AFTER a tool returns data (or empty data), you MUST generate a text reply to the user. Do not stay silent.
+- If search_products returns no products, do NOT call any other tools. Just reply "Not available" or "Out of stock".
 - If someone asks "what do you sell?" — call search_products with no query to list everything.
 - NEVER confirm a booking/order without actually calling the tool.
 - If they want a real person ("human", "manager", "speak to someone") → RESPOND WITH EXACTLY: [HANDOFF]
@@ -338,14 +340,19 @@ export async function runAgent(
                 lastToolResult: JSON.stringify(lastToolResult)?.slice(0, 200),
                 finishReason: result.finishReason,
             });
-            // If search returned products, build a short reply from the data
-            if (lastToolResult?.data?.products?.length > 0) {
-                const p = lastToolResult.data.products[0];
-                replyText = p.inStock
-                    ? `${p.name} — $${p.price}, in stock.`
-                    : `${p.name} — out of stock.`;
+            
+            // Smart fallback based on last tool called
+            if (lastToolResult?.toolName === 'search_products') {
+                if (lastToolResult.data?.products?.length > 0) {
+                    const p = lastToolResult.data.products[0];
+                    replyText = p.inStock
+                        ? `${p.name} — $${p.price}, in stock.`
+                        : `${p.name} — out of stock.`;
+                } else {
+                    replyText = "Out of stock.";
+                }
             } else {
-                // Smart fallback: if the message looks like a greeting, don't say "Not available"
+                // If it wasn't a product search, check if it was a greeting
                 const msgLower = input.message.toLowerCase().trim();
                 const isGreeting = /^(hey|hi|hello|yo|sup|salam|marhaba|hala|ahla|kifak|kifik|bonjour|hola|good\s*(morning|evening|afternoon))\b/i.test(msgLower)
                     || msgLower.length <= 5;
