@@ -1,26 +1,27 @@
 /**
  * ═══════════════════════════════════════════════════════════════
- * GhostAgent — V4 Agent: Specialist Workers
+ * GhostAgent — V5 Agent: Pre-Fetched Context Architecture
  * ═══════════════════════════════════════════════════════════════
- * 
- * Architecture: Classifier-First Intent Routing
- * 
- * Instead of one giant brain with all tools, we have:
- *   1. Classifier (classifier.ts) → Tags the intent (regex, 0 tokens)
- *   2. Router (router.ts) → Dispatches to the correct worker
- *   3. Workers (this file) → Tiny focused agents, each with ONLY
- *      the tools they need and a minimal prompt
+ *
+ * ZERO search tools. ZERO hallucination.
+ *
+ * Instead of giving the AI "get_services" and hoping it calls it,
+ * we fetch services/products with pure TypeScript BEFORE the LLM
+ * runs, then paste them into the system prompt as hard facts.
+ *
+ * The AI only gets write-tools (book_appointment, place_order)
+ * and ONLY after all required data is collected.
  *
  * Workers:
- *   handleGreeting()       → Pure code, zero LLM tokens
+ *   handleGreeting()       → Pure code, zero tokens
  *   handleComplaint()      → Pure code, [HANDOFF]
- *   handleHoursInquiry()   → Pure DB call, zero LLM tokens
- *   handleCancelRequest()  → Pure DB call + tiny formatter
- *   handleProductInquiry() → LLM with ONLY search_products
- *   handleOrderIntent()    → LLM with search_products + place_order + lookup_customer
- *   handleServiceInquiry() → LLM with ONLY get_services
- *   handleBookingIntent()  → LLM with all booking tools
- *   handleGeneralChat()    → LLM with NO tools (just conversation)
+ *   handleHoursInquiry()   → Pure DB, zero tokens
+ *   handleCancelRequest()  → Pure DB, zero tokens
+ *   handleProductInquiry() → Pre-fetched products → tiny LLM (no tools)
+ *   handleOrderIntent()    → Pre-fetched products → LLM with place_order ONLY
+ *   handleServiceInquiry() → Pre-fetched services → tiny LLM (no tools)
+ *   handleBookingIntent()  → Pre-fetched services → LLM with book_appointment + check_slot + resolve_date_time
+ *   handleGeneralChat()    → LLM with NO tools
  */
 
 import { generateText, stepCountIs } from 'ai';
@@ -28,11 +29,17 @@ import { createGroq } from '@ai-sdk/groq';
 import type { AutomationInput, AutomationResult, WorkspaceConfig, DetectedLanguage } from './types';
 import { loadConversationHistory } from './history';
 import { createAppointmentTools, createEcommerceTools, type ToolContext } from './tools';
-import { getConversationStateV2, clearConversationStateV2 } from './state';
+import { clearConversationStateV2 } from './state';
 import { translateReply } from './model';
-import { buildTimeContext } from './time';
+import { buildTimeContext, formatTime12 } from './time';
 import { v2log } from './logger';
 import type { Intent } from './classifier';
+
+// ── Data layer imports (for pre-fetching) ────────────────────
+import { loadActiveServices, findBestServiceMatch } from './appointments/services';
+import { loadBusinessHours } from './appointments/hours';
+import { searchProducts } from './ecommerce/products';
+import { getKnownCustomerDetails } from './customer-history';
 
 // ── Models ───────────────────────────────────────────────────
 
@@ -68,7 +75,7 @@ function buildBasePrompt(config: WorkspaceConfig, timeCtx: any): string {
     const emojiRule = config.useEmojis ? 'Max 1 emoji if natural.' : 'NO emojis.';
 
     return `You are the human manager of ${config.businessName}. Tone: ${tone}. ${emojiRule}
-Reply in 1-8 words max. English only. Never say you are an AI.
+Reply in 1-2 short sentences max. English only. Never say you are an AI.
 Current: ${timeCtx.dayName}, ${timeCtx.isoDate} ${timeCtx.isoTime}.
 ${config.systemInstructions || ''}`;
 }
@@ -146,7 +153,7 @@ export async function handleGreeting(
     language: DetectedLanguage
 ): Promise<AutomationResult> {
     const startTime = Date.now();
-    v2log.info('V4_WORKER', 'Greeting → pure code reply');
+    v2log.info('V5_WORKER', 'Greeting → pure code reply');
 
     const greetings: Record<string, string[]> = {
         'Casual': ["Hey! What can I get you?", "Hi! Looking for something?", "Hey! How can I help?"],
@@ -171,7 +178,7 @@ export async function handleComplaint(
     language: DetectedLanguage
 ): Promise<AutomationResult> {
     const startTime = Date.now();
-    v2log.info('V4_WORKER', 'Complaint/Handoff → [HANDOFF]');
+    v2log.info('V5_WORKER', 'Complaint/Handoff → [HANDOFF]');
 
     return buildResult(input, config, '', language, 'complaint', ['handoff'], startTime, {
         shouldReply: false,
@@ -189,10 +196,8 @@ export async function handleHoursInquiry(
     language: DetectedLanguage
 ): Promise<AutomationResult> {
     const startTime = Date.now();
-    v2log.info('V4_WORKER', 'Hours inquiry → pure DB lookup');
+    v2log.info('V5_WORKER', 'Hours inquiry → pure DB lookup');
 
-    const { loadBusinessHours } = await import('./appointments/hours');
-    const { formatTime12 } = await import('./time');
     const hours = await loadBusinessHours(input.supabase, input.workspaceId);
 
     if (hours.length === 0) {
@@ -212,7 +217,7 @@ export async function handleHoursInquiry(
 }
 
 // ═══════════════════════════════════════════════════════════════
-// WORKER: CANCEL REQUEST (Minimal DB call)
+// WORKER: CANCEL REQUEST (Zero tokens — pure DB)
 // ═══════════════════════════════════════════════════════════════
 
 export async function handleCancelRequest(
@@ -221,7 +226,7 @@ export async function handleCancelRequest(
     language: DetectedLanguage
 ): Promise<AutomationResult> {
     const startTime = Date.now();
-    v2log.info('V4_WORKER', 'Cancel request → DB lookup');
+    v2log.info('V5_WORKER', 'Cancel request → DB lookup');
 
     let reply: string;
     let actions: string[] = [];
@@ -244,7 +249,6 @@ export async function handleCancelRequest(
             await clearConversationStateV2(input.supabase, input.userId, input.workspaceId, input.chatId, 'ecommerce', input.platform);
         }
     } else {
-        const { formatTime12 } = await import('./time');
         const { data: upcoming } = await input.supabase.from('appointments')
             .select('id, service, appointment_date, start_time')
             .eq('workspace_id', input.workspaceId)
@@ -268,7 +272,7 @@ export async function handleCancelRequest(
 }
 
 // ═══════════════════════════════════════════════════════════════
-// WORKER: PRODUCT INQUIRY (search_products ONLY)
+// WORKER: PRODUCT INQUIRY — Pre-fetched, ZERO tools
 // ═══════════════════════════════════════════════════════════════
 
 export async function handleProductInquiry(
@@ -277,20 +281,19 @@ export async function handleProductInquiry(
     language: DetectedLanguage
 ): Promise<AutomationResult> {
     const startTime = Date.now();
-    v2log.info('V4_WORKER', 'Product inquiry → search_products agent');
+    v2log.info('V5_WORKER', 'Product inquiry → pre-fetched context (no tools)');
 
     const groq = getGroqClient();
     if (!groq) return makeErrorResult(input, config, startTime, language, 'No API key');
 
+    // ── PRE-FETCH: Load products with pure code ──────────────
+    const products = await searchProducts({ supabase: input.supabase, workspaceId: input.workspaceId });
+    const catalog = products.map(p => `• ${p.itemName} — $${p.price} (${p.stockLevel > 0 ? `${p.stockLevel} in stock` : 'OUT OF STOCK'})`).join('\n');
+
     const timeCtx = buildTimeContext(config.timezone);
-    const toolCtx = buildToolContext(input, config);
-    const allTools = createEcommerceTools(toolCtx);
     const history = await loadConversationHistory(input.supabase, input.userId, input.workspaceId, input.chatId);
 
-    // ONLY give it search_products — nothing else
-    const tools = { search_products: allTools.search_products };
-
-    // Discount rules (injected only for product inquiries)
+    // Discount rules
     let discountLine = '';
     if (config.maxDiscount && config.maxDiscount > 0) {
         discountLine = `If they ask for discount: max ${config.maxDiscount}% off. Never offer unless asked.`;
@@ -298,41 +301,31 @@ export async function handleProductInquiry(
         discountLine = `No discounts. If asked, say "prices are fixed".`;
     }
 
+    // ── LLM call with ZERO tools — products already in context ──
     const result = await generateText({
         model: groq(AGENT_MODEL),
         system: `${buildBasePrompt(config, timeCtx)}
-You answer product questions. Call search_products to check price and stock.
-After the tool returns, reply with ONLY the price/availability. 1-8 words max.
-If the product is not found, say "We don't have that." — nothing more.
+HERE ARE THE ONLY PRODUCTS WE SELL (this is the complete, real inventory):
+${catalog || '(No products configured yet)'}
+
+Answer the customer's product question using ONLY the list above.
+If the product they ask about is NOT in the list, say "We don't carry that."
+Never invent products, prices, or stock numbers.
 ${discountLine}
 ${config.storeLocation ? `Location: ${config.storeLocation}` : ''}
 ${config.shippingRules ? `Shipping: ${config.shippingRules}` : ''}`,
         messages: [...history, { role: 'user' as const, content: input.message }],
-        tools: tools as any,
-        stopWhen: stepCountIs(3),
         temperature: 0.2,
+        // NO TOOLS — impossible to hallucinate
     });
 
-    let replyText = result.text?.trim() || '';
-
-    // Fallback if LLM didn't generate text
-    if (!replyText) {
-        const toolResult = result.steps?.[0]?.toolResults?.[0] as any;
-        const data = toolResult?.result ?? toolResult?.output;
-        if (data?.products?.length > 0) {
-            const p = data.products[0];
-            replyText = p.inStock ? `${p.name} — $${p.price}` : `${p.name} — out of stock.`;
-        } else {
-            replyText = "We don't carry that.";
-        }
-    }
-
-    replyText = await postProcess(replyText, language, config, ['tool_search_products']);
-    return buildResult(input, config, replyText, language, 'product_inquiry', ['tool_search_products'], startTime);
+    let replyText = result.text?.trim() || "We don't carry that.";
+    replyText = await postProcess(replyText, language, config, []);
+    return buildResult(input, config, replyText, language, 'product_inquiry', ['product_inquiry'], startTime);
 }
 
 // ═══════════════════════════════════════════════════════════════
-// WORKER: ORDER INTENT (search + place_order + lookup)
+// WORKER: ORDER INTENT — Pre-fetched products, place_order ONLY
 // ═══════════════════════════════════════════════════════════════
 
 export async function handleOrderIntent(
@@ -341,38 +334,47 @@ export async function handleOrderIntent(
     language: DetectedLanguage
 ): Promise<AutomationResult> {
     const startTime = Date.now();
-    v2log.info('V4_WORKER', 'Order intent → checkout agent');
+    v2log.info('V5_WORKER', 'Order intent → pre-fetched + place_order only');
 
     const groq = getGroqClient();
     if (!groq) return makeErrorResult(input, config, startTime, language, 'No API key');
+
+    // ── PRE-FETCH: products + customer history ───────────────
+    const products = await searchProducts({ supabase: input.supabase, workspaceId: input.workspaceId });
+    const catalog = products.map(p => `• ${p.itemName} — $${p.price} (${p.stockLevel > 0 ? `${p.stockLevel} in stock` : 'OUT OF STOCK'})`).join('\n');
+
+    const known = await getKnownCustomerDetails(input.supabase, input.workspaceId, input.chatId);
+    let customerLine = '';
+    if (known) {
+        const parts: string[] = [];
+        if (known.name) parts.push(`Name: ${known.name}`);
+        if (known.phone) parts.push(`Phone: ${known.phone}`);
+        if (known.address) parts.push(`Address: ${known.address}`);
+        customerLine = `RETURNING CUSTOMER (do NOT ask for these again): ${parts.join(', ')}`;
+    }
 
     const timeCtx = buildTimeContext(config.timezone);
     const toolCtx = buildToolContext(input, config);
     const allTools = createEcommerceTools(toolCtx);
     const history = await loadConversationHistory(input.supabase, input.userId, input.workspaceId, input.chatId);
 
-    // Give it search + place_order + lookup — NO cancel, NO hours
-    const tools = {
-        search_products: allTools.search_products,
-        place_order: allTools.place_order,
-        lookup_customer: allTools.lookup_customer,
-    };
+    // ONLY give it place_order — no search, no lookup
+    const tools = { place_order: allTools.place_order };
 
     const result = await generateText({
         model: groq(AGENT_MODEL),
         system: `${buildBasePrompt(config, timeCtx)}
-The customer wants to buy something. Your job is to collect: Product Name/Variant, Name, Phone, and Delivery Address.
-RULES:
-1. ALWAYS call search_products first if you are not 100% sure what the exact product name or variant is. NEVER hallucinate products or stock status.
-2. Call lookup_customer first to check if they're a returning customer (skip asking for saved info).
-3. Ask the customer for their full name, phone number, and delivery address if you don't have it. NEVER invent phone numbers or addresses.
-4. If they already provided all details, call place_order immediately.
-5. After place_order returns success, say "Order confirmed." and stop.
-6. If place_order fails, say "Order couldn't be placed, try again."
-7. NEVER say "Order confirmed" without calling place_order first.`,
+HERE ARE THE ONLY PRODUCTS WE SELL:
+${catalog || '(No products configured)'}
+${customerLine ? '\n' + customerLine : ''}
+
+The customer wants to buy. To complete an order you need: product name, customer name, phone, delivery address.
+Use ONLY the product list above. If they ask for something not listed, say "We don't carry that."
+If you have all 4 fields, call place_order. Otherwise ask for the missing info.
+Never invent products, prices, phone numbers, or addresses.`,
         messages: [...history, { role: 'user' as const, content: input.message }],
         tools: tools as any,
-        stopWhen: stepCountIs(6),
+        stopWhen: stepCountIs(4),
         temperature: 0.2,
     });
 
@@ -381,12 +383,11 @@ RULES:
     let dbWriteAttempted = false;
     let dbWriteSuccess = false;
 
-    // Parse tool results
     for (const step of result.steps || []) {
         for (const tr of step.toolResults || []) {
             const toolName = (tr as any).toolName as string;
             const data = (tr as any).result ?? (tr as any).output;
-            v2log.info('V4_WORKER', `Tool: ${toolName}`, { result: JSON.stringify(data)?.slice(0, 200) });
+            v2log.info('V5_WORKER', `Tool: ${toolName}`, { result: JSON.stringify(data)?.slice(0, 200) });
 
             if (toolName === 'place_order') {
                 dbWriteAttempted = true;
@@ -410,7 +411,7 @@ RULES:
 }
 
 // ═══════════════════════════════════════════════════════════════
-// WORKER: SERVICE INQUIRY (get_services ONLY)
+// WORKER: SERVICE INQUIRY — Pre-fetched, ZERO tools
 // ═══════════════════════════════════════════════════════════════
 
 export async function handleServiceInquiry(
@@ -419,38 +420,39 @@ export async function handleServiceInquiry(
     language: DetectedLanguage
 ): Promise<AutomationResult> {
     const startTime = Date.now();
-    v2log.info('V4_WORKER', 'Service inquiry → get_services agent');
+    v2log.info('V5_WORKER', 'Service inquiry → pre-fetched context (no tools)');
 
     const groq = getGroqClient();
     if (!groq) return makeErrorResult(input, config, startTime, language, 'No API key');
 
-    const timeCtx = buildTimeContext(config.timezone);
-    const toolCtx = buildToolContext(input, config);
-    const allTools = createAppointmentTools(toolCtx);
-    const history = await loadConversationHistory(input.supabase, input.userId, input.workspaceId, input.chatId);
+    // ── PRE-FETCH: services ──────────────────────────────────
+    const services = await loadActiveServices(input.supabase, input.workspaceId);
+    const serviceList = services.map(s => `• ${s.name} — $${s.price} (${s.durationMinutes} min)`).join('\n');
 
-    // ONLY get_services
-    const tools = { get_services: allTools.get_services };
+    const timeCtx = buildTimeContext(config.timezone);
+    const history = await loadConversationHistory(input.supabase, input.userId, input.workspaceId, input.chatId);
 
     const result = await generateText({
         model: groq(AGENT_MODEL),
         system: `${buildBasePrompt(config, timeCtx)}
-You answer questions about available services. Call get_services to check.
-List services with prices briefly. Keep reply short.
-If they ask about a specific service, show its price and duration.`,
+HERE ARE THE ONLY SERVICES WE OFFER:
+${serviceList || '(No services configured yet)'}
+
+Answer the customer's question using ONLY the list above.
+If the service they ask about is NOT in the list, say "We don't offer that."
+Never invent services, prices, or durations.`,
         messages: [...history, { role: 'user' as const, content: input.message }],
-        tools: tools as any,
-        stopWhen: stepCountIs(3),
         temperature: 0.2,
+        // NO TOOLS
     });
 
     let replyText = result.text?.trim() || "Check our services page for details.";
-    replyText = await postProcess(replyText, language, config, ['tool_get_services']);
-    return buildResult(input, config, replyText, language, 'service_inquiry', ['tool_get_services'], startTime);
+    replyText = await postProcess(replyText, language, config, []);
+    return buildResult(input, config, replyText, language, 'service_inquiry', ['service_inquiry'], startTime);
 }
 
 // ═══════════════════════════════════════════════════════════════
-// WORKER: BOOKING INTENT (full appointment tools)
+// WORKER: BOOKING INTENT — Pre-fetched services, minimal tools
 // ═══════════════════════════════════════════════════════════════
 
 export async function handleBookingIntent(
@@ -459,39 +461,54 @@ export async function handleBookingIntent(
     language: DetectedLanguage
 ): Promise<AutomationResult> {
     const startTime = Date.now();
-    v2log.info('V4_WORKER', 'Booking intent → appointment agent');
+    v2log.info('V5_WORKER', 'Booking intent → pre-fetched + write-only tools');
 
     const groq = getGroqClient();
     if (!groq) return makeErrorResult(input, config, startTime, language, 'No API key');
+
+    // ── PRE-FETCH: services + hours + customer ───────────────
+    const services = await loadActiveServices(input.supabase, input.workspaceId);
+    const serviceList = services.map(s => `• ${s.name} — $${s.price} (${s.durationMinutes} min)`).join('\n');
+
+    const hours = await loadBusinessHours(input.supabase, input.workspaceId);
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const hoursStr = hours.filter(h => h.isOpen).map(h => `${dayNames[h.dayOfWeek]}: ${formatTime12(h.openTime)}-${formatTime12(h.closeTime)}`).join(', ');
+
+    const known = await getKnownCustomerDetails(input.supabase, input.workspaceId, input.chatId);
+    let customerLine = '';
+    if (known) {
+        const parts: string[] = [];
+        if (known.name) parts.push(`Name: ${known.name}`);
+        if (known.phone) parts.push(`Phone: ${known.phone}`);
+        customerLine = `RETURNING CUSTOMER (do NOT ask for these again): ${parts.join(', ')}`;
+    }
 
     const timeCtx = buildTimeContext(config.timezone);
     const toolCtx = buildToolContext(input, config);
     const allTools = createAppointmentTools(toolCtx);
     const history = await loadConversationHistory(input.supabase, input.userId, input.workspaceId, input.chatId);
 
-    // Full booking toolset — but NO cancel (handled separately)
+    // Only write-tools + date resolver + slot checker
     const tools = {
-        get_services: allTools.get_services,
-        get_business_hours: allTools.get_business_hours,
         check_slot: allTools.check_slot,
         resolve_date_time: allTools.resolve_date_time,
         book_appointment: allTools.book_appointment,
-        lookup_customer: allTools.lookup_customer,
     };
 
     const result = await generateText({
         model: groq(AGENT_MODEL),
         system: `${buildBasePrompt(config, timeCtx)}
-The customer wants to book an appointment. Your job is to collect: Service, Date/Time, Name, and Phone.
-RULES:
-1. ALWAYS call get_services first if you are not 100% sure what the exact name of the service is. NEVER hallucinate services like "manicure" or "pedicure" unless get_services returns them.
-2. If they ask for a service you don't have, tell them what you DO have based on get_services.
-3. Use resolve_date_time for natural language dates ("tomorrow 3pm").
-4. Call check_slot BEFORE confirming to ensure it's available.
-5. Use lookup_customer — if returning, skip asking saved info.
-6. Ask the customer for their full name and phone number if you don't have it. NEVER invent a phone number.
-7. Call book_appointment ONLY after customer confirms all details.
-8. NEVER say "booked" unless book_appointment returned success.`,
+HERE ARE THE ONLY SERVICES WE OFFER:
+${serviceList || '(No services configured)'}
+
+BUSINESS HOURS: ${hoursStr || 'Not configured'}
+${customerLine ? '\n' + customerLine : ''}
+
+The customer wants to book. To complete a booking you need: service name, date/time, customer name, phone.
+Use ONLY the service list above. If they ask for something not listed, say "We don't offer that" and show what we DO offer.
+Use resolve_date_time for natural language like "tomorrow 3pm".
+Call check_slot before confirming. Call book_appointment only after customer confirms.
+Never invent services, phone numbers, or times. Never say "booked" unless book_appointment returned success.`,
         messages: [...history, { role: 'user' as const, content: input.message }],
         tools: tools as any,
         stopWhen: stepCountIs(6),
@@ -507,7 +524,7 @@ RULES:
         for (const tr of step.toolResults || []) {
             const toolName = (tr as any).toolName as string;
             const data = (tr as any).result ?? (tr as any).output;
-            v2log.info('V4_WORKER', `Tool: ${toolName}`, { result: JSON.stringify(data)?.slice(0, 200) });
+            v2log.info('V5_WORKER', `Tool: ${toolName}`, { result: JSON.stringify(data)?.slice(0, 200) });
 
             if (toolName === 'book_appointment') {
                 dbWriteAttempted = true;
@@ -540,7 +557,7 @@ export async function handleGeneralChat(
     language: DetectedLanguage
 ): Promise<AutomationResult> {
     const startTime = Date.now();
-    v2log.info('V4_WORKER', 'General chat → no-tool agent');
+    v2log.info('V5_WORKER', 'General chat → no-tool agent');
 
     const groq = getGroqClient();
     if (!groq) return makeErrorResult(input, config, startTime, language, 'No API key');
@@ -553,7 +570,7 @@ export async function handleGeneralChat(
         system: `${buildBasePrompt(config, timeCtx)}
 You are having a casual DM conversation. Be helpful, short, and friendly.
 If they seem like they want to ${config.businessType === 'ecommerce' ? 'buy something' : 'book an appointment'},
-ask what they're looking for. Keep replies to 1-8 words.
+ask what they're looking for.
 ${config.storeLocation ? `Location: ${config.storeLocation}` : ''}
 ${config.contactInfo ? `Contact: ${config.contactInfo}` : ''}`,
         messages: [...history, { role: 'user' as const, content: input.message }],
@@ -577,7 +594,7 @@ function makeErrorResult(
     language: DetectedLanguage,
     error: string
 ): AutomationResult {
-    v2log.error('V4_WORKER', 'Worker error', { error });
+    v2log.error('V5_WORKER', 'Worker error', { error });
     return buildResult(input, config, "Not available at the moment.", language, 'error', ['agent_error'], startTime);
 }
 
