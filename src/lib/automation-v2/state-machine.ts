@@ -117,13 +117,14 @@ Known customer: ${known ? `name=${known.name}, phone=${known.phone}` : 'new cust
     if (!appt.serviceName) {
         // Service not found
         if (extracted.service_name) {
+            // Customer asked for something specific we don't have — show top 3 closest
+            const suggestions = services.slice(0, 3).map(s => s.name).join(', ');
             reply = services.length > 0
-                ? `Hmm we don't have that one! Here's what we offer: ${serviceList}`
+                ? `We don't have that one! Maybe you're looking for: ${suggestions}?`
                 : "We don't have any services set up yet, sorry!";
         } else {
-            reply = services.length > 0
-                ? `Sure! Which one would you like? We have: ${serviceList}`
-                : "No services available at the moment.";
+            // Customer was vague ("I want to book") — just ask, don't list everything
+            reply = "Sure! What service are you looking for?";
         }
         await updateConversationStateV2(input.supabase, input.userId, input.workspaceId, input.chatId, 'appointments', input.platform,
             { stage: 'awaiting_service', appointment: appt, customer: cust });
@@ -272,13 +273,14 @@ Known customer: ${known ? `name=${known.name}, phone=${known.phone}, address=${k
             if (match && match.stockLevel <= 0) {
                 reply = `${match.itemName} is out of stock right now, sorry!`;
             } else {
+                const suggestions = products.slice(0, 3).map(p => p.item_name).join(', ');
                 reply = products.length > 0
-                    ? `We don't carry that one. Here's what we have: ${catalog}`
+                    ? `We don't carry that one! Maybe you're looking for: ${suggestions}?`
                     : "We don't have any products listed at the moment.";
             }
         } else {
             reply = products.length > 0
-                ? `What are you looking for? Here's what we have: ${catalog}`
+                ? "Sure! What are you looking to order?"
                 : "No products available at the moment.";
         }
         await updateConversationStateV2(input.supabase, input.userId, input.workspaceId, input.chatId, 'ecommerce', input.platform,
