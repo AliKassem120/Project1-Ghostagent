@@ -7,7 +7,7 @@ export default function GhostLogo({ className = "w-8 h-8" }: { className?: strin
             className={className}
         >
             <defs>
-                <linearGradient id="ghost-gradient" x1="0" y1="0" x2="32" y2="32">
+                <linearGradient id="ghost-grad-logo" x1="0" y1="0" x2="32" y2="32">
                     <stop offset="0%" stopColor="#818cf8" />
                     <stop offset="100%" stopColor="#c084fc" />
                 </linearGradient>
@@ -15,9 +15,9 @@ export default function GhostLogo({ className = "w-8 h-8" }: { className?: strin
             {/* Ghost Body */}
             <path
                 d="M16 2C10 2 6 6 6 12V24C6 26.2 7.8 28 10 28H22C24.2 28 26 26.2 26 24V12C26 6 22 2 16 2Z"
-                fill="url(#ghost-gradient)"
-                fillOpacity="0.2"
-                stroke="url(#ghost-gradient)"
+                fill="url(#ghost-grad-logo)"
+                fillOpacity="0.85"
+                stroke="url(#ghost-grad-logo)"
                 strokeWidth="2"
             />
             {/* Eyes */}
@@ -33,3 +33,4 @@ export default function GhostLogo({ className = "w-8 h-8" }: { className?: strin
         </svg>
     );
 }
+
