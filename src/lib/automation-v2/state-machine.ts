@@ -273,7 +273,7 @@ Known customer: ${known ? `name=${known.name}, phone=${known.phone}, address=${k
             if (match && match.stockLevel <= 0) {
                 reply = `${match.itemName} is out of stock right now, sorry!`;
             } else {
-                const suggestions = products.slice(0, 3).map(p => p.item_name).join(', ');
+                const suggestions = products.slice(0, 3).map(p => p.itemName).join(', ');
                 reply = products.length > 0
                     ? `We don't carry that one! Maybe you're looking for: ${suggestions}?`
                     : "We don't have any products listed at the moment.";
