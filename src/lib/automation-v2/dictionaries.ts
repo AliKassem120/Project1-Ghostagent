@@ -47,6 +47,7 @@ Appointments,Natrinak,Waiting for you
 Appointments,Fethin / Msakrin,Open / Closed
 Appointments,Dawr,Turn / Line
 Appointments,Jalse,Session
+Appointments,Amta / Aimta,When
 Logistics,Towsil / Delivery,Delivery
 Logistics,3nwen / Wen mawjud,Address / Location
 Logistics,Manta2a,Area / Region
