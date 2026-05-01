@@ -80,7 +80,7 @@ export async function checkUserLimit(userId: string): Promise<{ allowed: boolean
                 return { allowed: false, reason: 'Your free trial has expired. Upgrade to keep your AI agent running.' };
             }
 
-            const FREE_LIMIT = getReplyLimit('starter') ?? 50;
+            const FREE_LIMIT = 50;
             if (currentUsage >= FREE_LIMIT) {
                 return { allowed: false, reason: `You've used all ${FREE_LIMIT} free replies this month. Upgrade to Pro to continue without interruption.` };
             }

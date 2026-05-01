@@ -50,12 +50,14 @@ export default function BillingPage() {
                 else setCurrentPlan('Starter');
             }
 
-            // 2. Fetch Usage
+            // 2. Fetch Usage (monthly)
+            const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
             const { count } = await supabase
                 .from('activity_log')
                 .select('*', { count: 'exact', head: true })
                 .eq('user_id', user.id)
-                .in('event_type', ['AI_REPLY', 'COMMENT_REPLY']);
+                .in('event_type', ['AI_REPLY', 'COMMENT_REPLY'])
+                .gte('timestamp', firstDayOfMonth);
 
             setUsage(prev => ({ ...prev, replies: count || 0 }));
         };
