@@ -8,7 +8,6 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import { v2log } from '../logger';
-import { generateWhishPaymentLink } from './whish';
 
 export interface CreateOrderInput {
     supabase: SupabaseClient;
@@ -26,7 +25,7 @@ export interface CreateOrderInput {
     rawMessage?: string;
 }
 
-export async function createOrderV2(input: CreateOrderInput): Promise<{ success: boolean; paymentUrl?: string }> {
+export async function createOrderV2(input: CreateOrderInput): Promise<boolean> {
     const { 
         supabase, userId, workspaceId, chatId, customerName, 
         customerPhone, customerAddress, itemRequested, 
@@ -37,10 +36,7 @@ export async function createOrderV2(input: CreateOrderInput): Promise<{ success:
     v2log.ecommerce.orderAttempt({ workspaceId, itemRequested, customerName });
 
     try {
-        // 1. Generate unique Whish numeric ID (externalId)
-        const whishExternalId = Math.floor(Math.random() * 1000000000) + Date.now() % 100000;
-
-        // 2. Prepare raw_message JSON for extra context (dashboard uses this)
+        // 1. Prepare raw_message JSON for extra context (dashboard uses this)
         const rawJson = JSON.stringify({
             platform: 'instagram',
             chat_id: chatId,
@@ -48,19 +44,10 @@ export async function createOrderV2(input: CreateOrderInput): Promise<{ success:
             unit_price: unitPrice,
             quantity: quantity,
             total_price: unitPrice * quantity,
-            whish_external_id: whishExternalId,
             original_message: rawMessage
         });
 
-        // 3. Generate Whish URL BEFORE inserting the order (so we don't save broken orders if Whish is down)
-        const paymentUrl = await generateWhishPaymentLink({
-            amount: unitPrice * quantity,
-            currency: 'USD',
-            invoice: `Order: ${itemRequested} x${quantity}`,
-            externalId: whishExternalId
-        });
-
-        // 4. Insert into orders table (even if paymentUrl fails, we still record the order, but we can set status accordingly)
+        // 2. Insert into orders table
         const { data: inserted, error } = await supabase
             .from('orders')
             .insert({
@@ -72,7 +59,7 @@ export async function createOrderV2(input: CreateOrderInput): Promise<{ success:
                 customer_phone: customerPhone,
                 customer_address: customerAddress,
                 item_requested: `${itemRequested}${variantLabel ? ` (${variantLabel})` : ''} x${quantity}`,
-                status: paymentUrl ? 'Pending Payment' : 'Pending',
+                status: 'Pending',
                 raw_message: rawJson,
                 created_at: new Date().toISOString()
             })
@@ -81,14 +68,14 @@ export async function createOrderV2(input: CreateOrderInput): Promise<{ success:
 
         if (error) {
             v2log.ecommerce.orderError({ error, workspaceId });
-            return { success: false };
+            return false;
         }
 
         v2log.ecommerce.orderSuccess({ orderId: inserted.id });
-        return { success: true, paymentUrl: paymentUrl || undefined };
+        return true;
 
     } catch (err) {
         v2log.error('V2_ECOMMERCE_ORDER_CREATE', 'Unexpected error during order creation', { err, workspaceId });
-        return { success: false };
+        return false;
     }
 }

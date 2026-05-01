@@ -308,7 +308,7 @@ Known customer: ${known ? `name=${known.name}, phone=${known.phone}, address=${k
             if (data?.metadata?.username) handle = data.metadata.username;
         } catch (_) { /* */ }
 
-        const result = await createOrderV2({
+        const success = await createOrderV2({
             supabase: input.supabase, userId: input.userId, workspaceId: input.workspaceId,
             chatId: input.chatId, customerName: cust.name!, customerPhone: cust.phone!,
             customerAddress: cust.address!, itemRequested: order.productName!,
@@ -316,12 +316,9 @@ Known customer: ${known ? `name=${known.name}, phone=${known.phone}, address=${k
             quantity: order.quantity || 1, instagramHandle: handle,
         });
 
-        if (result.success) {
+        if (success) {
             dbWriteSuccess = true;
             reply = "Order confirmed!";
-            if (result.paymentUrl) {
-                reply += ` Please complete your payment here: ${result.paymentUrl}`;
-            }
             actions = ['order_created'];
             await clearConversationStateV2(input.supabase, input.userId, input.workspaceId, input.chatId, 'ecommerce', input.platform);
         } else {
