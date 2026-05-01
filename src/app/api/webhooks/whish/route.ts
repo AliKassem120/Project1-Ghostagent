@@ -7,10 +7,12 @@ const supabaseAdmin = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-export async function POST(req: Request) {
+export async function GET(req: Request) {
     try {
-        const payload = await req.json();
-        const { transaction_id, status, whish_reference_id } = payload;
+        const { searchParams } = new URL(req.url);
+        const transaction_id = searchParams.get('transaction_id');
+        const status = searchParams.get('status');
+        const whish_reference_id = searchParams.get('whish_reference_id');
 
         if (!transaction_id || !status) {
             return NextResponse.json({ error: 'Missing transaction_id or status' }, { status: 400 });
