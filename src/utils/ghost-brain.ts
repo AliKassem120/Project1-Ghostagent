@@ -38,7 +38,8 @@ export async function generateGhostReply(
         // ── V2 Feature Flag Check ────────────────────────────
         const envVersion = process.env.AUTOMATION_ENGINE_VERSION;
         const wsVersion = settings?.automation_engine_version;
-        const useV2 = wsVersion === 'v2' || (envVersion === 'v2' && wsVersion !== 'v1');
+        // Default to V2 (the new classifier routing) for ALL workspaces, unless explicitly downgraded to V1
+        const useV2 = wsVersion !== 'v1';
 
         if (useV2 && workspaceId && chatId) {
             console.log(`🚀 [Ghost Brain Router] Using V2 engine for workspace ${workspaceId}`);
