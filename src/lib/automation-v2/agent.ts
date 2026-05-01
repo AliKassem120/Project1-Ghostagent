@@ -361,14 +361,15 @@ export async function handleOrderIntent(
     const result = await generateText({
         model: groq(AGENT_MODEL),
         system: `${buildBasePrompt(config, timeCtx)}
-The customer wants to buy something. Your job:
-1. If you don't know what product, call search_products first.
-2. If product found and in stock, ask for: name, phone, delivery address — in ONE message.
-3. If they already provided details, call place_order immediately.
-4. Call lookup_customer first to check if they're a returning customer (skip asking for saved info).
+The customer wants to buy something. Your job is to collect: Product Name/Variant, Name, Phone, and Delivery Address.
+RULES:
+1. ALWAYS call search_products first if you are not 100% sure what the exact product name or variant is. NEVER hallucinate products or stock status.
+2. Call lookup_customer first to check if they're a returning customer (skip asking for saved info).
+3. Ask the customer for their full name, phone number, and delivery address if you don't have it. NEVER invent phone numbers or addresses.
+4. If they already provided all details, call place_order immediately.
 5. After place_order returns success, say "Order confirmed." and stop.
 6. If place_order fails, say "Order couldn't be placed, try again."
-7. NEVER confirm an order without calling place_order first.`,
+7. NEVER say "Order confirmed" without calling place_order first.`,
         messages: [...history, { role: 'user' as const, content: input.message }],
         tools: tools as any,
         stopWhen: stepCountIs(6),
@@ -481,14 +482,16 @@ export async function handleBookingIntent(
     const result = await generateText({
         model: groq(AGENT_MODEL),
         system: `${buildBasePrompt(config, timeCtx)}
-The customer wants to book an appointment. Your job:
-1. Figure out: which service, what date/time.
-2. Use resolve_date_time for natural language dates ("tomorrow 3pm").
-3. Call check_slot BEFORE confirming.
-4. Use lookup_customer — if returning, skip asking saved info.
-5. Collect full name + phone in ONE message.
-6. Call book_appointment ONLY after customer confirms.
-7. NEVER say "booked" unless book_appointment returned success.`,
+The customer wants to book an appointment. Your job is to collect: Service, Date/Time, Name, and Phone.
+RULES:
+1. ALWAYS call get_services first if you are not 100% sure what the exact name of the service is. NEVER hallucinate services like "manicure" or "pedicure" unless get_services returns them.
+2. If they ask for a service you don't have, tell them what you DO have based on get_services.
+3. Use resolve_date_time for natural language dates ("tomorrow 3pm").
+4. Call check_slot BEFORE confirming to ensure it's available.
+5. Use lookup_customer — if returning, skip asking saved info.
+6. Ask the customer for their full name and phone number if you don't have it. NEVER invent a phone number.
+7. Call book_appointment ONLY after customer confirms all details.
+8. NEVER say "booked" unless book_appointment returned success.`,
         messages: [...history, { role: 'user' as const, content: input.message }],
         tools: tools as any,
         stopWhen: stepCountIs(6),
