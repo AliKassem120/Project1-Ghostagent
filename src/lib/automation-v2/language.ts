@@ -4,16 +4,9 @@
  * ═══════════════════════════════════════════════════════════════
  * Unified multilingual detection: English, Arabic, Arabizi/Franco,
  * French, Spanish, Mixed.
- *
- * ALLOWED: language vocabulary, date words, yes/no words,
- *          appointment words, price words, product words.
- * FORBIDDEN: business hours, prices, service names, products,
- *            stock, phone numbers, addresses, fake data.
  */
 
 import type { DetectedLanguage } from './types';
-
-// ── Normalization ────────────────────────────────────────────
 
 export function normalizeText(input: string): string {
     return input
@@ -25,8 +18,6 @@ export function normalizeText(input: string): string {
         .trim();
 }
 
-// ── Script Detectors ─────────────────────────────────────────
-
 function hasArabicScript(msg: string): boolean {
     return /[\u0600-\u06FF]/.test(msg);
 }
@@ -35,27 +26,23 @@ function hasLatinLetters(msg: string): boolean {
     return /[a-zA-Z]/.test(msg);
 }
 
-// ── Signal Word Banks ────────────────────────────────────────
-
 const ARABIZI_SIGNALS = [
-    'bde', 'bade', 'baddi', 'badde', 'baddak', 'baddik', 'e5od', 'e5ud', 'ekhod',
-    'maw3ed', 'mawed', '7ajez', 'hajez', 'se3a', 'sa3a',
-    'shu', 'wen', 'wain', 'ade', 'adde', 'addesh',
-    'btefta7', 'btfta7', 'msakrin', 'fet7in', 'fethin',
-    'bukra', 'bokra', 'lyom', 'elyoum', 'sobo7', 'masa',
-    'tamem', 'tayeb', 'akid', 'tekram', 'yalla', 'sah',
-    'mish', 'la2', 'fi', 'mawjud', 'mawjoud',
-    'se3r', 'se3ro', 'ra2m', '3nwen', 'towsil',
+    'bde', 'bade', 'baddi', 'badde', 'baddak', 'baddik', 'bdak', 'bdek', 'baddna',
+    'e5od', 'e5ud', 'ekhod', 'ekhed',
+    'maw3ed', 'mawed', 'ma3ed', '7ajez', 'hajez', 'hajiz', 'se3a', 'sa3a', 'seaa',
+    'shu', 'shi', 'wen', 'wain', 'ade', 'adde', 'addesh',
+    'btefta7', 'btfta7', 'bteftah', 'msakrin', 'fet7in', 'fethin',
+    'bukra', 'bokra', 'lyom', 'elyoum', 'sobo7', 'masa', 'dohor', 'ba3ed', 'ba3d',
+    'tamem', 'tayeb', 'akid', 'tekram', 'yalla', 'sah', 'tmm',
+    'mish', 'msh', 'la2', 'fi', 'mawjud', 'mawjoud',
+    'se3r', 'se3ro', 'ra2m', '3nwen', '3enwen', 'towsil', 'tawsil',
     'kifak', 'kifik', 'kif halak',
-    // Shopping/Commerce
-    'kholsan', '2yes', 'lon', 'alwen', 'z8ir', 'kbir', 'makfule', 'balesh', 'asle',
-    // Logistics
-    'manta2a', 'bineye', 'bser3a', 'd8re', 'halla2',
-    // Complaints
+    'we7de', 'wehde', 'wa7de', 'wahde', 'wa7ad', 'wahad', 'tnen', '2ten',
+    'kholsan', '2yes', 'ma2as', 'lon', 'alwen', 'z8ir', 's8ir', 'kbir', 'makfule', 'balesh', 'asle',
+    'hayda', 'hayde', 'no3', 'naw3', 'category', 'type',
+    'manta2a', 'bineye', 'bser3a', 'd8re', 'halla2', 'hala2', '3al beit', '3albeit',
     't2a5arto', 'ma woselne', '8alat', 'bade badela', 'el8iya',
-    // Digital
     'mnfa3el', 'bteb3at', 'b3atle', 'saf7a',
-    // Casual
     'khaye', 'e5te', 'enshalla', 'basita', 'wala yhemak', '3a rase',
 ];
 
@@ -78,80 +65,47 @@ const SPANISH_SIGNALS = [
     'manana', 'hoy', 'si', 'claro',
 ];
 
-// ── Main Detection ───────────────────────────────────────────
-
 export function detectLanguage(message: string): DetectedLanguage {
     const hasArabic = hasArabicScript(message);
     const hasLatin = hasLatinLetters(message);
     const normalized = normalizeText(message);
-
     const has = (words: string[]) => words.some(w => normalized.includes(w));
 
-    // Mixed Arabic + Latin
     if (hasArabic && hasLatin) return 'mixed';
-
-    // Pure Arabic script
     if (hasArabic && !hasLatin) return 'arabic';
-
-    // Check Arabizi (must be before French/Spanish since they share Latin)
     if (has(ARABIZI_SIGNALS)) return 'arabizi';
-
-    // French
     if (has(FRENCH_SIGNALS)) return 'french';
-
-    // Spanish
     if (has(SPANISH_SIGNALS)) return 'spanish';
-
-    // Default Latin = English
     if (hasLatin) return 'english';
-
     return 'unknown';
 }
 
-// ── Yes/No Detection (language-agnostic) ─────────────────────
-
 const YES_WORDS = [
-    // English
     'yes', 'yeah', 'yep', 'yea', 'ok', 'okay', 'sure', 'confirm', 'correct',
-    // Arabic
     'نعم', 'ايوا', 'اي', 'ايه', 'تمام', 'أكيد', 'صح', 'طيب',
-    // Arabizi
-    'eh', 'ee', 'akid', 'tamem', 'tayeb', 'yalla', 'mazbout',
-    // French
+    'eh', 'ee', 'akid', 'tamem', 'tmm', 'tayeb', 'yalla', 'mazbout', 'sah',
     'oui', 'ouais', 'd\'accord', 'bien sur', 'absolument',
-    // Spanish
     'si', 'claro', 'vale', 'por supuesto', 'de acuerdo',
 ];
 
 const NO_WORDS = [
-    // English
     'no', 'nope', 'nah', 'cancel', 'stop', 'never',
-    // Arabic
     'لا', 'مش', 'ابدا',
-    // Arabizi
     'la', 'la2', 'mish', 'msh',
-    // French
     'non', 'pas', 'jamais', 'annuler',
-    // Spanish
     'no', 'nunca', 'cancelar', 'tampoco',
 ];
 
 export function detectYesNo(message: string): 'yes' | 'no' | null {
     const normalized = normalizeText(message);
     const tokens = normalized.split(' ');
-
-    // Short messages (1-4 words) are more likely to be yes/no
     if (tokens.length <= 4) {
         const hasWord = (list: string[]) => tokens.some(token => list.includes(token));
-        
         if (hasWord(YES_WORDS)) return 'yes';
         if (hasWord(NO_WORDS)) return 'no';
     }
-
     return null;
 }
-
-// ── Name/Phone Extraction (heuristic) ────────────────────────
 
 export function extractPhone(message: string): string | null {
     const match = message.match(/(?:\+?\d[\d\s().\-]{6,}\d)/);
@@ -161,43 +115,17 @@ export function extractPhone(message: string): string | null {
 export function extractNameAndPhone(message: string): { name: string | null; phone: string | null } {
     const phone = extractPhone(message);
     if (!phone) return { name: null, phone: null };
-
-    // Remove the phone from the message to get the name
-    const remaining = message
-        .replace(phone, '')
-        .replace(/[,\-:]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-    // Filter out common non-name words
+    const remaining = message.replace(phone, '').replace(/[,\-:]/g, ' ').replace(/\s+/g, ' ').trim();
     const skipWords = ['my', 'name', 'is', 'im', 'i', 'am', 'esme', 'ana', 'phone', 'number', 'tel', 'ra2m', 'رقم', 'اسمي', 'انا'];
-    const nameCandidate = remaining
-        .split(' ')
-        .filter(w => w.length > 1 && !skipWords.includes(w.toLowerCase()))
-        .join(' ')
-        .trim();
-
-    return {
-        name: nameCandidate || null,
-        phone,
-    };
+    const nameCandidate = remaining.split(' ').filter(w => w.length > 1 && !skipWords.includes(w.toLowerCase())).join(' ').trim();
+    return { name: nameCandidate || null, phone };
 }
 
-// ── Address Extraction (heuristic) ───────────────────────────
-
 export function extractAddress(message: string): string | null {
-    // If the message is mostly a location/address (after removing name/phone)
     const phone = extractPhone(message);
     let remaining = message;
     if (phone) remaining = remaining.replace(phone, '');
-
     remaining = remaining.replace(/[,\-:]/g, ' ').replace(/\s+/g, ' ').trim();
-
-    // Simple heuristic: if there's a word that looks like a place name
-    // and the message context suggests it's an address
-    if (remaining.length > 2 && remaining.length < 200) {
-        return remaining;
-    }
-
+    if (remaining.length > 2 && remaining.length < 200) return remaining;
     return null;
 }
