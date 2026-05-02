@@ -21,12 +21,12 @@ export default function GhostLogo({ className = "w-8 h-8" }: { className?: strin
                 strokeWidth="2"
             />
             {/* Eyes */}
-            <circle cx="12" cy="12" r="2" fill="white" />
-            <circle cx="20" cy="12" r="2" fill="white" />
+            <circle cx="12" cy="12" r="2" fill="currentColor" />
+            <circle cx="20" cy="12" r="2" fill="currentColor" />
             {/* Digital Signal / Smile */}
             <path
                 d="M11 20H13V18H15V22H17V18H19V20H21"
-                stroke="white"
+                stroke="currentColor"
                 strokeWidth="1.5"
                 strokeLinecap="round"
             />

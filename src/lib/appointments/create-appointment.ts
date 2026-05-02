@@ -1,9 +1,12 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { 
-    checkAppointmentAvailability, 
-    timeToMinutes, 
-    minutesToTime 
-} from '@/utils/brains/appointments/tools';
+import { minutesToTime } from '@/lib/automation-v2/time';
+import { checkAvailability } from '@/lib/automation-v2/appointments/availability';
+import { loadBusinessHours } from '@/lib/automation-v2/appointments/hours';
+
+function timeToMinutes(time: string): number {
+    const [h, m] = time.split(':').map(Number);
+    return h * 60 + m;
+}
 
 export async function createAppointmentBooking(input: {
     supabase: SupabaseClient;
@@ -93,37 +96,23 @@ export async function createAppointmentBooking(input: {
         });
 
         // 3. Re-validate availability (double-check before insert)
-        const availability = await checkAppointmentAvailability({
+        const businessHours = await loadBusinessHours(supabase, workspaceId);
+        const availability = await checkAvailability({
             supabase,
-            userId,
             workspaceId,
             date,
-            durationMinutes
+            startTime,
+            durationMinutes,
+            businessHours
         });
 
-        if (availability.error || availability.closed) {
+        if (!availability.available) {
             console.error("[APPOINTMENT_SAVE_BLOCKED_UNAVAILABLE]", {
                 event: "appointment_create_blocked",
-                reason: "business_closed_or_availability_error",
+                reason: availability.reason,
                 date,
-                availability,
-            });
-            return null;
-        }
-
-        const isAvailable = availability.slots.some(s => {
-            const sStart = timeToMinutes(s.time);
-            const sEnd = timeToMinutes(s.end_time);
-            return requestedStart >= sStart && requestedEnd <= sEnd;
-        });
-
-        if (!isAvailable) {
-            console.error("[APPOINTMENT_SAVE_BLOCKED_SLOT_TAKEN]", {
-                event: "appointment_create_blocked",
-                reason: "slot_outside_hours_or_taken",
                 startTime,
                 durationMinutes,
-                availableSlots: availability.slots,
             });
             return null;
         }

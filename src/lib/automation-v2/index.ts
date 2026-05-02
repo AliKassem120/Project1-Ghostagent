@@ -9,7 +9,7 @@
  */
 
 import type { AutomationInput, AutomationResult } from './types';
-import { routeToV2Brain } from './router';
+import { routeToAgent } from './router';
 import { v2log } from './logger';
 
 export async function handleAutomationMessage(input: AutomationInput): Promise<AutomationResult> {
@@ -25,7 +25,7 @@ export async function handleAutomationMessage(input: AutomationInput): Promise<A
     });
 
     try {
-        const result = await routeToV2Brain(input);
+        const result = await routeToAgent(input);
 
         // Override requestId in debug
         result.debug.requestId = requestId;
@@ -69,7 +69,7 @@ export async function handleAutomationMessage(input: AutomationInput): Promise<A
                     actions: result.actions,
                     durationMs: result.debug.durationMs,
                     platform: input.platform,
-                    chatId: input.chatId,
+                    chat_id: input.chatId,
                     error: result.error
                 }
             });

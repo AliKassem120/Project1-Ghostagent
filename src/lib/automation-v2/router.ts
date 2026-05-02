@@ -1,9 +1,9 @@
 /**
  * ═══════════════════════════════════════════════════════════════
- * GhostAgent — Automation Engine V2: Router
+ * GhostAgent — Router
  * ═══════════════════════════════════════════════════════════════
- * Routes incoming messages to the correct V2 brain based on
- * workspace type. Loads workspace config from ai_settings.
+ * Loads workspace config from ai_settings and routes to the agent.
+ * Checks handoff keywords before invoking the LLM.
  */
 
 import type { AutomationInput, AutomationResult, WorkspaceConfig } from './types';
@@ -28,7 +28,7 @@ export async function loadWorkspaceConfig(
         .maybeSingle();
 
     if (error || !data) {
-        v2log.error('V2_ROUTER', 'Failed to load workspace config', { workspaceId, error });
+        v2log.error('ROUTER', 'Failed to load workspace config', { workspaceId, error });
         return null;
     }
 
@@ -53,9 +53,9 @@ export async function loadWorkspaceConfig(
     };
 }
 
-// ── Route to correct brain ───────────────────────────────────
+// ── Route to the agent ───────────────────────────────────────
 
-export async function routeToV2Brain(input: AutomationInput): Promise<AutomationResult> {
+export async function routeToAgent(input: AutomationInput): Promise<AutomationResult> {
     const startTime = Date.now();
 
     const config = await loadWorkspaceConfig(input.supabase, input.workspaceId, input.userId);
@@ -80,13 +80,10 @@ export async function routeToV2Brain(input: AutomationInput): Promise<Automation
         };
     }
 
-    // Check handoff keywords first
+    // ── Handoff keywords (zero-cost check before LLM) ────────
     const messageLower = input.message.toLowerCase();
     if (config.handoffKeywords.some((kw: string) => messageLower.includes(kw.toLowerCase()))) {
-        v2log.info('V2_ROUTER', 'Handoff keyword detected, suppressing reply', {
-            workspaceId: input.workspaceId,
-            chatId: input.chatId,
-        });
+        v2log.info('ROUTER', 'Handoff keyword detected', { workspaceId: input.workspaceId });
         return {
             shouldReply: false,
             actions: ['handoff_keyword_detected'],
@@ -106,23 +103,7 @@ export async function routeToV2Brain(input: AutomationInput): Promise<Automation
         };
     }
 
-    // ── V3 Agent (Primary) ───────────────────────────────────
-    try {
-        const { runAgent } = await import('./agent');
-        v2log.info('V2_ROUTER', 'Routing to V3 Agent', { workspaceId: input.workspaceId });
-        return await runAgent(input, config);
-    } catch (agentErr: any) {
-        v2log.error('V2_ROUTER', 'V3 Agent failed, falling back to V2 brain', {
-            error: agentErr?.message || String(agentErr),
-        });
-    }
-
-    // ── V2 Brain Fallback ────────────────────────────────────
-    if (config.businessType === 'appointments') {
-        const { handleAppointmentMessage } = await import('./appointments/brain');
-        return handleAppointmentMessage(input, config);
-    } else {
-        const { handleEcommerceMessage } = await import('./ecommerce/brain');
-        return handleEcommerceMessage(input, config);
-    }
+    // ── Agent ────────────────────────────────────────────────
+    const { runAgent } = await import('./agent');
+    return await runAgent(input, config);
 }

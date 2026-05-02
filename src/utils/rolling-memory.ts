@@ -62,6 +62,8 @@ export async function getConversationMemory(
             : h.event_type === 'MANUAL_REPLY' ? 'Owner'
                 : 'User';
         let content = h.description;
+        // Strip version prefixes (e.g. "V3 sent:" -> "Sent:")
+        content = content.replace(/^V\d+\s+sent:/i, 'Sent:');
         if (content.includes('Sent:')) content = content.split('Sent:')[1];
         if (content.includes('Sent (Manual):')) content = content.split('Sent (Manual):')[1];
         if (content.includes('Received:')) content = content.split('Received:')[1];
@@ -130,6 +132,8 @@ export async function summarizeConversationIfNeeded(
                 : h.event_type === 'MANUAL_REPLY' ? 'Owner'
                     : 'User';
             let content = h.description;
+            // Strip version prefixes (e.g. "V3 sent:" -> "Sent:")
+            content = content.replace(/^V\d+\s+sent:/i, 'Sent:');
             if (content.includes('Sent:')) content = content.split('Sent:')[1];
             if (content.includes('Sent (Manual):')) content = content.split('Sent (Manual):')[1];
             if (content.includes('Received:')) content = content.split('Received:')[1];

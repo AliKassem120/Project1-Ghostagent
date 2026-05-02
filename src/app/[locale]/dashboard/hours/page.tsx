@@ -56,7 +56,7 @@ function getHoursWorked(open: string, close: string): string {
 
 export default function HoursPage() {
     const { user } = useAuth();
-    const { activeWorkspaceId } = useWorkspace();
+    const { activeWorkspaceId, activeWorkspace } = useWorkspace();
     const supabase = createClient();
     const toast = useToast();
 
@@ -184,7 +184,9 @@ export default function HoursPage() {
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight text-foreground">Working Hours</h1>
                         <p className="text-sm text-muted-foreground mt-1">
-                            Set your weekly availability. The AI uses this to offer appointment times.
+                            {activeWorkspace?.business_type === 'appointments' 
+                                ? 'Set your weekly availability. The AI uses this to offer appointment times.' 
+                                : 'Set your weekly working hours. The AI uses this to inform customers when you are open.'}
                         </p>
                     </div>
                     <button
@@ -209,41 +211,43 @@ export default function HoursPage() {
                 </div>
             </motion.div>
 
-            {/* Session Duration */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.05 }}
-                className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6"
-            >
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 rounded-xl bg-primary/10">
-                        <Clock className="w-4 h-4 text-primary" />
+            {/* Session Duration - Only for Appointments */}
+            {activeWorkspace?.business_type === 'appointments' && (
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.05 }}
+                    className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6"
+                >
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 rounded-xl bg-primary/10">
+                            <Clock className="w-4 h-4 text-primary" />
+                        </div>
+                        <div>
+                            <h2 className="text-sm font-semibold text-foreground">Session Duration</h2>
+                            <p className="text-[11px] text-muted-foreground">
+                                Default length for each appointment slot
+                            </p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 className="text-sm font-semibold text-foreground">Session Duration</h2>
-                        <p className="text-[11px] text-muted-foreground">
-                            Default length for each appointment slot
-                        </p>
+                    <div className="flex flex-wrap gap-2">
+                        {DURATION_OPTIONS.map((opt) => (
+                            <button
+                                key={opt.value}
+                                onClick={() => setSlotDuration(opt.value)}
+                                className={clsx(
+                                    "px-4 py-2 rounded-xl text-sm font-medium transition-all border press",
+                                    slotDuration === opt.value
+                                        ? "bg-primary/15 border-primary/30 text-primary shadow-sm"
+                                        : "bg-surface-2 border-border text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+                                )}
+                            >
+                                {opt.label}
+                            </button>
+                        ))}
                     </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                    {DURATION_OPTIONS.map((opt) => (
-                        <button
-                            key={opt.value}
-                            onClick={() => setSlotDuration(opt.value)}
-                            className={clsx(
-                                "px-4 py-2 rounded-xl text-sm font-medium transition-all border press",
-                                slotDuration === opt.value
-                                    ? "bg-primary/15 border-primary/30 text-primary shadow-sm"
-                                    : "bg-surface-2 border-border text-muted-foreground hover:bg-surface-3 hover:text-foreground"
-                            )}
-                        >
-                            {opt.label}
-                        </button>
-                    ))}
-                </div>
-            </motion.div>
+                </motion.div>
+            )}
 
             {/* Summary Bar */}
             <motion.div
@@ -265,10 +269,14 @@ export default function HoursPage() {
                         <span className="font-bold text-foreground">{7 - openDays}</span> days closed
                     </span>
                 </div>
-                <div className="w-px h-4 bg-border" />
-                <span className="text-xs text-muted-foreground">
-                    Appointment slots: <span className="font-bold text-foreground">{slotDuration} min</span>
-                </span>
+                {activeWorkspace?.business_type === 'appointments' && (
+                    <>
+                        <div className="w-px h-4 bg-border" />
+                        <span className="text-xs text-muted-foreground">
+                            Appointment slots: <span className="font-bold text-foreground">{slotDuration} min</span>
+                        </span>
+                    </>
+                )}
             </motion.div>
 
             {/* Day Cards */}

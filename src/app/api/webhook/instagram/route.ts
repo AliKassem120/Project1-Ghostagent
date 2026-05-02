@@ -353,10 +353,10 @@ async function processWebhookEvent(body: any) {
                     // ── GATE: Check user's comment_auto_reply setting ──
                     let commentSettings: any = null;
                     if (commentWorkspaceId) {
-                        const { data: ws } = await supabaseAdmin.from('ai_settings').select('comment_auto_reply, comment_keywords, comment_max_per_post').eq('id', commentWorkspaceId).maybeSingle();
+                        const { data: ws } = await supabaseAdmin.from('ai_settings').select('comment_auto_reply, comment_keywords, comment_max_per_post, comment_reply_style').eq('id', commentWorkspaceId).maybeSingle();
                         commentSettings = ws;
                     } else {
-                        const { data: ws } = await supabaseAdmin.from('ai_settings').select('comment_auto_reply, comment_keywords, comment_max_per_post').eq('user_id', ownerId).maybeSingle();
+                        const { data: ws } = await supabaseAdmin.from('ai_settings').select('comment_auto_reply, comment_keywords, comment_max_per_post, comment_reply_style').eq('user_id', ownerId).maybeSingle();
                         commentSettings = ws;
                     }
                     if (commentSettings && commentSettings.comment_auto_reply === false) {
@@ -472,15 +472,27 @@ async function processWebhookEvent(body: any) {
                         continue;
                     }
 
-                    console.log(`🤖 Comment Reply to @${commenterName}: ${aiResponse}`);
+                    console.log(`🤖 Comment Reply to @${commenterName}: ${aiResponse} (Style: ${commentSettings?.comment_reply_style || 'public'})`);
 
-                    await sendCommentReply(ownerId, commentId, aiResponse, supabaseAdmin, commentWorkspaceId ?? undefined);
+                    const replyStyle = commentSettings?.comment_reply_style || 'public';
+                    let logDescription = `Replied to @${commenterName}: "${aiResponse}"`;
+
+                    if (replyStyle === 'public' || replyStyle === 'both') {
+                        await sendCommentReply(ownerId, commentId, aiResponse, supabaseAdmin, commentWorkspaceId ?? undefined);
+                    }
+                    
+                    if (replyStyle === 'dm' || replyStyle === 'both') {
+                        await sendPrivateReplyToComment(ownerId, commentId, aiResponse, supabaseAdmin, commentWorkspaceId ?? undefined);
+                        logDescription = replyStyle === 'dm' 
+                            ? `Sent DM reply for comment to @${commenterName}: "${aiResponse}"`
+                            : `Replied publicly & via DM to @${commenterName}: "${aiResponse}"`;
+                    }
 
                     await supabaseAdmin.from('activity_log').insert({
                         user_id: ownerId,
                         workspace_id: commentWorkspaceId || null,
                         event_type: 'COMMENT_REPLY',
-                        description: `Replied to @${commenterName}: "${aiResponse}"`,
+                        description: logDescription,
                         timestamp: new Date().toISOString(),
                         metadata: {
                             chat_id: commenterId,
@@ -956,6 +968,68 @@ async function sendCommentReply(ownerId: string, commentId: string, message: str
         }
     } catch (fetchError) {
         console.error("❌ COMMENT REPLY FETCH ERROR:", fetchError);
+    }
+}
+
+async function sendPrivateReplyToComment(ownerId: string, commentId: string, message: string, supabaseAdmin: any, workspaceId?: string) {
+    let token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
+    let isNewAPI = false;
+
+    // Get the workspace-specific token from DB
+    let commentConnQuery = supabaseAdmin.from('instagram_integrations').select('access_token');
+    if (workspaceId) {
+        commentConnQuery = commentConnQuery.eq('workspace_id', workspaceId);
+    } else {
+        commentConnQuery = commentConnQuery.is('workspace_id', null);
+    }
+    const { data: connection } = await commentConnQuery.limit(1).maybeSingle();
+
+    if (connection?.access_token) {
+        token = connection.access_token;
+        isNewAPI = true;
+        console.log(`[sendPrivateReply] Using workspace token for ${workspaceId}`);
+    } else {
+        const { data: oldConn } = await supabaseAdmin.from('user_connections')
+            .select('metadata')
+            .eq('user_id', ownerId)
+            .in('provider', ['INSTAGRAM', 'instagram_api_login'])
+            .limit(1).maybeSingle();
+
+        if (oldConn?.metadata?.access_token) {
+            token = oldConn.metadata.access_token;
+            console.log(`[sendPrivateReply] Using legacy token for ${ownerId}`);
+        }
+    }
+
+    if (!token) {
+        console.error("❌ PRIVATE COMMENT REPLY FAILED: Missing Access Token for user", ownerId);
+        return;
+    }
+
+    const baseUrl = isNewAPI ? 'https://graph.instagram.com' : 'https://graph.facebook.com';
+    const url = `${baseUrl}/v21.0/me/messages?access_token=${token}`;
+    console.log(`✉️ [sendPrivateReply] Sending private reply for comment ${commentId}`);
+
+    const body = {
+        recipient: { comment_id: commentId },
+        message: { text: message },
+    };
+
+    try {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+
+        const data = await response.json();
+        if (data.error) {
+            console.error("❌ PRIVATE REPLY FAILED:", data.error);
+        } else {
+            console.log("✅ PRIVATE REPLY SENT:", data);
+        }
+    } catch (fetchError) {
+        console.error("❌ PRIVATE REPLY FETCH ERROR:", fetchError);
     }
 }
 

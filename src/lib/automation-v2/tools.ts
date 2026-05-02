@@ -1,17 +1,9 @@
 /**
  * ═══════════════════════════════════════════════════════════════
- * GhostAgent — V3 Agent: Tool Definitions
+ * GhostAgent — Tool Definitions
  * ═══════════════════════════════════════════════════════════════
- * Defines all tools available to the AI agent, split by business
- * type (appointments vs. ecommerce).
- *
- * Each tool wraps an existing V2 module function so we don't
- * duplicate any business logic — the agent just calls them.
- *
- * Note: We use plain objects instead of the tool() helper because
- * AI SDK v6 changed the tool type signature. The agent passes
- * these with 'as any' to generateText, which is fine since
- * tool() is just an identity function (returns its argument).
+ * Only tools that need DB access. The LLM handles everything
+ * else (date parsing, greetings, general knowledge) natively.
  */
 
 import { z } from 'zod';
@@ -23,7 +15,6 @@ import { loadActiveServices, findBestServiceMatch } from './appointments/service
 import { loadBusinessHours, getHoursForDay } from './appointments/hours';
 import { checkAvailability } from './appointments/availability';
 import { createAppointmentV2 } from './appointments/create-appointment';
-import { resolveDateTime } from './appointments/date-time';
 import { formatTime12, minutesToTime } from './time';
 
 // ── E-Commerce imports ───────────────────────────────────────
@@ -50,25 +41,8 @@ export interface ToolContext {
 
 export function createAppointmentTools(ctx: ToolContext) {
     return {
-        get_services: {
-            description: 'List all available services with prices and duration.',
-            parameters: z.object({}),
-            execute: async () => {
-                const services = await loadActiveServices(ctx.supabase, ctx.workspaceId);
-                return { services: services.map(s => ({ name: s.name, price: s.price, duration: s.durationMinutes, description: s.description })) };
-            },
-        },
-        get_business_hours: {
-            description: 'Get business operating hours for each day of the week.',
-            parameters: z.object({}),
-            execute: async () => {
-                const hours = await loadBusinessHours(ctx.supabase, ctx.workspaceId);
-                const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-                return { hours: hours.map(h => ({ day: dayNames[h.dayOfWeek], isOpen: h.isOpen, open: h.isOpen ? formatTime12(h.openTime) : null, close: h.isOpen ? formatTime12(h.closeTime) : null })) };
-            },
-        },
         check_slot: {
-            description: 'Check if a date/time slot is available. Call BEFORE confirming any appointment.',
+            description: 'Check if a date/time slot is available for a service. Call BEFORE confirming any appointment.',
             parameters: z.object({
                 date: z.string().describe('YYYY-MM-DD'),
                 time: z.string().describe('HH:mm 24h'),
@@ -77,21 +51,13 @@ export function createAppointmentTools(ctx: ToolContext) {
             execute: async ({ date, time, service_name }: { date: string; time: string; service_name: string }) => {
                 const services = await loadActiveServices(ctx.supabase, ctx.workspaceId);
                 const match = findBestServiceMatch(services, service_name);
-                if (!match) return { available: false, reason: 'service_not_found' };
+                if (!match) return { available: false, reason: 'service_not_found', services_available: services.map(s => s.name) };
                 const hours = await loadBusinessHours(ctx.supabase, ctx.workspaceId);
                 const r = await checkAvailability({ supabase: ctx.supabase, workspaceId: ctx.workspaceId, date, startTime: time, durationMinutes: match.durationMinutes, businessHours: hours });
                 if (r.available) return { available: true, service: match.name, price: match.price, duration: match.durationMinutes, date, time: formatTime12(time) };
                 if (r.reason === 'closed') { const dl = new Date(`${date}T12:00:00`).toLocaleDateString('en-US', { weekday: 'long' }); return { available: false, reason: 'closed', message: `Closed on ${dl}` }; }
                 if (r.reason === 'outside_hours') { const dow = new Date(`${date}T12:00:00`).getDay(); const h = getHoursForDay(hours, dow); return { available: false, reason: 'outside_hours', message: `Open ${h ? formatTime12(h.openTime) : '9 AM'} - ${h ? formatTime12(h.closeTime) : '5 PM'}` }; }
                 return { available: false, reason: 'overlap', message: 'Slot taken' };
-            },
-        },
-        resolve_date_time: {
-            description: 'Parse natural language date/time like "tomorrow at 3pm", "next Monday". Returns YYYY-MM-DD date and HH:mm time.',
-            parameters: z.object({ text: z.string().describe('Natural language date/time') }),
-            execute: async ({ text }: { text: string }) => {
-                const { date, time } = resolveDateTime(text, ctx.config.timezone);
-                return { date, time, parsed: !!(date || time) };
             },
         },
         book_appointment: {
@@ -110,7 +76,36 @@ export function createAppointmentTools(ctx: ToolContext) {
                 const [h, m] = time.split(':').map(Number);
                 const endTime = minutesToTime(h * 60 + m + match.durationMinutes);
                 let handle = 'Customer';
-                try { const { data } = await ctx.supabase.from('activity_log').select('metadata').eq('user_id', ctx.userId).filter('metadata->>chat_id', 'eq', ctx.chatId).order('timestamp', { ascending: false }).limit(1).maybeSingle(); if (data?.metadata?.username) handle = data.metadata.username; } catch (_e) { /* */ }
+                try { 
+                    // Query last 10 logs to find any that have a username/handle
+                    const { data } = await ctx.supabase
+                        .from('activity_log')
+                        .select('metadata')
+                        .eq('user_id', ctx.userId)
+                        .order('timestamp', { ascending: false })
+                        .limit(10);
+
+                    if (data && data.length > 0) {
+                        // Filter for logs matching this chat ID (checking both key variants)
+                        const relevantLogs = data.filter(l => 
+                            l.metadata?.chat_id === ctx.chatId || 
+                            l.metadata?.chatId === ctx.chatId
+                        );
+                        
+                        const bestLog = relevantLogs.find(l => 
+                            l.metadata?.username || 
+                            l.metadata?.commenter_name || 
+                            l.metadata?.sender?.attendee_name
+                        );
+
+                        if (bestLog) {
+                            handle = bestLog.metadata.username || 
+                                     bestLog.metadata.commenter_name || 
+                                     bestLog.metadata.sender?.attendee_name || 
+                                     handle;
+                        }
+                    }
+                } catch (_e) { /* fallback to 'Customer' */ }
                 const success = await createAppointmentV2({ supabase: ctx.supabase, userId: ctx.userId, workspaceId: ctx.workspaceId, chatId: ctx.chatId, customerName: customer_name, customerPhone: customer_phone, serviceName: match.name, date, startTime: time, endTime, durationMinutes: match.durationMinutes, instagramHandle: handle });
                 return { success, service: match.name, date, time: formatTime12(time), price: match.price };
             },
@@ -126,7 +121,7 @@ export function createAppointmentTools(ctx: ToolContext) {
             },
         },
         lookup_customer: {
-            description: 'Check if customer has booked/ordered before. Returns saved details.',
+            description: 'Check if this customer has booked before. Returns saved name/phone.',
             parameters: z.object({}),
             execute: async () => {
                 const known = await getKnownCustomerDetails(ctx.supabase, ctx.workspaceId, ctx.chatId);
@@ -144,19 +139,19 @@ export function createAppointmentTools(ctx: ToolContext) {
 export function createEcommerceTools(ctx: ToolContext) {
     return {
         search_products: {
-            description: 'Search for products in the store. Returns name, price, stock count, and whether in stock. Use this for ALL product/stock/price questions — no need for a separate stock check.',
-            parameters: z.object({ query: z.string().optional().describe('Product name or keyword. Leave empty to list all products.') }),
+            description: 'Search products in the store. Returns name, price, stock. Use for ALL product/price/stock questions.',
+            parameters: z.object({ query: z.string().optional().describe('Product name or keyword. Leave empty to list all.') }),
             execute: async ({ query }: { query?: string }) => {
                 const products = await searchProducts({ supabase: ctx.supabase, workspaceId: ctx.workspaceId, query });
                 return { products: products.map(p => ({ name: p.itemName, price: p.price, inStock: p.stockLevel > 0, stock: p.stockLevel })), count: products.length };
             },
         },
         get_business_hours: {
-            description: 'Get store operating hours for each day of the week. Use when customer asks "when are you open?", "working hours?", "are you open today?".',
+            description: 'Get store hours. Use when customer asks "when are you open?", "working hours?".',
             parameters: z.object({}),
             execute: async () => {
                 const hours = await loadBusinessHours(ctx.supabase, ctx.workspaceId);
-                if (hours.length === 0) return { message: 'Working hours not configured.' };
+                if (hours.length === 0) return { message: 'Hours not configured.' };
                 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
                 return { hours: hours.map(h => ({ day: dayNames[h.dayOfWeek], isOpen: h.isOpen, open: h.isOpen ? formatTime12(h.openTime) : null, close: h.isOpen ? formatTime12(h.closeTime) : null })) };
             },
@@ -176,7 +171,36 @@ export function createEcommerceTools(ctx: ToolContext) {
                 const match = findBestProductMatch(products, product_name);
                 if (!match) return { success: false, error: 'Product not found' };
                 let handle = 'Customer';
-                try { const { data } = await ctx.supabase.from('activity_log').select('metadata').eq('user_id', ctx.userId).filter('metadata->>chat_id', 'eq', ctx.chatId).order('timestamp', { ascending: false }).limit(1).maybeSingle(); if (data?.metadata?.username) handle = data.metadata.username; } catch (_e) { /* */ }
+                try { 
+                    // Query last 10 logs to find any that have a username/handle
+                    const { data } = await ctx.supabase
+                        .from('activity_log')
+                        .select('metadata')
+                        .eq('user_id', ctx.userId)
+                        .order('timestamp', { ascending: false })
+                        .limit(10);
+
+                    if (data && data.length > 0) {
+                        // Filter for logs matching this chat ID (checking both key variants)
+                        const relevantLogs = data.filter(l => 
+                            l.metadata?.chat_id === ctx.chatId || 
+                            l.metadata?.chatId === ctx.chatId
+                        );
+                        
+                        const bestLog = relevantLogs.find(l => 
+                            l.metadata?.username || 
+                            l.metadata?.commenter_name || 
+                            l.metadata?.sender?.attendee_name
+                        );
+
+                        if (bestLog) {
+                            handle = bestLog.metadata.username || 
+                                     bestLog.metadata.commenter_name || 
+                                     bestLog.metadata.sender?.attendee_name || 
+                                     handle;
+                        }
+                    }
+                } catch (_e) { /* fallback to 'Customer' */ }
                 const success = await createOrderV2({ supabase: ctx.supabase, userId: ctx.userId, workspaceId: ctx.workspaceId, chatId: ctx.chatId, customerName: customer_name, customerPhone: customer_phone, customerAddress: customer_address, itemRequested: match.itemName, variantLabel: variant, unitPrice: match.price, quantity, instagramHandle: handle });
                 return { success, product: match.itemName, price: match.price, quantity };
             },
@@ -192,7 +216,7 @@ export function createEcommerceTools(ctx: ToolContext) {
             },
         },
         lookup_customer: {
-            description: 'Check if customer has ordered before. Returns saved details.',
+            description: 'Check if this customer has ordered before. Returns saved name/phone/address.',
             parameters: z.object({}),
             execute: async () => {
                 const known = await getKnownCustomerDetails(ctx.supabase, ctx.workspaceId, ctx.chatId);

@@ -14,7 +14,8 @@ export default function BillingPage() {
         tier: string;
         trial_ends_at: string | null;
         period_end: string | null;
-    }>({ tier: 'free_trial', trial_ends_at: null, period_end: null });
+        cancel_at_period_end: boolean;
+    }>({ tier: 'free_trial', trial_ends_at: null, period_end: null, cancel_at_period_end: false });
 
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [showCancelModal, setShowCancelModal] = useState(false);
@@ -32,7 +33,7 @@ export default function BillingPage() {
             // 1. Fetch User Plan data
             const { data: userData } = await supabase
                 .from('users')
-                .select('plan_tier, trial_ends_at, current_period_end')
+                .select('plan_tier, trial_ends_at, current_period_end, cancel_at_period_end')
                 .eq('id', user.id)
                 .single();
 
@@ -41,7 +42,8 @@ export default function BillingPage() {
                 setPlanDetails({
                     tier,
                     trial_ends_at: userData.trial_ends_at,
-                    period_end: userData.current_period_end
+                    period_end: userData.current_period_end,
+                    cancel_at_period_end: userData.cancel_at_period_end || false
                 });
 
                 // Map database tier to UI plan name
@@ -87,35 +89,37 @@ export default function BillingPage() {
             if (planName === 'Pro Agent') dbTier = 'pro';
             if (planName === 'Empire') dbTier = 'empire';
 
-            // ─── TESTING MODE: Direct DB Update ───
-            const { error } = await supabase
-                .from('users')
-                .update({ plan_tier: dbTier })
-                .eq('id', user.id);
-
-            if (error) throw error;
-
-            // Update UI state
-            setCurrentPlan(planName);
-            toast.success(`Testing Mode: Plan updated to ${planName}`);
-
-            /* 
-            // ─── PRODUCTION CHECKOUT LOGIC (Paused for now) ───
-            if (planName === 'Pro Agent' || planName === 'Empire') {
-                window.location.href = `/checkout?user_id=${user.id}&amount=${planPrice}&plan=${encodeURIComponent(planName)}`;
+            if (planName === 'Starter') {
+                // Don't downgrade immediately. Show confirmation modal.
+                setShowCancelModal(true);
+                setIsUpdating(false);
             } else {
-                // Simulated downgrade for Starter
-                setTimeout(() => {
-                    setCurrentPlan(planName);
-                    setIsUpdating(false);
-                    toast.success(`Successfully downgraded to ${planName}!`);
-                }, 1500);
+                // Call Whish checkout API for paid plans
+                const res = await fetch('/api/checkout/whish', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        amount: planPrice,
+                        user_id: user.id,
+                        plan_name: planName
+                    })
+                });
+
+                if (!res.ok) {
+                    const errorData = await res.json();
+                    throw new Error(errorData.error || 'Checkout failed');
+                }
+
+                const data = await res.json();
+                if (data.checkout_url) {
+                    window.location.href = data.checkout_url;
+                } else {
+                    throw new Error('No checkout URL returned');
+                }
             }
-            */
         } catch (error: any) {
             console.error('Plan change error:', error);
             toast.error('Failed to upgrade: ' + (error.message || 'Unknown error'));
-        } finally {
             setIsUpdating(false);
         }
     };
@@ -130,14 +134,27 @@ export default function BillingPage() {
         }, 1500);
     };
 
-    const handleCancelSubscription = () => {
+    const handleCancelSubscription = async () => {
         setIsUpdating(true);
-        setTimeout(() => {
-            setCurrentPlan('Starter');
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { error } = await supabase
+                .from('users')
+                .update({ cancel_at_period_end: true })
+                .eq('id', user.id);
+
+            if (error) throw error;
+
             setShowCancelModal(false);
+            toast.info('Subscription cancelled. You will remain on your current plan until the end of the billing cycle.');
+        } catch (err: any) {
+            console.error(err);
+            toast.error('Failed to cancel subscription.');
+        } finally {
             setIsUpdating(false);
-            toast.info('Subscription cancelled. You\'ll remain on Pro until Feb 23, 2026.');
-        }, 1500);
+        }
     };
 
     const currentPlanData = plans.find(p => p.name === currentPlan);
@@ -173,7 +190,13 @@ export default function BillingPage() {
                             <div>
                                 <div className="flex items-center gap-2">
                                     <h2 className="text-xl font-bold text-foreground">{currentPlan}</h2>
-                                    <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider">Active</span>
+                                    {planDetails.cancel_at_period_end ? (
+                                        <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-[10px] font-bold uppercase tracking-wider">
+                                            Cancels {planDetails.period_end ? new Date(planDetails.period_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Soon'}
+                                        </span>
+                                    ) : (
+                                        <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider">Active</span>
+                                    )}
                                 </div>
                                 <p className="text-sm text-muted-foreground mt-0.5">{currentPlanData?.description}</p>
                             </div>
@@ -437,7 +460,13 @@ export default function BillingPage() {
                                 </div>
 
                                 <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-                                    You&apos;ll lose access to <span className="text-muted-foreground font-medium">{currentPlan}</span> features after Feb 23, 2026. Your data will be preserved but the AI agent will stop responding.
+                                    You&apos;ll lose access to <span className="text-muted-foreground font-medium">{currentPlan}</span> features after {planDetails.period_end || planDetails.trial_ends_at
+                                        ? new Date(planDetails.period_end || planDetails.trial_ends_at!).toLocaleDateString('en-US', {
+                                            month: 'short',
+                                            day: 'numeric',
+                                            year: 'numeric'
+                                        })
+                                        : 'the end of your current cycle'}. Your data will be preserved but the AI agent will stop responding.
                                 </p>
 
                                 <div className="flex gap-3">

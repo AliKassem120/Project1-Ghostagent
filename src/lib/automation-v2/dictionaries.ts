@@ -22,7 +22,7 @@ Greetings,3a rase,With pleasure
 Greetings,Be3tezer,I apologize / Sorry
 General,Eh / Akid / Yalla,Yes / Definitely / Let's go
 General,Laa / La2,No
-General,Tmm,Perfect / Good / Okay
+
 General,5aye / E5te,Brother / Sister
 General,Ana / Enta / Ente,Me / You
 Shopping,Ade 7a2o / 7a2a / Ade se3ro,How much is it / Price
@@ -47,6 +47,7 @@ Appointments,Natrinak,Waiting for you
 Appointments,Fethin / Msakrin,Open / Closed
 Appointments,Dawr,Turn / Line
 Appointments,Jalse,Session
+Appointments,Amta / Aimta,When
 Logistics,Towsil / Delivery,Delivery
 Logistics,3nwen / Wen mawjud,Address / Location
 Logistics,Manta2a,Area / Region

@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════
- * GhostAgent — V3 Agent: Conversation History
+ * GhostAgent — Conversation History
  * ═══════════════════════════════════════════════════════════════
  * Fetches the last N messages from activity_log to give the
  * agent full conversation context.
@@ -45,7 +45,7 @@ export async function loadConversationHistory(
             .limit(limit * 2); // Fetch extra to account for non-message events
 
         if (error) {
-            v2log.warn('V3_HISTORY', 'Failed to load conversation history', { error });
+            v2log.warn('HISTORY', 'Failed to load conversation history', { error });
             return [];
         }
 
@@ -74,11 +74,11 @@ export async function loadConversationHistory(
         // Reverse to chronological order (oldest first)
         messages.reverse();
 
-        v2log.info('V3_HISTORY', `Loaded ${messages.length} history messages for chat`, { chatId });
+        v2log.info('HISTORY', `Loaded ${messages.length} history messages for chat`, { chatId });
         return messages;
 
     } catch (err) {
-        v2log.warn('V3_HISTORY', 'Exception loading history', { err });
+        v2log.warn('HISTORY', 'Exception loading history', { err });
         return [];
     }
 }

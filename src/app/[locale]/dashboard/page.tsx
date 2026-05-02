@@ -378,6 +378,11 @@ export default function DashboardPage() {
 
     const filteredActivities = activities.filter(a => a.event_type !== 'CHAT_QUERY');
 
+    // Clean up activity descriptions: strip version prefixes like "V3 sent:", "V2 sent:"
+    const cleanDescription = (desc: string) => {
+        return desc.replace(/^V\d+\s+sent:\s*/i, 'Sent: ');
+    };
+
     // Generate chart data from activities (last 7 days)
     const chartData = useMemo(() => {
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -722,7 +727,7 @@ export default function DashboardPage() {
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 group-hover:text-muted-foreground transition-colors">
-                                                {activity.description}
+                                                {cleanDescription(activity.description)}
                                             </p>
                                         </div>
                                         <div className="flex items-center gap-3 shrink-0">
