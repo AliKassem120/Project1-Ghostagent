@@ -17,23 +17,16 @@ export async function searchProducts(args: {
 }): Promise<InventoryRecord[]> {
     const { supabase, workspaceId, query, limit = 10 } = args;
 
-    // 1. Search inventory table
-    // NOTE: inventory table columns are: id, user_id, workspace_id, item_name, price, stock_level, created_at
-    // There is NO 'description' or 'variants' column.
     let dbQuery = supabase
         .from('inventory')
         .select('id, item_name, price, stock_level')
         .eq('workspace_id', workspaceId)
         .limit(limit);
 
-    if (query) {
-        dbQuery = dbQuery.ilike('item_name', `%${query}%`);
-    }
+    if (query) dbQuery = dbQuery.ilike('item_name', `%${query}%`);
 
     const { data: dbItems, error } = await dbQuery;
-    if (error) {
-        v2log.error('V2_ECOM_PRODUCTS', 'Inventory search failed', { error, workspaceId });
-    }
+    if (error) v2log.error('V2_ECOM_PRODUCTS', 'Inventory search failed', { error, workspaceId });
 
     let items: InventoryRecord[] = (dbItems || []).map(i => ({
         id: i.id,
@@ -44,7 +37,6 @@ export async function searchProducts(args: {
         variants: [],
     }));
 
-    // 2. Fallback to business_knowledge (CSV catalog)
     if (items.length < limit) {
         try {
             const { data: knowledge } = await supabase
@@ -82,21 +74,30 @@ export async function searchProducts(args: {
     return items;
 }
 
-export function findBestProductMatch(
-    items: InventoryRecord[],
-    query: string
-): InventoryRecord | null {
+function normalizeProductText(value: string): string {
+    return value
+        .toLowerCase()
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+export function findBestProductMatch(items: InventoryRecord[], query: string): InventoryRecord | null {
     if (!query || items.length === 0) return null;
 
-    const normalizedQuery = query.toLowerCase().trim();
+    const normalizedQuery = normalizeProductText(query);
+    if (!normalizedQuery) return null;
 
-    // Exact match
-    const exact = items.find(i => i.itemName.toLowerCase() === normalizedQuery);
+    const exact = items.find(i => normalizeProductText(i.itemName) === normalizedQuery);
     if (exact) return exact;
 
-    // Contains match
-    const contains = items.find(i => i.itemName.toLowerCase().includes(normalizedQuery));
+    const contains = items.find(i => {
+        const name = normalizeProductText(i.itemName);
+        return name.includes(normalizedQuery) || normalizedQuery.includes(name);
+    });
     if (contains) return contains;
 
-    return items[0];
+    return null;
 }
