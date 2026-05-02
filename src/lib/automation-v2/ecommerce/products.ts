@@ -82,21 +82,37 @@ export async function searchProducts(args: {
     return items;
 }
 
+function normalizeProductText(value: string): string {
+    return value
+        .toLowerCase()
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
 export function findBestProductMatch(
     items: InventoryRecord[],
     query: string
 ): InventoryRecord | null {
     if (!query || items.length === 0) return null;
 
-    const normalizedQuery = query.toLowerCase().trim();
+    const normalizedQuery = normalizeProductText(query);
+    if (!normalizedQuery) return null;
 
     // Exact match
-    const exact = items.find(i => i.itemName.toLowerCase() === normalizedQuery);
+    const exact = items.find(i => normalizeProductText(i.itemName) === normalizedQuery);
     if (exact) return exact;
 
-    // Contains match
-    const contains = items.find(i => i.itemName.toLowerCase().includes(normalizedQuery));
+    // Contains match in either direction: "ps5" ↔ "sony ps5 console"
+    const contains = items.find(i => {
+        const name = normalizeProductText(i.itemName);
+        return name.includes(normalizedQuery) || normalizedQuery.includes(name);
+    });
     if (contains) return contains;
 
-    return items[0];
+    // IMPORTANT: never fall back to the first product.
+    // If the bot guesses here, customers can accidentally order the wrong item.
+    return null;
 }
