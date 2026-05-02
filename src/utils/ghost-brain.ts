@@ -1,4 +1,4 @@
-import { handleAutomationMessage } from '@/lib/automation-v2';
+import { handleAutomationMessageV3 } from '@/lib/automation-v3';
 
 // ═══════════════════════════════════════════════════════════════
 // 🧠 GHOST AGENT — Core AI Brain Router
@@ -18,16 +18,17 @@ export async function generateGhostReply(
             return { replyText: null, skipLegacyLogging: true };
         }
 
-        let settingsQuery = supabase
+        const { data: settings } = await supabase
             .from('ai_settings')
             .select('business_type')
-            .eq('id', workspaceId);
+            .eq('id', workspaceId)
+            .limit(1)
+            .maybeSingle();
 
-        const { data: settings } = await settingsQuery.limit(1).maybeSingle();
         const businessType = settings?.business_type || 'ecommerce';
 
-        console.log(`🚀 [Ghost Engine] Processing message for workspace ${workspaceId}`);
-        const result = await handleAutomationMessage({
+        console.log(`🚀 [Ghost Engine V3] Processing message for workspace ${workspaceId}`);
+        const result = await handleAutomationMessageV3({
             workspaceId,
             workspaceType: businessType as 'appointments' | 'ecommerce',
             chatId,
@@ -40,7 +41,7 @@ export async function generateGhostReply(
         if (!result.shouldReply) return { replyText: null, skipLegacyLogging: true };
         return { replyText: result.replyText || null, skipLegacyLogging: true };
     } catch (error: any) {
-        console.error('❌ [Ghost Engine] Failed to route request:', error);
+        console.error('❌ [Ghost Engine V3] Failed to route request:', error);
         return null;
     }
 }
