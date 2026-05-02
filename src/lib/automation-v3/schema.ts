@@ -14,7 +14,7 @@ export const V3MemoryPatchSchema = z.object({
 
 export const V3ActionSchema = z.object({
     type: z.enum(['create_order', 'create_appointment', 'handoff']),
-    payload: z.record(z.any()).optional().default({}),
+    payload: z.record(z.string(), z.any()).optional().default({}),
 }).optional().nullable();
 
 export const V3DecisionSchema = z.object({
