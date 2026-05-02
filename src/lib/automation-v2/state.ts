@@ -3,7 +3,7 @@
  * GhostAgent — Automation Engine V2: State Manager
  * ═══════════════════════════════════════════════════════════════
  * Handles persistence of conversation states in Supabase.
- * States are scoped by (user_id, workspace_id, chat_id, workspace_type).
+ * States are scoped by (user_id, workspace_id, chat_id, workspace_type, platform).
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
@@ -29,21 +29,18 @@ export async function getConversationStateV2(
         .maybeSingle();
 
     if (error) {
-        v2log.error('V2_STATE', 'Failed to fetch conversation state', { error, workspaceId, chatId });
+        v2log.error('V2_STATE', 'Failed to fetch conversation state', { error, workspaceId, chatId, platform });
         return { stage: 'idle' };
     }
 
-    if (!data) {
-        return { stage: 'idle' };
-    }
+    if (!data) return { stage: 'idle' };
 
-    // Auto-clear stale states older than 1 hour to prevent stuck conversations
     if (data.updated_at) {
         const ageMs = Date.now() - new Date(data.updated_at).getTime();
         const ONE_HOUR = 60 * 60 * 1000;
         if (ageMs > ONE_HOUR && data.stage !== 'idle') {
-            v2log.info('V2_STATE', `Auto-clearing stale state (age: ${Math.round(ageMs / 60000)}min)`, { 
-                workspaceId, chatId, staleStage: data.stage 
+            v2log.info('V2_STATE', `Auto-clearing stale state (age: ${Math.round(ageMs / 60000)}min)`, {
+                workspaceId, chatId, platform, staleStage: data.stage,
             });
             await clearConversationStateV2(supabase, userId, workspaceId, chatId, workspaceType, platform);
             return { stage: 'idle' };
@@ -66,25 +63,25 @@ export async function updateConversationStateV2(
     state: ConversationStateV2
 ) {
     const { stage, ...data } = state;
-    
+
     const { error } = await supabase
         .from('conversation_states')
         .upsert({
             user_id: userId,
             workspace_id: workspaceId,
             chat_id: chatId,
-            external_chat_id: chatId, // Map for legacy compatibility
+            external_chat_id: chatId,
             workspace_type: workspaceType,
             platform,
             stage,
             data,
             updated_at: new Date().toISOString()
         }, {
-            onConflict: 'user_id, workspace_id, chat_id, workspace_type'
+            onConflict: 'user_id, workspace_id, chat_id, workspace_type, platform'
         });
 
     if (error) {
-        v2log.error('V2_STATE', 'Failed to update conversation state', { error, workspaceId, chatId, stage });
+        v2log.error('V2_STATE', 'Failed to update conversation state', { error, workspaceId, chatId, platform, stage });
     }
 }
 
@@ -106,6 +103,6 @@ export async function clearConversationStateV2(
         .eq('platform', platform);
 
     if (error) {
-        v2log.error('V2_STATE', 'Failed to clear conversation state', { error, workspaceId, chatId });
+        v2log.error('V2_STATE', 'Failed to clear conversation state', { error, workspaceId, chatId, platform });
     }
 }
