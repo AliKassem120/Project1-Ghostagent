@@ -17,9 +17,10 @@ export default function BillingPage() {
         cancel_at_period_end: boolean;
     }>({ tier: 'free_trial', trial_ends_at: null, period_end: null, cancel_at_period_end: false });
 
-    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+    const [showDowngradeModal, setShowDowngradeModal] = useState(false);
     const [showCancelModal, setShowCancelModal] = useState(false);
-    const [paymentMethod, setPaymentMethod] = useState('Not connected');
+    const [targetPlan, setTargetPlan] = useState<{name: string, price: number} | null>(null);
     const [isUpdating, setIsUpdating] = useState(false);
     const [usage, setUsage] = useState({ replies: 0, conversations: 0, revenue: 0 });
     const supabase = createClient();
@@ -78,44 +79,46 @@ export default function BillingPage() {
         dmLimit: p.dmLimit,
     }));
 
-    const handlePlanChange = async (planName: string, planPrice: number) => {
+        const handlePlanChange = async (planName: string, planPrice: number) => {
+        const currentPrice = currentPlanData?.price || 0;
+        setTargetPlan({ name: planName, price: planPrice });
+
+        if (planName === 'Starter') {
+            setShowCancelModal(true);
+        } else if (planPrice > currentPrice) {
+            setShowUpgradeModal(true);
+        } else if (planPrice < currentPrice) {
+            setShowDowngradeModal(true);
+        }
+    };
+
+    const handleUpgradeProceed = async () => {
+        if (!targetPlan) return;
         setIsUpdating(true);
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            // Map UI names to DB tier strings
-            let dbTier = 'starter';
-            if (planName === 'Pro Agent') dbTier = 'pro';
-            if (planName === 'Empire') dbTier = 'empire';
+            const res = await fetch('/api/checkout/whish', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    amount: targetPlan.price,
+                    user_id: user.id,
+                    plan_name: targetPlan.name
+                })
+            });
 
-            if (planName === 'Starter') {
-                // Don't downgrade immediately. Show confirmation modal.
-                setShowCancelModal(true);
-                setIsUpdating(false);
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || 'Checkout failed');
+            }
+
+            const data = await res.json();
+            if (data.checkout_url) {
+                window.location.href = data.checkout_url;
             } else {
-                // Call Whish checkout API for paid plans
-                const res = await fetch('/api/checkout/whish', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        amount: planPrice,
-                        user_id: user.id,
-                        plan_name: planName
-                    })
-                });
-
-                if (!res.ok) {
-                    const errorData = await res.json();
-                    throw new Error(errorData.error || 'Checkout failed');
-                }
-
-                const data = await res.json();
-                if (data.checkout_url) {
-                    window.location.href = data.checkout_url;
-                } else {
-                    throw new Error('No checkout URL returned');
-                }
+                throw new Error('No checkout URL returned');
             }
         } catch (error: any) {
             console.error('Plan change error:', error);
@@ -124,14 +127,32 @@ export default function BillingPage() {
         }
     };
 
-    const handleUpdatePayment = () => {
+    const handleDowngradeProceed = async () => {
+        if (!targetPlan) return;
         setIsUpdating(true);
-        setTimeout(() => {
-            setPaymentMethod('•••• 5678');
-            setShowPaymentModal(false);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            let dbTier = 'pro';
+            if (targetPlan.name === 'Starter') dbTier = 'starter';
+
+            const { error } = await supabase
+                .from('users')
+                .update({ cancel_at_period_end: true, next_plan_tier: dbTier })
+                .eq('id', user.id);
+
+            if (error) throw error;
+
+            setShowDowngradeModal(false);
+            toast.info(`Downgrade scheduled. You will move to ${targetPlan.name} at the end of your billing cycle.`);
+            setPlanDetails(prev => ({ ...prev, cancel_at_period_end: true }));
+        } catch (err: any) {
+            console.error(err);
+            toast.error('Failed to schedule downgrade.');
+        } finally {
             setIsUpdating(false);
-            toast.success('Payment method updated successfully!');
-        }, 1500);
+        }
     };
 
     const handleCancelSubscription = async () => {
@@ -142,13 +163,14 @@ export default function BillingPage() {
 
             const { error } = await supabase
                 .from('users')
-                .update({ cancel_at_period_end: true })
+                .update({ cancel_at_period_end: true, next_plan_tier: 'starter' })
                 .eq('id', user.id);
 
             if (error) throw error;
 
             setShowCancelModal(false);
-            toast.info('Subscription cancelled. You will remain on your current plan until the end of the billing cycle.');
+            toast.info('Subscription cancelled. You will move to Starter at the end of the billing cycle.');
+            setPlanDetails(prev => ({ ...prev, cancel_at_period_end: true }));
         } catch (err: any) {
             console.error(err);
             toast.error('Failed to cancel subscription.');
@@ -209,8 +231,8 @@ export default function BillingPage() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                        <div className="flex items-center gap-3 p-4 rounded-xl bg-surface-2 ">
+                    <div className="mb-6">
+                        <div className="flex items-center gap-3 p-4 rounded-xl bg-surface-2 max-w-sm">
                             <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
                             <div>
                                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
@@ -227,22 +249,8 @@ export default function BillingPage() {
                                 </p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-3 p-4 rounded-xl bg-surface-2 ">
-                            <CreditCard className="w-4 h-4 text-muted-foreground shrink-0" />
-                            <div>
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Payment Method</p>
-                                <p className="text-sm font-semibold text-muted-foreground">{paymentMethod}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-3">
-                        <button
-                            onClick={() => setShowPaymentModal(true)}
-                            className="px-5 py-2.5 bg-surface-2 border border-border rounded-xl hover:bg-surface-3 transition-all text-sm font-medium text-muted-foreground hover:text-muted-foreground"
-                        >
-                            Update Payment
-                        </button>
+                    </div>                    <div className="flex flex-col sm:flex-row gap-3">
+                        
                         {currentPlan !== 'Starter' && (
                             <button
                                 onClick={() => setShowCancelModal(true)}
@@ -362,15 +370,15 @@ export default function BillingPage() {
                 </div>
             </motion.div>
 
-            {/* ═══ PAYMENT MODAL ═══ */}
+                        {/* ═══ UPGRADE MODAL ═══ */}
             <AnimatePresence>
-                {showPaymentModal && (
+                {showUpgradeModal && targetPlan && (
                     <>
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            onClick={() => setShowPaymentModal(false)}
+                            onClick={() => setShowUpgradeModal(false)}
                             className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
                         />
                         <div className="fixed inset-0 z-[51] flex items-center justify-center p-4">
@@ -381,7 +389,7 @@ export default function BillingPage() {
                                 className="relative w-full max-w-md glass-dark rounded-2xl p-8 border border-border"
                             >
                                 <button
-                                    onClick={() => setShowPaymentModal(false)}
+                                    onClick={() => setShowUpgradeModal(false)}
                                     className="absolute top-4 right-4 p-2 rounded-lg bg-surface-2 hover:bg-surface-2 transition-colors"
                                 >
                                     <X className="w-4 h-4 text-muted-foreground" />
@@ -389,38 +397,98 @@ export default function BillingPage() {
 
                                 <div className="flex items-center gap-3 mb-6">
                                     <div className="p-2.5 rounded-xl bg-primary/10">
-                                        <CreditCard className="w-5 h-5 text-primary" />
+                                        <TrendingUp className="w-5 h-5 text-primary" />
                                     </div>
-                                    <h3 className="text-xl font-bold text-foreground">Update Payment</h3>
+                                    <h3 className="text-xl font-bold text-foreground">Upgrade to {targetPlan.name}</h3>
                                 </div>
 
                                 <div className="space-y-4 mb-6">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Card Number</label>
-                                        <input
-                                            type="text"
-                                            placeholder="1234 5678 9012 3456"
-                                            className="input-premium w-full"
-                                        />
+                                    <div className="p-4 rounded-xl bg-surface-2 border border-border flex items-center gap-4">
+                                        <Calendar className="w-5 h-5 text-muted-foreground" />
+                                        <div>
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">New Billing Cycle</p>
+                                            <p className="text-sm font-semibold text-foreground">
+                                                {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} 
+                                                {' '}–{' '} 
+                                                {new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Exp Date</label>
-                                            <input type="text" placeholder="MM/YY" className="input-premium w-full" />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">CVV</label>
-                                            <input type="text" placeholder="123" className="input-premium w-full" />
-                                        </div>
+                                    <div className="flex justify-between items-center p-4 rounded-xl bg-surface-2 border border-border">
+                                        <span className="text-sm font-medium text-muted-foreground">Total due today</span>
+                                        <span className="text-xl font-bold text-foreground">${targetPlan.price}</span>
                                     </div>
                                 </div>
+
                                 <button
-                                    onClick={handleUpdatePayment}
+                                    onClick={handleUpgradeProceed}
                                     disabled={isUpdating}
-                                    className="w-full py-3 bg-primary text-black font-bold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+                                    className="w-full py-3 bg-primary text-black font-bold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
-                                    {isUpdating ? 'Updating...' : 'Save Payment Method'}
+                                    {isUpdating ? 'Redirecting...' : 'Proceed with Whish Money'}
+                                    <ArrowRight className="w-4 h-4" />
                                 </button>
+                            </motion.div>
+                        </div>
+                    </>
+                )}
+            </AnimatePresence>
+
+            {/* ═══ DOWNGRADE MODAL ═══ */}
+            <AnimatePresence>
+                {showDowngradeModal && targetPlan && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowDowngradeModal(false)}
+                            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
+                        />
+                        <div className="fixed inset-0 z-[51] flex items-center justify-center p-4">
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                className="relative w-full max-w-md glass-dark rounded-2xl p-8 border border-border"
+                            >
+                                <button
+                                    onClick={() => setShowDowngradeModal(false)}
+                                    className="absolute top-4 right-4 p-2 rounded-lg bg-surface-2 hover:bg-surface-2 transition-colors"
+                                >
+                                    <X className="w-4 h-4 text-muted-foreground" />
+                                </button>
+
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="p-2.5 rounded-xl bg-surface-2">
+                                        <AlertCircle className="w-5 h-5 text-muted-foreground" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-foreground">Schedule Downgrade</h3>
+                                </div>
+
+                                <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+                                    You are moving to the <span className="font-medium text-foreground">{targetPlan.name}</span> plan. 
+                                    You will keep your current <span className="text-primary font-medium">{currentPlan}</span> features until the end of your billing cycle on{' '}
+                                    <span className="font-medium text-foreground">
+                                        {planDetails.period_end ? new Date(planDetails.period_end).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'the end of your cycle'}
+                                    </span>.
+                                </p>
+
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => setShowDowngradeModal(false)}
+                                        className="flex-1 py-3 bg-surface-2 border border-border rounded-xl hover:bg-surface-3 transition-all font-medium text-sm text-muted-foreground"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleDowngradeProceed}
+                                        disabled={isUpdating}
+                                        className="flex-1 py-3 bg-surface-2 border border-border text-foreground rounded-xl hover:bg-surface-3 transition-all font-medium text-sm disabled:opacity-50"
+                                    >
+                                        {isUpdating ? 'Scheduling...' : 'Confirm Downgrade'}
+                                    </button>
+                                </div>
                             </motion.div>
                         </div>
                     </>
@@ -456,7 +524,7 @@ export default function BillingPage() {
                                     <div className="p-2.5 rounded-xl bg-red-500/10">
                                         <AlertCircle className="w-5 h-5 text-red-400" />
                                     </div>
-                                    <h3 className="text-xl font-bold text-foreground">Cancel Subscription?</h3>
+                                    <h3 className="text-xl font-bold text-foreground">Downgrade to Starter?</h3>
                                 </div>
 
                                 <p className="text-sm text-muted-foreground mb-6 leading-relaxed">

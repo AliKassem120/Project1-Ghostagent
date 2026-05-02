@@ -104,30 +104,37 @@ export default function InteractionsPage() {
 
             const newStatus = !currentStatus;
 
-            const { error: upsertError } = await supabase.from('conversation_states').upsert({
-                user_id: user.id,
-                workspace_id: activeWorkspaceId,
-                external_chat_id: chatId,
-                platform: 'INSTAGRAM',
-                is_muted: newStatus,
-                muted_until: newStatus ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null,
-                last_interaction_at: new Date().toISOString()
-            }, { onConflict: 'workspace_id,external_chat_id' });
+            const { data: existingState } = await supabase
+                .from('conversation_states')
+                .select('id')
+                .eq('workspace_id', activeWorkspaceId)
+                .eq('external_chat_id', chatId)
+                .maybeSingle();
 
-            if (upsertError) {
-                console.error("Supabase upsert error:", upsertError);
-                // If conflict key fails (e.g. constraint name mismatch), try without onConflict
-                const { error: fallbackError } = await supabase.from('conversation_states').upsert({
+            let reqError;
+            if (existingState) {
+                const { error } = await supabase.from('conversation_states').update({
+                    is_muted: newStatus,
+                    muted_until: newStatus ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null,
+                    last_interaction_at: new Date().toISOString()
+                }).eq('id', existingState.id);
+                reqError = error;
+            } else {
+                const { error } = await supabase.from('conversation_states').insert({
                     user_id: user.id,
                     workspace_id: activeWorkspaceId,
                     external_chat_id: chatId,
+                    chat_id: chatId,
+                    workspace_type: activeWorkspace?.business_type || 'ecommerce',
                     platform: 'INSTAGRAM',
                     is_muted: newStatus,
                     muted_until: newStatus ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null,
                     last_interaction_at: new Date().toISOString()
                 });
-                if (fallbackError) throw fallbackError;
+                reqError = error;
             }
+
+            if (reqError) throw reqError;
 
             const newMuted = new Set(mutedChats);
             if (newStatus) newMuted.add(chatId);
@@ -358,7 +365,7 @@ export default function InteractionsPage() {
 
         logs.forEach(log => {
             const meta = log.metadata || {};
-            const chatId = meta.chat_id || 'unknown';
+            const chatId = meta.chat_id || meta.chatId || 'unknown';
 
             // 🛑 Strict Event Filtering: Only process actual conversations
             const allowedEvents = ['INCOMING_DM', 'INCOMING_MESSAGE', 'INCOMING_COMMENT', 'AI_REPLY', 'COMMENT_REPLY', 'DRAFT_REPLY', 'DRAFT_COMMENT_REPLY', 'MANUAL_REPLY'];
@@ -366,7 +373,11 @@ export default function InteractionsPage() {
 
             if (log.event_type === 'INCOMING_DM' && log.description.includes('ghostagent.qzz.io')) return;
 
-            let text = log.description || '';
+            // Strip out legacy 'V3 sent:' prefixes
+            let rawDescription = log.description || '';
+            rawDescription = rawDescription.replace(/^(V[1-3]\s+sent:\s*)/i, 'Sent: ');
+
+            let text = rawDescription;
             let isBot = log.event_type === 'AI_REPLY' || log.event_type === 'COMMENT_REPLY';
             let isDraft = log.event_type === 'DRAFT_REPLY' || log.event_type === 'DRAFT_COMMENT_REPLY';
             let isManual = log.event_type === 'MANUAL_REPLY' || (meta.is_sender && !isBot && !isDraft);
@@ -380,7 +391,7 @@ export default function InteractionsPage() {
                 } else if (meta.username && meta.username !== 'You') {
                     senderName = meta.username;
                 } else {
-                    const parts = log.description.split('from');
+                    const parts = rawDescription.split('from');
                     senderName = parts[parts.length - 1]?.trim() || 'User';
                 }
                 text = text.replace(/^Received: "(.*)" from .*$/, '$1').replace(/"/g, '').trim();
