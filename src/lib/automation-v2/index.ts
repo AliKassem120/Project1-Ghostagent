@@ -10,6 +10,7 @@
 
 import type { AutomationInput, AutomationResult } from './types';
 import { routeToAgent } from './router';
+import { shouldReplyToMessage } from './should-reply';
 import { v2log } from './logger';
 
 export async function handleAutomationMessage(input: AutomationInput): Promise<AutomationResult> {
@@ -23,6 +24,57 @@ export async function handleAutomationMessage(input: AutomationInput): Promise<A
         messageLength: input.message.length,
         platform: input.platform,
     });
+
+    // ── SHOULD-REPLY GATE ────────────────────────────────────
+    const gate = shouldReplyToMessage(input.message, {
+        messageType: input.messageType,
+        isReaction: input.isReaction,
+        hasMedia: input.hasMedia,
+        mediaType: input.mediaType,
+    });
+
+    if (!gate.shouldReply) {
+        v2log.info('V2_ENGINE', `Skipped: ${gate.reason}`, { chatId: input.chatId });
+        return {
+            shouldReply: false,
+            actions: [`gate_${gate.reason}`],
+            stateBefore: 'idle',
+            stateAfter: 'idle',
+            debug: {
+                requestId,
+                engineVersion: 'v2',
+                workspaceId: input.workspaceId,
+                workspaceType: input.workspaceType,
+                chatId: input.chatId,
+                language: 'unknown',
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                durationMs: Date.now() - startTime,
+            },
+        };
+    }
+
+    // If gate returned a static reply (e.g. voice note unsupported), use it
+    if (gate.staticReply) {
+        return {
+            shouldReply: true,
+            replyText: gate.staticReply,
+            actions: [`gate_${gate.reason}`],
+            stateBefore: 'idle',
+            stateAfter: 'idle',
+            debug: {
+                requestId,
+                engineVersion: 'v2',
+                workspaceId: input.workspaceId,
+                workspaceType: input.workspaceType,
+                chatId: input.chatId,
+                language: 'unknown',
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                durationMs: Date.now() - startTime,
+            },
+        };
+    }
 
     try {
         const result = await routeToAgent(input);

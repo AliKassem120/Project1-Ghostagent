@@ -79,6 +79,7 @@ const DAY_ALIASES: Record<string, number> = {
 
 const TODAY_WORDS = ['today', 'lyom', 'elyoum', 'اليوم', "aujourd'hui", 'hoy'];
 const TOMORROW_WORDS = ['tomorrow', 'bukra', 'bokra', 'بكرا', 'غدا', 'demain', 'manana', 'mañana'];
+const DAY_AFTER_TOMORROW = ['ba3d bukra', 'ba3d bokra', 'ba3ed bukra', 'day after tomorrow', 'بعد بكرا', 'بعد غد', 'après-demain', 'pasado manana'];
 
 /**
  * Resolves a day reference from a message into an ISO date string (YYYY-MM-DD).
@@ -93,8 +94,29 @@ export function resolveDateFromMessage(message: string, timeCtx: TimeContext): s
     }
 
     // Tomorrow
-    if (TOMORROW_WORDS.some(w => normalized.includes(w))) {
+    if (TOMORROW_WORDS.some(w => normalized.includes(w)) && !DAY_AFTER_TOMORROW.some(w => normalized.includes(w))) {
         return timeCtx.tomorrowDate;
+    }
+
+    // Day after tomorrow (ba3d bukra)
+    if (DAY_AFTER_TOMORROW.some(w => normalized.includes(w))) {
+        const dayAfter = new Date(timeCtx.now.getTime() + 2 * 24 * 60 * 60 * 1000);
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timeCtx.timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+        });
+        return formatter.format(dayAfter);
+    }
+
+    // "nhar l tnen" / "nhar el jem3a" / "hal jem3a" (Arabizi day name prefix)
+    const nharMatch = normalized.match(/(?:nhar|nhar\s*el|nhar\s*l|hal)\s+(tnen|itnen|tleta|arba3a|arb3a|khamis|5amis|jom3a|jum3a|jem3a|sabet|sebt|sabt|a7ad|ahad)/);
+    if (nharMatch) {
+        const dayWord = nharMatch[1];
+        if (DAY_ALIASES[dayWord] !== undefined) {
+            return getNextDateForDayOfWeek(DAY_ALIASES[dayWord], timeCtx);
+        }
     }
 
     // Named day
@@ -115,6 +137,17 @@ export function resolveDateFromMessage(message: string, timeCtx: TimeContext): s
  */
 export function resolveTimeFromMessage(message: string): string | null {
     const normalized = message.toLowerCase().replace(/[^\p{L}\p{N}\s:]/gu, ' ').replace(/\s+/g, ' ').trim();
+
+    // Time-of-day references (Arabizi)
+    if (/\b(ba3d\s*l?\s*doher|ba3d\s*l?\s*duher|ba3d\s*el?\s*dohor)\b/.test(normalized)) {
+        return '14:00'; // Afternoon
+    }
+    if (/\b(bel\s*lel|bel\s*layl|bil\s*leil)\b/.test(normalized)) {
+        return '20:00'; // Night
+    }
+    if (/\b(bel\s*sobo7|bel\s*sobe7|bel\s*suboh|sobe7iye)\b/.test(normalized)) {
+        return '09:00'; // Morning
+    }
 
     // "4pm" / "10am" / "4 pm" / "10 am"
     const ampm = normalized.match(/\b(\d{1,2})\s*(am|pm)\b/);
@@ -154,8 +187,7 @@ export function resolveTimeFromMessage(message: string): string | null {
     const hhmm = normalized.match(/\b(\d{1,2}):(\d{2})\b/);
     if (hhmm) return `${String(parseInt(hhmm[1], 10)).padStart(2, '0')}:${hhmm[2]}`;
 
-    // Bare number in context of time (e.g., "at 4", "se3a" already handled)
-    // Only match if message is very short and just a number
+    // Bare number in context of time
     const bareNumber = normalized.match(/^(\d{1,2})$/);
     if (bareNumber) {
         const h = parseInt(bareNumber[1], 10);

@@ -1,0 +1,461 @@
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * GhostAgent — Decision Engine
+ * ═══════════════════════════════════════════════════════════════
+ * Central orchestrator. For every incoming message:
+ *
+ *   1. Load conversation state (+ postContext)
+ *   2. If active state → run FSM (state before classifier)
+ *   3. If idle + postContext → check post-context classifier
+ *   4. If idle + no context → classify intent → create new state
+ *   5. Save state (+ postContext if returned by FSM)
+ *   6. Return decision
+ *
+ * The LLM is ONLY used for general conversation (idle, no clear intent).
+ * State transitions, tool calls, and confirmations are deterministic.
+ */
+
+import type { AutomationInput, WorkspaceConfig } from './types';
+import type { ConversationStage, AppointmentStateData, EcommerceStateData, FSMResult, PostActionContext } from './state/types';
+import { loadConversationState, saveConversationState, clearConversationState } from './state/store';
+import { processAppointmentState } from './state/appointments-fsm';
+import { processEcommerceState } from './state/ecommerce-fsm';
+import { classifyIntent } from './classify/intent-classifier';
+import { classifyPostContext } from './classify/post-context-classifier';
+import { lookupLatestOrder, cancelLatestOrder, updateOrderVariant, updateOrderAddress } from './ecommerce/lookup';
+import { lookupLatestAppointment, cancelLatestAppointment, rescheduleAppointment } from './appointments/lookup';
+import { detectLanguage, detectYesNo } from './language';
+import { v2log } from './logger';
+
+export interface DecisionResult {
+    /** If true, the FSM or post-context handler handled this message deterministically */
+    handledByFSM: boolean;
+    /** If handledByFSM, this is the FSM result */
+    fsmResult?: FSMResult;
+    /** The intent classification (only set when idle) */
+    classifiedIntent?: string;
+    /** The detected language */
+    language: string;
+    /** The conversation stage before processing */
+    stateBefore: ConversationStage;
+    /** The conversation stage after processing */
+    stateAfter: ConversationStage;
+}
+
+function t(en: string, arabizi: string, lang: string): string {
+    return lang === 'arabizi' ? arabizi : en;
+}
+
+/**
+ * Run the decision engine for an incoming message.
+ */
+export async function runDecisionEngine(
+    input: AutomationInput,
+    config: WorkspaceConfig
+): Promise<DecisionResult> {
+    const detected = detectLanguage(input.message);
+    const replyLang = config.language === 'Auto-Detect' ? detected : config.language.toLowerCase();
+
+    // 1. Load current conversation state
+    const { stage: currentStage, data: currentData, postContext } = await loadConversationState(
+        input.supabase,
+        input.userId,
+        input.workspaceId,
+        input.chatId,
+        input.workspaceType
+    );
+
+    v2log.info('DECISION', `State loaded: ${currentStage}`, {
+        chatId: input.chatId,
+        stage: currentStage,
+        hasData: !!currentData,
+        hasPostContext: !!postContext,
+    });
+
+    // 2. STATE BEFORE CLASSIFIER — if active state, run FSM
+    if (currentStage !== 'idle' && currentStage !== 'handoff' && currentData) {
+        const fsmCtx = {
+            supabase: input.supabase,
+            userId: input.userId,
+            workspaceId: input.workspaceId,
+            chatId: input.chatId,
+            config,
+            message: input.message,
+            language: replyLang,
+        };
+
+        let fsmResult: FSMResult;
+
+        if (input.workspaceType === 'appointments') {
+            fsmResult = await processAppointmentState(fsmCtx, currentData as AppointmentStateData);
+        } else {
+            fsmResult = await processEcommerceState(fsmCtx, currentData as EcommerceStateData);
+        }
+
+        // Save the new state (preserving postContext if FSM returned one)
+        const newPostContext = fsmResult.postContext || postContext;
+        if (fsmResult.nextStage === 'idle' || !fsmResult.nextData) {
+            await clearConversationState(input.supabase, input.userId, input.workspaceId, input.chatId, input.workspaceType, newPostContext);
+        } else {
+            await saveConversationState(
+                input.supabase, input.userId, input.workspaceId, input.chatId,
+                input.workspaceType, fsmResult.nextStage, fsmResult.nextData
+            );
+        }
+
+        return {
+            handledByFSM: true,
+            fsmResult,
+            language: replyLang,
+            stateBefore: currentStage,
+            stateAfter: fsmResult.nextStage,
+        };
+    }
+
+    // 3. IDLE + POST-CONTEXT — check if message refers to recent action
+    if (postContext) {
+        const pcResult = classifyPostContext(input.message);
+
+        if (pcResult.intent !== 'unrelated') {
+            v2log.info('DECISION', `Post-context matched: ${pcResult.intent}`, {
+                chatId: input.chatId,
+                postContextType: postContext.type,
+            });
+
+            const handled = await handlePostContextIntent(
+                input, config, replyLang, postContext, pcResult.intent, pcResult.extractedValue
+            );
+
+            if (handled) {
+                return {
+                    handledByFSM: true,
+                    fsmResult: handled,
+                    classifiedIntent: pcResult.intent,
+                    language: replyLang,
+                    stateBefore: 'idle',
+                    stateAfter: handled.nextStage,
+                };
+            }
+        }
+    }
+
+    // 4. IDLE — classify intent
+    const classification = classifyIntent(input.message);
+
+    v2log.info('DECISION', `Classified: ${classification.intent} (${classification.confidence})`, {
+        chatId: input.chatId,
+        source: classification.source,
+    });
+
+    // 5. If a clear booking or purchase intent, create a new state
+    if (classification.intent === 'booking_intent' && input.workspaceType === 'appointments') {
+        const initialState: AppointmentStateData = {
+            stage: 'awaiting_service',
+            pendingAction: 'create_appointment',
+            appointment: {},
+            customer: postContext?.customer ? {
+                name: postContext.customer.name,
+                phone: postContext.customer.phone,
+            } : {},
+            missingFields: ['service'],
+        };
+
+        const fsmCtx = {
+            supabase: input.supabase,
+            userId: input.userId,
+            workspaceId: input.workspaceId,
+            chatId: input.chatId,
+            config,
+            message: input.message,
+            language: replyLang,
+        };
+
+        const fsmResult = await processAppointmentState(fsmCtx, initialState);
+
+        if (fsmResult.nextStage !== 'idle' && fsmResult.nextData) {
+            await saveConversationState(
+                input.supabase, input.userId, input.workspaceId, input.chatId,
+                input.workspaceType, fsmResult.nextStage, fsmResult.nextData
+            );
+        }
+
+        return {
+            handledByFSM: true,
+            fsmResult,
+            classifiedIntent: classification.intent,
+            language: replyLang,
+            stateBefore: 'idle',
+            stateAfter: fsmResult.nextStage,
+        };
+    }
+
+    if (classification.intent === 'purchase_intent' && input.workspaceType === 'ecommerce') {
+        const initialState: EcommerceStateData = {
+            stage: 'awaiting_product',
+            pendingAction: 'create_order',
+            order: { quantity: 1 },
+            customer: postContext?.customer ? {
+                name: postContext.customer.name,
+                phone: postContext.customer.phone,
+                address: postContext.customer.address,
+            } : {},
+            missingFields: ['product'],
+        };
+
+        const fsmCtx = {
+            supabase: input.supabase,
+            userId: input.userId,
+            workspaceId: input.workspaceId,
+            chatId: input.chatId,
+            config,
+            message: input.message,
+            language: replyLang,
+        };
+
+        const fsmResult = await processEcommerceState(fsmCtx, initialState);
+
+        if (fsmResult.nextStage !== 'idle' && fsmResult.nextData) {
+            await saveConversationState(
+                input.supabase, input.userId, input.workspaceId, input.chatId,
+                input.workspaceType, fsmResult.nextStage, fsmResult.nextData
+            );
+        }
+
+        return {
+            handledByFSM: true,
+            fsmResult,
+            classifiedIntent: classification.intent,
+            language: replyLang,
+            stateBefore: 'idle',
+            stateAfter: fsmResult.nextStage,
+        };
+    }
+
+    // Order status query — handle deterministically with lookup
+    if (classification.intent === 'order_status' && input.workspaceType === 'ecommerce') {
+        const order = await lookupLatestOrder(input.supabase, input.workspaceId, input.chatId);
+        if (order) {
+            return {
+                handledByFSM: true,
+                fsmResult: {
+                    replyText: t(
+                        `Your latest order: ${order.productName} — Status: ${order.status}`,
+                        `A5er order-ak: ${order.productName} — Status: ${order.status}`,
+                        replyLang
+                    ),
+                    nextStage: 'idle',
+                    nextData: null,
+                    actions: ['order_status_lookup'],
+                    dbWriteAttempted: false,
+                    dbWriteSuccess: false,
+                    shouldReply: true,
+                },
+                classifiedIntent: 'order_status',
+                language: replyLang,
+                stateBefore: 'idle',
+                stateAfter: 'idle',
+            };
+        }
+    }
+
+    if (classification.intent === 'cancel_appointment' && input.workspaceType === 'appointments') {
+        return {
+            handledByFSM: false,
+            classifiedIntent: classification.intent,
+            language: replyLang,
+            stateBefore: 'idle',
+            stateAfter: 'idle',
+        };
+    }
+
+    if (classification.intent === 'cancel_order' && input.workspaceType === 'ecommerce') {
+        return {
+            handledByFSM: false,
+            classifiedIntent: classification.intent,
+            language: replyLang,
+            stateBefore: 'idle',
+            stateAfter: 'idle',
+        };
+    }
+
+    // 6. Everything else (greetings, FAQs, price questions, etc.)
+    // → Let the LLM agent handle it with tools
+    return {
+        handledByFSM: false,
+        classifiedIntent: classification.intent,
+        language: replyLang,
+        stateBefore: 'idle',
+        stateAfter: 'idle',
+    };
+}
+
+
+// ── Post-Context Intent Handlers ─────────────────────────────
+
+async function handlePostContextIntent(
+    input: AutomationInput,
+    config: WorkspaceConfig,
+    lang: string,
+    pc: PostActionContext,
+    intent: string,
+    extractedValue?: string
+): Promise<FSMResult | null> {
+    const isEditable = new Date(pc.editableUntil).getTime() > Date.now();
+
+    switch (intent) {
+        case 'cancel_latest': {
+            if (pc.type === 'order') {
+                const result = await cancelLatestOrder(input.supabase, input.workspaceId, input.chatId);
+                if (result.success) {
+                    // Clear postContext since the action is cancelled
+                    await clearConversationState(input.supabase, input.userId, input.workspaceId, input.chatId, input.workspaceType);
+                    return {
+                        replyText: t(`${result.productName} order cancelled.`, `Order el ${result.productName} tenla8a.`, lang),
+                        nextStage: 'idle',
+                        nextData: null,
+                        actions: ['post_context_cancel_order'],
+                        dbWriteAttempted: true,
+                        dbWriteSuccess: true,
+                        shouldReply: true,
+                    };
+                }
+                return {
+                    replyText: t('No pending order to cancel.', 'Ma fi order la yenle8e.', lang),
+                    nextStage: 'idle',
+                    nextData: null,
+                    actions: ['post_context_cancel_no_order'],
+                    dbWriteAttempted: false,
+                    dbWriteSuccess: false,
+                    shouldReply: true,
+                };
+            }
+            if (pc.type === 'appointment') {
+                const result = await cancelLatestAppointment(input.supabase, input.workspaceId, input.chatId);
+                if (result.success) {
+                    await clearConversationState(input.supabase, input.userId, input.workspaceId, input.chatId, input.workspaceType);
+                    return {
+                        replyText: t(`${result.serviceName} appointment cancelled.`, `Maw3ed el ${result.serviceName} tenla8a.`, lang),
+                        nextStage: 'idle',
+                        nextData: null,
+                        actions: ['post_context_cancel_appointment'],
+                        dbWriteAttempted: true,
+                        dbWriteSuccess: true,
+                        shouldReply: true,
+                    };
+                }
+                return {
+                    replyText: t('No upcoming appointment to cancel.', 'Ma fi maw3ed la yenle8e.', lang),
+                    nextStage: 'idle',
+                    nextData: null,
+                    actions: ['post_context_cancel_no_appt'],
+                    dbWriteAttempted: false,
+                    dbWriteSuccess: false,
+                    shouldReply: true,
+                };
+            }
+            return null;
+        }
+
+        case 'order_status': {
+            if (pc.type === 'order' && pc.lastOrderId) {
+                const order = await lookupLatestOrder(input.supabase, input.workspaceId, input.chatId);
+                if (order) {
+                    return {
+                        replyText: t(
+                            `Your order (${order.productName}): ${order.status}`,
+                            `Order-ak (${order.productName}): ${order.status}`,
+                            lang
+                        ),
+                        nextStage: 'idle',
+                        nextData: null,
+                        actions: ['post_context_order_status'],
+                        dbWriteAttempted: false,
+                        dbWriteSuccess: false,
+                        shouldReply: true,
+                    };
+                }
+            }
+            return null;
+        }
+
+        case 'modify_order': {
+            if (pc.type !== 'order' || !pc.lastOrderId) return null;
+            if (!isEditable) {
+                return {
+                    replyText: t(
+                        'This order can no longer be modified. Contact us for help.',
+                        'Hal order ma fi n3adlo halla2. Tewasal ma3na la nse3dak.',
+                        lang
+                    ),
+                    nextStage: 'idle',
+                    nextData: null,
+                    actions: ['post_context_modify_expired'],
+                    dbWriteAttempted: false,
+                    dbWriteSuccess: false,
+                    shouldReply: true,
+                };
+            }
+            if (extractedValue) {
+                // Try to update variant/size
+                const success = await updateOrderVariant(input.supabase, pc.lastOrderId, extractedValue);
+                if (success) {
+                    return {
+                        replyText: t(`Updated to "${extractedValue}" ✅`, `T8ayaret la "${extractedValue}" ✅`, lang),
+                        nextStage: 'idle',
+                        nextData: null,
+                        actions: ['post_context_modify_success'],
+                        dbWriteAttempted: true,
+                        dbWriteSuccess: true,
+                        shouldReply: true,
+                    };
+                }
+            }
+            return {
+                replyText: t('What would you like to change it to?', 'La shu badek t8ayra?', lang),
+                nextStage: 'idle',
+                nextData: null,
+                actions: ['post_context_modify_ask'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            };
+        }
+
+        case 'reuse_details': {
+            // This is handled in the FSM by pre-populating customer from postContext
+            // Just acknowledge and let the flow continue
+            return null;
+        }
+
+        case 'reschedule': {
+            if (pc.type !== 'appointment' || !pc.lastAppointmentId) return null;
+            if (!isEditable) {
+                return {
+                    replyText: t(
+                        'Too late to reschedule. Contact us for help.',
+                        'Faat el wa2et la n8ayer el maw3ed. Tewasal ma3na.',
+                        lang
+                    ),
+                    nextStage: 'idle',
+                    nextData: null,
+                    actions: ['post_context_reschedule_expired'],
+                    dbWriteAttempted: false,
+                    dbWriteSuccess: false,
+                    shouldReply: true,
+                };
+            }
+            return {
+                replyText: t('What day and time would you like instead?', 'Aya yom w se3a badek?', lang),
+                nextStage: 'idle',
+                nextData: null,
+                actions: ['post_context_reschedule_ask'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            };
+        }
+
+        default:
+            return null;
+    }
+}

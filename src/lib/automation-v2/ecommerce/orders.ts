@@ -25,7 +25,10 @@ export interface CreateOrderInput {
     rawMessage?: string;
 }
 
-export async function createOrderV2(input: CreateOrderInput): Promise<boolean> {
+/**
+ * Creates an order. Returns the order ID on success, null on failure.
+ */
+export async function createOrderV2(input: CreateOrderInput): Promise<string | null> {
     const { 
         supabase, userId, workspaceId, chatId, customerName, 
         customerPhone, customerAddress, itemRequested, 
@@ -68,14 +71,14 @@ export async function createOrderV2(input: CreateOrderInput): Promise<boolean> {
 
         if (error) {
             v2log.ecommerce.orderError({ error, workspaceId });
-            return false;
+            return null;
         }
 
         v2log.ecommerce.orderSuccess({ orderId: inserted.id });
-        return true;
+        return inserted.id;
 
     } catch (err) {
         v2log.error('V2_ECOMMERCE_ORDER_CREATE', 'Unexpected error during order creation', { err, workspaceId });
-        return false;
+        return null;
     }
 }

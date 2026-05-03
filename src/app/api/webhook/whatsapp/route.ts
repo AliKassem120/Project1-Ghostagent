@@ -149,14 +149,14 @@ async function processWhatsAppEvent(body: any) {
                             continue;
                         }
                         
-                        const aiResponse = await generateGhostReply(
+                        const brainRes = await generateGhostReply(
                             anyWorkspace.user_id,
                             messageText,
                             supabase,
                             customerPhone,
                             anyWorkspace.id
                         );
-                        
+                        const aiResponse = brainRes?.replyText || null;
                         if (!aiResponse) { console.log('👻 No reply (handoff/empty).'); continue; }
                         
                         const formattedRecipient = normalizePhone(customerPhone);
@@ -212,13 +212,14 @@ async function processWhatsAppEvent(body: any) {
                 });
 
                 // ── 3. GENERATE AI REPLY ──────────────────────────────────
-                const aiResponse = await generateGhostReply(
+                const brainRes = await generateGhostReply(
                     ownerId,
                     messageText,
                     supabase,
                     customerPhone,
                     workspace.id
                 );
+                const aiResponse = brainRes?.replyText || null;
 
                 if (!aiResponse) {
                     console.log('👻 Ghost Protocol: No reply generated (handoff or empty).');

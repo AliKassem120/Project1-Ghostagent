@@ -1,0 +1,130 @@
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * GhostAgent — Intent Classifier (Regex Fallbacks)
+ * ═══════════════════════════════════════════════════════════════
+ * Cheap deterministic regex patterns that run BEFORE any LLM call.
+ * Catches obvious intents like greetings, confirmations, cancellations,
+ * handoff requests, and common Arabizi phrases.
+ */
+
+export type Intent =
+    | 'greeting'
+    | 'faq_question'
+    | 'product_question'
+    | 'product_availability'
+    | 'purchase_intent'
+    | 'order_status'
+    | 'cancel_order'
+    | 'modify_order'
+    | 'service_question'
+    | 'price_question'
+    | 'booking_intent'
+    | 'cancel_appointment'
+    | 'modify_appointment'
+    | 'reschedule_appointment'
+    | 'business_hours'
+    | 'location_question'
+    | 'shipping_question'
+    | 'discount_question'
+    | 'complaint'
+    | 'human_handoff'
+    | 'confirmation'
+    | 'rejection'
+    | 'unknown';
+
+export interface RegexClassification {
+    intent: Intent;
+    confidence: number;
+}
+
+/**
+ * Try to classify a message using regex patterns.
+ * Returns null if no pattern matches with sufficient confidence.
+ */
+export function classifyByRegex(message: string): RegexClassification | null {
+    const msg = message.toLowerCase().trim();
+    const words = msg.split(/\s+/);
+    const wordCount = words.length;
+
+    // ── Greetings (high confidence for short messages) ────────
+    if (wordCount <= 4 && /^(hey|hi|hello|yo|sup|salam|marhaba|hala|ahla|kifak|kifik|bonjour|hola|good\s*(morning|evening|afternoon)|bonsoir)$/i.test(msg)) {
+        return { intent: 'greeting', confidence: 0.98 };
+    }
+    if (wordCount <= 3 && /^(hey|hi|hello|salam|hala|ahla|kifak|yo)[\s!?.]*$/i.test(msg)) {
+        return { intent: 'greeting', confidence: 0.95 };
+    }
+
+    // ── Human handoff ────────────────────────────────────────
+    if (/\b(manager|mwazaf|human|agent|real\s*person|talk\s*to\s*someone|bade\s*e?hke\s*ma3|ma\s*3am\s*tefham)\b/i.test(msg)) {
+        return { intent: 'human_handoff', confidence: 0.95 };
+    }
+
+    // ── Cancel order (MUST be before purchase_intent) ────────
+    if (/\b(cancel\s*(my)?\s*order|el8e?\s*(el)?\s*order|bade?\s*el8e|الغ)\b/i.test(msg)) {
+        return { intent: 'cancel_order', confidence: 0.92 };
+    }
+
+    // ── Cancel appointment (MUST be before booking_intent) ────
+    if (/\b(cancel\s*(my)?\s*(appointment|booking)|el8e?\s*(el)?\s*(maw3ed|7ajez))\b/i.test(msg)) {
+        return { intent: 'cancel_appointment', confidence: 0.92 };
+    }
+
+    // ── Order status (MUST be before purchase_intent) ────────
+    if (/\b(where\s*(is)?\s*(my|el)\s*(order|package|shipment)|track\s*(my)?\s*(order|package)|wein\s*(el)?\s*(order|talbiye))\b/i.test(msg)) {
+        return { intent: 'order_status', confidence: 0.92 };
+    }
+
+    // ── Modify order (MUST be before purchase_intent) ────────
+    if (/\b(change|modify|update)\s*(it|the|my|el)?\s*(to|la|into)?\s*.+/i.test(msg) && /\b(size|color|variant|loun|medium|large|small|xl|address|3nwen)\b/i.test(msg)) {
+        return { intent: 'modify_order', confidence: 0.88 };
+    }
+    if (/\b(baddi|bade|bde)\s+(ghayer|8ayer)\b/i.test(msg)) {
+        return { intent: 'modify_order', confidence: 0.88 };
+    }
+
+    // ── Booking intent (Arabizi + English) ────────────────────
+    if (/\b(book|reserve|appointment|maw3ed|7ajez|e7joz|bde\s*e?7joz|bade\s*e?7joz|rendez[\s-]?vous)\b/i.test(msg)) {
+        return { intent: 'booking_intent', confidence: 0.90 };
+    }
+
+    // ── Purchase intent ──────────────────────────────────────
+    if (/\b(buy|order|purchase|bde\s*eshtere|bade\s*eshtere|bde\s*e?5od|bade\s*e?5od|commander|acheter)\b/i.test(msg)) {
+        return { intent: 'purchase_intent', confidence: 0.90 };
+    }
+
+    if (/\b(hours|open|close|working\s*hours|wen\s*fethin|amta\s*btfta7|btefta7|msakrin|horaire|disponib)\b/i.test(msg)) {
+        return { intent: 'business_hours', confidence: 0.88 };
+    }
+
+    // ── Price question ───────────────────────────────────────
+    if (/\b(price|cost|how\s*much|adde|addesh|se3r|se3ro|combien|cuanto|7a2o)\b/i.test(msg)) {
+        return { intent: 'price_question', confidence: 0.85 };
+    }
+
+    // ── Shipping question ────────────────────────────────────
+    if (/\b(shipping|delivery|deliver|towsil|livraison|envio)\b/i.test(msg)) {
+        return { intent: 'shipping_question', confidence: 0.85 };
+    }
+
+    // ── Location question ────────────────────────────────────
+    if (/\b(where|location|address|wen\s*mawjud|3nwen|manta2a|adresse|direccion)\b/i.test(msg)) {
+        return { intent: 'location_question', confidence: 0.85 };
+    }
+
+    // ── Discount question ────────────────────────────────────
+    if (/\b(discount|promo|offer|takhfid|sale|reduction|descuento)\b/i.test(msg)) {
+        return { intent: 'discount_question', confidence: 0.85 };
+    }
+
+    // ── Product availability ─────────────────────────────────
+    if (/\b(available|in\s*stock|do\s*you\s*have|fi\s*(meno|3andkon)|mawjud|mawjoud)\b/i.test(msg)) {
+        return { intent: 'product_availability', confidence: 0.82 };
+    }
+
+    // ── Complaint ────────────────────────────────────────────
+    if (/\b(complaint|problem|issue|broken|wrong|t2a5arto|ma\s*woselne|8alat|terrible|awful)\b/i.test(msg)) {
+        return { intent: 'complaint', confidence: 0.80 };
+    }
+
+    return null;
+}

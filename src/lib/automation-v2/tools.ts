@@ -106,8 +106,8 @@ export function createAppointmentTools(ctx: ToolContext) {
                         }
                     }
                 } catch (_e) { /* fallback to 'Customer' */ }
-                const success = await createAppointmentV2({ supabase: ctx.supabase, userId: ctx.userId, workspaceId: ctx.workspaceId, chatId: ctx.chatId, customerName: customer_name, customerPhone: customer_phone, serviceName: match.name, date, startTime: time, endTime, durationMinutes: match.durationMinutes, instagramHandle: handle });
-                return { success, service: match.name, date, time: formatTime12(time), price: match.price };
+                const appointmentId = await createAppointmentV2({ supabase: ctx.supabase, userId: ctx.userId, workspaceId: ctx.workspaceId, chatId: ctx.chatId, customerName: customer_name, customerPhone: customer_phone, serviceName: match.name, date, startTime: time, endTime, durationMinutes: match.durationMinutes, instagramHandle: handle });
+                return { success: !!appointmentId, service: match.name, date, time: formatTime12(time), price: match.price };
             },
         },
         cancel_appointment: {
@@ -201,8 +201,8 @@ export function createEcommerceTools(ctx: ToolContext) {
                         }
                     }
                 } catch (_e) { /* fallback to 'Customer' */ }
-                const success = await createOrderV2({ supabase: ctx.supabase, userId: ctx.userId, workspaceId: ctx.workspaceId, chatId: ctx.chatId, customerName: customer_name, customerPhone: customer_phone, customerAddress: customer_address, itemRequested: match.itemName, variantLabel: variant, unitPrice: match.price, quantity, instagramHandle: handle });
-                return { success, product: match.itemName, price: match.price, quantity };
+                const orderId = await createOrderV2({ supabase: ctx.supabase, userId: ctx.userId, workspaceId: ctx.workspaceId, chatId: ctx.chatId, customerName: customer_name, customerPhone: customer_phone, customerAddress: customer_address, itemRequested: match.itemName, variantLabel: variant, unitPrice: match.price, quantity, instagramHandle: handle });
+                return { success: !!orderId, product: match.itemName, price: match.price, quantity };
             },
         },
         cancel_order: {

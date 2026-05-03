@@ -23,9 +23,18 @@ export interface AutomationInput {
         username?: string | null;
         profilePic?: string | null;
     };
+    /** Message type from webhook (text, image, audio, reaction, etc.) */
+    messageType?: string;
+    /** Whether this is a reaction event */
+    isReaction?: boolean;
+    /** Whether the message has media attached */
+    hasMedia?: boolean;
+    /** Type of media if any (image, audio, video, sticker, etc.) */
+    mediaType?: string;
 }
 
-export type ConversationStage = 'idle' | 'handoff';
+export type { ConversationStage } from './state/types';
+import type { ConversationStage } from './state/types';
 
 export interface AutomationResult {
     shouldReply: boolean;

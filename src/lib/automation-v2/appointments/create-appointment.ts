@@ -25,7 +25,10 @@ export interface CreateAppointmentInput {
     instagramHandle?: string;
 }
 
-export async function createAppointmentV2(input: CreateAppointmentInput): Promise<boolean> {
+/**
+ * Creates an appointment. Returns the appointment ID on success, null on failure.
+ */
+export async function createAppointmentV2(input: CreateAppointmentInput): Promise<string | null> {
     const { 
         supabase, userId, workspaceId, chatId, customerName, 
         customerPhone, serviceName, date, startTime, endTime, 
@@ -58,7 +61,7 @@ export async function createAppointmentV2(input: CreateAppointmentInput): Promis
 
         if (error) {
             v2log.appointment.insertError({ error, workspaceId });
-            return false;
+            return null;
         }
 
         v2log.appointment.insertSuccess({ appointmentId: inserted.id });
@@ -94,10 +97,10 @@ export async function createAppointmentV2(input: CreateAppointmentInput): Promis
             v2log.appointment.calendarVisibility({ visible: true });
         }
 
-        return true;
+        return inserted.id;
 
     } catch (err) {
         v2log.error('V2_APPOINTMENTS_CREATE', 'Unexpected error during appointment creation', { err, workspaceId });
-        return false;
+        return null;
     }
 }

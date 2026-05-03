@@ -98,5 +98,11 @@ export function findBestProductMatch(
     const contains = items.find(i => i.itemName.toLowerCase().includes(normalizedQuery));
     if (contains) return contains;
 
-    return items[0];
+    // Reverse contains (query contains product name)
+    const reverseContains = items.find(i => normalizedQuery.includes(i.itemName.toLowerCase()));
+    if (reverseContains) return reverseContains;
+
+    // No confident match — return null so the agent asks for clarification
+    // NEVER default to items[0], that could sell the wrong product
+    return null;
 }

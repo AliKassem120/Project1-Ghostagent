@@ -151,6 +151,43 @@ export async function runAgent(
     const replyLang = resolveReplyLanguage(config, detected);
     const timeCtx = buildTimeContext(config.timezone);
 
+    // ── DECISION ENGINE (State before classifier) ────────────
+    // If there's an active conversation state, or a clear booking/purchase
+    // intent is detected, the FSM handles it deterministically.
+    const { runDecisionEngine } = await import('./decision-engine');
+    const decision = await runDecisionEngine(input, config);
+
+    if (decision.handledByFSM && decision.fsmResult) {
+        const fsm = decision.fsmResult;
+        v2log.info('AGENT', `FSM handled: ${decision.stateBefore} → ${decision.stateAfter}`, {
+            actions: fsm.actions,
+            replyPreview: fsm.replyText?.slice(0, 60),
+        });
+
+        return {
+            shouldReply: fsm.shouldReply,
+            replyText: fsm.replyText,
+            actions: fsm.actions,
+            stateBefore: decision.stateBefore,
+            stateAfter: decision.stateAfter,
+            debug: {
+                requestId: '',
+                engineVersion: 'v2',
+                workspaceId: input.workspaceId,
+                workspaceType: config.businessType as 'appointments' | 'ecommerce',
+                chatId: input.chatId,
+                language: detected,
+                intent: decision.classifiedIntent || fsm.actions[0] || 'fsm_continuation',
+                dbWriteAttempted: fsm.dbWriteAttempted,
+                dbWriteSuccess: fsm.dbWriteSuccess,
+                durationMs: Date.now() - startTime,
+            },
+        };
+    }
+
+    // ── LLM PATH (General conversation, FAQs, tool-based queries) ──
+    // Only reached when state is idle and no clear booking/purchase intent.
+
     // 1. History
     const history = await loadConversationHistory(
         input.supabase, input.userId, input.workspaceId, input.chatId
