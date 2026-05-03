@@ -315,7 +315,6 @@ export default function SettingsPage() {
                     min_order_for_discount: settings.minOrderForDiscount,
                     emergency_whatsapp: settings.emergencyWhatsApp,
                     language: settings.language,
-                    use_local_slang: settings.useLocalSlang,
                     system_instructions: settings.systemPrompt,
                     whatsapp_template: settings.whatsappTemplate,
                     store_location: settings.storeLocation,
