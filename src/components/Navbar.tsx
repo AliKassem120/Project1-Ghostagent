@@ -95,11 +95,8 @@ export default function Navbar() {
             {/* ── Top Bar ── */}
             <div className={`flex items-center justify-between px-5 md:px-10 py-4 bg-background/95 backdrop-blur-xl border-b border-border transition-shadow duration-200 ${scrolled ? 'shadow-md' : ''}`}>
                 {/* Logo */}
-                <Link href="/" onClick={() => setIsOpen(false)} className="flex items-center gap-2.5">
-                    <div className="p-1.5 rounded-xl bg-foreground/5">
-                        <GhostLogo className="w-7 h-7" />
-                    </div>
-                    <span className="font-bold text-lg text-foreground tracking-tight">GhostAgent</span>
+                <Link href="/" onClick={() => setIsOpen(false)} className="flex items-center">
+                    <GhostLogo size="md" />
                 </Link>
 
                 {/* Desktop Links (centered) */}

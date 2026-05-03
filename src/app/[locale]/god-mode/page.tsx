@@ -48,7 +48,7 @@ export default function GodModeDashboard() {
                     <div className="w-16 h-16 relative">
                         <div className="absolute inset-0 bg-red-500/20 rounded-2xl blur-xl animate-pulse" />
                         <div className="relative bg-red-500/10 p-4 rounded-2xl border border-red-500/20">
-                            <GhostLogo className="w-8 h-8 text-red-500" />
+                            <GhostLogo iconOnly className="w-8 h-8" />
                         </div>
                     </div>
                     <div className="mt-6 flex items-center gap-3">
@@ -96,7 +96,7 @@ export default function GodModeDashboard() {
                 <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-red-500/10 rounded-lg">
-                            <GhostLogo className="w-5 h-5 text-red-500" />
+                            <GhostLogo iconOnly className="w-5 h-5" />
                         </div>
                         <div>
                             <div className="font-bold text-foreground tracking-tight leading-none bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">GOD MODE</div>

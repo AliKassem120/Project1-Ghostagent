@@ -115,7 +115,7 @@ function PhoneMockup() {
         {/* Instagram DM Header */}
         <div className="flex items-center gap-3 px-4 pt-10 pb-3 border-b border-border bg-surface-0/50 backdrop-blur-md z-10 relative">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center shadow-lg">
-            <GhostLogo className="w-4 h-4 text-white" />
+            <GhostLogo iconOnly className="w-4 h-4" />
           </div>
           <div className="flex-1">
             <p className="text-foreground text-xs font-semibold tracking-tight">Ghost Agent</p>

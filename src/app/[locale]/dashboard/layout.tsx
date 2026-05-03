@@ -103,13 +103,8 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                 <div className="flex-none">
                     {/* Logo Section */}
                     <div className="flex items-center justify-between px-5 h-16 border-b border-border">
-                        <Link href="/" className="flex items-center gap-2.5 group">
-                            <div className="bg-primary/10 p-2 rounded-xl group-hover:bg-primary/15 transition-colors">
-                                <GhostLogo />
-                            </div>
-                            <span className="font-semibold text-lg tracking-tight text-muted-foreground">
-                                GhostAgent
-                            </span>
+                        <Link href="/" className="flex items-center">
+                            <GhostLogo size="md" />
                         </Link>
                         <button onClick={onClose} className="lg:hidden p-2 text-muted-foreground hover:text-foreground transition-colors">
                             <X className="w-5 h-5" />
@@ -331,10 +326,7 @@ function DashboardContent({ children, toggleSidebar }: { children: React.ReactNo
                 <button onClick={toggleSidebar} className="p-3 text-muted-foreground hover:text-foreground transition-colors">
                     <Menu className="w-5 h-5" />
                 </button>
-                <div className="flex items-center gap-2">
-                    <GhostLogo className="w-5 h-5" />
-                    <span className="font-semibold text-base tracking-tight text-foreground">GhostAgent</span>
-                </div>
+                <GhostLogo size="sm" />
                 <div className="w-9" />
             </header>
 

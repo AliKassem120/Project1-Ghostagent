@@ -68,7 +68,7 @@ export default function HowToConnectPage() {
                         className="inline-flex items-center justify-center p-3 sm:p-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] mb-4 overflow-x-clip relative group"
                     >
                         <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-violet-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                        <GhostLogo className="w-10 h-10 sm:w-12 sm:h-12 relative z-10 drop-shadow-[0_0_15px_rgba(139,92,246,0.3)]" />
+                        <GhostLogo iconOnly className="w-10 h-10 sm:w-12 sm:h-12 relative z-10 drop-shadow-[0_0_15px_rgba(139,92,246,0.3)]" />
                     </motion.div>
 
                     <motion.h1

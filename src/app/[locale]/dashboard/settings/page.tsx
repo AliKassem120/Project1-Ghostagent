@@ -944,7 +944,7 @@ export default function SettingsPage() {
                                 <div className="h-10 border-b border-border bg-surface-2 flex items-center justify-between px-3 shrink-0">
                                     <div className="flex items-center gap-2">
                                         <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center">
-                                            <GhostLogo className="w-3 h-3 text-primary" />
+                                            <GhostLogo iconOnly className="w-3 h-3" />
                                         </div>
                                         <span className="text-xs font-medium text-muted-foreground">GhostAgent</span>
                                     </div>

@@ -52,7 +52,7 @@ export default function ForgotPasswordPage() {
                 <div className="bg-surface-1 p-8 md:p-12 rounded-3xl border border-border shadow-2xl">
                     <div className="flex justify-center mb-8">
                         <div className="p-4 bg-primary/10 rounded-2xl shadow-[0_0_40px_rgba(192,132,252,0.1)]">
-                            <GhostLogo className="w-12 h-12 text-primary" />
+                            <GhostLogo iconOnly className="w-12 h-12" />
                         </div>
                     </div>
 

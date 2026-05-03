@@ -20,7 +20,7 @@ function Scene1() {
       <div className="absolute inset-0 bg-gradient-radial from-primary/20 to-background" />
       <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} transition={{ delay: 0.5, type: 'spring' }} className="relative z-10 flex flex-col items-center">
          <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center shadow-[0_0_100px_rgba(139,92,246,0.6)] mb-6">
-             <GhostLogo className="w-12 h-12 text-white" />
+             <GhostLogo iconOnly className="w-12 h-12" />
          </div>
          <h1 className="text-5xl font-black text-white tracking-tighter">Your Instagram DMs, automated.</h1>
       </motion.div>
@@ -248,7 +248,7 @@ function Scene6() {
       
       <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} transition={{ delay: 47.5, type: 'spring' }} className="relative z-10 flex flex-col items-center text-center">
          <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center shadow-[0_0_100px_rgba(139,92,246,0.6)] mb-8">
-             <GhostLogo className="w-12 h-12 text-white" />
+             <GhostLogo iconOnly className="w-12 h-12" />
          </div>
          <h1 className="text-6xl md:text-8xl font-black text-white tracking-tighter mb-6 leading-tight">
              Turn DMs into <br/>

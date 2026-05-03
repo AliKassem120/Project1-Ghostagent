@@ -72,10 +72,7 @@ export default function LoginPage() {
                         className="max-w-md"
                     >
                         <div className="flex items-center gap-3 mb-10">
-                            <div className="p-3 bg-surface-1 border border-border/50 rounded-2xl shadow-sm">
-                                <GhostLogo className="w-8 h-8 text-primary" />
-                            </div>
-                            <span className="text-xl font-black text-foreground tracking-tighter">GhostAgent</span>
+                            <GhostLogo size="lg" />
                         </div>
 
                         <motion.h2
@@ -139,8 +136,8 @@ export default function LoginPage() {
                     >
                         {/* Mobile Header / Logo */}
                         <div className="flex flex-col items-center mb-8 lg:hidden mt-8">
-                            <div className="p-3 bg-surface-1 border border-border/50 rounded-2xl shadow-sm mb-4">
-                                <GhostLogo className="w-8 h-8 text-primary" />
+                            <div className="mb-4">
+                                <GhostLogo size="lg" />
                             </div>
                         </div>
 

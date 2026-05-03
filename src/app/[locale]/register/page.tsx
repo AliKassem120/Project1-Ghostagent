@@ -158,7 +158,7 @@ export default function RegisterPage() {
                             <div className="flex justify-center mb-8 relative">
                                 <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full scale-150" />
                                 <div className="w-14 h-14 bg-surface-2 border border-border/50 rounded-2xl flex items-center justify-center relative z-10 shadow-lg">
-                                    <GhostLogo className="w-7 h-7 text-primary" />
+                                    <GhostLogo iconOnly className="w-8 h-8" />
                                 </div>
                             </div>
 

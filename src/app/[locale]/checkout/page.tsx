@@ -32,7 +32,7 @@ function CheckoutContent() {
             <div className="glass-dark p-8 md:p-10 rounded-3xl border border-white/10 shadow-2xl">
                 <div className="flex justify-center mb-6">
                     <div className="p-3 bg-primary/10 rounded-2xl shadow-[0_0_30px_rgba(192,132,252,0.2)]">
-                        <GhostLogo className="w-10 h-10" />
+                        <GhostLogo iconOnly className="w-10 h-10" />
                     </div>
                 </div>
 
