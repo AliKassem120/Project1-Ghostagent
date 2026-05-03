@@ -85,6 +85,54 @@ export default function BillingPage() {
         fetchData();
     }, []);
 
+    // ── Post-payment verification ────────────────────────────────
+    // When redirected back from Whish with ?payment=success, verify
+    // the webhook fired. If not, trigger it manually as a fallback.
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const paymentStatus = params.get('payment');
+        const transactionId = params.get('transaction_id');
+
+        if (paymentStatus === 'success' && transactionId) {
+            const verifyPayment = async () => {
+                // 1. Check if transaction was already processed
+                const { data: txn } = await supabase
+                    .from('transactions')
+                    .select('status, plan_name, user_id')
+                    .eq('id', transactionId)
+                    .single();
+
+                if (txn && txn.status === 'pending') {
+                    // Webhook hasn't fired yet — trigger it manually
+                    console.log('[Billing] Webhook slow, triggering fallback...');
+                    await fetch(`/api/webhooks/whish?status=success&transaction_id=${transactionId}`);
+                }
+
+                // 2. Re-fetch user data to reflect the upgrade
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    const { data: userData } = await supabase
+                        .from('users')
+                        .select('plan_tier')
+                        .eq('id', user.id)
+                        .single();
+                    if (userData) {
+                        const resolved = getPlanByTier(userData.plan_tier);
+                        setCurrentPlan(resolved.name);
+                        setPlanDetails(prev => ({ ...prev, tier: userData.plan_tier }));
+                        toast.success(`You're now on the ${resolved.name} plan! 🎉`);
+                    }
+                }
+
+                // 3. Clean the URL
+                window.history.replaceState({}, '', window.location.pathname);
+            };
+
+            // Small delay to let webhook fire first
+            setTimeout(verifyPayment, 2000);
+        }
+    }, []);
+
     const plans = PLANS.map(p => ({
         name: p.name,
         price: p.price,
