@@ -47,7 +47,10 @@ export interface DecisionResult {
 }
 
 function t(en: string, arabizi: string, lang: string): string {
-    return lang === 'arabizi' ? arabizi : en;
+    // 'lebanese franco' from settings = Arabizi. 'arabic' also uses Arabizi replies
+    // since we don't have formal Arabic translations.
+    const isArabizi = lang === 'arabizi' || lang === 'lebanese franco' || lang === 'arabic' || lang === 'mixed';
+    return isArabizi ? arabizi : en;
 }
 
 /**
@@ -58,7 +61,9 @@ export async function runDecisionEngine(
     config: WorkspaceConfig
 ): Promise<DecisionResult> {
     const detected = detectLanguage(input.message);
-    const replyLang = config.language === 'Auto-Detect' ? detected : config.language.toLowerCase();
+    let replyLang = config.language === 'Auto-Detect' ? detected : config.language.toLowerCase();
+    // Normalize 'Lebanese Franco' setting → 'arabizi' for consistent t() handling
+    if (replyLang === 'lebanese franco') replyLang = 'arabizi';
 
     // 1. Load current conversation state
     const { stage: currentStage, data: currentData, postContext } = await loadConversationState(

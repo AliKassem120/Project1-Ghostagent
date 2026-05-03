@@ -34,7 +34,8 @@ interface FSMContext {
 }
 
 function t(en: string, arabizi: string, lang: string): string {
-    return lang === 'arabizi' ? arabizi : en;
+    const isArabizi = lang === 'arabizi' || lang === 'lebanese franco' || lang === 'arabic' || lang === 'mixed';
+    return isArabizi ? arabizi : en;
 }
 
 /**

@@ -39,7 +39,7 @@ function buildPrompt(
     timeCtx: any,
     replyLanguage: string
 ): string {
-    const isArabizi = replyLanguage === 'arabizi';
+    const isArabizi = replyLanguage === 'arabizi' || replyLanguage === 'lebanese franco';
 
     const businessDesc = config.businessType === 'appointments'
         ? 'a service-based business that takes appointments'
@@ -137,7 +137,10 @@ ${config.shippingRules ? `SHIPPING: ${config.shippingRules}` : ''}`;
 
 function resolveReplyLanguage(config: WorkspaceConfig, detected: string): string {
     if (config.language === 'Auto-Detect') return detected;
-    return config.language.toLowerCase();
+    const lang = config.language.toLowerCase();
+    // 'Lebanese Franco' → 'arabizi' for consistent internal handling
+    if (lang === 'lebanese franco') return 'arabizi';
+    return lang;
 }
 
 // ── Main Agent ───────────────────────────────────────────────
