@@ -25,6 +25,7 @@ import { classifyPostContext } from './classify/post-context-classifier';
 import { lookupLatestOrder, cancelLatestOrder, updateOrderVariant, updateOrderAddress } from './ecommerce/lookup';
 import { searchProducts } from './ecommerce/products';
 import { lookupLatestAppointment, cancelLatestAppointment, rescheduleAppointment } from './appointments/lookup';
+import { loadActiveServices } from './appointments/services';
 import { detectLanguage, detectYesNo } from './language';
 import { v2log } from './logger';
 
@@ -232,6 +233,49 @@ export async function runDecisionEngine(
         };
     }
 
+    // purchase_intent on APPOINTMENTS workspace → reroute to booking FSM
+    // "I want a haircut" classified as purchase_intent but user is on a booking workspace
+    if (classification.intent === 'purchase_intent' && input.workspaceType === 'appointments') {
+        const initialState: AppointmentStateData = {
+            stage: 'awaiting_service',
+            pendingAction: 'create_appointment',
+            appointment: {},
+            customer: postContext?.customer ? {
+                name: postContext.customer.name,
+                phone: postContext.customer.phone,
+            } : {},
+            missingFields: ['service'],
+        };
+
+        const fsmCtx = {
+            supabase: input.supabase,
+            userId: input.userId,
+            workspaceId: input.workspaceId,
+            chatId: input.chatId,
+            config,
+            message: input.message,
+            language: replyLang,
+        };
+
+        const fsmResult = await processAppointmentState(fsmCtx, initialState);
+
+        if (fsmResult.nextStage !== 'idle' && fsmResult.nextData) {
+            await saveConversationState(
+                input.supabase, input.userId, input.workspaceId, input.chatId,
+                input.workspaceType, fsmResult.nextStage, fsmResult.nextData
+            );
+        }
+
+        return {
+            handledByFSM: true,
+            fsmResult,
+            classifiedIntent: 'booking_intent',
+            language: replyLang,
+            stateBefore: 'idle',
+            stateAfter: fsmResult.nextStage,
+        };
+    }
+
     // Order status query — handle deterministically with lookup
     if (classification.intent === 'order_status' && input.workspaceType === 'ecommerce') {
         const order = await lookupLatestOrder(input.supabase, input.workspaceId, input.chatId);
@@ -326,6 +370,53 @@ export async function runDecisionEngine(
                 nextStage: 'idle',
                 nextData: null,
                 actions: ['product_search_empty'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            },
+            classifiedIntent: classification.intent,
+            language: replyLang,
+            stateBefore: 'idle',
+            stateAfter: 'idle',
+        };
+    }
+
+    // Service availability — list services for appointments workspaces
+    if ((classification.intent === 'product_availability' || classification.intent === 'price_question' || classification.intent === 'service_question') && input.workspaceType === 'appointments') {
+        const services = await loadActiveServices(input.supabase, input.workspaceId);
+
+        if (services.length > 0) {
+            const listing = services.slice(0, 6).map(s => `• ${s.name} — $${s.price} (${s.durationMinutes}min)`).join('\n');
+            const replyText = classification.intent === 'price_question'
+                ? (services.length === 1
+                    ? t(`${services[0].name} — $${services[0].price}`, `${services[0].name} — $${services[0].price}`, replyLang)
+                    : t(`Here are our prices:\n${listing}`, `Tfaddal el as3ar:\n${listing}`, replyLang))
+                : t(`Here are our services:\n${listing}`, `3anna:\n${listing}`, replyLang);
+
+            return {
+                handledByFSM: true,
+                fsmResult: {
+                    replyText,
+                    nextStage: 'idle',
+                    nextData: null,
+                    actions: ['service_search'],
+                    dbWriteAttempted: false,
+                    dbWriteSuccess: false,
+                    shouldReply: true,
+                },
+                classifiedIntent: classification.intent,
+                language: replyLang,
+                stateBefore: 'idle',
+                stateAfter: 'idle',
+            };
+        }
+        return {
+            handledByFSM: true,
+            fsmResult: {
+                replyText: t('No services available right now.', 'Ma fi khedamet halla2.', replyLang),
+                nextStage: 'idle',
+                nextData: null,
+                actions: ['service_search_empty'],
                 dbWriteAttempted: false,
                 dbWriteSuccess: false,
                 shouldReply: true,

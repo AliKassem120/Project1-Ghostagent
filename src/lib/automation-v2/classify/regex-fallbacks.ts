@@ -126,9 +126,13 @@ export function classifyByRegex(message: string): RegexClassification | null {
         return { intent: 'discount_question', confidence: 0.85 };
     }
 
-    // ── Product availability ─────────────────────────────────
-    if (/\b(available|in\s*stock|do\s*you\s*have|fi\s*(meno|3andkon)|mawjud|mawjoud)\b/i.test(msg)) {
+    // ── Product / Service availability ────────────────────────
+    if (/\b(available|in\s*stock|do\s*you\s*have|fi\s*(meno|3andkon)|mawjud|mawjoud|what.*(?:sell|offer|provide)|menu|catalog)\b/i.test(msg)) {
         return { intent: 'product_availability', confidence: 0.82 };
+    }
+    // ── Service question ─────────────────────────────────────
+    if (/\b(services?|what\s*do\s*you\s*do|treatments?|packages?|khedamet|khedme)\b/i.test(msg)) {
+        return { intent: 'service_question', confidence: 0.82 };
     }
 
     // ── Complaint ────────────────────────────────────────────
