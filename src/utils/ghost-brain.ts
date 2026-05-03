@@ -11,7 +11,7 @@ export async function generateGhostReply(
     supabase: any,
     chatId?: string,
     workspaceId?: string,
-    _checkoutContext?: string
+    platform: 'instagram' | 'whatsapp' | 'web' = 'instagram'
 ) {
     try {
         if (!workspaceId || !chatId) {
@@ -33,7 +33,7 @@ export async function generateGhostReply(
             workspaceType: businessType as 'appointments' | 'ecommerce',
             chatId,
             message: userMessage,
-            platform: 'instagram',
+            platform,
             supabase,
             userId,
         });

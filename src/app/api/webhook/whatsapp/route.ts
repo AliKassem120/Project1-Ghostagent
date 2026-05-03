@@ -154,7 +154,8 @@ async function processWhatsAppEvent(body: any) {
                             messageText,
                             supabase,
                             customerPhone,
-                            anyWorkspace.id
+                            anyWorkspace.id,
+                            'whatsapp'
                         );
                         const aiResponse = brainRes?.replyText || null;
                         if (!aiResponse) { console.log('👻 No reply (handoff/empty).'); continue; }
@@ -217,7 +218,8 @@ async function processWhatsAppEvent(body: any) {
                     messageText,
                     supabase,
                     customerPhone,
-                    workspace.id
+                    workspace.id,
+                    'whatsapp'
                 );
                 const aiResponse = brainRes?.replyText || null;
 
