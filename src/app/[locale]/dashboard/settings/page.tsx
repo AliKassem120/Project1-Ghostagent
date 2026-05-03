@@ -58,7 +58,6 @@ export default function SettingsPage() {
         minOrderForDiscount: 50,
         emergencyWhatsApp: '',
         language: 'Auto-Detect',
-        useLocalSlang: false,
         systemPrompt: '',
         whatsappTemplate: '',
         storeLocation: '',
@@ -157,7 +156,6 @@ export default function SettingsPage() {
                     minOrderForDiscount: data.min_order_for_discount || 50,
                     emergencyWhatsApp: data.emergency_whatsapp || '',
                     language: data.language || 'Auto-Detect',
-                    useLocalSlang: data.use_local_slang ?? false,
                     systemPrompt: data.system_instructions || '',
                     whatsappTemplate: data.whatsapp_template || '',
                     storeLocation: data.store_location || '',
@@ -914,27 +912,6 @@ export default function SettingsPage() {
                                 />
                                 <p className="text-[10px] text-muted-foreground ml-1 mt-2">Auto-Detect is recommended. Ghost Agent mirrors any language the customer uses.</p>
                             </div>
-
-                            <div className="space-y-1.5 pt-2">
-                                <label className="text-[10px] font-bold text-amber-500/60 uppercase tracking-widest ml-1">Advanced Personality</label>
-                                <div className="flex items-center justify-between p-3.5 bg-amber-500/[0.05] rounded-xl border border-amber-500/10 hover:bg-amber-500/10 transition-all cursor-pointer group"
-                                    onClick={() => setSettings({ ...settings, useLocalSlang: !settings.useLocalSlang })}>
-                                    <div>
-                                        <span className="block text-sm text-amber-600 dark:text-amber-500/80 group-hover:text-amber-500 transition-colors">Use Local Slang</span>
-                                        <span className="block text-[10px] text-amber-600/70 dark:text-amber-500/40 mt-0.5">&quot;Walla&quot;, &quot;Yalla&quot;, or &quot;Kifak&quot;</span>
-                                    </div>
-                                    <div className={clsx(
-                                        "relative w-11 rounded-full transition-colors duration-300",
-                                        settings.useLocalSlang ? "bg-amber-500" : "bg-surface-2"
-                                    )} style={{ height: '24px' }}>
-                                        <motion.div
-                                            className="absolute top-[2px] w-[20px] h-[20px] rounded-full bg-white shadow-sm"
-                                            animate={{ x: settings.useLocalSlang ? 22 : 2 }}
-                                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
                         </div>
 
                         <div className="hidden md:block">
@@ -1007,7 +984,7 @@ export default function SettingsPage() {
                                                     exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
                                                     className="self-start max-w-[80%] bg-gradient-to-br from-primary/20 to-primary/10 text-primary-100 text-[13px] px-3.5 py-2.5 rounded-2xl rounded-tl-sm border border-primary/20 shadow-[0_0_15px_rgba(139,92,246,0.1)]"
                                                 >
-                                                    {settings.useLocalSlang ? "أهلا يا غالي! إي موجود، من عيوني." : "أهلا بك! نعم، هذا متوفر لدينا."}
+                                                    أهلا بك! نعم، هذا متوفر لدينا.
                                                 </motion.div>
                                             )}
                                         </AnimatePresence>

@@ -70,7 +70,6 @@ export interface WorkspaceConfig {
     language: string;
     timezone: string;
     useEmojis: boolean;
-    useLocalSlang: boolean;
     systemInstructions: string | null;
     storeLocation: string | null;
     contactInfo: string | null;

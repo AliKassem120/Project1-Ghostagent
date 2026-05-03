@@ -27,7 +27,6 @@ export async function updateWorkspaceSettingsAction(workspaceId: string, setting
             store_location: settings.storeLocation,
             contact_info: settings.contactInfo,
             shipping_rules: settings.shippingRules || null,
-            use_local_slang: settings.useLocalSlang,
             business_type: settings.businessType,
             reply_delay_seconds: settings.replyDelay || 0,
             comment_auto_reply: settings.commentAutoReply,

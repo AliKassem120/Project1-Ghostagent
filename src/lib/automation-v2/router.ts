@@ -20,7 +20,7 @@ export async function loadWorkspaceConfig(
         .from('ai_settings')
         .select(
             'id, user_id, business_name, business_type, tone, system_instructions, ' +
-            'language, timezone, use_emojis, use_local_slang, urgency_mode, handoff_keywords, ' +
+            'language, timezone, use_emojis, handoff_keywords, ' +
             'store_location, contact_info, shipping_rules, max_discount, min_order_for_discount, ' +
             'slot_duration_minutes'
         )
@@ -41,7 +41,6 @@ export async function loadWorkspaceConfig(
         language: data.language || 'Auto-Detect',
         timezone: data.timezone || 'UTC',
         useEmojis: data.use_emojis ?? true,
-        useLocalSlang: data.use_local_slang ?? false,
         systemInstructions: data.system_instructions || null,
         storeLocation: data.store_location || null,
         contactInfo: data.contact_info || null,
