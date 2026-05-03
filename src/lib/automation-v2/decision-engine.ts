@@ -26,6 +26,8 @@ import { lookupLatestOrder, cancelLatestOrder, updateOrderVariant, updateOrderAd
 import { searchProducts } from './ecommerce/products';
 import { lookupLatestAppointment, cancelLatestAppointment, rescheduleAppointment } from './appointments/lookup';
 import { loadActiveServices } from './appointments/services';
+import { loadBusinessHours, getHoursForDay } from './appointments/hours';
+import { formatTime12 } from './time';
 import { detectLanguage, detectYesNo } from './language';
 import { v2log } from './logger';
 
@@ -149,7 +151,29 @@ export async function runDecisionEngine(
         source: classification.source,
     });
 
-    // 5. If a clear booking or purchase intent, create a new state
+    // 5. DETERMINISTIC HANDLERS — no LLM needed ────────────────
+
+    // ── Greeting (zero-cost, instant) ────────────────────────
+    if (classification.intent === 'greeting') {
+        return {
+            handledByFSM: true,
+            fsmResult: {
+                replyText: t('Hey! How can I help?', 'Hala! Kif fiyi se3dak?', replyLang),
+                nextStage: 'idle',
+                nextData: null,
+                actions: ['greeting'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            },
+            classifiedIntent: 'greeting',
+            language: replyLang,
+            stateBefore: 'idle',
+            stateAfter: 'idle',
+        };
+    }
+
+    // ── Booking / Purchase FSM entry points ──────────────────
     if (classification.intent === 'booking_intent' && input.workspaceType === 'appointments') {
         const initialState: AppointmentStateData = {
             stage: 'awaiting_service',
@@ -301,22 +325,164 @@ export async function runDecisionEngine(
                 stateAfter: 'idle',
             };
         }
-    }
-
-    if (classification.intent === 'cancel_appointment' && input.workspaceType === 'appointments') {
+        // No order found — don't fall to LLM
         return {
-            handledByFSM: false,
-            classifiedIntent: classification.intent,
+            handledByFSM: true,
+            fsmResult: {
+                replyText: t('No recent orders found.', 'Ma fi orders abelye.', replyLang),
+                nextStage: 'idle',
+                nextData: null,
+                actions: ['order_status_empty'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            },
+            classifiedIntent: 'order_status',
             language: replyLang,
             stateBefore: 'idle',
             stateAfter: 'idle',
         };
     }
 
+    // ── Cancel order — deterministic ─────────────────────────
     if (classification.intent === 'cancel_order' && input.workspaceType === 'ecommerce') {
+        const result = await cancelLatestOrder(input.supabase, input.workspaceId, input.chatId);
+        if (result.success) {
+            return {
+                handledByFSM: true,
+                fsmResult: {
+                    replyText: t(`${result.productName} order cancelled.`, `Order el ${result.productName} tenla8a.`, replyLang),
+                    nextStage: 'idle',
+                    nextData: null,
+                    actions: ['order_cancelled'],
+                    dbWriteAttempted: true,
+                    dbWriteSuccess: true,
+                    shouldReply: true,
+                },
+                classifiedIntent: 'cancel_order',
+                language: replyLang,
+                stateBefore: 'idle',
+                stateAfter: 'idle',
+            };
+        }
         return {
-            handledByFSM: false,
-            classifiedIntent: classification.intent,
+            handledByFSM: true,
+            fsmResult: {
+                replyText: t('No pending order to cancel.', 'Ma fi order la yenle8e.', replyLang),
+                nextStage: 'idle',
+                nextData: null,
+                actions: ['cancel_no_order'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            },
+            classifiedIntent: 'cancel_order',
+            language: replyLang,
+            stateBefore: 'idle',
+            stateAfter: 'idle',
+        };
+    }
+
+    // ── Cancel appointment — deterministic ───────────────────
+    if (classification.intent === 'cancel_appointment' && input.workspaceType === 'appointments') {
+        const result = await cancelLatestAppointment(input.supabase, input.workspaceId, input.chatId);
+        if (result.success) {
+            return {
+                handledByFSM: true,
+                fsmResult: {
+                    replyText: t(`${result.serviceName} appointment cancelled.`, `Maw3ed el ${result.serviceName} tenla8a.`, replyLang),
+                    nextStage: 'idle',
+                    nextData: null,
+                    actions: ['appointment_cancelled'],
+                    dbWriteAttempted: true,
+                    dbWriteSuccess: true,
+                    shouldReply: true,
+                },
+                classifiedIntent: 'cancel_appointment',
+                language: replyLang,
+                stateBefore: 'idle',
+                stateAfter: 'idle',
+            };
+        }
+        return {
+            handledByFSM: true,
+            fsmResult: {
+                replyText: t('No upcoming appointment to cancel.', 'Ma fi maw3ed la yenle8e.', replyLang),
+                nextStage: 'idle',
+                nextData: null,
+                actions: ['cancel_no_appointment'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            },
+            classifiedIntent: 'cancel_appointment',
+            language: replyLang,
+            stateBefore: 'idle',
+            stateAfter: 'idle',
+        };
+    }
+
+    // ── Business hours — deterministic DB lookup ─────────────
+    if (classification.intent === 'business_hours') {
+        const hours = await loadBusinessHours(input.supabase, input.workspaceId);
+        if (hours.length > 0) {
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const openDays = hours.filter(h => h.isOpen);
+            const listing = openDays.map(h => `${dayNames[h.dayOfWeek]}: ${formatTime12(h.openTime)} – ${formatTime12(h.closeTime)}`).join('\n');
+            return {
+                handledByFSM: true,
+                fsmResult: {
+                    replyText: t(`Our hours:\n${listing}`, `Dawemna:\n${listing}`, replyLang),
+                    nextStage: 'idle',
+                    nextData: null,
+                    actions: ['business_hours_lookup'],
+                    dbWriteAttempted: false,
+                    dbWriteSuccess: false,
+                    shouldReply: true,
+                },
+                classifiedIntent: 'business_hours',
+                language: replyLang,
+                stateBefore: 'idle',
+                stateAfter: 'idle',
+            };
+        }
+        // No hours configured — let LLM try with systemInstructions
+    }
+
+    // ── Location question — use config ───────────────────────
+    if (classification.intent === 'location_question' && config.storeLocation) {
+        return {
+            handledByFSM: true,
+            fsmResult: {
+                replyText: t(`We're at: ${config.storeLocation}`, `Ma7alna: ${config.storeLocation}`, replyLang),
+                nextStage: 'idle',
+                nextData: null,
+                actions: ['location_answered'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            },
+            classifiedIntent: 'location_question',
+            language: replyLang,
+            stateBefore: 'idle',
+            stateAfter: 'idle',
+        };
+    }
+
+    // ── Shipping question — use config ───────────────────────
+    if (classification.intent === 'shipping_question' && config.shippingRules) {
+        return {
+            handledByFSM: true,
+            fsmResult: {
+                replyText: config.shippingRules,
+                nextStage: 'idle',
+                nextData: null,
+                actions: ['shipping_answered'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            },
+            classifiedIntent: 'shipping_question',
             language: replyLang,
             stateBefore: 'idle',
             stateAfter: 'idle',
