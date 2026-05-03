@@ -1,13 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Check, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
 import Link from 'next/link';
 import { PLANS } from '@/lib/plans';
 
 export default function PricingPlans() {
-    const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
 
     return (
         <section id="pricing" className="relative pt-28 md:pt-32 pb-24 md:pb-32 px-4 md:px-6 z-10">
@@ -19,7 +17,7 @@ export default function PricingPlans() {
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
-                    className="text-center mb-12"
+                    className="text-center mb-16"
                 >
                     <h2 className="text-3xl md:text-5xl font-black mb-4 tracking-tighter text-foreground leading-[1.1]">
                         Simple pricing for growing DM businesses
@@ -29,34 +27,10 @@ export default function PricingPlans() {
                     </p>
                 </motion.div>
 
-                {/* Billing Toggle */}
-                <motion.div 
-                    initial={{ opacity: 0, y: 10 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    className="flex items-center justify-center gap-4 mb-16"
-                >
-                    <span className={`text-sm font-bold transition-colors ${billingCycle === 'monthly' ? 'text-foreground' : 'text-muted-foreground'}`}>Monthly</span>
-                    <button 
-                        onClick={() => setBillingCycle(billingCycle === 'monthly' ? 'yearly' : 'monthly')}
-                        className="w-12 h-6 rounded-full bg-surface-2 border border-border relative p-1 transition-colors hover:border-primary/50"
-                    >
-                        <motion.div 
-                            animate={{ x: billingCycle === 'monthly' ? 0 : 24 }}
-                            className="w-4 h-4 rounded-full bg-primary shadow-sm"
-                        />
-                    </button>
-                    <div className="flex items-center gap-2">
-                        <span className={`text-sm font-bold transition-colors ${billingCycle === 'yearly' ? 'text-foreground' : 'text-muted-foreground'}`}>Yearly</span>
-                        <span className="px-2 py-0.5 rounded-md bg-green-500/10 border border-green-500/20 text-[10px] font-black text-green-500 uppercase tracking-wider">Save 20%</span>
-                    </div>
-                </motion.div>
-
                 {/* Pricing Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch mb-20">
                     {PLANS.map((plan, i) => {
-                        const isHighlighted = plan.highlight;
-                        const displayPrice = billingCycle === 'monthly' ? plan.price : Math.floor(plan.price * 0.8);
+                        const displayPrice = plan.price;
 
                         return (
                             <motion.div
@@ -67,12 +41,12 @@ export default function PricingPlans() {
                                 transition={{ delay: i * 0.1, duration: 0.6 }}
                                 whileHover={{ y: -5 }}
                                 className={`group relative flex flex-col glass-frosted border rounded-[2.5rem] p-8 md:p-10 transition-all duration-300 ${
-                                    isHighlighted 
+                                    plan.highlight 
                                     ? 'border-primary/40 shadow-[0_0_50px_rgba(139,92,246,0.15)] ring-1 ring-primary/20 bg-surface-0/50' 
                                     : 'border-border bg-surface-1/40 hover:border-border-hover'
                                 }`}
                             >
-                                {isHighlighted && (
+                                {plan.highlight && (
                                     <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 px-5 py-2 rounded-full bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-[0_0_20px_rgba(139,92,246,0.4)] z-20">
                                         Most Popular
                                     </div>
@@ -96,14 +70,11 @@ export default function PricingPlans() {
                                         <span className="text-5xl font-black tracking-tighter text-foreground">${displayPrice}</span>
                                         <span className="text-muted-foreground font-bold">/month</span>
                                     </div>
-                                    {billingCycle === 'yearly' && plan.price > 0 && (
-                                        <p className="text-[10px] font-bold text-green-500 uppercase tracking-widest mt-1">Billed annually</p>
-                                    )}
                                 </div>
 
                                 {/* Limit Pill */}
                                 <div className={`mb-8 inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-black shadow-sm ${
-                                    isHighlighted ? 'bg-primary text-white' : 'bg-surface-2 text-muted-foreground'
+                                    plan.highlight ? 'bg-primary text-white' : 'bg-surface-2 text-muted-foreground'
                                 }`}>
                                     {plan.dmLimit === null ? '∞ Unlimited AI Replies' : `${plan.dmLimit.toLocaleString()} AI Replies / month`}
                                 </div>
@@ -113,7 +84,7 @@ export default function PricingPlans() {
                                     {plan.features.map((feature, idx) => (
                                         <div key={idx} className="flex items-start gap-3">
                                             <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
-                                                isHighlighted ? 'bg-primary/20 text-primary' : 'bg-surface-3 text-muted-foreground'
+                                                plan.highlight ? 'bg-primary/20 text-primary' : 'bg-surface-3 text-muted-foreground'
                                             }`}>
                                                 <Check className="w-3 h-3" />
                                             </div>
@@ -127,7 +98,7 @@ export default function PricingPlans() {
                                     <Link
                                         href={plan.ctaLink}
                                         className={`block w-full py-5 rounded-[1.5rem] text-center font-black uppercase tracking-widest text-sm transition-all shadow-lg active:scale-95 ${
-                                            isHighlighted 
+                                            plan.highlight 
                                             ? 'bg-primary text-white hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:scale-[1.02]' 
                                             : plan.tier === 'empire'
                                                 ? 'bg-foreground text-background hover:bg-foreground/90 hover:scale-[1.02]'

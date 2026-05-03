@@ -40,12 +40,21 @@ export async function POST(req: Request) {
         // If success, update the user's plan tier!
         if (status === 'success' && transaction.user_id) {
             const plan_name = transaction.plan_name || 'Pro Agent';
+
+            // Normalize to database tier key
+            let dbTier = 'starter';
+            if (plan_name === 'Pro Agent' || plan_name.toLowerCase() === 'pro') dbTier = 'pro';
+            else if (plan_name.toLowerCase() === 'empire') dbTier = 'empire';
+
             const { error: userError } = await supabaseAdmin
                 .from('users')
                 .update({
-                    plan_tier: plan_name,
-                    // Give them 30 days of pro access
-                    current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+                    plan_tier: dbTier,
+                    // Give them 30 days of access
+                    current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                    // Clear any pending downgrade since user just paid for a new plan
+                    cancel_at_period_end: false,
+                    next_plan_tier: null,
                 })
                 .eq('id', transaction.user_id);
 

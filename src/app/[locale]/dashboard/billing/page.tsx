@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Check, Crown, Zap, CreditCard, Calendar, AlertCircle, X, TrendingUp, MessageSquare, DollarSign, Shield, Sparkles, ArrowRight } from 'lucide-react';
-import { PLANS } from '@/lib/plans';
+import { Check, Crown, Zap, CreditCard, Calendar, AlertCircle, X, TrendingUp, MessageSquare, DollarSign, Shield, Sparkles, ArrowRight, RotateCcw } from 'lucide-react';
+import { PLANS, getPlanByTier } from '@/lib/plans';
 import { clsx } from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
@@ -15,7 +15,8 @@ export default function BillingPage() {
         trial_ends_at: string | null;
         period_end: string | null;
         cancel_at_period_end: boolean;
-    }>({ tier: 'free_trial', trial_ends_at: null, period_end: null, cancel_at_period_end: false });
+        next_plan_tier: string | null;
+    }>({ tier: 'free_trial', trial_ends_at: null, period_end: null, cancel_at_period_end: false, next_plan_tier: null });
 
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [showDowngradeModal, setShowDowngradeModal] = useState(false);
@@ -34,7 +35,7 @@ export default function BillingPage() {
             // 1. Fetch User Plan data
             const { data: userData } = await supabase
                 .from('users')
-                .select('plan_tier, trial_ends_at, current_period_end, cancel_at_period_end')
+                .select('plan_tier, trial_ends_at, current_period_end, cancel_at_period_end, next_plan_tier')
                 .eq('id', user.id)
                 .single();
 
@@ -44,13 +45,30 @@ export default function BillingPage() {
                     tier,
                     trial_ends_at: userData.trial_ends_at,
                     period_end: userData.current_period_end,
-                    cancel_at_period_end: userData.cancel_at_period_end || false
+                    cancel_at_period_end: userData.cancel_at_period_end || false,
+                    next_plan_tier: userData.next_plan_tier || null,
                 });
 
+                // Auto-execute expired downgrades
+                if (userData.cancel_at_period_end && userData.current_period_end) {
+                    const periodEnd = new Date(userData.current_period_end);
+                    if (periodEnd <= new Date() && userData.next_plan_tier) {
+                        await supabase.from('users').update({
+                            plan_tier: userData.next_plan_tier,
+                            cancel_at_period_end: false,
+                            next_plan_tier: null,
+                        }).eq('id', user.id);
+                        const newPlan = getPlanByTier(userData.next_plan_tier);
+                        setCurrentPlan(newPlan.name);
+                        setPlanDetails(prev => ({ ...prev, tier: userData.next_plan_tier!, cancel_at_period_end: false, next_plan_tier: null }));
+                        toast.info(`Your plan has been changed to ${newPlan.name}.`);
+                        return;
+                    }
+                }
+
                 // Map database tier to UI plan name
-                if (tier === 'Pro Agent' || tier === 'pro') setCurrentPlan('Pro Agent');
-                else if (tier === 'Empire') setCurrentPlan('Empire');
-                else setCurrentPlan('Starter');
+                const resolved = getPlanByTier(tier);
+                setCurrentPlan(resolved.name);
             }
 
             // 2. Fetch Usage (monthly)
@@ -170,13 +188,44 @@ export default function BillingPage() {
 
             setShowCancelModal(false);
             toast.info('Subscription cancelled. You will move to Starter at the end of the billing cycle.');
-            setPlanDetails(prev => ({ ...prev, cancel_at_period_end: true }));
+            setPlanDetails(prev => ({ ...prev, cancel_at_period_end: true, next_plan_tier: 'starter' }));
         } catch (err: any) {
             console.error(err);
             toast.error('Failed to cancel subscription.');
         } finally {
             setIsUpdating(false);
         }
+    };
+
+    const handleUndoDowngrade = async () => {
+        setIsUpdating(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { error } = await supabase
+                .from('users')
+                .update({ cancel_at_period_end: false, next_plan_tier: null })
+                .eq('id', user.id);
+
+            if (error) throw error;
+
+            toast.success('Downgrade cancelled! You will keep your current plan.');
+            setPlanDetails(prev => ({ ...prev, cancel_at_period_end: false, next_plan_tier: null }));
+        } catch (err: any) {
+            console.error(err);
+            toast.error('Failed to undo downgrade.');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    /** Get features the user will LOSE when downgrading */
+    const getLostFeatures = (fromPlan: string, toPlan: string): string[] => {
+        const from = PLANS.find(p => p.name === fromPlan);
+        const to = PLANS.find(p => p.name === toPlan);
+        if (!from || !to) return [];
+        return from.features.filter(f => !to.features.includes(f));
     };
 
     const currentPlanData = plans.find(p => p.name === currentPlan);
@@ -251,7 +300,24 @@ export default function BillingPage() {
                         </div>
                     </div>                    <div className="flex flex-col sm:flex-row gap-3">
                         
-                        {currentPlan !== 'Starter' && (
+                        {planDetails.cancel_at_period_end ? (
+                            <div className="flex items-center gap-3 w-full">
+                                <div className="flex-1 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/5 border border-amber-500/10">
+                                    <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                                    <span className="text-sm text-amber-400/80 font-medium">
+                                        Downgrade to {getPlanByTier(planDetails.next_plan_tier || 'starter').name} scheduled
+                                    </span>
+                                </div>
+                                <button
+                                    onClick={handleUndoDowngrade}
+                                    disabled={isUpdating}
+                                    className="px-5 py-2.5 bg-primary/10 border border-primary/20 rounded-xl hover:bg-primary/20 transition-all text-sm font-medium text-primary flex items-center gap-2 disabled:opacity-50 shrink-0"
+                                >
+                                    <RotateCcw className="w-3.5 h-3.5" />
+                                    Undo
+                                </button>
+                            </div>
+                        ) : currentPlan !== 'Starter' && (
                             <button
                                 onClick={() => setShowCancelModal(true)}
                                 className="px-5 py-2.5 bg-red-500/5 border border-red-500/10 rounded-xl hover:bg-red-500/10 transition-all text-sm font-medium text-red-400/60 hover:text-red-400"
@@ -474,6 +540,22 @@ export default function BillingPage() {
                                     </span>.
                                 </p>
 
+                                {(() => {
+                                    const lost = getLostFeatures(currentPlan, targetPlan.name);
+                                    return lost.length > 0 ? (
+                                        <div className="mb-6 p-4 rounded-xl bg-red-500/5 border border-red-500/10">
+                                            <p className="text-[10px] font-bold text-red-400/80 uppercase tracking-widest mb-3">You will lose access to:</p>
+                                            <ul className="space-y-2">
+                                                {lost.map(f => (
+                                                    <li key={f} className="flex items-center gap-2 text-sm text-red-400/70">
+                                                        <X className="w-3 h-3 shrink-0" />{f}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    ) : null;
+                                })()}
+
                                 <div className="flex gap-3">
                                     <button
                                         onClick={() => setShowDowngradeModal(false)}
@@ -537,6 +619,21 @@ export default function BillingPage() {
                                         : 'the end of your current cycle'}. Your data will be preserved but the AI agent will stop responding.
                                 </p>
 
+                                {(() => {
+                                    const lost = getLostFeatures(currentPlan, 'Starter');
+                                    return lost.length > 0 ? (
+                                        <div className="mb-6 p-4 rounded-xl bg-red-500/5 border border-red-500/10">
+                                            <p className="text-[10px] font-bold text-red-400/80 uppercase tracking-widest mb-3">You will lose:</p>
+                                            <ul className="space-y-2">
+                                                {lost.map(f => (
+                                                    <li key={f} className="flex items-center gap-2 text-sm text-red-400/70">
+                                                        <X className="w-3 h-3 shrink-0" />{f}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    ) : null;
+                                })()}
                                 <div className="flex gap-3">
                                     <button
                                         onClick={() => setShowCancelModal(false)}
