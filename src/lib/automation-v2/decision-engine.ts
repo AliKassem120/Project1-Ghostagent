@@ -23,6 +23,7 @@ import { processEcommerceState } from './state/ecommerce-fsm';
 import { classifyIntent } from './classify/intent-classifier';
 import { classifyPostContext } from './classify/post-context-classifier';
 import { lookupLatestOrder, cancelLatestOrder, updateOrderVariant, updateOrderAddress } from './ecommerce/lookup';
+import { searchProducts } from './ecommerce/products';
 import { lookupLatestAppointment, cancelLatestAppointment, rescheduleAppointment } from './appointments/lookup';
 import { detectLanguage, detectYesNo } from './language';
 import { v2log } from './logger';
@@ -271,6 +272,64 @@ export async function runDecisionEngine(
     if (classification.intent === 'cancel_order' && input.workspaceType === 'ecommerce') {
         return {
             handledByFSM: false,
+            classifiedIntent: classification.intent,
+            language: replyLang,
+            stateBefore: 'idle',
+            stateAfter: 'idle',
+        };
+    }
+
+    // Product availability — proactively search inventory instead of relying on LLM
+    if ((classification.intent === 'product_availability' || classification.intent === 'price_question') && input.workspaceType === 'ecommerce') {
+        const products = await searchProducts({
+            supabase: input.supabase,
+            workspaceId: input.workspaceId,
+            query: classification.intent === 'price_question'
+                ? input.message.replace(/\b(how\s*much|price|cost|addesh|adde|se3r|se3ro|combien|cuanto|7a2o|shu\s*el)\b/gi, '').trim() || undefined
+                : undefined,
+            limit: 6,
+        });
+
+        if (products.length > 0) {
+            const inStock = products.filter(p => p.stockLevel > 0);
+            const listing = inStock.slice(0, 5).map(p => `• ${p.itemName} — $${p.price}`).join('\n');
+            const replyText = classification.intent === 'price_question'
+                ? (inStock.length > 0
+                    ? (inStock.length === 1
+                        ? t(`${inStock[0].itemName} — $${inStock[0].price}`, `${inStock[0].itemName} — $${inStock[0].price}`, replyLang)
+                        : t(`Here you go:\n${listing}`, `Tfaddal:\n${listing}`, replyLang))
+                    : t('That item is not available right now.', 'Msh mawjoud halla2.', replyLang))
+                : t(`Here's what we have:\n${listing}`, `3anna:\n${listing}`, replyLang);
+
+            return {
+                handledByFSM: true,
+                fsmResult: {
+                    replyText,
+                    nextStage: 'idle',
+                    nextData: null,
+                    actions: ['product_search'],
+                    dbWriteAttempted: false,
+                    dbWriteSuccess: false,
+                    shouldReply: true,
+                },
+                classifiedIntent: classification.intent,
+                language: replyLang,
+                stateBefore: 'idle',
+                stateAfter: 'idle',
+            };
+        }
+        // No products found — still return a helpful message
+        return {
+            handledByFSM: true,
+            fsmResult: {
+                replyText: t('No products available right now.', 'Ma fi shi mawjoud halla2.', replyLang),
+                nextStage: 'idle',
+                nextData: null,
+                actions: ['product_search_empty'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            },
             classifiedIntent: classification.intent,
             language: replyLang,
             stateBefore: 'idle',
