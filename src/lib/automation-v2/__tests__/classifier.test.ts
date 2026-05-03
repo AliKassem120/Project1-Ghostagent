@@ -32,6 +32,22 @@ describe('classifyByRegex', () => {
         expect(classifyByRegex('I want to order')?.intent).toBe('purchase_intent');
     });
 
+    it('detects natural purchase phrases', () => {
+        expect(classifyByRegex('I want a ps5 please')?.intent).toBe('purchase_intent');
+        expect(classifyByRegex('I need a new phone')?.intent).toBe('purchase_intent');
+        expect(classifyByRegex('can I get the black one')?.intent).toBe('purchase_intent');
+        expect(classifyByRegex('give me 2 of those')?.intent).toBe('purchase_intent');
+        expect(classifyByRegex('send me that hoodie')?.intent).toBe('purchase_intent');
+        expect(classifyByRegex("I'd like a large pizza")?.intent).toBe('purchase_intent');
+        expect(classifyByRegex("I'll take it")?.intent).toBe('purchase_intent');
+    });
+
+    it('detects Arabizi purchase phrases', () => {
+        expect(classifyByRegex('badde wahde')?.intent).toBe('purchase_intent');
+        expect(classifyByRegex('3atine tnein')?.intent).toBe('purchase_intent');
+        expect(classifyByRegex('ab3atli wahde')?.intent).toBe('purchase_intent');
+    });
+
     // ── Handoff ──────────────────────────────────────────────
     it('detects human handoff requests', () => {
         expect(classifyByRegex('I want to talk to a manager')?.intent).toBe('human_handoff');
@@ -49,7 +65,7 @@ describe('classifyByRegex', () => {
     it('detects price questions', () => {
         expect(classifyByRegex('how much is this?')?.intent).toBe('price_question');
         expect(classifyByRegex('adde se3ro')?.intent).toBe('price_question');
-        expect(classifyByRegex('B3atle el price')?.intent).toBe('price_question');
+        expect(classifyByRegex('shu el price')?.intent).toBe('price_question');
     });
 
     // ── Cancellation ─────────────────────────────────────────

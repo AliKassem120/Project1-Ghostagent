@@ -345,8 +345,42 @@ export async function runAgent(
         };
 
     } catch (err: any) {
-        v2log.error('AGENT', 'LLM call failed', { error: err?.message || String(err) });
-        return errorResult(input, startTime, err?.message || 'Agent call failed');
+        const errMsg = err?.message || String(err);
+        v2log.error('AGENT', 'LLM call failed', { error: errMsg });
+
+        // ── Retry WITHOUT tools if it was a function-calling failure ──
+        // Groq/Llama sometimes fails on tool schemas. Fall back to a
+        // plain conversation so the customer isn't left hanging.
+        if (errMsg.includes('function') || errMsg.includes('tool') || errMsg.includes('failed_generation')) {
+            try {
+                v2log.info('AGENT', 'Retrying without tools...');
+                const retryResult = await generateText({
+                    model: groq!(MODEL),
+                    system: system + '\n\nIMPORTANT: You have no tools available right now. Answer using only the business info above. If you don\'t know something, say so honestly.',
+                    messages,
+                    temperature: 0.3,
+                });
+
+                const retryReply = retryResult.text?.trim();
+                if (retryReply) {
+                    v2log.info('AGENT', `Retry succeeded in ${Date.now() - startTime}ms`, {
+                        replyPreview: retryReply.slice(0, 60),
+                    });
+                    return {
+                        shouldReply: true,
+                        replyText: retryReply,
+                        actions: ['agent_retry_no_tools'],
+                        stateBefore: 'idle',
+                        stateAfter: 'idle',
+                        debug: makeDebug(input, detected, Date.now() - startTime, 'conversation'),
+                    };
+                }
+            } catch (retryErr: any) {
+                v2log.error('AGENT', 'Retry also failed', { error: retryErr?.message });
+            }
+        }
+
+        return errorResult(input, startTime, errMsg);
     }
 }
 

@@ -88,8 +88,18 @@ export function classifyByRegex(message: string): RegexClassification | null {
     }
 
     // ── Purchase intent ──────────────────────────────────────
+    // Explicit: buy, order, purchase, etc.
     if (/\b(buy|order|purchase|bde\s*eshtere|bade\s*eshtere|bde\s*e?5od|bade\s*e?5od|commander|acheter)\b/i.test(msg)) {
         return { intent: 'purchase_intent', confidence: 0.90 };
+    }
+    // Natural: "I want X", "I need X", "can I get X", "give me X", "send me X"
+    // These are extremely common in DMs and indicate purchase intent when followed by a product-like word
+    if (/\b(i\s*want|i\s*need|can\s*i\s*(get|have)|give\s*me|send\s*me|i('?d| would)\s*like|i('?ll| will)\s*take)\b/i.test(msg) && wordCount >= 3) {
+        return { intent: 'purchase_intent', confidence: 0.85 };
+    }
+    // Arabizi: "badde", "bade", "3atine", "ab3atli"
+    if (/\b(badde|bade|3atine|ab3atli|ab3atlii|b3atle|3ayez|3ayza|je\s*veux|je\s*voudrais)\b/i.test(msg) && wordCount >= 2) {
+        return { intent: 'purchase_intent', confidence: 0.85 };
     }
 
     if (/\b(hours|open|close|working\s*hours|wen\s*fethin|amta\s*btfta7|btefta7|msakrin|horaire|disponib)\b/i.test(msg)) {
