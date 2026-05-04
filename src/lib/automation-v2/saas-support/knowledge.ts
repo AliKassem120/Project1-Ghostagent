@@ -18,7 +18,7 @@ export async function searchSaasKnowledge(
         let dbQuery = supabase
             .from('business_knowledge')
             .select('id, title, content, source_type, visibility')
-            .in('visibility', ['public', 'internal_support']);
+            .in('visibility', ['public']);
         
         // Scope to workspace if specified, or global if not
         if (workspaceId) {

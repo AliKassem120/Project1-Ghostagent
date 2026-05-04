@@ -98,8 +98,19 @@ export async function runDecisionEngine(
 
         if (input.workspaceType === 'appointments') {
             fsmResult = await processAppointmentState(fsmCtx, currentData as AppointmentStateData);
-        } else {
+        } else if (input.workspaceType === 'ecommerce') {
             fsmResult = await processEcommerceState(fsmCtx, currentData as EcommerceStateData);
+        } else {
+            // saas_support has no active FSM states by default
+            fsmResult = {
+                replyText: '',
+                nextStage: 'idle',
+                nextData: null,
+                actions: ['saas_fsm_skipped'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: false,
+            };
         }
 
         // Save the new state (preserving postContext if FSM returned one)

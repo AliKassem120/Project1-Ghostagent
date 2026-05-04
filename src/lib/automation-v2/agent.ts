@@ -85,7 +85,8 @@ DISCOUNTS:
         ? `TOOLS:
 - Use search_knowledge for ANY question about GhostAgent pricing, features, or capabilities.
 - Use lookup_account to see if the user has an account.
-- NEVER make up features or prices. Always search the knowledge base.`
+- NEVER make up features or prices. Always search the knowledge base.
+- If you cannot find the information in the knowledge base, say you are not sure and offer to connect them with a human team member.`
         : `TOOLS:
 - Use search_products for ANY question about products, prices, or stock.
 - Use lookup_customer to check if they've ordered before — skip asking info you already have.

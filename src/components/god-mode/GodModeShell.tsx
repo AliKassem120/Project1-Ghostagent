@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
     LayoutDashboard, Briefcase, Activity, Database, 
     ShoppingCart, Calendar, ShieldAlert, LogOut, Loader2, Menu, X,
-    Brain, MessageSquare, MessageCircle, ShieldCheck
+    Brain, MessageSquare, MessageCircle, ShieldCheck, Bot
 } from 'lucide-react';
 import GhostLogo from '@/components/GhostLogo';
 
@@ -28,6 +28,7 @@ export const GOD_MODE_TABS = [
     { id: 'comments_debugger', label: 'Comments Debugger', icon: MessageCircle },
     { id: 'safety_validator', label: 'Safety Validator', icon: ShieldCheck },
     { id: 'knowledge_manager', label: 'Knowledge Manager', icon: Database },
+    { id: 'official_saas_bot', label: 'Official SaaS Bot', icon: Bot },
     { id: 'controls', label: 'System Controls', icon: ShieldAlert },
 ];
 

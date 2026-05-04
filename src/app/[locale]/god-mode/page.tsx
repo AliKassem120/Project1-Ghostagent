@@ -16,6 +16,7 @@ import ConversationInspectorSection from '@/components/god-mode/ConversationInsp
 import CommentsDebuggerSection from '@/components/god-mode/CommentsDebuggerSection';
 import SafetyValidatorSection from '@/components/god-mode/SafetyValidatorSection';
 import KnowledgeManagerSection from '@/components/god-mode/KnowledgeManagerSection';
+import OfficialSaasBotSection from '@/components/god-mode/OfficialSaasBotSection';
 
 export default function GodModePage() {
     const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -141,6 +142,7 @@ export default function GodModePage() {
                 {activeTab === 'comments_debugger' && <CommentsDebuggerSection />}
                 {activeTab === 'safety_validator' && <SafetyValidatorSection />}
                 {activeTab === 'knowledge_manager' && <KnowledgeManagerSection />}
+                {activeTab === 'official_saas_bot' && <OfficialSaasBotSection />}
                 {activeTab === 'controls' && <ControlsSection />}
             </div>
         </GodModeShell>

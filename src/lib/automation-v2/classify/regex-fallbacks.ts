@@ -31,6 +31,14 @@ export type Intent =
     | 'human_handoff'
     | 'confirmation'
     | 'rejection'
+    | 'pricing_question'
+    | 'feature_question'
+    | 'setup_question'
+    | 'integration_question'
+    | 'arabizi_question'
+    | 'demo_request'
+    | 'support_request'
+    | 'refund_question'
     | 'unknown';
 
 export interface RegexClassification {
@@ -83,6 +91,35 @@ export function classifyByRegex(message: string): RegexClassification | null {
         return { intent: 'modify_order', confidence: 0.88 };
     }
 
+    // ── Price question ───────────────────────────────────────
+    if (/\b(price|cost|how\s*much|adde|addesh|se3r|se3ro|combien|cuanto|7a2o)\b/i.test(msg)) {
+        return { intent: 'price_question', confidence: 0.85 };
+    }
+
+    // ── SaaS Specific Intents ──────────────────────────────────
+    if (/\b(setup|how\s*to\s*start|how\s*to\s*use|get\s*started|create\s*account)\b/i.test(msg)) {
+        return { intent: 'setup_question', confidence: 0.85 };
+    }
+    if (/\b(arabizi|arabic|lebanese|language|french|spanish|detect\s*language)\b/i.test(msg)) {
+        return { intent: 'arabizi_question', confidence: 0.85 };
+    }
+    if (/\b(demo|show\s*me|try\s*it|test\s*it)\b/i.test(msg)) {
+        return { intent: 'demo_request', confidence: 0.85 };
+    }
+    if (/\b(features?|can\s*it|does\s*it|whatsapp|instagram|channels)\b/i.test(msg)) {
+        return { intent: 'feature_question', confidence: 0.85 };
+    }
+    if (/\b(help|support|not\s*working|bug|error)\b/i.test(msg)) {
+        // "support" without other words could be help, but if it has "whatsapp" or "instagram", it matched feature_question above
+        return { intent: 'support_request', confidence: 0.85 };
+    }
+    if (/\b(refund|money\s*back)\b/i.test(msg)) {
+        return { intent: 'refund_question', confidence: 0.85 };
+    }
+    if (/\b(integration|shopify|api|webhook)\b/i.test(msg)) {
+        return { intent: 'integration_question', confidence: 0.85 };
+    }
+
     // ── Booking intent (Arabizi + English) ────────────────────
     if (/\b(book|reserve|appointment|maw3ed|7ajez|e7joz|bde\s*e?7joz|bade\s*e?7joz|rendez[\s-]?vous)\b/i.test(msg)) {
         return { intent: 'booking_intent', confidence: 0.90 };
@@ -107,10 +144,6 @@ export function classifyByRegex(message: string): RegexClassification | null {
         return { intent: 'business_hours', confidence: 0.88 };
     }
 
-    // ── Price question ───────────────────────────────────────
-    if (/\b(price|cost|how\s*much|adde|addesh|se3r|se3ro|combien|cuanto|7a2o)\b/i.test(msg)) {
-        return { intent: 'price_question', confidence: 0.85 };
-    }
 
     // ── Shipping question ────────────────────────────────────
     if (/\b(shipping|delivery|deliver|towsil|livraison|envio)\b/i.test(msg)) {
