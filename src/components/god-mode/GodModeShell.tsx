@@ -27,6 +27,7 @@ export const GOD_MODE_TABS = [
     { id: 'conv_inspector', label: 'Conv Inspector', icon: MessageSquare },
     { id: 'comments_debugger', label: 'Comments Debugger', icon: MessageCircle },
     { id: 'safety_validator', label: 'Safety Validator', icon: ShieldCheck },
+    { id: 'knowledge_manager', label: 'Knowledge Manager', icon: Database },
     { id: 'controls', label: 'System Controls', icon: ShieldAlert },
 ];
 

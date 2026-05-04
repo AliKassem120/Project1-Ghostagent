@@ -40,7 +40,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ success: false, error: 'Workspace not found' }, { status: 404 });
         }
 
-        const workspaceType = settings.business_type as 'appointments' | 'ecommerce';
+        const workspaceType = settings.business_type as 'appointments' | 'ecommerce' | 'saas_support';
 
         // ── Pre-flight analysis (deterministic, no side effects) ────
         const detectedLanguage = detectLanguage(message);

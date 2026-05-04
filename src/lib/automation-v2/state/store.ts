@@ -29,7 +29,7 @@ export async function loadConversationState(
     userId: string,
     workspaceId: string,
     chatId: string,
-    workspaceType: 'appointments' | 'ecommerce'
+    workspaceType: 'appointments' | 'ecommerce' | 'saas_support'
 ): Promise<LoadedState> {
     try {
         const { data, error } = await supabase
@@ -72,7 +72,7 @@ export async function saveConversationState(
     userId: string,
     workspaceId: string,
     chatId: string,
-    workspaceType: 'appointments' | 'ecommerce',
+    workspaceType: 'appointments' | 'ecommerce' | 'saas_support',
     stage: ConversationStage,
     stateData: StateData | null
 ): Promise<void> {
@@ -125,7 +125,7 @@ export async function clearConversationState(
     userId: string,
     workspaceId: string,
     chatId: string,
-    workspaceType: 'appointments' | 'ecommerce',
+    workspaceType: 'appointments' | 'ecommerce' | 'saas_support',
     postContext?: PostActionContext | null
 ): Promise<void> {
     const data = postContext ? { stage: 'idle', postContext } : {};

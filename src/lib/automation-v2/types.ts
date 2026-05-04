@@ -9,7 +9,7 @@
 
 export interface AutomationInput {
     workspaceId: string;
-    workspaceType: 'appointments' | 'ecommerce';
+    workspaceType: 'appointments' | 'ecommerce' | 'saas_support';
     chatId: string;
     message: string;
     platform: 'instagram' | 'whatsapp';
@@ -50,7 +50,7 @@ export interface AutomationDebug {
     requestId: string;
     engineVersion: 'v2';
     workspaceId: string;
-    workspaceType: 'appointments' | 'ecommerce';
+    workspaceType: 'appointments' | 'ecommerce' | 'saas_support';
     chatId: string;
     language: DetectedLanguage;
     intent?: string;
@@ -65,7 +65,7 @@ export interface WorkspaceConfig {
     workspaceId: string;
     userId: string;
     businessName: string;
-    businessType: 'appointments' | 'ecommerce';
+    businessType: 'appointments' | 'ecommerce' | 'saas_support';
     tone: string;
     language: string;
     timezone: string;

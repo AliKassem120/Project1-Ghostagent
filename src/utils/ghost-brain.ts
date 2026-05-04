@@ -30,7 +30,7 @@ export async function generateGhostReply(
 
         const result = await handleAutomationMessage({
             workspaceId,
-            workspaceType: businessType as 'appointments' | 'ecommerce',
+            workspaceType: businessType as 'appointments' | 'ecommerce' | 'saas_support',
             chatId,
             message: userMessage,
             platform,

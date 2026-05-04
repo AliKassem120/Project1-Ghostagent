@@ -16,7 +16,7 @@ import { generateText, stepCountIs } from 'ai';
 import { createGroq } from '@ai-sdk/groq';
 import type { AutomationInput, AutomationResult, WorkspaceConfig } from './types';
 import { loadConversationHistory } from './history';
-import { createAppointmentTools, createEcommerceTools, type ToolContext } from './tools';
+import { createAppointmentTools, createEcommerceTools, createSaasSupportTools, type ToolContext } from './tools';
 import { detectLanguage } from './language';
 import { buildTimeContext } from './time';
 import { v2log } from './logger';
@@ -44,6 +44,8 @@ function buildPrompt(
 
     const businessDesc = config.businessType === 'appointments'
         ? 'a service-based business that takes appointments'
+        : config.businessType === 'saas_support'
+        ? 'an official AI representative for GhostAgent, a SaaS platform for AI customer service'
         : 'an online store that sells products';
 
     // ── Tone ─────────────────────────────────────────────────
@@ -79,6 +81,11 @@ DISCOUNTS:
 - Use lookup_customer to check if they've been here before — skip asking info you already have.
 - Use book_appointment ONLY after the customer explicitly confirms.
 - NEVER say "booked" or "confirmed" unless book_appointment returned success.`
+        : config.businessType === 'saas_support'
+        ? `TOOLS:
+- Use search_knowledge for ANY question about GhostAgent pricing, features, or capabilities.
+- Use lookup_account to see if the user has an account.
+- NEVER make up features or prices. Always search the knowledge base.`
         : `TOOLS:
 - Use search_products for ANY question about products, prices, or stock.
 - Use lookup_customer to check if they've ordered before — skip asking info you already have.
@@ -230,6 +237,8 @@ export async function runAgent(
     };
     const tools = config.businessType === 'appointments'
         ? createAppointmentTools(toolCtx)
+        : config.businessType === 'saas_support'
+        ? createSaasSupportTools(toolCtx)
         : createEcommerceTools(toolCtx);
 
     // 5. LLM call
@@ -307,6 +316,13 @@ export async function runAgent(
                         : (p.inStock ? `${p.name} — $${p.price}, in stock.` : `${p.name} — out of stock.`);
                 } else {
                     reply = replyLang === 'arabizi' ? 'Ma fi halla2.' : 'Not available.';
+                }
+            } else if (lastToolResult?.toolName === 'search_knowledge') {
+                const results = lastToolResult.data?.results;
+                if (results?.length > 0) {
+                    reply = replyLang === 'arabizi' ? 'Fik tshufo hon, aw is2alni shu baddak' : 'I found some information. How can I help?';
+                } else {
+                    reply = replyLang === 'arabizi' ? 'Ma 3ende fekra 3an hek' : 'I don\'t have information on that right now.';
                 }
             } else {
                 // Generic fallback — do NOT treat short messages as greetings

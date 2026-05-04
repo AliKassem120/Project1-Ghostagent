@@ -15,6 +15,7 @@ import BrainDebuggerSection from '@/components/god-mode/BrainDebuggerSection';
 import ConversationInspectorSection from '@/components/god-mode/ConversationInspectorSection';
 import CommentsDebuggerSection from '@/components/god-mode/CommentsDebuggerSection';
 import SafetyValidatorSection from '@/components/god-mode/SafetyValidatorSection';
+import KnowledgeManagerSection from '@/components/god-mode/KnowledgeManagerSection';
 
 export default function GodModePage() {
     const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -139,6 +140,7 @@ export default function GodModePage() {
                 {activeTab === 'conv_inspector' && <ConversationInspectorSection />}
                 {activeTab === 'comments_debugger' && <CommentsDebuggerSection />}
                 {activeTab === 'safety_validator' && <SafetyValidatorSection />}
+                {activeTab === 'knowledge_manager' && <KnowledgeManagerSection />}
                 {activeTab === 'controls' && <ControlsSection />}
             </div>
         </GodModeShell>

@@ -96,6 +96,7 @@ export default function SafetyValidatorSection() {
                                 >
                                     <option value="ecommerce">E-commerce</option>
                                     <option value="appointments">Appointments</option>
+                                    <option value="saas_support">SaaS Support</option>
                                 </select>
                             </div>
                             <div>
