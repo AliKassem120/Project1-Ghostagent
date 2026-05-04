@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Edit2, Share, Loader2, MessageCircle, User, Instagram, Search, Send, Sparkles, Ghost, Menu, ArrowLeft, PlayCircle, PauseCircle, Phone, Bot, Trash2 } from 'lucide-react';
+import { Check, Edit2, Share, Loader2, MessageCircle, User, Instagram, Search, Send, Sparkles, Ghost, Menu, ArrowLeft, PlayCircle, PauseCircle, Phone, Bot, Trash2, MessageSquare } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import clsx from 'clsx';
 import { useToast } from '@/contexts/ToastContext';
@@ -26,6 +26,7 @@ type Conversation = {
     messages: Message[];
     account_id?: string; // Store account context
     isComment?: boolean;
+    platform?: 'instagram' | 'whatsapp'; // Track message source
 };
 
 import { useWorkspace } from '@/contexts/WorkspaceContext';
@@ -126,7 +127,7 @@ export default function InteractionsPage() {
                     external_chat_id: chatId,
                     chat_id: chatId,
                     workspace_type: activeWorkspace?.business_type || 'ecommerce',
-                    platform: 'INSTAGRAM',
+                    platform: conversations.find(c => c.chat_id === chatId)?.platform?.toUpperCase() || 'INSTAGRAM',
                     is_muted: newStatus,
                     muted_until: newStatus ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null,
                     last_interaction_at: new Date().toISOString()
@@ -425,7 +426,8 @@ export default function InteractionsPage() {
                     timestamp: log.timestamp,
                     messages: [],
                     account_id: meta.account_id, // Capture account_id if available
-                    isComment: isComment // Add flag
+                    isComment: isComment, // Add flag
+                    platform: meta.platform === 'whatsapp' ? 'whatsapp' : 'instagram',
                 };
             }
 
@@ -483,7 +485,7 @@ export default function InteractionsPage() {
                 {/* ... Header & Search (Keep Same) ... */}
                 <div className="flex items-center justify-between mb-2 px-1">
                     <h1 className="text-xl font-bold flex items-center gap-2">
-                        <Instagram className="w-5 h-5 text-pink-500" />
+                        <MessageCircle className="w-5 h-5 text-primary" />
                         Inbox
                         <span className="relative flex h-3 w-3">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
@@ -521,6 +523,10 @@ export default function InteractionsPage() {
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between gap-2">
                                         <h3 className="font-bold text-sm truncate flex items-center gap-2">
+                                            {conv.platform === 'whatsapp'
+                                                ? <Phone className="w-3.5 h-3.5 text-green-400 shrink-0" />
+                                                : <Instagram className="w-3.5 h-3.5 text-pink-400 shrink-0" />
+                                            }
                                             {conv.username}
                                             {conv.isComment && <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded-full border border-blue-500/20 uppercase tracking-tighter">Comment</span>}
                                         </h3>
@@ -561,6 +567,10 @@ export default function InteractionsPage() {
                             </div>
                             <div className="flex-1">
                                 <h2 className="font-bold text-sm flex items-center gap-2">
+                                    {activeChat.platform === 'whatsapp'
+                                        ? <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full border border-green-500/20 uppercase font-bold tracking-tight flex items-center gap-1"><Phone className="w-3 h-3" />WhatsApp</span>
+                                        : <span className="text-[10px] bg-pink-500/20 text-pink-400 px-2 py-0.5 rounded-full border border-pink-500/20 uppercase font-bold tracking-tight flex items-center gap-1"><Instagram className="w-3 h-3" />Instagram</span>
+                                    }
                                     {activeChat.username}
                                     {activeChat.isComment && <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full border border-blue-500/20 uppercase font-bold tracking-tight">Public Comment</span>}
                                 </h2>
