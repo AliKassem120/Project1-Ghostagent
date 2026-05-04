@@ -11,10 +11,11 @@ import { extractProductCandidate } from '@/lib/automation-v2/ecommerce/extract-p
 import { searchProducts, findBestProductMatch } from '@/lib/automation-v2/ecommerce/products';
 import { validateReply } from '@/lib/automation-v2/validation/reply-validator';
 
-const getAdmin = () => createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const getAdmin = () => {
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY required for God Mode');
+    return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, key);
+};
 
 export async function POST(req: Request) {
     const denied = await requireGodModeAccess();

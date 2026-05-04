@@ -57,7 +57,12 @@ export default function GodModeShell({ children, activeTab, onTabChange }: GodMo
         return () => clearInterval(interval);
     }, []);
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        try {
+            await fetch('/api/admin/logout', { method: 'POST' });
+        } catch (err) {
+            console.error('Logout error:', err);
+        }
         sessionStorage.removeItem('god_mode_auth');
         window.location.reload();
     };

@@ -36,9 +36,21 @@ export async function requireGodModeAccess(): Promise<NextResponse | null> {
  * Validates God Mode credentials.
  */
 export function isGodModeUser(username: string, password: string): boolean {
-    const validUser = process.env.GOD_MODE_USER || 'ghost123agent';
-    const validPass = process.env.GOD_MODE_PASS || 'agentgodmode';
-    return username === validUser && password === validPass;
+    const validUser = process.env.GOD_MODE_USER;
+    const validPass = process.env.GOD_MODE_PASS;
+
+    // In production, require environment variables. No fallbacks.
+    if (process.env.NODE_ENV === 'production') {
+        if (!validUser || !validPass) {
+            console.warn('[GOD_MODE] Missing GOD_MODE_USER or GOD_MODE_PASS in production. Denying access.');
+            return false;
+        }
+        return username === validUser && password === validPass;
+    }
+
+    // In development/test, allow fallbacks if env is missing
+    return username === (validUser || 'ghost123agent') && 
+           password === (validPass || 'agentgodmode');
 }
 
 /**

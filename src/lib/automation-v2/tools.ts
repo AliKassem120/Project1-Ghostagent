@@ -114,9 +114,23 @@ export function createAppointmentTools(ctx: ToolContext) {
             description: 'Cancel the customer\'s most recent upcoming confirmed appointment.',
             parameters: z.object({}),
             execute: async () => {
-                const { data: upcoming } = await ctx.supabase.from('appointments').select('id, service, appointment_date, start_time').eq('workspace_id', ctx.workspaceId).eq('instagram_user_id', ctx.chatId).eq('status', 'Confirmed').order('appointment_date', { ascending: true }).limit(1).maybeSingle();
+                const { data: upcoming } = await ctx.supabase
+                    .from('appointments')
+                    .select('id, service, appointment_date, start_time')
+                    .eq('workspace_id', ctx.workspaceId)
+                    .eq('instagram_user_id', ctx.chatId)
+                    .in('status', ['confirmed', 'pending'])
+                    .order('appointment_date', { ascending: true })
+                    .limit(1)
+                    .maybeSingle();
+
                 if (!upcoming) return { success: false, message: 'No upcoming appointment found' };
-                const { error } = await ctx.supabase.from('appointments').update({ status: 'Cancelled' }).eq('id', upcoming.id);
+
+                const { error } = await ctx.supabase
+                    .from('appointments')
+                    .update({ status: 'cancelled' })
+                    .eq('id', upcoming.id);
+
                 return { success: !error, cancelled: { service: upcoming.service, date: upcoming.appointment_date, time: formatTime12(upcoming.start_time) } };
             },
         },

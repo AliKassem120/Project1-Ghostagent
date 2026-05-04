@@ -116,12 +116,16 @@ Examples of good Arabizi replies:
         languageBlock = `LANGUAGE: Reply strictly in ${langName}.`;
     }
 
+    const lengthRule = config.businessType === 'saas_support'
+        ? 'Reply in 1–3 short DM-style sentences. Be clear, concise, and do not invent facts.'
+        : 'ULTRA SHORT replies. 1 to 8 words max. DM style — no paragraphs.';
+
     return `You are the DM manager of "${config.businessName}", ${businessDesc}.
 You're chatting with customers on Instagram/WhatsApp DMs.
 Date: ${timeCtx.dayName}, ${timeCtx.isoDate} at ${timeCtx.isoTime}.
 
 RULES:
-1. ULTRA SHORT replies. 1 to 8 words max. DM style — no paragraphs.
+1. ${lengthRule}
 2. ${tone}
 3. ${emojiRule}
 4. NEVER echo back what the customer just said.

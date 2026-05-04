@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireGodModeAccess } from '@/lib/god-mode/auth';
 
-const getAdmin = () => createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const getAdmin = () => {
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY required for God Mode');
+    return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, key);
+};
 
 const OFFICIAL_WORKSPACE_DEFAULTS = {
     business_name: 'Ghost Agent Official',
@@ -157,7 +158,18 @@ export async function POST(req: Request) {
         }
 
         if (!userId) {
-            // Fallback: first user from ai_settings or auth.users
+            // first admin/founder user if role fields exist
+            const { data: adminWs } = await sb
+                .from('ai_settings')
+                .select('user_id')
+                .eq('workspace_role', 'admin')
+                .limit(1)
+                .maybeSingle();
+            if (adminWs) userId = adminWs.user_id;
+        }
+
+        if (!userId) {
+            // first users row as final fallback
             const { data: firstWs } = await sb.from('ai_settings').select('user_id').limit(1).maybeSingle();
             if (firstWs) {
                 userId = firstWs.user_id;
@@ -172,7 +184,7 @@ export async function POST(req: Request) {
         if (!userId) {
             return NextResponse.json({ 
                 success: false, 
-                error: 'Set GOD_MODE_OWNER_USER_ID or GOD_MODE_OWNER_EMAIL in env to create the official workspace.' 
+                error: 'Set GOD_MODE_OWNER_USER_ID or GOD_MODE_OWNER_EMAIL in env.' 
             }, { status: 400 });
         }
 
