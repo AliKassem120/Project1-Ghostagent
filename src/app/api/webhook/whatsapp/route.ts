@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { after } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { generateGhostReply } from '@/utils/ghost-brain';
+import { getBotControlDecision } from '@/lib/god-mode/bot-controls';
 
 // ─── Admin Client ─────────────────────────────────────────────────────────────
 
@@ -229,6 +230,21 @@ async function processWhatsAppEvent(body: any) {
                 }
 
                 const formattedRecipient = normalizePhone(customerPhone);
+
+                // 🛑 KILL SWITCH CHECK
+                const controls = await getBotControlDecision(supabase, { workspaceId: workspace.id, chatId: customerPhone, channel: 'whatsapp', type: 'dm' });
+                if (controls.paused) {
+                    console.warn(`🛑 [KILL SWITCH] WhatsApp DM sending paused. Reason: ${controls.reason}`);
+                    continue;
+                }
+                if (controls.disableExternalSends) {
+                    console.warn(`🛑 [KILL SWITCH] External Meta APIs disabled. Reason: ${controls.reason}`);
+                    continue;
+                }
+                if (controls.forceDraft) {
+                    console.log(`📝 [KILL SWITCH] Force Draft active. Dropping WhatsApp send request. Reason: ${controls.reason}`);
+                    continue;
+                }
 
                 // ── 4. SEND REPLY via WhatsApp Cloud API ──────────────────
                 let sendResult = await fetch(`${WA_API_BASE}/${phoneNumberId}/messages`, {

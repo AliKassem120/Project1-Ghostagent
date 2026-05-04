@@ -95,6 +95,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
                 .from('ai_settings')
                 .select('id, user_id, name, business_type, created_at')
                 .eq('user_id', user.id)
+                .is('is_internal', false)
                 .order('created_at', { ascending: true }),
             supabase
                 .from('instagram_integrations')

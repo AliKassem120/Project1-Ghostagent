@@ -1,19 +1,24 @@
 import { NextResponse } from 'next/server';
+import { isGodModeUser, GOD_MODE_COOKIE, GOD_MODE_TOKEN } from '@/lib/god-mode/auth';
 
 /**
  * God Mode Admin Login API
- * Validates credentials against env vars.
- * No Supabase auth needed — standalone admin gate.
+ * Validates credentials and sets a session cookie.
  */
 export async function POST(req: Request) {
     try {
         const { username, password } = await req.json();
 
-        const validUser = process.env.GOD_MODE_USER || 'ghost123agent';
-        const validPass = process.env.GOD_MODE_PASS || 'agentgodmode';
-
-        if (username === validUser && password === validPass) {
-            return NextResponse.json({ success: true });
+        if (isGodModeUser(username, password)) {
+            const response = NextResponse.json({ success: true });
+            response.cookies.set(GOD_MODE_COOKIE, GOD_MODE_TOKEN, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                path: '/',
+                maxAge: 60 * 60 * 24, // 24 hours
+            });
+            return response;
         }
 
         return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 });

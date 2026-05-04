@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { generateGhostReply } from '@/utils/ghost-brain';
 import { upsertDmBuffer, claimDmBuffer, clearDmBuffer, releaseDmBuffer, DEBOUNCE_SECONDS } from '@/utils/dm-debounce';
 import { containsAlertKeyword, triggerManagerAlert, ALERT_KEYWORDS } from '@/utils/whatsapp-alerts';
+import { getBotControlDecision } from '@/lib/god-mode/bot-controls';
 
 import crypto from 'crypto';
 import { checkUserLimit } from '@/lib/billing';
@@ -788,6 +789,21 @@ async function sendReply(ownerId: string, recipientId: string, text: string, sup
     url = `${baseUrl}/v21.0/me/messages?access_token=${token}`;
     console.log(`✉️ [sendReply] Sending to ${baseUrl} for ${recipientId}`);
 
+    // 🛑 KILL SWITCH CHECK
+    const controls = await getBotControlDecision(supabaseAdmin, { workspaceId, chatId: recipientId, channel: 'instagram', type: 'dm' });
+    if (controls.paused) {
+        console.warn(`🛑 [KILL SWITCH] DM sending paused. Reason: ${controls.reason}`);
+        return;
+    }
+    if (controls.disableExternalSends) {
+        console.warn(`🛑 [KILL SWITCH] External Meta APIs disabled. Reason: ${controls.reason}`);
+        return;
+    }
+    if (controls.forceDraft) {
+        console.log(`📝 [KILL SWITCH] Force Draft active. Dropping send request. Reason: ${controls.reason}`);
+        return;
+    }
+
     const body = {
         recipient: { id: recipientId },
         message: { text: text },
@@ -960,6 +976,21 @@ async function sendCommentReply(ownerId: string, commentId: string, message: str
     const url = `${baseUrlComment}/v21.0/${commentId}/replies?access_token=${token}`;
     console.log(`💬 [sendCommentReply] Sending via ${baseUrlComment}`);
 
+    // 🛑 KILL SWITCH CHECK
+    const controls = await getBotControlDecision(supabaseAdmin, { workspaceId, channel: 'instagram', type: 'comment' });
+    if (controls.paused) {
+        console.warn(`🛑 [KILL SWITCH] Comment reply paused. Reason: ${controls.reason}`);
+        return;
+    }
+    if (controls.disableExternalSends) {
+        console.warn(`🛑 [KILL SWITCH] External Meta APIs disabled. Reason: ${controls.reason}`);
+        return;
+    }
+    if (controls.forceDraft) {
+        console.log(`📝 [KILL SWITCH] Force Draft active. Dropping comment reply request. Reason: ${controls.reason}`);
+        return;
+    }
+
     try {
         const response = await fetch(url, {
             method: "POST",
@@ -1018,6 +1049,21 @@ async function sendPrivateReplyToComment(ownerId: string, commentId: string, mes
     const baseUrl = isNewAPI ? 'https://graph.instagram.com' : 'https://graph.facebook.com';
     const url = `${baseUrl}/v21.0/me/messages?access_token=${token}`;
     console.log(`✉️ [sendPrivateReply] Sending private reply for comment ${commentId}`);
+
+    // 🛑 KILL SWITCH CHECK
+    const controls = await getBotControlDecision(supabaseAdmin, { workspaceId, channel: 'instagram', type: 'dm' });
+    if (controls.paused) {
+        console.warn(`🛑 [KILL SWITCH] Private comment reply paused. Reason: ${controls.reason}`);
+        return;
+    }
+    if (controls.disableExternalSends) {
+        console.warn(`🛑 [KILL SWITCH] External Meta APIs disabled. Reason: ${controls.reason}`);
+        return;
+    }
+    if (controls.forceDraft) {
+        console.log(`📝 [KILL SWITCH] Force Draft active. Dropping private reply request. Reason: ${controls.reason}`);
+        return;
+    }
 
     const body = {
         recipient: { comment_id: commentId },
