@@ -29,18 +29,21 @@ export async function GET(req: Request) {
 
         if (error) throw error;
 
-        // Process logs into a readable conversation thread
+        // Process logs into enriched conversation messages
         const messages = (data || [])
             .filter(row => ['INCOMING_MESSAGE', 'AI_REPLY', 'automation_v2'].includes(row.event_type))
             .map(row => {
                 const role = row.event_type === 'INCOMING_MESSAGE' ? 'user' : 'bot';
                 let content = '';
-                
+
                 if (role === 'user') {
                     content = row.metadata?.message || row.metadata?.text || row.description || '';
                 } else {
                     content = row.metadata?.reply || row.metadata?.message || row.description || '';
                 }
+
+                // Extract automation_v2 metadata when available
+                const meta = row.metadata || {};
 
                 return {
                     id: row.id,
@@ -48,11 +51,50 @@ export async function GET(req: Request) {
                     role,
                     content,
                     eventType: row.event_type,
-                    raw: row
+                    // ── Enriched V2 metadata ─────────
+                    intent: meta.intent || null,
+                    language: meta.language || null,
+                    stateBefore: meta.stateBefore || null,
+                    stateAfter: meta.stateAfter || null,
+                    actions: meta.actions || null,
+                    durationMs: meta.durationMs || null,
+                    platform: meta.platform || null,
+                    error: meta.error || null,
+                    requestId: meta.requestId || null,
                 };
             });
 
-        return NextResponse.json({ success: true, messages });
+        // Also fetch any related order or appointment IDs
+        const { data: orders } = await sb
+            .from('orders')
+            .select('id, status, created_at, item_name, total')
+            .or(`metadata->>chat_id.eq.${chatId},metadata->>chatId.eq.${chatId}`)
+            .order('created_at', { ascending: false })
+            .limit(5);
+
+        const { data: appointments } = await sb
+            .from('appointments')
+            .select('id, status, start_time, service_name')
+            .or(`metadata->>chat_id.eq.${chatId},metadata->>chatId.eq.${chatId}`)
+            .order('created_at', { ascending: false })
+            .limit(5);
+
+        // Fetch current conversation state
+        const { data: stateData } = await sb
+            .from('conversation_states')
+            .select('stage, data, updated_at')
+            .eq('chat_id', chatId)
+            .maybeSingle();
+
+        return NextResponse.json({
+            success: true,
+            messages,
+            linkedData: {
+                orders: orders || [],
+                appointments: appointments || [],
+                currentState: stateData || null,
+            },
+        });
     } catch (err: any) {
         return NextResponse.json({ success: false, error: err.message }, { status: 500 });
     }
