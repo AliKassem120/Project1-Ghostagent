@@ -92,3 +92,61 @@ export function extractProductCandidate(message: string): ExtractionResult {
 
     return { productCandidate: candidate, quantity };
 }
+
+// ── Availability / Price question extraction ─────────────────────
+
+// Words that express availability/price intent but are NOT product names
+const AVAILABILITY_FILLER = new Set([
+    // English availability
+    'do', 'you', 'have', 'is', 'are', 'available', 'availability',
+    'in', 'stock', 'got', 'any', 'there', 'still', 'left',
+    'the', 'a', 'an', 'does', 'it', 'this', 'that',
+    // English price
+    'how', 'much', 'price', 'cost', 'costs', 'what',
+    'whats', "what's",
+    // Arabizi availability
+    'fi', 'fee', '3andkon', '3andk', '3andkun', '3andkom',
+    'mawjoud', 'mawjoude', 'mawjoudin', 'mawjude',
+    'hayda', 'hayde',
+    // Arabizi price
+    'addesh', 'adde', 'adesh', 'se3r', 'se3ro', 'se3ra',
+    'bi2addesh', '7a2o', '7a2a', 'shu', 'el',
+    'kam', 'bikam', 'bkam',
+    // French
+    'combien', 'coute', 'avez', 'vous', 'est', 'ce', 'que', 'le', 'la', 'les',
+    'disponible', 'prix',
+    // Spanish
+    'cuanto', 'cuesta', 'tienen', 'tienes', 'disponible', 'precio',
+    // Generic
+    'of', 'for', 'its', "it's",
+]);
+
+/**
+ * Extract the product candidate from an availability or price question.
+ * "Do you have ps5?" → "ps5"
+ * "How much is ps5?" → "ps5"
+ * "fi ps5?" → "ps5"
+ * "3andkon ps5?" → "ps5"
+ * "is the black hoodie available?" → "black hoodie"
+ * "What do you have?" → "" (empty = general catalog request)
+ */
+export function extractAvailabilityCandidate(message: string): string {
+    const normalized = message
+        .toLowerCase()
+        .replace(/[?!.,;:'"]/g, '')
+        .replace(/[^a-z0-9\s\-]/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    const tokens = normalized.split(' ');
+    const productTokens: string[] = [];
+
+    for (const token of tokens) {
+        if (AVAILABILITY_FILLER.has(token)) continue;
+        // Skip pure numbers (quantities), but keep alphanumeric tokens like 'ps5'
+        if (/^\d+$/.test(token)) continue;
+        productTokens.push(token);
+    }
+
+    return productTokens.join(' ').trim();
+}

@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { findBestProductMatch } from '../ecommerce/products';
-import { extractProductCandidate } from '../ecommerce/extract-product';
+import { extractProductCandidate, extractAvailabilityCandidate } from '../ecommerce/extract-product';
 import type { InventoryRecord } from '../types';
 
 const mockProducts: InventoryRecord[] = [
@@ -105,3 +105,122 @@ describe('extractProductCandidate', () => {
     });
 });
 
+
+// ── Availability / Price Candidate Extraction Tests ─────────────────
+
+describe('extractAvailabilityCandidate', () => {
+    it('extracts ps5 from "Do you have ps5?"', () => {
+        expect(extractAvailabilityCandidate('Do you have ps5?')).toBe('ps5');
+    });
+
+    it('extracts ps5 from "is ps5 available?"', () => {
+        expect(extractAvailabilityCandidate('is ps5 available?')).toBe('ps5');
+    });
+
+    it('extracts ps5 from "fi ps5?"', () => {
+        expect(extractAvailabilityCandidate('fi ps5?')).toBe('ps5');
+    });
+
+    it('extracts ps5 from "3andkon ps5?"', () => {
+        expect(extractAvailabilityCandidate('3andkon ps5?')).toBe('ps5');
+    });
+
+    it('extracts tv samsung from "do you have tv samsung?"', () => {
+        expect(extractAvailabilityCandidate('do you have tv samsung?')).toBe('tv samsung');
+    });
+
+    it('extracts black hoodie from "is the black hoodie available?"', () => {
+        expect(extractAvailabilityCandidate('is the black hoodie available?')).toBe('black hoodie');
+    });
+
+    it('extracts ps5 from "How much is ps5?"', () => {
+        expect(extractAvailabilityCandidate('How much is ps5?')).toBe('ps5');
+    });
+
+    it('extracts ps5 from "addesh ps5?"', () => {
+        expect(extractAvailabilityCandidate('addesh ps5?')).toBe('ps5');
+    });
+
+    it('extracts tv samsung from "price of tv samsung?"', () => {
+        expect(extractAvailabilityCandidate('price of tv samsung?')).toBe('tv samsung');
+    });
+
+    it('returns empty for generic "What do you have?"', () => {
+        expect(extractAvailabilityCandidate('What do you have?')).toBe('');
+    });
+
+    it('returns empty for generic "shu 3andkon?"', () => {
+        expect(extractAvailabilityCandidate('shu 3andkon?')).toBe('');
+    });
+});
+
+
+// ── Product-Specific Matching (simulating decision engine flow) ─────
+
+describe('specific product query matching', () => {
+    const catalog: InventoryRecord[] = [
+        { id: '1', itemName: 'Ps5', price: 500, stockLevel: 3, description: null, variants: [] },
+        { id: '2', itemName: 'Tv samsung 65inch', price: 490, stockLevel: 2, description: null, variants: [] },
+    ];
+
+    it('"Do you have ps5?" returns only Ps5, not TV', () => {
+        const candidate = extractAvailabilityCandidate('Do you have ps5?');
+        const match = findBestProductMatch(catalog, candidate);
+        expect(match?.itemName).toBe('Ps5');
+    });
+
+    it('"is ps5 available?" returns only Ps5', () => {
+        const candidate = extractAvailabilityCandidate('is ps5 available?');
+        const match = findBestProductMatch(catalog, candidate);
+        expect(match?.itemName).toBe('Ps5');
+    });
+
+    it('"fi ps5?" returns only Ps5', () => {
+        const candidate = extractAvailabilityCandidate('fi ps5?');
+        const match = findBestProductMatch(catalog, candidate);
+        expect(match?.itemName).toBe('Ps5');
+    });
+
+    it('"3andkon ps5?" returns only Ps5', () => {
+        const candidate = extractAvailabilityCandidate('3andkon ps5?');
+        const match = findBestProductMatch(catalog, candidate);
+        expect(match?.itemName).toBe('Ps5');
+    });
+
+    it('"How much is ps5?" returns only Ps5 price', () => {
+        const candidate = extractAvailabilityCandidate('How much is ps5?');
+        const match = findBestProductMatch(catalog, candidate);
+        expect(match?.itemName).toBe('Ps5');
+        expect(match?.price).toBe(500);
+    });
+
+    it('"What do you have?" extracts empty → no specific match', () => {
+        const candidate = extractAvailabilityCandidate('What do you have?');
+        expect(candidate).toBe('');
+        // Empty candidate means general catalog, no findBestProductMatch call
+    });
+
+    it('unknown product does not match anything in catalog', () => {
+        const candidate = extractAvailabilityCandidate('do you have iphone?');
+        const match = findBestProductMatch(catalog, candidate);
+        expect(match).toBeNull();
+    });
+
+    it('specific product question with 100 items returns only the matched product', () => {
+        // Simulate a large catalog
+        const largeCatalog: InventoryRecord[] = Array.from({ length: 100 }, (_, i) => ({
+            id: `item-${i}`,
+            itemName: `Product ${i}`,
+            price: 10 + i,
+            stockLevel: i % 3 === 0 ? 0 : 5,
+            description: null,
+            variants: [],
+        }));
+        largeCatalog.push({ id: 'ps5', itemName: 'Ps5', price: 500, stockLevel: 3, description: null, variants: [] });
+
+        const candidate = extractAvailabilityCandidate('Do you have ps5?');
+        const match = findBestProductMatch(largeCatalog, candidate);
+        expect(match?.itemName).toBe('Ps5');
+        // Should return ONLY ps5, not a listing of all 100 products
+    });
+});

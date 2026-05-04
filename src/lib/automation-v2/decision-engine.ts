@@ -23,7 +23,8 @@ import { processEcommerceState } from './state/ecommerce-fsm';
 import { classifyIntent } from './classify/intent-classifier';
 import { classifyPostContext } from './classify/post-context-classifier';
 import { lookupLatestOrder, cancelLatestOrder, updateOrderVariant, updateOrderAddress } from './ecommerce/lookup';
-import { searchProducts } from './ecommerce/products';
+import { searchProducts, findBestProductMatch } from './ecommerce/products';
+import { extractAvailabilityCandidate } from './ecommerce/extract-product';
 import { lookupLatestAppointment, cancelLatestAppointment, rescheduleAppointment } from './appointments/lookup';
 import { loadActiveServices } from './appointments/services';
 import { loadBusinessHours, getHoursForDay } from './appointments/hours';
@@ -514,27 +515,103 @@ export async function runDecisionEngine(
         };
     }
 
-    // Product availability — proactively search inventory instead of relying on LLM
+    // Product availability / price question — extract candidate, search, match ────
     if ((classification.intent === 'product_availability' || classification.intent === 'price_question') && input.workspaceType === 'ecommerce') {
+        // 1. Extract the product candidate from the message
+        const candidate = extractAvailabilityCandidate(input.message);
+        const isSpecificQuery = candidate.length > 0;
+
+        v2log.info('DECISION', `Product query: candidate="${candidate}", specific=${isSpecificQuery}`, {
+            chatId: input.chatId,
+            intent: classification.intent,
+        });
+
+        // 2. Fetch inventory (use candidate as search query if specific, otherwise fetch all)
         const products = await searchProducts({
             supabase: input.supabase,
             workspaceId: input.workspaceId,
-            query: classification.intent === 'price_question'
-                ? input.message.replace(/\b(how\s*much|price|cost|addesh|adde|se3r|se3ro|combien|cuanto|7a2o|shu\s*el)\b/gi, '').trim() || undefined
-                : undefined,
-            limit: 6,
+            query: isSpecificQuery ? candidate : undefined,
+            limit: isSpecificQuery ? 10 : 6,
         });
 
-        if (products.length > 0) {
-            const inStock = products.filter(p => p.stockLevel > 0);
-            const listing = inStock.slice(0, 5).map(p => `• ${p.itemName} — $${p.price}`).join('\n');
-            const replyText = classification.intent === 'price_question'
-                ? (inStock.length > 0
-                    ? (inStock.length === 1
-                        ? t(`${inStock[0].itemName} — $${inStock[0].price}`, `${inStock[0].itemName} — $${inStock[0].price}`, replyLang)
-                        : t(`Here you go:\n${listing}`, `Tfaddal:\n${listing}`, replyLang))
-                    : t('That item is not available right now.', 'Msh mawjoud halla2.', replyLang))
-                : t(`Here's what we have:\n${listing}`, `3anna:\n${listing}`, replyLang);
+        // 3. SPECIFIC PRODUCT QUERY — find best match
+        if (isSpecificQuery) {
+            // Try findBestProductMatch against fetched results
+            let matched = findBestProductMatch(products, candidate);
+
+            // If ilike search returned nothing but candidate exists, try full catalog match
+            if (!matched && products.length === 0) {
+                const allProducts = await searchProducts({
+                    supabase: input.supabase,
+                    workspaceId: input.workspaceId,
+                    limit: 50,
+                });
+                matched = findBestProductMatch(allProducts, candidate);
+            }
+
+            if (matched) {
+                const inStock = matched.stockLevel > 0;
+                let replyText: string;
+
+                if (classification.intent === 'price_question') {
+                    replyText = t(
+                        `${matched.itemName} — $${matched.price}`,
+                        `${matched.itemName} — $${matched.price}`,
+                        replyLang
+                    );
+                } else {
+                    // availability
+                    replyText = inStock
+                        ? t(
+                            `Yes, ${matched.itemName} is available — $${matched.price}. Want one?`,
+                            `Eh, ${matched.itemName} mawjoud — $${matched.price}. Badak wa7ad?`,
+                            replyLang
+                        )
+                        : t(
+                            `${matched.itemName} is currently out of stock.`,
+                            `${matched.itemName} msh mawjoud halla2.`,
+                            replyLang
+                        );
+                }
+
+                return {
+                    handledByFSM: true,
+                    fsmResult: {
+                        replyText,
+                        nextStage: 'idle',
+                        nextData: null,
+                        actions: ['product_search_specific'],
+                        dbWriteAttempted: false,
+                        dbWriteSuccess: false,
+                        shouldReply: true,
+                    },
+                    classifiedIntent: classification.intent,
+                    language: replyLang,
+                    stateBefore: 'idle',
+                    stateAfter: 'idle',
+                };
+            }
+
+            // Specific product asked but NOT found — do NOT dump full catalog
+            // Check if there are close alternatives
+            const allProducts = products.length > 0 ? products : await searchProducts({
+                supabase: input.supabase,
+                workspaceId: input.workspaceId,
+                limit: 5,
+            });
+            const inStock = allProducts.filter(p => p.stockLevel > 0);
+
+            const replyText = inStock.length > 0
+                ? t(
+                    `I couldn't find "${candidate}". We do have:\n${inStock.slice(0, 3).map(p => `• ${p.itemName} — $${p.price}`).join('\n')}`,
+                    `Ma l2et "${candidate}". Bas 3anna:\n${inStock.slice(0, 3).map(p => `• ${p.itemName} — $${p.price}`).join('\n')}`,
+                    replyLang
+                )
+                : t(
+                    `That item is not available right now.`,
+                    `Msh mawjoud halla2.`,
+                    replyLang
+                );
 
             return {
                 handledByFSM: true,
@@ -542,7 +619,7 @@ export async function runDecisionEngine(
                     replyText,
                     nextStage: 'idle',
                     nextData: null,
-                    actions: ['product_search'],
+                    actions: ['product_search_not_found'],
                     dbWriteAttempted: false,
                     dbWriteSuccess: false,
                     shouldReply: true,
@@ -553,15 +630,25 @@ export async function runDecisionEngine(
                 stateAfter: 'idle',
             };
         }
-        // No products found — ask clarification for price queries, inform for general
-        if (classification.intent === 'price_question') {
+
+        // 4. GENERAL QUERY — "What do you have?" / "What are your prices?"
+        if (products.length > 0) {
+            const inStock = products.filter(p => p.stockLevel > 0);
+            const listing = inStock.slice(0, 5).map(p => `• ${p.itemName} — $${p.price}`).join('\n');
+            const hasMore = inStock.length > 5;
+            const suffix = hasMore ? t('\nI can show more if you want.', '\nFi kamen iza badak.', replyLang) : '';
+
+            const replyText = classification.intent === 'price_question'
+                ? t(`Here are our prices:\n${listing}${suffix}`, `Tfaddal el as3ar:\n${listing}${suffix}`, replyLang)
+                : t(`Here's what we have:\n${listing}${suffix}`, `3anna:\n${listing}${suffix}`, replyLang);
+
             return {
                 handledByFSM: true,
                 fsmResult: {
-                    replyText: t('Which product are you asking about?', 'Aya product bdk t3rif se3ro?', replyLang),
+                    replyText,
                     nextStage: 'idle',
                     nextData: null,
-                    actions: ['price_question_clarify'],
+                    actions: ['product_search_catalog'],
                     dbWriteAttempted: false,
                     dbWriteSuccess: false,
                     shouldReply: true,
@@ -572,13 +659,19 @@ export async function runDecisionEngine(
                 stateAfter: 'idle',
             };
         }
+
+        // No products at all
+        const replyText = classification.intent === 'price_question'
+            ? t('Which product are you asking about?', 'Aya product bdk t3rif se3ro?', replyLang)
+            : t('No products available right now.', 'Ma fi shi mawjoud halla2.', replyLang);
+
         return {
             handledByFSM: true,
             fsmResult: {
-                replyText: t('No products available right now.', 'Ma fi shi mawjoud halla2.', replyLang),
+                replyText,
                 nextStage: 'idle',
                 nextData: null,
-                actions: ['product_search_empty'],
+                actions: [classification.intent === 'price_question' ? 'price_question_clarify' : 'product_search_empty'],
                 dbWriteAttempted: false,
                 dbWriteSuccess: false,
                 shouldReply: true,
