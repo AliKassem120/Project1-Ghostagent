@@ -19,6 +19,7 @@ import type { EcommerceStateData, FSMResult, PostActionContext } from './types';
 import type { WorkspaceConfig } from '../types';
 import { searchProducts, findBestProductMatch } from '../ecommerce/products';
 import { extractProductCandidate } from '../ecommerce/extract-product';
+import { llmExtractProduct } from '../llm-entity-extractor';
 import { createOrderV2 } from '../ecommerce/orders';
 import { detectYesNo, extractNameAndPhone, extractAddress } from '../language';
 import { getKnownCustomerDetails } from '../customer-history';
@@ -112,6 +113,35 @@ async function handleAwaitingProduct(
         const allProducts = await searchProducts({ supabase: ctx.supabase, workspaceId: ctx.workspaceId, limit: 20 });
         match = findBestProductMatch(allProducts, searchQuery);
         if (!match && allProducts.length > 0) products = allProducts;
+    }
+
+    if (!match) {
+        // ── LLM Fallback: extract product entity when fuzzy matching fails ──
+        if (products.length > 0) {
+            const productNames = products.map(p => p.itemName);
+            const llmResult = await llmExtractProduct(ctx.message, productNames);
+
+            if (llmResult && llmResult.confidence >= 0.5 && llmResult.product_candidate) {
+                // Verify LLM candidate against DB (source of truth)
+                const llmMatch = findBestProductMatch(products, llmResult.product_candidate);
+                if (llmMatch) {
+                    v2log.info('ECOM_FSM', 'LLM fallback matched product', {
+                        candidate: llmResult.product_candidate,
+                        matched: llmMatch.itemName,
+                        confidence: llmResult.confidence,
+                    });
+                    match = llmMatch;
+                    // Use LLM-extracted quantity if higher
+                    if (llmResult.quantity > 1) {
+                        state = { ...state, order: { ...state.order, quantity: llmResult.quantity } };
+                    }
+                    // Use LLM-extracted variant if provided
+                    if (llmResult.variant) {
+                        state = { ...state, order: { ...state.order, variantLabel: llmResult.variant } };
+                    }
+                }
+            }
+        }
     }
 
     // Update quantity from extraction

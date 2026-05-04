@@ -20,6 +20,7 @@ import { createAppointmentV2 } from '../appointments/create-appointment';
 import { detectYesNo, extractNameAndPhone } from '../language';
 import { buildTimeContext, resolveDateFromMessage, resolveTimeFromMessage, formatTime12, minutesToTime, formatDateLabel } from '../time';
 import { getKnownCustomerDetails } from '../customer-history';
+import { llmExtractAppointment } from '../llm-entity-extractor';
 import { v2log } from '../logger';
 import { SupabaseClient } from '@supabase/supabase-js';
 
@@ -101,21 +102,59 @@ async function handleAwaitingService(
     timeCtx: any
 ): Promise<FSMResult> {
     const services = await loadActiveServices(ctx.supabase, ctx.workspaceId);
-    const match = findBestServiceMatch(services, ctx.message);
+    let match = findBestServiceMatch(services, ctx.message);
 
     if (!match) {
-        const serviceNames = services.map(s => s.name).join(', ');
-        return {
-            replyText: ctx.language === 'arabizi'
-                ? `Aya service bdk? 3anna: ${serviceNames}`
-                : `Which service would you like? We offer: ${serviceNames}`,
-            nextStage: 'awaiting_service',
-            nextData: state,
-            actions: ['asked_service_again'],
-            dbWriteAttempted: false,
-            dbWriteSuccess: false,
-            shouldReply: true,
-        };
+        // ── LLM Fallback: extract service entity when deterministic matching fails ──
+        if (services.length > 0) {
+            const serviceNames = services.map(s => s.name);
+            const llmResult = await llmExtractAppointment(ctx.message, serviceNames);
+
+            if (llmResult && llmResult.confidence >= 0.5 && llmResult.service_candidate) {
+                // Verify LLM candidate against DB (source of truth)
+                const llmMatch = findBestServiceMatch(services, llmResult.service_candidate);
+                if (llmMatch) {
+                    v2log.info('APPT_FSM', 'LLM fallback matched service', {
+                        candidate: llmResult.service_candidate,
+                        matched: llmMatch.name,
+                        confidence: llmResult.confidence,
+                    });
+
+                    // Service matched via LLM — check if LLM also extracted date/time
+                    const dateFromLlm = llmResult.date_text ? resolveDateFromMessage(llmResult.date_text, timeCtx) : null;
+                    const timeFromLlm = llmResult.time_text ? resolveTimeFromMessage(llmResult.time_text) : null;
+
+                    // Merge LLM date/time with any deterministic extraction
+                    const finalDate = resolveDateFromMessage(ctx.message, timeCtx) || dateFromLlm;
+                    const finalTime = resolveTimeFromMessage(ctx.message) || timeFromLlm;
+
+                    // Reconstruct: reuse the matched service and extracted date/time
+                    // by setting match and letting the code below handle it
+                    match = llmMatch;
+
+                    if (finalDate && finalTime) {
+                        // All three resolved — fast-forward to availability check
+                        // (handled by the match + date + time block below)
+                        // Override ctx.message temporarily for date/time resolution
+                    }
+                }
+            }
+        }
+
+        if (!match) {
+            const serviceNameList = services.map(s => s.name).join(', ');
+            return {
+                replyText: ctx.language === 'arabizi'
+                    ? `Aya service bdk? 3anna: ${serviceNameList}`
+                    : `Which service would you like? We offer: ${serviceNameList}`,
+                nextStage: 'awaiting_service',
+                nextData: state,
+                actions: ['asked_service_again'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            };
+        }
     }
 
     // Service found — check if date+time are also in the same message
