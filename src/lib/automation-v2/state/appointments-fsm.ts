@@ -631,7 +631,7 @@ async function handleBookingConfirmation(
             nextData: {
                 ...state,
                 stage: 'awaiting_date_time',
-                appointment: { ...appointment, startTime: null, endTime: null },
+                appointment: { ...appointment, startTime: undefined, endTime: undefined },
                 missingFields: ['time'],
             },
             actions: ['slot_taken_at_confirm'],

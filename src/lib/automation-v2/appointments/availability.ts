@@ -50,7 +50,7 @@ export async function checkAvailability(args: {
             .select('id, start_time, end_time')
             .eq('workspace_id', workspaceId)
             .eq('appointment_date', date)
-            .neq('status', 'cancelled');
+            .in('status', ['confirmed', 'pending']);
 
         if (error) throw error;
 
