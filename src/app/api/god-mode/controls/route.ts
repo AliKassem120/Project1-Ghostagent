@@ -121,6 +121,12 @@ export async function POST(req: Request) {
             return NextResponse.json({ success: true, message: 'Flag created' });
         }
 
+        // Resume all (delete all flags)
+        if (action === 'resume-all') {
+            await sb.from('bot_control_flags').delete().neq('id', '00000000-0000-0000-0000-000000000000'); // Delete everything
+            return NextResponse.json({ success: true, message: 'All flags removed' });
+        }
+
         return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 });
     } catch (err: any) {
         return NextResponse.json({ success: false, error: err.message }, { status: 500 });

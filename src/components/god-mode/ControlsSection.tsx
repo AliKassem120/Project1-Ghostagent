@@ -48,17 +48,68 @@ export default function ControlsSection() {
     };
 
     const addGlobalPause = async () => {
-        if (!confirm('WARNING: This will pause ALL outgoing DMs and comments across ALL workspaces. Are you sure?')) return;
+        const confirmText = prompt('WARNING: This will pause ALL outgoing DMs and comments across ALL workspaces.\nType "PAUSE ALL" to confirm:');
+        if (confirmText !== 'PAUSE ALL') return;
+        
         try {
             await fetchGodMode('controls', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'create', scope: 'global', pauseDms: true, pauseComments: true, reason: 'Emergency global pause' })
+                body: JSON.stringify({ 
+                    action: 'create', 
+                    scope: 'global', 
+                    pauseDms: true, 
+                    pauseComments: true, 
+                    disableExternalSends: true,
+                    reason: 'Emergency global pause' 
+                })
             });
             loadFlags();
         } catch (err) {
             console.error(err);
             alert('Failed to create global pause');
+        }
+    };
+
+    const addWorkspacePause = async () => {
+        const workspaceId = prompt('Enter Workspace ID to pause:');
+        if (!workspaceId) return;
+
+        const confirmText = prompt('Type "PAUSE WORKSPACE" to confirm:');
+        if (confirmText !== 'PAUSE WORKSPACE') return;
+
+        try {
+            await fetchGodMode('controls', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    action: 'create', 
+                    scope: 'workspace', 
+                    workspaceId,
+                    pauseDms: true, 
+                    pauseComments: true, 
+                    reason: 'Admin workspace pause' 
+                })
+            });
+            loadFlags();
+        } catch (err) {
+            console.error(err);
+            alert('Failed to create workspace pause');
+        }
+    };
+
+    const resumeAll = async () => {
+        if (!confirm('Are you sure you want to RESUME ALL automation? This will delete all kill switches.')) return;
+        try {
+            await fetchGodMode('controls', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'resume-all' })
+            });
+            loadFlags();
+        } catch (err) {
+            console.error(err);
+            alert('Failed to resume all');
         }
     };
 
@@ -70,17 +121,31 @@ export default function ControlsSection() {
 
     return (
         <div className="space-y-8">
-            <div className="flex justify-between items-center">
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                    <ShieldAlert className="w-6 h-6 text-red-500" />
-                    System Kill Switches
-                </h2>
-                {globalFlags.length === 0 && (
-                    <button onClick={addGlobalPause} className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-bold transition-colors">
+            <div className="flex justify-between items-start">
+                <div>
+                    <h2 className="text-xl font-bold flex items-center gap-2">
+                        <ShieldAlert className="w-6 h-6 text-red-500" />
+                        System Kill Switches
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-1">Pauses outgoing DMs and comments for every workspace.</p>
+                </div>
+                <div className="flex gap-2">
+                    {flags.length > 0 && (
+                        <button onClick={resumeAll} className="px-4 py-2 bg-surface-2 hover:bg-surface-3 text-white rounded-xl text-sm font-bold transition-colors">
+                            Resume All
+                        </button>
+                    )}
+                    <button onClick={addWorkspacePause} className="flex items-center gap-2 px-4 py-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 rounded-xl text-sm font-bold transition-colors">
                         <Plus className="w-4 h-4" />
-                        Add Global Pause
+                        Pause Selected Workspace
                     </button>
-                )}
+                    {globalFlags.length === 0 && (
+                        <button onClick={addGlobalPause} className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-bold transition-colors">
+                            <Plus className="w-4 h-4" />
+                            Global Kill Switch
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="space-y-4">

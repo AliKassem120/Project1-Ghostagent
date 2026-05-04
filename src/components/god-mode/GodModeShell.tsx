@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     LayoutDashboard, Briefcase, Activity, Database, 
-    ShoppingCart, Calendar, ShieldAlert, LogOut, Loader2, Menu, X
+    ShoppingCart, Calendar, ShieldAlert, LogOut, Loader2, Menu, X,
+    Brain, MessageSquare, MessageCircle, ShieldCheck
 } from 'lucide-react';
 import GhostLogo from '@/components/GhostLogo';
 
@@ -22,12 +23,37 @@ export const GOD_MODE_TABS = [
     { id: 'logs', label: 'Activity Logs', icon: Activity },
     { id: 'orders', label: 'Orders', icon: ShoppingCart },
     { id: 'appointments', label: 'Appointments', icon: Calendar },
+    { id: 'brain_debugger', label: 'Brain Debugger', icon: Brain },
+    { id: 'conv_inspector', label: 'Conv Inspector', icon: MessageSquare },
+    { id: 'comments_debugger', label: 'Comments Debugger', icon: MessageCircle },
+    { id: 'safety_validator', label: 'Safety Validator', icon: ShieldCheck },
     { id: 'controls', label: 'System Controls', icon: ShieldAlert },
 ];
 
 export default function GodModeShell({ children, activeTab, onTabChange }: GodModeShellProps) {
     const router = useRouter();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+    const [isGlobalPaused, setIsGlobalPaused] = useState(false);
+
+    React.useEffect(() => {
+        const checkGlobalStatus = async () => {
+            try {
+                const res = await fetch('/api/god-mode/controls');
+                const data = await res.json();
+                if (data.success) {
+                    const hasGlobal = data.flags.some((f: any) => f.scope === 'global' && (f.pause_dms || f.pause_comments));
+                    setIsGlobalPaused(hasGlobal);
+                }
+            } catch (err) {
+                console.error('Failed to check global status', err);
+            }
+        };
+        checkGlobalStatus();
+        // Check every 30 seconds for safety
+        const interval = setInterval(checkGlobalStatus, 30000);
+        return () => clearInterval(interval);
+    }, []);
 
     const handleLogout = () => {
         sessionStorage.removeItem('god_mode_auth');
@@ -111,7 +137,12 @@ export default function GodModeShell({ children, activeTab, onTabChange }: GodMo
                 </header>
 
                 <div className="flex-1 lg:ml-[260px] relative z-10">
-                    <main className="p-4 lg:p-8 pt-[72px] lg:pt-8 min-h-[100dvh]">
+                    {isGlobalPaused && (
+                        <div className="bg-red-600 text-white text-center py-2 text-sm font-bold animate-pulse fixed top-0 left-0 right-0 lg:left-[260px] z-[45]">
+                            GLOBAL KILL SWITCH ACTIVE — all outgoing automation is paused.
+                        </div>
+                    )}
+                    <main className={`p-4 lg:p-8 ${isGlobalPaused ? 'pt-[110px] lg:pt-16' : 'pt-[72px] lg:pt-8'} min-h-[100dvh]`}>
                         {children}
                     </main>
                 </div>

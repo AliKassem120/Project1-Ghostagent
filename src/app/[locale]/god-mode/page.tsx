@@ -11,6 +11,10 @@ import LogsSection from '@/components/god-mode/LogsSection';
 import OrdersSection from '@/components/god-mode/OrdersSection';
 import AppointmentsSection from '@/components/god-mode/AppointmentsSection';
 import ControlsSection from '@/components/god-mode/ControlsSection';
+import BrainDebuggerSection from '@/components/god-mode/BrainDebuggerSection';
+import ConversationInspectorSection from '@/components/god-mode/ConversationInspectorSection';
+import CommentsDebuggerSection from '@/components/god-mode/CommentsDebuggerSection';
+import SafetyValidatorSection from '@/components/god-mode/SafetyValidatorSection';
 
 export default function GodModePage() {
     const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -131,6 +135,10 @@ export default function GodModePage() {
                 {activeTab === 'logs' && <LogsSection />}
                 {activeTab === 'orders' && <OrdersSection />}
                 {activeTab === 'appointments' && <AppointmentsSection />}
+                {activeTab === 'brain_debugger' && <BrainDebuggerSection />}
+                {activeTab === 'conv_inspector' && <ConversationInspectorSection />}
+                {activeTab === 'comments_debugger' && <CommentsDebuggerSection />}
+                {activeTab === 'safety_validator' && <SafetyValidatorSection />}
                 {activeTab === 'controls' && <ControlsSection />}
             </div>
         </GodModeShell>
