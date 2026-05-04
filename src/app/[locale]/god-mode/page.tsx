@@ -19,26 +19,148 @@ export default function GodModeDashboard() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [data, setData] = useState<any>(null);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [loginUser, setLoginUser] = useState('');
+    const [loginPass, setLoginPass] = useState('');
+    const [loginError, setLoginError] = useState<string | null>(null);
+    const [loginLoading, setLoginLoading] = useState(false);
 
+    // Check if already authenticated via session
     useEffect(() => {
+        const session = sessionStorage.getItem('god_mode_auth');
+        if (session === 'authenticated') {
+            setIsAuthenticated(true);
+        } else {
+            setLoading(false);
+        }
+    }, []);
+
+    // Handle admin login
+    const handleLogin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoginError(null);
+        setLoginLoading(true);
+
+        try {
+            const res = await fetch('/api/admin/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: loginUser, password: loginPass }),
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                sessionStorage.setItem('god_mode_auth', 'authenticated');
+                setIsAuthenticated(true);
+                setLoginError(null);
+            } else {
+                setLoginError('Invalid credentials. Access denied.');
+            }
+        } catch {
+            setLoginError('Connection failed.');
+        } finally {
+            setLoginLoading(false);
+        }
+    };
+
+    // Load data once authenticated
+    useEffect(() => {
+        if (!isAuthenticated) return;
+
         async function loadData() {
+            setLoading(true);
             try {
                 const res = await getGodModeData();
                 if (!res.success) {
                     setError(res.error || "Failed to load admin data");
-                    toast.error("Unauthorized: " + res.error);
+                    toast.error("Error: " + res.error);
                 } else {
                     setData(res);
                 }
             } catch (err: any) {
                 setError(err.message);
-                toast.error("Access Denied");
+                toast.error("Failed to load data");
             } finally {
                 setLoading(false);
             }
         }
         loadData();
-    }, []);
+    }, [isAuthenticated]);
+
+    // ── Login Gate ──
+    if (!isAuthenticated) {
+        return (
+            <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 relative overflow-hidden">
+                <StarBackground />
+                <motion.div
+                    initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: 0.5 }}
+                    className="bg-surface-1 border border-red-500/20 shadow-2xl shadow-red-500/10 rounded-3xl p-8 max-w-sm w-full relative z-10"
+                >
+                    <div className="flex flex-col items-center mb-8">
+                        <div className="w-16 h-16 relative mb-4">
+                            <div className="absolute inset-0 bg-red-500/20 rounded-2xl blur-xl animate-pulse" />
+                            <div className="relative bg-red-500/10 p-4 rounded-2xl border border-red-500/20">
+                                <GhostLogo iconOnly className="w-8 h-8" />
+                            </div>
+                        </div>
+                        <h1 className="text-xl font-bold bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">GOD MODE</h1>
+                        <p className="text-[10px] text-red-400/60 font-mono tracking-[0.3em] mt-1">ADMIN ACCESS REQUIRED</p>
+                    </div>
+
+                    <form onSubmit={handleLogin} className="space-y-4">
+                        <div>
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5 block">Username</label>
+                            <input
+                                type="text"
+                                value={loginUser}
+                                onChange={e => setLoginUser(e.target.value)}
+                                className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/20 transition-all font-mono"
+                                placeholder="admin"
+                                autoComplete="off"
+                                autoFocus
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5 block">Password</label>
+                            <input
+                                type="password"
+                                value={loginPass}
+                                onChange={e => setLoginPass(e.target.value)}
+                                className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/20 transition-all font-mono"
+                                placeholder="••••••••••"
+                                autoComplete="off"
+                            />
+                        </div>
+
+                        {loginError && (
+                            <motion.div
+                                initial={{ opacity: 0, y: -5 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="flex items-center gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2"
+                            >
+                                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                {loginError}
+                            </motion.div>
+                        )}
+
+                        <button
+                            type="submit"
+                            disabled={loginLoading || !loginUser || !loginPass}
+                            className="w-full py-3 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-red-500/20"
+                        >
+                            {loginLoading ? (
+                                <><Loader2 className="w-4 h-4 animate-spin" /> Authenticating...</>
+                            ) : (
+                                <><ShieldAlert className="w-4 h-4" /> Enter God Mode</>
+                            )}
+                        </button>
+                    </form>
+                </motion.div>
+            </div>
+        );
+    }
 
     if (loading) {
         return (
@@ -53,7 +175,7 @@ export default function GodModeDashboard() {
                     </div>
                     <div className="mt-6 flex items-center gap-3">
                         <Loader2 className="w-4 h-4 text-red-500 animate-spin" />
-                        <span className="text-sm font-mono text-red-400 tracking-widest">AUTHENTICATING_GOD_MODE...</span>
+                        <span className="text-sm font-mono text-red-400 tracking-widest">LOADING_GOD_MODE...</span>
                     </div>
                 </div>
             </div>
@@ -68,15 +190,15 @@ export default function GodModeDashboard() {
                     <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
                         <ShieldAlert className="w-8 h-8 text-red-500" />
                     </div>
-                    <h1 className="text-2xl font-bold text-foreground mb-2">Access Denied</h1>
+                    <h1 className="text-2xl font-bold text-foreground mb-2">Error Loading Data</h1>
                     <p className="text-muted-foreground text-sm mb-8">
-                        You do not have god mode privileges. Your IP has been logged.
+                        {error || 'Failed to load admin data.'}
                     </p>
                     <button 
-                        onClick={() => router.push('/dashboard')}
+                        onClick={() => { sessionStorage.removeItem('god_mode_auth'); window.location.reload(); }}
                         className="w-full py-3 bg-surface-2 hover:bg-surface-3 transition-colors rounded-xl text-sm font-bold flex items-center justify-center gap-2"
                     >
-                        <ArrowLeft className="w-4 h-4" /> Return to Safety
+                        <ArrowLeft className="w-4 h-4" /> Retry Login
                     </button>
                 </div>
             </div>
@@ -103,7 +225,7 @@ export default function GodModeDashboard() {
                             <div className="text-[10px] text-red-400/60 font-mono tracking-widest mt-1">GHOST AGENT COMMAND CENTER</div>
                         </div>
                     </div>
-                    <button onClick={() => router.push('/dashboard')} className="text-xs font-bold text-muted-foreground hover:text-foreground transition-colors py-2 px-4 rounded-lg hover:bg-surface-2 border border-transparent hover:border-border">
+                    <button onClick={() => { sessionStorage.removeItem('god_mode_auth'); window.location.reload(); }} className="text-xs font-bold text-muted-foreground hover:text-foreground transition-colors py-2 px-4 rounded-lg hover:bg-surface-2 border border-transparent hover:border-border">
                         Exit God Mode
                     </button>
                 </div>
