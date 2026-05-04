@@ -82,27 +82,93 @@ export async function searchProducts(args: {
     return items;
 }
 
+export interface ProductMatchResult {
+    product: InventoryRecord;
+    score: number;
+    matchType: 'exact' | 'contains' | 'reverse_contains' | 'token_overlap' | 'fuzzy';
+}
+
+/**
+ * Normalize a string for matching: lowercase, strip punctuation, collapse spaces.
+ */
+function normalizeForMatch(s: string): string {
+    return s.toLowerCase().replace(/[^a-z0-9\s]/gi, '').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Compute token overlap score between two strings.
+ * Returns a value between 0 and 1.
+ */
+function tokenOverlap(a: string, b: string): number {
+    const tokensA = new Set(normalizeForMatch(a).split(' ').filter(t => t.length > 0));
+    const tokensB = new Set(normalizeForMatch(b).split(' ').filter(t => t.length > 0));
+    if (tokensA.size === 0 || tokensB.size === 0) return 0;
+
+    let matches = 0;
+    for (const t of tokensA) {
+        if (tokensB.has(t)) matches++;
+    }
+    return matches / Math.max(tokensA.size, tokensB.size);
+}
+
+/**
+ * Simple similarity: longest common substring ratio.
+ */
+function simpleSimilarity(a: string, b: string): number {
+    const s1 = normalizeForMatch(a);
+    const s2 = normalizeForMatch(b);
+    if (s1.length === 0 || s2.length === 0) return 0;
+
+    let maxLen = 0;
+    for (let i = 0; i < s1.length; i++) {
+        for (let j = 0; j < s2.length; j++) {
+            let k = 0;
+            while (i + k < s1.length && j + k < s2.length && s1[i + k] === s2[j + k]) k++;
+            if (k > maxLen) maxLen = k;
+        }
+    }
+    return maxLen / Math.max(s1.length, s2.length);
+}
+
 export function findBestProductMatch(
     items: InventoryRecord[],
     query: string
 ): InventoryRecord | null {
     if (!query || items.length === 0) return null;
 
-    const normalizedQuery = query.toLowerCase().trim();
+    const normalizedQuery = normalizeForMatch(query);
+    if (!normalizedQuery) return null;
 
-    // Exact match
-    const exact = items.find(i => i.itemName.toLowerCase() === normalizedQuery);
+    // 1. Exact normalized match
+    const exact = items.find(i => normalizeForMatch(i.itemName) === normalizedQuery);
     if (exact) return exact;
 
-    // Contains match
-    const contains = items.find(i => i.itemName.toLowerCase().includes(normalizedQuery));
+    // 2. Contains match (query inside product name)
+    const contains = items.find(i => normalizeForMatch(i.itemName).includes(normalizedQuery));
     if (contains) return contains;
 
-    // Reverse contains (query contains product name)
-    const reverseContains = items.find(i => normalizedQuery.includes(i.itemName.toLowerCase()));
+    // 3. Reverse contains (product name inside query)
+    const reverseContains = items.find(i => normalizedQuery.includes(normalizeForMatch(i.itemName)));
     if (reverseContains) return reverseContains;
 
-    // No confident match — return null so the agent asks for clarification
+    // 4. Token overlap + fuzzy scoring
+    const scored: ProductMatchResult[] = items.map(item => {
+        const overlap = tokenOverlap(query, item.itemName);
+        const similarity = simpleSimilarity(query, item.itemName);
+        const score = Math.max(overlap, similarity);
+        return { product: item, score, matchType: overlap >= similarity ? 'token_overlap' as const : 'fuzzy' as const };
+    }).filter(r => r.score >= 0.4)
+      .sort((a, b) => b.score - a.score);
+
+    // If best match is strong enough and clearly ahead
+    if (scored.length === 1 && scored[0].score >= 0.4) {
+        return scored[0].product;
+    }
+    if (scored.length >= 2 && scored[0].score >= 0.5 && scored[0].score - scored[1].score >= 0.15) {
+        return scored[0].product;
+    }
+
+    // Multiple close matches or low confidence → return null for disambiguation
     // NEVER default to items[0], that could sell the wrong product
     return null;
 }

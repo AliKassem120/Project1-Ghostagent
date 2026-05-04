@@ -18,8 +18,9 @@
 import type { EcommerceStateData, FSMResult, PostActionContext } from './types';
 import type { WorkspaceConfig } from '../types';
 import { searchProducts, findBestProductMatch } from '../ecommerce/products';
+import { extractProductCandidate } from '../ecommerce/extract-product';
 import { createOrderV2 } from '../ecommerce/orders';
-import { detectYesNo, extractPhone, extractNameAndPhone, extractAddress } from '../language';
+import { detectYesNo, extractNameAndPhone, extractAddress } from '../language';
 import { getKnownCustomerDetails } from '../customer-history';
 import { v2log } from '../logger';
 import { SupabaseClient } from '@supabase/supabase-js';
@@ -98,16 +99,32 @@ async function handleAwaitingProduct(
     ctx: FSMContext,
     state: EcommerceStateData
 ): Promise<FSMResult> {
-    const products = await searchProducts({ supabase: ctx.supabase, workspaceId: ctx.workspaceId, query: ctx.message });
-    const match = findBestProductMatch(products, ctx.message);
+    // ── Extract product candidate from natural language ──────
+    const { productCandidate, quantity: extractedQty } = extractProductCandidate(ctx.message);
+    const searchQuery = productCandidate || ctx.message;
+
+    // Search with extracted candidate first, fallback to all products
+    let products = await searchProducts({ supabase: ctx.supabase, workspaceId: ctx.workspaceId, query: searchQuery });
+    let match = findBestProductMatch(products, searchQuery);
+
+    // If no match with candidate, try loading all products and matching against candidate
+    if (!match && productCandidate) {
+        const allProducts = await searchProducts({ supabase: ctx.supabase, workspaceId: ctx.workspaceId, limit: 20 });
+        match = findBestProductMatch(allProducts, searchQuery);
+        if (!match && allProducts.length > 0) products = allProducts;
+    }
+
+    // Update quantity from extraction
+    const qty = extractedQty > 1 ? extractedQty : (state.order.quantity || 1);
 
     if (!match) {
         if (products.length > 0) {
-            const names = products.slice(0, 5).map(p => p.itemName).join(', ');
+            // Products exist but no match — ask clarification, STAY in awaiting_product
+            const names = products.filter(p => p.stockLevel > 0).slice(0, 5).map(p => p.itemName).join(', ');
             return {
                 replyText: t(`We have: ${names}. Which one?`, `3anna: ${names}. Aya wahad?`, ctx.language),
                 nextStage: 'awaiting_product',
-                nextData: state,
+                nextData: { ...state, order: { ...state.order, quantity: qty } },
                 actions: ['no_match_listed_products'],
                 dbWriteAttempted: false,
                 dbWriteSuccess: false,
@@ -153,7 +170,7 @@ async function handleAwaitingProduct(
                 productId: match.id,
                 productName: match.itemName,
                 unitPrice: match.price,
-                quantity: state.order.quantity || 1,
+                quantity: qty,
             },
             customer: { ...state.customer, name: customerName, phone: customerPhone, address: customerAddress },
             missingFields: [],
@@ -182,7 +199,7 @@ async function handleAwaitingProduct(
             productId: match.id,
             productName: match.itemName,
             unitPrice: match.price,
-            quantity: state.order.quantity || 1,
+            quantity: qty,
         },
         missingFields: [
             ...(!customerName ? ['customerName'] : []),

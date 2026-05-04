@@ -151,53 +151,125 @@ export function detectYesNo(message: string): 'yes' | 'no' | null {
     return null;
 }
 
-// ── Name/Phone Extraction (heuristic) ────────────────────────
+// ── Name/Phone/Address Extraction (heuristic) ───────────────
 
 export function extractPhone(message: string): string | null {
     const match = message.match(/(?:\+?\d[\d\s().\-]{6,}\d)/);
     return match ? match[0].replace(/[\s()\-.]/g, '').trim() : null;
 }
 
+/**
+ * Extract name, phone, and address from a customer details message.
+ * Supports formats:
+ *   "Ali, 71123456, Hamra"
+ *   "Ali 71123456 Hamra beirut"
+ *   "esme Ali ra2me 71123456 3nwene Hamra"
+ *   "name Ali phone 71123456 address Hamra"
+ */
 export function extractNameAndPhone(message: string): { name: string | null; phone: string | null } {
     const phone = extractPhone(message);
-    if (!phone) return { name: null, phone: null };
+    if (!phone) {
+        // No phone → check if the whole message is just a name
+        const cleaned = message.replace(/[,\-:]/g, ' ').replace(/\s+/g, ' ').trim();
+        const skipWords = ['my', 'name', 'is', 'im', 'i', 'am', 'esme', 'esmi', 'ana', 'phone', 'number', 'tel', 'ra2m', 'رقم', 'اسمي', 'انا'];
+        const nameCandidate = cleaned.split(' ').filter(w => w.length > 1 && !skipWords.includes(w.toLowerCase())).join(' ').trim();
+        return { name: nameCandidate || null, phone: null };
+    }
 
-    // Remove the phone from the message to get the name
-    const remaining = message
-        .replace(phone, '')
-        .replace(/[,\-:]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
+    // Remove the phone from the message to process remaining parts
+    const remaining = message.replace(phone, '').replace(/[\+\-\(\)]/g, ' ').replace(/\s+/g, ' ').trim();
 
-    // Filter out common non-name words
-    const skipWords = ['my', 'name', 'is', 'im', 'i', 'am', 'esme', 'ana', 'phone', 'number', 'tel', 'ra2m', 'رقم', 'اسمي', 'انا'];
-    const nameCandidate = remaining
-        .split(' ')
+    // Try comma-separated: "Ali, 71123456, Hamra"
+    const commaParts = remaining.split(',').map(p => p.trim()).filter(p => p.length > 0);
+    if (commaParts.length >= 1) {
+        const nameCandidate = cleanNamePart(commaParts[0]);
+        return { name: nameCandidate || null, phone };
+    }
+
+    // Try labeled format
+    const labeledName = remaining.match(/(?:name|esme|esmi|ism|ismme|اسمي|اسم)\s*[:.]?\s*([^\d,]+?)(?:\s+(?:phone|ra2m|ra2me|tel|number|رقم|address|3nwen|3nwene|عنوان)|$)/i);
+    if (labeledName) {
+        return { name: cleanNamePart(labeledName[1]) || null, phone };
+    }
+
+    // Positional: everything before the phone number position is name
+    const phoneIndex = message.indexOf(phone.replace(/[\s\-\(\)]/g, '').slice(0, 4));
+    if (phoneIndex > 0) {
+        const beforePhone = message.slice(0, phoneIndex).replace(/[,\-:]/g, ' ').replace(/\s+/g, ' ').trim();
+        const nameCandidate = cleanNamePart(beforePhone);
+        return { name: nameCandidate || null, phone };
+    }
+
+    // Fallback: first non-skip word(s) before any digits
+    const words = remaining.split(' ');
+    const skipWords = ['my', 'name', 'is', 'im', 'i', 'am', 'esme', 'esmi', 'ana', 'phone', 'number', 'tel', 'ra2m', 'ra2me', 'رقم', 'اسمي', 'انا', 'address', '3nwen', '3nwene', 'عنوان'];
+    const nameWords: string[] = [];
+    for (const w of words) {
+        if (/\d{3,}/.test(w)) break; // stop at phone-like numbers
+        if (w.length > 1 && !skipWords.includes(w.toLowerCase())) nameWords.push(w);
+    }
+
+    return { name: nameWords.join(' ').trim() || null, phone };
+}
+
+function cleanNamePart(s: string): string {
+    const skipWords = ['my', 'name', 'is', 'im', 'i', 'am', 'esme', 'esmi', 'ana', 'phone', 'number', 'tel', 'ra2m', 'اسمي', 'انا'];
+    return s.split(' ')
         .filter(w => w.length > 1 && !skipWords.includes(w.toLowerCase()))
         .join(' ')
         .trim();
-
-    return {
-        name: nameCandidate || null,
-        phone,
-    };
 }
 
-// ── Address Extraction (heuristic) ───────────────────────────
-
+/**
+ * Extract the delivery address from a message that may also contain name/phone.
+ * Address is everything AFTER the name+phone parts.
+ */
 export function extractAddress(message: string): string | null {
-    // If the message is mostly a location/address (after removing name/phone)
     const phone = extractPhone(message);
-    let remaining = message;
-    if (phone) remaining = remaining.replace(phone, '');
 
-    remaining = remaining.replace(/[,\-:]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (phone) {
+        // Find what's AFTER the phone number
+        const phoneRaw = phone.replace(/[\s\-\(\)]/g, '');
+        // Find the last digit of the phone in the message
+        let afterPhoneIdx = -1;
+        for (let i = 0; i <= message.length - phoneRaw.length; i++) {
+            const chunk = message.slice(i).replace(/[\s\-\(\)]/g, '');
+            if (chunk.startsWith(phoneRaw)) {
+                // Find end of phone in original string
+                let consumed = 0;
+                let j = i;
+                while (j < message.length && consumed < phoneRaw.length) {
+                    if (/[\s\-\(\)]/.test(message[j])) { j++; continue; }
+                    consumed++; j++;
+                }
+                afterPhoneIdx = j;
+                break;
+            }
+        }
 
-    // Simple heuristic: if there's a word that looks like a place name
-    // and the message context suggests it's an address
-    if (remaining.length > 2 && remaining.length < 200) {
-        return remaining;
+        if (afterPhoneIdx > 0 && afterPhoneIdx < message.length) {
+            const afterPhone = message.slice(afterPhoneIdx).replace(/^[\s,\-:]+/, '').trim();
+            // Check for labeled address
+            const addressLabel = afterPhone.match(/(?:address|3nwen|3nwene|عنوان)\s*[:.]?\s*(.+)/i);
+            if (addressLabel) return addressLabel[1].trim() || null;
+            if (afterPhone.length > 2 && afterPhone.length < 200) return afterPhone;
+        }
+
+        // Try comma-separated: "Ali, 71123456, Hamra"
+        const parts = message.split(',').map(p => p.trim()).filter(p => p.length > 0);
+        if (parts.length >= 3) {
+            // Last part(s) after phone are likely address
+            const phonePart = parts.findIndex(p => p.includes(phoneRaw.slice(0, 4)));
+            if (phonePart >= 0 && phonePart < parts.length - 1) {
+                return parts.slice(phonePart + 1).join(', ').trim() || null;
+            }
+        }
     }
+
+    // No phone — check labeled address
+    const labeledAddress = message.match(/(?:address|3nwen|3nwene|عنوان)\s*[:.]?\s*(.+)/i);
+    if (labeledAddress) return labeledAddress[1].trim() || null;
 
     return null;
 }
+

@@ -37,10 +37,10 @@ export async function lookupLatestAppointment(
 
     const { data, error } = await supabase
         .from('appointments')
-        .select('id, service, appointment_date, start_time, end_time, duration_minutes, attendee_name, attendee_phone, status, created_at')
+        .select('id, service, appointment_date, start_time, end_time, duration_minutes, customer_name, customer_phone, status, created_at')
         .eq('workspace_id', workspaceId)
         .eq('instagram_user_id', chatId)
-        .in('status', ['Confirmed', 'Pending'])
+        .in('status', ['confirmed', 'pending'])
         .gte('appointment_date', today)
         .order('appointment_date', { ascending: true })
         .limit(1)
@@ -59,8 +59,8 @@ export async function lookupLatestAppointment(
         startTime: data.start_time,
         endTime: data.end_time,
         durationMinutes: data.duration_minutes || 60,
-        customerName: data.attendee_name || '',
-        customerPhone: data.attendee_phone || '',
+        customerName: data.customer_name || '',
+        customerPhone: data.customer_phone || '',
         status: data.status,
         createdAt: data.created_at,
         isEditable,
@@ -107,7 +107,7 @@ export async function rescheduleAppointment(
             end_time: endTime,
         })
         .eq('id', appointmentId)
-        .in('status', ['Confirmed', 'Pending']);
+        .in('status', ['confirmed', 'pending']);
 
     if (error) {
         v2log.error('APPT_LOOKUP', 'Failed to reschedule', { appointmentId, error });
@@ -130,7 +130,7 @@ export async function cancelLatestAppointment(
 
     const { error } = await supabase
         .from('appointments')
-        .update({ status: 'Cancelled' })
+        .update({ status: 'cancelled' })
         .eq('id', appt.id);
 
     return { success: !error, serviceName: appt.serviceName };

@@ -62,6 +62,9 @@ export async function createOrderV2(input: CreateOrderInput): Promise<string | n
                 customer_phone: customerPhone,
                 customer_address: customerAddress,
                 item_requested: `${itemRequested}${variantLabel ? ` (${variantLabel})` : ''} x${quantity}`,
+                variant_label: variantLabel || null,
+                quantity: quantity,
+                unit_price: unitPrice,
                 status: 'Pending',
                 raw_message: rawJson,
                 created_at: new Date().toISOString()

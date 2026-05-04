@@ -4,6 +4,11 @@
  * ═══════════════════════════════════════════════════════════════
  * Lookup latest orders and apply safe modifications.
  * All modifications check editability (status + time window).
+ *
+ * Orders table columns used:
+ *   id, user_id, workspace_id, instagram_user_id, instagram_handle,
+ *   customer_name, customer_phone, customer_address, item_requested,
+ *   variant_label, quantity, unit_price, status, raw_message, created_at
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
@@ -33,7 +38,7 @@ export async function lookupLatestOrder(
 ): Promise<OrderSnapshot | null> {
     const { data, error } = await supabase
         .from('orders')
-        .select('id, item_requested, variant_label, quantity, unit_price, customer_name, customer_phone, delivery_address, status, created_at')
+        .select('id, item_requested, variant_label, quantity, unit_price, customer_name, customer_phone, customer_address, status, created_at')
         .eq('workspace_id', workspaceId)
         .eq('instagram_user_id', chatId)
         .order('created_at', { ascending: false })
@@ -52,7 +57,7 @@ export async function lookupLatestOrder(
         unitPrice: data.unit_price || 0,
         customerName: data.customer_name || '',
         customerPhone: data.customer_phone || '',
-        customerAddress: data.delivery_address || '',
+        customerAddress: data.customer_address || '',
         status: data.status,
         createdAt: data.created_at,
         isEditable,
@@ -90,7 +95,7 @@ export async function updateOrderAddress(
 ): Promise<boolean> {
     const { error } = await supabase
         .from('orders')
-        .update({ delivery_address: newAddress })
+        .update({ customer_address: newAddress })
         .eq('id', orderId)
         .eq('status', 'Pending');
 

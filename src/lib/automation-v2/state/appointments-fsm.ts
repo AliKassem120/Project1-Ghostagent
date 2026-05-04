@@ -11,13 +11,13 @@
  * The LLM does NOT decide state transitions. This code does.
  */
 
-import type { AppointmentStateData, FSMResult, ConversationStage, PostActionContext } from './types';
+import type { AppointmentStateData, FSMResult, PostActionContext } from './types';
 import type { WorkspaceConfig } from '../types';
 import { loadActiveServices, findBestServiceMatch } from '../appointments/services';
 import { loadBusinessHours, getHoursForDay } from '../appointments/hours';
 import { checkAvailability } from '../appointments/availability';
 import { createAppointmentV2 } from '../appointments/create-appointment';
-import { detectYesNo, extractPhone, extractNameAndPhone } from '../language';
+import { detectYesNo, extractNameAndPhone } from '../language';
 import { buildTimeContext, resolveDateFromMessage, resolveTimeFromMessage, formatTime12, minutesToTime, formatDateLabel } from '../time';
 import { getKnownCustomerDetails } from '../customer-history';
 import { v2log } from '../logger';
@@ -118,7 +118,128 @@ async function handleAwaitingService(
         };
     }
 
-    // Service found — advance to awaiting_date_time
+    // Service found — check if date+time are also in the same message
+    const date = resolveDateFromMessage(ctx.message, timeCtx);
+    const time = resolveTimeFromMessage(ctx.message);
+
+    if (date && time) {
+        // All three (service + date + time) in one message!
+        // Jump straight to availability check via handleAwaitingDateTime logic
+        const duration = match.durationMinutes;
+        const [h, m] = time.split(':').map(Number);
+        const endMin = h * 60 + m + duration;
+        const endTime = minutesToTime(endMin);
+
+        const businessHours = await loadBusinessHours(ctx.supabase, ctx.workspaceId);
+        const avail = await checkAvailability({
+            supabase: ctx.supabase,
+            workspaceId: ctx.workspaceId,
+            date,
+            startTime: time,
+            durationMinutes: duration,
+            businessHours,
+        });
+
+        if (!avail.available) {
+            // Slot not available — ask for new time
+            const dateLabel = formatDateLabel(date, timeCtx);
+            const timeLabel = formatTime12(time);
+            return {
+                replyText: t(
+                    `${dateLabel} at ${timeLabel} is not available. Another time?`,
+                    `${dateLabel} se3a ${timeLabel} ma fi majel. Wa2t tene?`,
+                    ctx.language
+                ),
+                nextStage: 'awaiting_date_time',
+                nextData: {
+                    ...state,
+                    stage: 'awaiting_date_time',
+                    appointment: {
+                        ...state.appointment,
+                        serviceId: match.id,
+                        serviceName: match.name,
+                        servicePrice: match.price,
+                        serviceDuration: match.durationMinutes,
+                        date,
+                    },
+                    missingFields: ['time'],
+                },
+                actions: ['service_resolved', 'slot_unavailable'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            };
+        }
+
+        // Slot available — check customer details
+        const known = await getKnownCustomerDetails(ctx.supabase, ctx.workspaceId, ctx.chatId);
+        if (known?.name && known?.phone) {
+            // All info available — go to confirmation
+            const dateLabel = formatDateLabel(date, timeCtx);
+            const timeLabel = formatTime12(time);
+            return {
+                replyText: t(
+                    `${match.name} on ${dateLabel} at ${timeLabel}. Confirm?`,
+                    `${match.name} ${dateLabel} se3a ${timeLabel}. T2akked?`,
+                    ctx.language
+                ),
+                nextStage: 'awaiting_booking_confirmation',
+                nextData: {
+                    ...state,
+                    stage: 'awaiting_booking_confirmation',
+                    appointment: {
+                        ...state.appointment,
+                        serviceId: match.id,
+                        serviceName: match.name,
+                        servicePrice: match.price,
+                        serviceDuration: match.durationMinutes,
+                        date,
+                        startTime: time,
+                        endTime,
+                    },
+                    customer: { ...state.customer, name: known.name, phone: known.phone },
+                    missingFields: [],
+                },
+                actions: ['service_resolved', 'slot_available', 'memory_used', 'asked_confirmation'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            };
+        }
+
+        // Need customer details
+        const dateLabel = formatDateLabel(date, timeCtx);
+        const timeLabel = formatTime12(time);
+        return {
+            replyText: t(
+                `${dateLabel} at ${timeLabel} is available. Send your name and phone number.`,
+                `${dateLabel} se3a ${timeLabel} fi majel. B3atle ismak w ra2mak.`,
+                ctx.language
+            ),
+            nextStage: 'awaiting_customer_details',
+            nextData: {
+                ...state,
+                stage: 'awaiting_customer_details',
+                appointment: {
+                    ...state.appointment,
+                    serviceId: match.id,
+                    serviceName: match.name,
+                    servicePrice: match.price,
+                    serviceDuration: match.durationMinutes,
+                    date,
+                    startTime: time,
+                    endTime,
+                },
+                missingFields: ['customerName', 'customerPhone'],
+            },
+            actions: ['service_resolved', 'slot_available', 'asked_customer_details'],
+            dbWriteAttempted: false,
+            dbWriteSuccess: false,
+            shouldReply: true,
+        };
+    }
+
+    // Only service found, need date+time
     const updatedState: AppointmentStateData = {
         ...state,
         stage: 'awaiting_date_time',
@@ -429,7 +550,7 @@ async function handleBookingConfirmation(
         .eq('instagram_user_id', ctx.chatId)
         .eq('appointment_date', appointment.date)
         .eq('start_time', appointment.startTime)
-        .in('status', ['Confirmed', 'confirmed', 'Pending'])
+        .in('status', ['confirmed', 'pending'])
         .order('created_at', { ascending: false })
         .limit(1);
 
@@ -446,6 +567,39 @@ async function handleBookingConfirmation(
                 shouldReply: true,
             };
         }
+    }
+
+    // ── RE-CHECK AVAILABILITY (prevent double-booking) ────────
+    const businessHours = await loadBusinessHours(ctx.supabase, ctx.workspaceId);
+    const recheck = await checkAvailability({
+        supabase: ctx.supabase,
+        workspaceId: ctx.workspaceId,
+        date: appointment.date,
+        startTime: appointment.startTime,
+        durationMinutes: appointment.serviceDuration || 60,
+        businessHours,
+    });
+
+    if (!recheck.available) {
+        v2log.warn('APPT_FSM', 'Slot became unavailable before booking', { date: appointment.date, time: appointment.startTime });
+        return {
+            replyText: t(
+                'Sorry, that slot just got taken. Pick another time?',
+                'Sorry, hal wa2et sar ma7jouz. Wa2t tene?',
+                ctx.language
+            ),
+            nextStage: 'awaiting_date_time',
+            nextData: {
+                ...state,
+                stage: 'awaiting_date_time',
+                appointment: { ...appointment, startTime: null, endTime: null },
+                missingFields: ['time'],
+            },
+            actions: ['slot_taken_at_confirm'],
+            dbWriteAttempted: false,
+            dbWriteSuccess: false,
+            shouldReply: true,
+        };
     }
 
     // ── CREATE APPOINTMENT ───────────────────────────────────

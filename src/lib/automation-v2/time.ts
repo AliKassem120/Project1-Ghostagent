@@ -161,8 +161,13 @@ export function resolveTimeFromMessage(message: string): string | null {
     // "se3a 4" / "sa3a 4" / "3al 4"
     const seaa = normalized.match(/(?:se3a|sa3a|3al|aal|al)\s+(\d{1,2})(?::(\d{2}))?/);
     if (seaa) {
-        const h = parseInt(seaa[1], 10);
+        let h = parseInt(seaa[1], 10);
         const m = seaa[2] || '00';
+        // PM heuristic: bare hours 1-7 without AM/PM context default to PM
+        // because people booking appointments at "se3a 5" mean 5 PM, not 5 AM
+        if (h >= 1 && h <= 7 && !/(sobo7|sobe7|suboh|am)/i.test(normalized)) {
+            h += 12;
+        }
         return `${String(h).padStart(2, '0')}:${m}`;
     }
 

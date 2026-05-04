@@ -27,6 +27,7 @@ export type Intent =
     | 'shipping_question'
     | 'discount_question'
     | 'complaint'
+    | 'correction'
     | 'human_handoff'
     | 'confirmation'
     | 'rejection'
@@ -138,6 +139,11 @@ export function classifyByRegex(message: string): RegexClassification | null {
     // ── Complaint ────────────────────────────────────────────
     if (/\b(complaint|problem|issue|broken|wrong|t2a5arto|ma\s*woselne|8alat|terrible|awful)\b/i.test(msg)) {
         return { intent: 'complaint', confidence: 0.80 };
+    }
+
+    // ── Correction / Misunderstanding ────────────────────────────
+    if (/\b(didn'?t\s*ask|not\s*what\s*i\s*(asked|meant|said)|you\s*misunderstood|wdym|what\s*do\s*you\s*mean|that'?s\s*not|wrong\s*answer|ma\s*hek|msh\s*hek|ma\s*fhemet|ma\s*fhemte|ma\s*fhmt|msh\s*ha2|msh\s*hek\s*2sde)\b/i.test(msg)) {
+        return { intent: 'correction', confidence: 0.88 };
     }
 
     return null;

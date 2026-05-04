@@ -65,4 +65,24 @@ describe('validateReply', () => {
         expect(validateReply('Eh mawjoud, $50.').isValid).toBe(true);
         expect(validateReply('Ma fi halla2.').isValid).toBe(true);
     });
+
+    // ── Product listings (up to 6 newlines) ──────────────────
+    it('allows product listing with 5 newlines', () => {
+        const listing = '• Item 1\n• Item 2\n• Item 3\n• Item 4\n• Item 5\n• Item 6';
+        expect(validateReply(listing).isValid).toBe(true);
+    });
+
+    it('blocks excessive paragraphs (7+ newlines)', () => {
+        const paragraphs = 'Line 1\nLine 2\nLine 3\nLine 4\nLine 5\nLine 6\nLine 7\nLine 8';
+        const r = validateReply(paragraphs);
+        expect(r.isValid).toBe(false);
+        expect(r.reason).toBe('paragraph_style');
+    });
+
+    // ── Arabizi repair ──────────────────────────────────────
+    it('provides Arabizi repaired reply for false confirmation', () => {
+        const r = validateReply('confirmed!', { isConfirmed: false, language: 'arabizi' });
+        expect(r.isValid).toBe(false);
+        expect(r.repaired).toContain('8alat');
+    });
 });

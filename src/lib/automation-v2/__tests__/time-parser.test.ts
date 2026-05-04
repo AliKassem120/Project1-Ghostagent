@@ -82,21 +82,21 @@ describe('Enhanced Time Parser', () => {
         expect(resolveTimeFromMessage('bel sobo7')).toBe('09:00');
     });
 
-    // ── Combined date + time ─────────────────────────────────
-    it('resolves "bukra se3a 5"', () => {
+    // ── Combined date + time (PM heuristic: bare hours 1-7 → PM) ──
+    it('resolves "bukra se3a 5" → 17:00 (PM heuristic)', () => {
         const ctx = getTestTimeCtx();
         const date = resolveDateFromMessage('bukra se3a 5', ctx);
         const time = resolveTimeFromMessage('bukra se3a 5');
         expect(date).toBe(ctx.tomorrowDate);
-        expect(time).toBe('05:00');
+        expect(time).toBe('17:00');
     });
 
-    it('resolves "jem3a se3a 3"', () => {
+    it('resolves "jem3a se3a 3" → 15:00 (PM heuristic)', () => {
         const ctx = getTestTimeCtx();
         const date = resolveDateFromMessage('jem3a se3a 3', ctx);
         const time = resolveTimeFromMessage('jem3a se3a 3');
         expect(date).toBeTruthy();
-        expect(time).toBe('03:00');
+        expect(time).toBe('15:00');
     });
 
     // ── Standard times still work ────────────────────────────

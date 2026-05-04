@@ -89,8 +89,9 @@ export function validateReply(
     }
 
     // ── Paragraph detection (multiple newlines = bad for DMs) ─
+    // Allow up to 6 newlines for product/service listings
     const newlineCount = (reply.match(/\n/g) || []).length;
-    if (newlineCount > 3) {
+    if (newlineCount > 6) {
         return {
             isValid: false,
             reason: 'paragraph_style',

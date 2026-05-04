@@ -494,6 +494,26 @@ export async function runDecisionEngine(
         };
     }
 
+    // Correction / Misunderstanding — apologize and ask clarification
+    if (classification.intent === 'correction') {
+        return {
+            handledByFSM: true,
+            fsmResult: {
+                replyText: t('Sorry about that! What did you need?', 'Be3tezer! Shu bdk?', replyLang),
+                nextStage: 'idle',
+                nextData: null,
+                actions: ['correction_acknowledged'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            },
+            classifiedIntent: 'correction',
+            language: replyLang,
+            stateBefore: 'idle',
+            stateAfter: 'idle',
+        };
+    }
+
     // Product availability — proactively search inventory instead of relying on LLM
     if ((classification.intent === 'product_availability' || classification.intent === 'price_question') && input.workspaceType === 'ecommerce') {
         const products = await searchProducts({
@@ -533,7 +553,25 @@ export async function runDecisionEngine(
                 stateAfter: 'idle',
             };
         }
-        // No products found — still return a helpful message
+        // No products found — ask clarification for price queries, inform for general
+        if (classification.intent === 'price_question') {
+            return {
+                handledByFSM: true,
+                fsmResult: {
+                    replyText: t('Which product are you asking about?', 'Aya product bdk t3rif se3ro?', replyLang),
+                    nextStage: 'idle',
+                    nextData: null,
+                    actions: ['price_question_clarify'],
+                    dbWriteAttempted: false,
+                    dbWriteSuccess: false,
+                    shouldReply: true,
+                },
+                classifiedIntent: classification.intent,
+                language: replyLang,
+                stateBefore: 'idle',
+                stateAfter: 'idle',
+            };
+        }
         return {
             handledByFSM: true,
             fsmResult: {

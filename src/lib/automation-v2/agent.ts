@@ -21,6 +21,7 @@ import { detectLanguage } from './language';
 import { buildTimeContext } from './time';
 import { v2log } from './logger';
 import { LEBANESE_VOCABULARY } from './dictionaries';
+import { validateReply } from './validation/reply-validator';
 
 // ── Model ────────────────────────────────────────────────────
 
@@ -167,9 +168,22 @@ export async function runAgent(
             replyPreview: fsm.replyText?.slice(0, 60),
         });
 
+        // Validate FSM reply before returning
+        let finalReply = fsm.replyText;
+        if (finalReply) {
+            const validation = validateReply(finalReply, {
+                isConfirmed: fsm.dbWriteSuccess,
+                language: replyLang,
+            });
+            if (!validation.isValid) {
+                v2log.warn('AGENT', `FSM reply validation failed: ${validation.reason}`, { reply: finalReply });
+                finalReply = validation.repaired || finalReply;
+            }
+        }
+
         return {
             shouldReply: fsm.shouldReply,
-            replyText: fsm.replyText,
+            replyText: finalReply,
             actions: fsm.actions,
             stateBefore: decision.stateBefore,
             stateAfter: decision.stateAfter,
@@ -295,13 +309,8 @@ export async function runAgent(
                     reply = replyLang === 'arabizi' ? 'Ma fi halla2.' : 'Not available.';
                 }
             } else {
-                const msg = input.message.toLowerCase().trim();
-                const isGreeting = /^(hey|hi|hello|yo|sup|salam|marhaba|hala|ahla|kifak|kifik|bonjour|hola|good\s*(morning|evening|afternoon))\b/i.test(msg) || msg.length <= 5;
-                if (isGreeting) {
-                    reply = replyLang === 'arabizi' ? 'Hala! Kif fiyi se3dak?' : 'Hey! How can I help?';
-                } else {
-                    reply = replyLang === 'arabizi' ? 'Ma fi halla2.' : 'Not available at the moment.';
-                }
+                // Generic fallback — do NOT treat short messages as greetings
+                reply = replyLang === 'arabizi' ? 'Kif fiyi se3dak?' : 'How can I help?';
             }
         }
 
@@ -319,6 +328,16 @@ export async function runAgent(
                 v2log.warn('AGENT', 'Blocked false confirmation', { reply });
                 reply = replyLang === 'arabizi' ? 'Fi 8alat halla2. Jarreb ba3den.' : 'Something went wrong. Try again.';
             }
+        }
+
+        // ── Reply validator (final safety net) ────────────────
+        const validation = validateReply(reply, {
+            isConfirmed: dbWriteSuccess,
+            language: replyLang,
+        });
+        if (!validation.isValid) {
+            v2log.warn('AGENT', `LLM reply validation failed: ${validation.reason}`, { reply });
+            reply = validation.repaired || reply;
         }
 
         v2log.info('AGENT', `Done in ${Date.now() - startTime}ms`, {
