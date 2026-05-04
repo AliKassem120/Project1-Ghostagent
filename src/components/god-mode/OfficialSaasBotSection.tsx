@@ -66,15 +66,10 @@ export default function OfficialSaasBotSection() {
         setCreating(true);
         setError('');
         try {
-            // Get user_id from the workspaces list (god mode user)
-            const wsRes = await fetchGodMode('workspaces');
-            const userId = wsRes.workspaces?.[0]?.user_id;
-            if (!userId) throw new Error('No user found — create at least one normal workspace first');
-
             const res = await fetchGodMode('official-saas-bot', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId }),
+                body: JSON.stringify({}),
             });
 
             if (res.success) {

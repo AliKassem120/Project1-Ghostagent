@@ -144,12 +144,36 @@ export async function POST(req: Request) {
             });
         }
 
-        // Get the god mode user (first admin user)
-        const body = await req.json().catch(() => ({}));
-        const userId = body.userId;
+        // Resolve owner user_id server-side
+        let userId = process.env.GOD_MODE_OWNER_USER_ID;
+
+        if (!userId && process.env.GOD_MODE_OWNER_EMAIL) {
+            // Find by email using admin client
+            const { data: userData, error: listError } = await sb.auth.admin.listUsers();
+            if (!listError) {
+                const targetUser = userData.users.find(u => u.email === process.env.GOD_MODE_OWNER_EMAIL);
+                if (targetUser) userId = targetUser.id;
+            }
+        }
 
         if (!userId) {
-            return NextResponse.json({ success: false, error: 'userId required' }, { status: 400 });
+            // Fallback: first user from ai_settings or auth.users
+            const { data: firstWs } = await sb.from('ai_settings').select('user_id').limit(1).maybeSingle();
+            if (firstWs) {
+                userId = firstWs.user_id;
+            } else {
+                const { data: userData } = await sb.auth.admin.listUsers();
+                if (userData && userData.users.length > 0) {
+                    userId = userData.users[0].id;
+                }
+            }
+        }
+
+        if (!userId) {
+            return NextResponse.json({ 
+                success: false, 
+                error: 'Set GOD_MODE_OWNER_USER_ID or GOD_MODE_OWNER_EMAIL in env to create the official workspace.' 
+            }, { status: 400 });
         }
 
         // Create workspace
