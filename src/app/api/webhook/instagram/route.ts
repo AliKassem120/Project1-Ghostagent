@@ -439,10 +439,11 @@ async function processWebhookEvent(body: any) {
                         continue;
                     }
 
-                    // Generate comment reply
-                    const aiResponse = await generateCommentReply(ownerId, commentText, commenterName, supabaseAdmin, commentWorkspaceId ?? undefined);
+                    // Generate comment reply plan (separate public + DM texts)
+                    const replyStyle: 'public' | 'dm' | 'both' = commentSettings?.comment_reply_style || 'public';
+                    const plan = await generateCommentReplyPlan(ownerId, commentText, commenterName, supabaseAdmin, replyStyle, commentWorkspaceId ?? undefined);
 
-                    if (!aiResponse) {
+                    if (!plan || (!plan.publicCommentText && !plan.privateDmText)) {
                         console.log('Ghost Protocol: No comment reply generated.');
                         continue;
                     }
@@ -456,7 +457,7 @@ async function processWebhookEvent(body: any) {
                             user_id: ownerId,
                             workspace_id: commentWorkspaceId || null,
                             event_type: 'DRAFT_COMMENT_REPLY',
-                            description: `Draft Comment Reply: "${aiResponse}"`,
+                            description: `Draft Comment Reply: public="${plan.publicCommentText || '—'}", dm="${plan.privateDmText || '—'}"`,
                             timestamp: new Date().toISOString(),
                             metadata: {
                                 chat_id: commenterId,
@@ -466,26 +467,30 @@ async function processWebhookEvent(body: any) {
                                 platform: 'instagram',
                                 type: 'comment',
                                 status: 'pending_approval',
-                                reply_text: aiResponse
+                                reply_style: replyStyle,
+                                public_comment_text: plan.publicCommentText,
+                                private_dm_text: plan.privateDmText,
                             }
                         });
                         continue;
                     }
 
-                    console.log(`🤖 Comment Reply to @${commenterName}: ${aiResponse} (Style: ${commentSettings?.comment_reply_style || 'public'})`);
+                    console.log(`🤖 Comment Reply to @${commenterName} (style: ${replyStyle}): public="${plan.publicCommentText || '—'}" dm="${plan.privateDmText || '—'}"`);
 
-                    const replyStyle = commentSettings?.comment_reply_style || 'public';
-                    let logDescription = `Replied to @${commenterName}: "${aiResponse}"`;
+                    let logDescription = '';
 
-                    if (replyStyle === 'public' || replyStyle === 'both') {
-                        await sendCommentReply(ownerId, commentId, aiResponse, supabaseAdmin, commentWorkspaceId ?? undefined);
+                    // Send public comment
+                    if (plan.publicCommentText && (replyStyle === 'public' || replyStyle === 'both')) {
+                        await sendCommentReply(ownerId, commentId, plan.publicCommentText, supabaseAdmin, commentWorkspaceId ?? undefined);
+                        logDescription = `Replied to @${commenterName}: "${plan.publicCommentText}"`;
                     }
-                    
-                    if (replyStyle === 'dm' || replyStyle === 'both') {
-                        await sendPrivateReplyToComment(ownerId, commentId, aiResponse, supabaseAdmin, commentWorkspaceId ?? undefined);
-                        logDescription = replyStyle === 'dm' 
-                            ? `Sent DM reply for comment to @${commenterName}: "${aiResponse}"`
-                            : `Replied publicly & via DM to @${commenterName}: "${aiResponse}"`;
+
+                    // Send private DM
+                    if (plan.privateDmText && (replyStyle === 'dm' || replyStyle === 'both')) {
+                        await sendPrivateReplyToComment(ownerId, commentId, plan.privateDmText, supabaseAdmin, commentWorkspaceId ?? undefined);
+                        logDescription = replyStyle === 'dm'
+                            ? `Sent DM to @${commenterName}: "${plan.privateDmText}"`
+                            : `Replied publicly & via DM to @${commenterName}`;
                     }
 
                     await supabaseAdmin.from('activity_log').insert({
@@ -498,9 +503,13 @@ async function processWebhookEvent(body: any) {
                             chat_id: commenterId,
                             comment_id: commentId,
                             commenter_name: commenterName,
+                            commenter_id: commenterId,
                             media_id: mediaId,
                             platform: 'instagram',
-                            type: 'comment'
+                            type: 'comment',
+                            reply_style: replyStyle,
+                            public_comment_text: plan.publicCommentText,
+                            private_dm_text: plan.privateDmText,
                         }
                     });
                 }
@@ -1033,13 +1042,21 @@ async function sendPrivateReplyToComment(ownerId: string, commentId: string, mes
     }
 }
 
-async function generateCommentReply(
+// ── Comment Reply Plan Type ─────────────────────────────────
+
+interface CommentReplyPlan {
+    publicCommentText: string | null;
+    privateDmText: string | null;
+}
+
+async function generateCommentReplyPlan(
     userId: string,
     commentText: string,
     commenterName: string,
     supabase: any,
+    replyStyle: 'public' | 'dm' | 'both',
     workspaceId?: string
-): Promise<string | null> {
+): Promise<CommentReplyPlan | null> {
     try {
         // Fetch from ai_settings (Workspace scoped)
         const { data: settings } = await supabase
@@ -1094,7 +1111,29 @@ async function generateCommentReply(
                 break;
         }
 
-        const systemPrompt = `You are the official comment assistant for ${businessName} on Instagram.
+        const langDirective = settings?.language === 'English' ? '⚠️ LANGUAGE OVERRIDE: Always reply in English.' : settings?.language === 'Lebanese Franco' ? '⚠️ LANGUAGE OVERRIDE: Always reply in Lebanese Arabizi.' : '';
+        const toneDirective = settings?.tone || 'Professional & Friendly';
+        const businessInstructions = settings?.system_instructions ? `BUSINESS INSTRUCTIONS: ${settings.system_instructions}` : '';
+
+        const plan: CommentReplyPlan = { publicCommentText: null, privateDmText: null };
+
+        // ── Generate PUBLIC comment text (for 'public' and 'both' styles) ──
+        if (replyStyle === 'public' || replyStyle === 'both') {
+            const publicPrompt = replyStyle === 'both'
+                ? `You are the official comment assistant for ${businessName} on Instagram.
+${businessTypeDirective}
+
+RULES (PUBLIC COMMENT — SHORT CTA ONLY):
+- Keep reply to 1 short sentence (under 100 characters).
+- Your job is to redirect the commenter to DMs.
+- Examples: "Sent you a DM! 👻", "Check your DMs! 💬", "Just DM'd you the details! ✨"
+- Be warm and friendly. Use 1 emoji.
+- Match the commenter's language.
+- NEVER include prices, stock info, or business details in the public comment.
+${langDirective}
+TONE: ${toneDirective}
+${businessInstructions}`
+                : `You are the official comment assistant for ${businessName} on Instagram.
 ${businessTypeDirective}
 
 RULES FOR COMMENT REPLIES (PUBLIC — EVERYONE CAN SEE):
@@ -1102,34 +1141,95 @@ RULES FOR COMMENT REPLIES (PUBLIC — EVERYONE CAN SEE):
 - Be warm, friendly, and professional.
 - Use 1 emoji max.
 - NEVER share private info (prices, stock levels, phone numbers) in comments.
-- For pricing/availability questions, ALWAYS redirect to DMs: "DM us for details! 💬"
+- For pricing/availability questions, redirect to DMs: "DM us for details! 💬"
 - For compliments: Thank them warmly.
 - For questions about products: Give a brief answer and invite them to DM for more info.
 - For complaints: Acknowledge and invite them to DM to resolve it privately.
 - Address the commenter by name when natural (e.g., "@${commenterName}").
-- Match the commenter's language (English, Arabic, etc.).
+- Match the commenter's language.
 - If the user asks about sports, politics, math, or anything outside the business, reply: "We're here to help with ${businessName}! DM us 💬"
-
-${settings?.language === 'English' ? '⚠️ LANGUAGE OVERRIDE: Always reply in English.' : settings?.language === 'Lebanese Franco' ? '⚠️ LANGUAGE OVERRIDE: Always reply in Lebanese Arabizi.' : ''}
-
-TONE: ${settings?.tone || 'Professional & Friendly'}
+${langDirective}
+TONE: ${toneDirective}
 
 AVAILABLE PRODUCTS (for reference only — do NOT list prices in comments):
 ${inventoryContext}
 
-${settings?.system_instructions ? `BUSINESS INSTRUCTIONS: ${settings.system_instructions}` : ''}`;
+${businessInstructions}`;
 
-        const result = await generateText({
-            model: groq("llama-3.3-70b-versatile"),
-            system: systemPrompt,
-            messages: [{ role: 'user', content: `Instagram comment from @${commenterName}: "${commentText}"` }],
-        });
+            const publicResult = await generateText({
+                model: groq("llama-3.3-70b-versatile"),
+                system: publicPrompt,
+                messages: [{ role: 'user', content: `Instagram comment from @${commenterName}: "${commentText}"` }],
+            });
+            plan.publicCommentText = publicResult.text || null;
+        }
 
-        return result.text;
+        // ── Generate PRIVATE DM text (for 'dm' and 'both' styles) ──
+        if (replyStyle === 'dm' || replyStyle === 'both') {
+            const dmPrompt = `You are the private DM assistant for ${businessName} on Instagram.
+${businessTypeDirective}
+
+CONTEXT: A user left a comment on Instagram and you are now DMing them privately with the actual answer.
+
+RULES FOR PRIVATE DM REPLIES:
+- This is a PRIVATE DM, not a public comment. Give the ACTUAL useful answer.
+- Include specific details: prices, availability, booking info — whatever answers their question.
+- Be warm, helpful, and conversational.
+- Use 1-2 emojis max.
+- Keep it concise but complete (2-4 sentences).
+- NEVER say "check your DMs", "sent you a DM", "DM us", or "check inbox" — you ARE the DM.
+- NEVER say "as I mentioned in the comment" — the user may not have seen a public reply.
+- Address them by name naturally.
+- Match the commenter's language.
+- If you can answer their question using the inventory/business info, do so directly.
+- End with an engagement hook like "Want me to reserve one?" or "Would you like to book?"
+${langDirective}
+TONE: ${toneDirective}
+
+AVAILABLE PRODUCTS/SERVICES (use these to answer questions):
+${inventoryContext}
+
+${businessInstructions}`;
+
+            const dmResult = await generateText({
+                model: groq("llama-3.3-70b-versatile"),
+                system: dmPrompt,
+                messages: [{ role: 'user', content: `Instagram comment from @${commenterName}: "${commentText}"` }],
+            });
+            plan.privateDmText = dmResult.text || null;
+        }
+
+        // Validate: DM text must never contain CTA phrases meant for public comments
+        if (plan.privateDmText) {
+            const ctaPhrases = ['check your dm', 'sent you a dm', "i dm'd you", 'check inbox', 'check your inbox', 'dm us'];
+            const dmLower = plan.privateDmText.toLowerCase();
+            const hasCta = ctaPhrases.some(p => dmLower.includes(p));
+            if (hasCta) {
+                console.warn('⚠️ [CommentReply] DM text contained CTA phrase, regenerating...');
+                // Strip the CTA and keep the rest, or regenerate
+                for (const phrase of ctaPhrases) {
+                    plan.privateDmText = plan.privateDmText.replace(new RegExp(phrase, 'gi'), '').trim();
+                }
+                // Clean up any double spaces or orphaned punctuation
+                plan.privateDmText = plan.privateDmText.replace(/\s{2,}/g, ' ').replace(/^\s*[,!.]\s*/, '').trim();
+            }
+        }
+
+        return plan;
 
     } catch (error) {
-        console.error('Ghost Brain (Comment) Error:', error);
-        return "Thanks for your comment! DM us for more info 💬";
+        console.error('Ghost Brain (Comment Plan) Error:', error);
+        // Fallback plan
+        if (replyStyle === 'public') {
+            return { publicCommentText: "Thanks for your comment! DM us for more info 💬", privateDmText: null };
+        } else if (replyStyle === 'dm') {
+            return { publicCommentText: null, privateDmText: `Hey @${commenterName}! Thanks for reaching out. How can we help you? 😊` };
+        } else {
+            return {
+                publicCommentText: "Sent you a DM! 👻",
+                privateDmText: `Hey @${commenterName}! Thanks for reaching out. How can we help you? 😊`
+            };
+        }
     }
 }
 // ═══════════════════════════════════════
