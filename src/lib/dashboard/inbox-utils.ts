@@ -107,9 +107,13 @@ export function buildConversations(logs: any[], fetchedProfiles: Record<string, 
         if (text.startsWith('"') && text.endsWith('"')) text = text.slice(1, -1);
 
         if (!threads[chatId]) {
+            let defaultName = senderName !== 'Unknown' ? senderName : 'User';
+            if (defaultName === 'User' || defaultName === 'Unknown') {
+                defaultName = meta.platform === 'whatsapp' ? `WhatsApp User (${chatId})` : 'Instagram User';
+            }
             threads[chatId] = {
                 chat_id: chatId,
-                username: senderName !== 'Unknown' ? senderName : 'User', // Initial name
+                username: defaultName, // Initial name
                 lastMessage: text,
                 timestamp: log.timestamp,
                 messages: [],

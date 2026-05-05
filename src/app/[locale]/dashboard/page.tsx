@@ -40,10 +40,11 @@ type EngagementChartProps = {
         aiReplies: number;
         manualReplies: number;
     };
+    loading?: boolean;
 };
 
 /* ── Engagement Overview (Premium Recharts) ────────────── */
-function EngagementOverview({ data, metrics }: EngagementChartProps) {
+function EngagementOverview({ data, metrics, loading }: EngagementChartProps) {
     return (
         <div className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6">
             <div className="flex items-center justify-between mb-6">
@@ -121,7 +122,11 @@ function EngagementOverview({ data, metrics }: EngagementChartProps) {
                     <div key={item.label} className="flex items-center gap-3">
                         <item.icon className={clsx('w-4 h-4', item.color)} />
                         <div>
-                            <p className="text-sm font-semibold text-foreground">{item.value}</p>
+                            {loading ? (
+                                <div className="h-5 w-8 bg-surface-2 rounded-md animate-pulse mb-0.5" />
+                            ) : (
+                                <p className="text-sm font-semibold text-foreground">{item.value}</p>
+                            )}
                             <p className="text-[10px] text-muted-foreground">{item.label}</p>
                         </div>
                     </div>
@@ -531,13 +536,17 @@ export default function DashboardPage() {
                                 {metric.changeColor === 'text-emerald-400' && <ArrowUpRight className="w-3 h-3" />}
                             </span>
                         </div>
-                        <div className="text-2xl font-bold text-foreground leading-none mb-1.5 tracking-tight">
-                            <CountUp
-                                end={metric.value}
-                                prefix={metric.prefix}
-                                suffix={metric.suffix}
-                                decimals={metric.decimals ?? (metric.value % 1 !== 0 ? 1 : 0)}
-                            />
+                        <div className="text-2xl font-bold text-foreground leading-none mb-1.5 tracking-tight h-7 flex items-center">
+                            {loading || inventoryLoading ? (
+                                <div className="h-6 w-16 bg-surface-2 rounded animate-pulse" />
+                            ) : (
+                                <CountUp
+                                    end={metric.value}
+                                    prefix={metric.prefix}
+                                    suffix={metric.suffix}
+                                    decimals={metric.decimals ?? (metric.value % 1 !== 0 ? 1 : 0)}
+                                />
+                            )}
                         </div>
                         <span className="text-xs text-muted-foreground">{metric.label}</span>
                     </motion.div>
@@ -564,6 +573,7 @@ export default function DashboardPage() {
                             aiReplies: stats.aiReplies,
                             manualReplies: stats.manualReplies,
                         }}
+                        loading={loading}
                     />
                 </motion.div>
 

@@ -26,7 +26,7 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     const router = useRouter();
     const { autopilot, setAutopilot, isLoading } = useAutopilot();
     const { user, loading: authLoading } = useAuth();
-    const { workspaces, activeWorkspace, activeWorkspaceId, setActiveWorkspace, canAddWorkspace, upgradeMessage, planTier } = useWorkspace();
+    const { workspaces, activeWorkspace, activeWorkspaceId, setActiveWorkspace, canAddWorkspace, upgradeMessage, planTier, isLoading: wsLoading } = useWorkspace();
     const userEmail = user?.email ?? null;
     const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || userEmail?.split('@')[0] || null;
     const userInitial = userName ? userName.charAt(0).toUpperCase() : '?';
@@ -123,8 +123,17 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                                     <Building2 className="w-3.5 h-3.5 text-primary" />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-semibold text-muted-foreground truncate">{activeWorkspace?.name || 'My Store'}</p>
-                                    <p className="text-[9px] text-muted-foreground truncate">{activeWorkspace?.instagram_username ? `@${activeWorkspace.instagram_username}` : 'No Instagram connected'}</p>
+                                    {wsLoading ? (
+                                        <>
+                                            <div className="h-3 w-20 bg-surface-2 rounded-md animate-pulse mb-1" />
+                                            <div className="h-2 w-28 bg-surface-2 rounded-md animate-pulse" />
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p className="text-xs font-semibold text-muted-foreground truncate">{activeWorkspace?.name || 'My Store'}</p>
+                                            <p className="text-[9px] text-muted-foreground truncate">{activeWorkspace?.instagram_username ? `@${activeWorkspace.instagram_username}` : 'No Instagram connected'}</p>
+                                        </>
+                                    )}
                                 </div>
                                 <ChevronRight className={clsx('w-3.5 h-3.5 text-muted-foreground transition-transform shrink-0', isWorkspaceSwitcherOpen && 'rotate-90')} />
                             </button>

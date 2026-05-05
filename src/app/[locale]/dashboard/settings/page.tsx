@@ -28,7 +28,7 @@ export default function SettingsPage() {
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState(false);
     const [connecting, setConnecting] = useState(false);
-    const [instagramStatus, setInstagramStatus] = useState<{ connected: boolean; accounts: any[] }>({ connected: false, accounts: [] });
+    const [instagramStatus, setInstagramStatus] = useState<{ connected: boolean; accounts: any[] } | null>(null);
     const [disconnectModal, setDisconnectModal] = useState<{ open: boolean; accountId: string | null }>({ open: false, accountId: null });
     const [deleteWsModal, setDeleteWsModal] = useState(false);
     const [deletingWs, setDeletingWs] = useState(false);
@@ -132,7 +132,7 @@ export default function SettingsPage() {
         }
     };
 
-    const fetchSettings = useCallback(async (isSilent = false) => {
+    const fetchSettings = useCallback(async (isSilent = false, signal?: AbortSignal) => {
         if (!isSilent) setLoading(true);
         try {
             let query = supabase.from('ai_settings').select('*');
@@ -141,11 +141,12 @@ export default function SettingsPage() {
                 query = query.eq('id', activeWorkspaceId);
             } else {
                 const { data: { user } } = await supabase.auth.getUser();
-                if (!user) { setLoading(false); return; }
+                if (!user || signal?.aborted) { setLoading(false); return; }
                 query = query.eq('user_id', user.id);
             }
 
             const { data } = await query.single();
+            if (signal?.aborted) return;
 
             if (data) {
                 setSettings({
@@ -175,13 +176,15 @@ export default function SettingsPage() {
         } catch (err) {
             console.error('Unexpected error:', err);
         } finally {
-            setLoading(false);
+            if (!signal?.aborted) setLoading(false);
         }
     }, [activeWorkspaceId, supabase]);
 
     useEffect(() => {
         if (wsLoading) return;
-        fetchSettings();
+        const controller = new AbortController();
+        fetchSettings(false, controller.signal);
+        return () => controller.abort();
     }, [fetchSettings, wsLoading]);
 
     // Background sync on window focus
@@ -191,20 +194,24 @@ export default function SettingsPage() {
         return () => window.removeEventListener('focus', handleFocus);
     }, [fetchSettings]);
 
-    const checkInstagramStatus = useCallback(async () => {
+    const checkInstagramStatus = useCallback(async (signal?: AbortSignal) => {
         if (!activeWorkspaceId) return;
         try {
-            const res = await fetch(`/api/instagram/status?workspace_id=${activeWorkspaceId}`);
+            const res = await fetch(`/api/instagram/status?workspace_id=${activeWorkspaceId}`, { signal });
             const data = await res.json();
-            setInstagramStatus(data);
-        } catch (e) {
-            console.error('Failed to check Instagram status:', e);
+            if (!signal?.aborted) setInstagramStatus(data);
+        } catch (e: any) {
+            if (e.name !== 'AbortError') {
+                console.error('Failed to check Instagram status:', e);
+            }
         }
     }, [activeWorkspaceId]);
 
     // Automatically check status when activeWorkspaceId changes
     useEffect(() => {
-        checkInstagramStatus();
+        const controller = new AbortController();
+        checkInstagramStatus(controller.signal);
+        return () => controller.abort();
     }, [checkInstagramStatus]);
 
     const handleConnectInstagram = () => {
@@ -235,10 +242,13 @@ export default function SettingsPage() {
     const handleDisconnect = async (accountId: string) => {
         try {
             // Optimistic update
-            setInstagramStatus(prev => ({
-                ...prev,
-                accounts: prev.accounts.filter(a => a.id !== accountId)
-            }));
+            setInstagramStatus(prev => {
+                if (!prev) return null;
+                return {
+                    ...prev,
+                    accounts: prev.accounts.filter(a => a.id !== accountId)
+                };
+            });
 
             await fetch('/api/disconnect', {
                 method: 'POST',
@@ -840,43 +850,51 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-3">
-                        {instagramStatus.accounts.length > 0 && instagramStatus.accounts.map((acc: any) => (
-                            <div key={acc.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-surface-2 p-4 rounded-xl border border-border gap-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 rounded-xl flex items-center justify-center shrink-0">
-                                        <Instagram className="w-5 h-5 text-foreground" />
-                                    </div>
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <h3 className="font-semibold text-sm text-foreground truncate max-w-[150px]">{acc.username || 'Insta User'}</h3>
-                                            <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[9px] font-bold rounded-full flex items-center gap-1">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Running
-                                            </span>
-                                        </div>
-                                        <p className="text-muted-foreground text-[10px] font-mono">{acc.id}</p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => setDisconnectModal({ open: true, accountId: acc.id })}
-                                    className="px-3 py-1.5 bg-red-500/5 text-red-400/60 border border-red-500/10 hover:bg-red-500/10 hover:text-red-400 rounded-lg text-[10px] font-bold flex items-center gap-1.5 transition-colors w-full sm:w-auto justify-center"
-                                >
-                                    <Trash2 className="w-3 h-3" /> Disconnect
-                                </button>
+                        {instagramStatus === null ? (
+                            <div className="flex justify-center items-center h-20 bg-surface-2 border border-border rounded-xl">
+                                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                             </div>
-                        ))}
+                        ) : (
+                            <>
+                                {instagramStatus.accounts.length > 0 && instagramStatus.accounts.map((acc: any) => (
+                                    <div key={acc.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-surface-2 p-4 rounded-xl border border-border gap-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 rounded-xl flex items-center justify-center shrink-0">
+                                                <Instagram className="w-5 h-5 text-foreground" />
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className="font-semibold text-sm text-foreground truncate max-w-[150px]">{acc.username || 'Insta User'}</h3>
+                                                    <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[9px] font-bold rounded-full flex items-center gap-1">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Running
+                                                    </span>
+                                                </div>
+                                                <p className="text-muted-foreground text-[10px] font-mono">{acc.id}</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => setDisconnectModal({ open: true, accountId: acc.id })}
+                                            className="px-3 py-1.5 bg-red-500/5 text-red-400/60 border border-red-500/10 hover:bg-red-500/10 hover:text-red-400 rounded-lg text-[10px] font-bold flex items-center gap-1.5 transition-colors w-full sm:w-auto justify-center"
+                                        >
+                                            <Trash2 className="w-3 h-3" /> Disconnect
+                                        </button>
+                                    </div>
+                                ))}
 
-                        {instagramStatus.accounts.length === 0 && (
-                            <button
-                                onClick={handleConnectInstagram}
-                                disabled={connecting}
-                                className="w-full py-4 border border-dashed border-border hover:border-border-strong hover:bg-surface-2 rounded-xl flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground transition-all group press"
-                            >
-                                {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> :
-                                    <div className="w-7 h-7 rounded-full bg-surface-3 flex items-center justify-center group-hover:bg-primary/20 group-hover:text-primary transition-colors">
-                                        <Plus className="w-4 h-4" />
-                                    </div>}
-                                <span className="text-sm font-medium">Add Account</span>
-                            </button>
+                                {instagramStatus.accounts.length === 0 && (
+                                    <button
+                                        onClick={handleConnectInstagram}
+                                        disabled={connecting}
+                                        className="w-full py-4 border border-dashed border-border hover:border-border-strong hover:bg-surface-2 rounded-xl flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground transition-all group press"
+                                    >
+                                        {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> :
+                                            <div className="w-7 h-7 rounded-full bg-surface-3 flex items-center justify-center group-hover:bg-primary/20 group-hover:text-primary transition-colors">
+                                                <Plus className="w-4 h-4" />
+                                            </div>}
+                                        <span className="text-sm font-medium">Add Account</span>
+                                    </button>
+                                )}
+                            </>
                         )}
                     </div>
                 </motion.div>
@@ -1133,7 +1151,7 @@ export default function SettingsPage() {
                             </div>
                             <div className="flex items-center justify-between py-2">
                                 <span className="text-xs text-muted-foreground font-medium">Instagram Connected</span>
-                                <span className={`text-xs font-bold ${instagramStatus.connected ? 'text-emerald-400' : 'text-red-400'}`}>{instagramStatus.connected ? 'Yes' : 'No'}</span>
+                                <span className={`text-xs font-bold ${instagramStatus?.connected ? 'text-emerald-400' : 'text-red-400'}`}>{instagramStatus?.connected ? 'Yes' : 'No'}</span>
                             </div>
                         </div>
                     </motion.div>
