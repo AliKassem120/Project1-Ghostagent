@@ -28,9 +28,9 @@ type Conversation = {
     isComment?: boolean;
     platform?: 'instagram' | 'whatsapp'; // Track message source
 };
-
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useAutopilot } from '@/context/AutopilotContext';
+import { buildConversations } from '@/lib/dashboard/inbox-utils';
 
 // WhatsApp brand icon (official path)
 const WhatsAppIcon = ({ className }: { className?: string }) => (
@@ -369,113 +369,7 @@ export default function InteractionsPage() {
     };
 
     const conversations = useMemo(() => {
-        const threads: Record<string, Conversation> = {};
-
-        logs.forEach(log => {
-            const meta = log.metadata || {};
-            const chatId = meta.chat_id || meta.chatId || 'unknown';
-
-            // 🛑 Strict Event Filtering: Only process actual conversations
-            const allowedEvents = ['INCOMING_DM', 'INCOMING_MESSAGE', 'INCOMING_COMMENT', 'AI_REPLY', 'COMMENT_REPLY', 'DRAFT_REPLY', 'DRAFT_COMMENT_REPLY', 'MANUAL_REPLY'];
-            if (!allowedEvents.includes(log.event_type)) return;
-
-            if (log.event_type === 'INCOMING_DM' && log.description.includes('ghostagent.qzz.io')) return;
-
-            // Strip out legacy 'V3 sent:' prefixes
-            let rawDescription = log.description || '';
-            rawDescription = rawDescription.replace(/^(V[1-3]\s+sent:\s*)/i, 'Sent: ');
-
-            let text = rawDescription;
-            let isBot = log.event_type === 'AI_REPLY' || log.event_type === 'COMMENT_REPLY';
-            let isDraft = log.event_type === 'DRAFT_REPLY' || log.event_type === 'DRAFT_COMMENT_REPLY';
-            let isManual = log.event_type === 'MANUAL_REPLY' || (meta.is_sender && !isBot && !isDraft);
-            let isComment = log.event_type.includes('COMMENT');
-            let senderName = 'Unknown';
-
-            // Extract Sender Name & Text
-            if (log.event_type === 'INCOMING_DM') {
-                if (meta.sender && meta.sender.attendee_name) {
-                    senderName = meta.sender.attendee_name;
-                } else if (meta.username && meta.username !== 'You') {
-                    senderName = meta.username;
-                } else {
-                    const parts = rawDescription.split('from');
-                    senderName = parts[parts.length - 1]?.trim() || 'User';
-                }
-                text = text.replace(/^Received: "(.*)" from .*$/, '$1').replace(/"/g, '').trim();
-            } else if (log.event_type === 'INCOMING_MESSAGE') {
-                // Handling for standard meta messenger webhooks if they use this type
-                const rawName = meta.username || 'User';
-                senderName = rawName.startsWith('User ') ? 'User' : rawName;
-                text = text.replace(/^.*: "(.*)"$/, '$1').replace(/"/g, '').trim();
-            } else if (log.event_type === 'INCOMING_COMMENT') {
-                senderName = meta.commenter_name ? `@${meta.commenter_name}` : 'Instagram User';
-                text = text.replace(/^Comment from @.*: "(.*)"$/, '$1').replace(/"/g, '').trim();
-            } else if (isBot) {
-                senderName = isComment ? 'Ghost AI (Comment)' : 'Ghost AI';
-                text = text.replace(/^(Sent|Replied to @.*): "(.*)"$/, '$2').replace(/"/g, '').trim();
-            } else if (isDraft) {
-                senderName = isComment ? 'Ghost AI (Draft Comment)' : 'Ghost AI (Draft)';
-                text = text.replace(/^Draft( Comment Reply)?: "(.*)"$/, '$2').replace(/"/g, '').trim();
-            } else if (isManual) {
-                senderName = 'You';
-                text = text.replace(/^Sent \(Manual\): "(.*)"$/, '$1').replace(/"/g, '').trim();
-            }
-
-            // Cleanup text quotes if regex didn't catch
-            if (text.startsWith('"') && text.endsWith('"')) text = text.slice(1, -1);
-
-            if (!threads[chatId]) {
-                threads[chatId] = {
-                    chat_id: chatId,
-                    username: 'User', // Default
-                    lastMessage: text,
-                    timestamp: log.timestamp,
-                    messages: [],
-                    account_id: meta.account_id, // Capture account_id if available
-                    isComment: isComment, // Add flag
-                    platform: meta.platform === 'whatsapp' ? 'whatsapp' : 'instagram',
-                };
-            }
-
-            // Capture account_id if missing and available in this log
-            if (!threads[chatId].account_id && meta.account_id) {
-                threads[chatId].account_id = meta.account_id;
-            }
-
-            // Update Username Logic (Prioritize Customer Name)
-            // If current name is generic ('User', 'You', 'Ghost AI'), try to update it
-            const currentName = threads[chatId].username;
-            const isGenericName = currentName === 'User' || currentName === 'You' || currentName === 'Ghost AI' || currentName.startsWith('User ');
-            const isNewSenderGeneric = senderName === 'User' || senderName === 'You' || senderName === 'Ghost AI' || senderName.startsWith('User ');
-
-            if (isGenericName && !isNewSenderGeneric) {
-                threads[chatId].username = senderName;
-            }
-
-            // 🔥 Override with fetched profile if available (e.g. from Meta Graph API)
-            if (fetchedProfiles[chatId]) {
-                threads[chatId].username = fetchedProfiles[chatId];
-            }
-
-            threads[chatId].messages.push({
-                id: log.id,
-                text,
-                sender: senderName,
-                is_sender: isBot || isManual || isDraft,
-                is_bot: isBot,
-                is_manual: isManual,
-                timestamp: log.timestamp,
-                type: log.event_type
-            });
-
-            threads[chatId].lastMessage = text;
-            threads[chatId].timestamp = log.timestamp;
-        });
-
-        return Object.values(threads).sort((a, b) =>
-            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        );
+        return buildConversations(logs, fetchedProfiles);
     }, [logs, fetchedProfiles]);
 
     const activeChat = conversations.find(c => c.chat_id === selectedChatId);
