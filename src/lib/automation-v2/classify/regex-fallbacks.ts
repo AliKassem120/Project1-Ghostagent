@@ -15,6 +15,7 @@ export type Intent =
     | 'purchase_intent'
     | 'order_status'
     | 'cancel_order'
+    | 'cancel_status'
     | 'modify_order'
     | 'service_question'
     | 'price_question'
@@ -29,6 +30,7 @@ export type Intent =
     | 'complaint'
     | 'correction'
     | 'human_handoff'
+    | 'frustration_stop'
     | 'confirmation'
     | 'rejection'
     | 'pricing_question'
@@ -68,14 +70,61 @@ export function classifyByRegex(message: string): RegexClassification | null {
         return { intent: 'human_handoff', confidence: 0.95 };
     }
 
-    // ── Cancel order (MUST be before purchase_intent) ────────
-    if (/\b(cancel\s*(my)?\s*order|el8e?\s*(el)?\s*order|bade?\s*el8e|الغ)\b/i.test(msg)) {
-        return { intent: 'cancel_order', confidence: 0.92 };
+    // ── Frustration / Stop / Leave me alone ──────────────────
+    if (/\b(7el\s*3ann?e|hel\s*3ann?e|fek\s*3ann?e|rou7|ma\s*tjew[ea]b|ma\s*bde\s*shi|ma\s*bde\s*se3de)\b/i.test(msg)) {
+        return { intent: 'frustration_stop', confidence: 0.93 };
+    }
+    if (/\b(leave\s*me\s*alone|stop\s*replying|stop\s*messaging|shut\s*up|don'?t\s*message\s*me|forget\s*it)\b/i.test(msg)) {
+        return { intent: 'frustration_stop', confidence: 0.93 };
+    }
+    if (/^(khalas|khallas|tyb\s*meshe|meshe\s*khalas)$/i.test(msg)) {
+        return { intent: 'frustration_stop', confidence: 0.90 };
     }
 
-    // ── Cancel appointment (MUST be before booking_intent) ────
-    if (/\b(cancel\s*(my)?\s*(appointment|booking)|el8e?\s*(el)?\s*(maw3ed|7ajez))\b/i.test(msg)) {
+    // ── Cancel status check ("did you cancel it?") (MUST be before cancel patterns) ────────
+    if (/\b(3melt\s*cancel|sar\s*cancel|tcancel|did\s*you\s*cancel|is\s*it\s*cancell?ed|l\s*order\s*tenla8a|maw3de?\s*tenla8a|cancel\s*sar)\b/i.test(msg)) {
+        return { intent: 'cancel_status', confidence: 0.90 };
+    }
+
+    // ── Cancel appointment (MUST be BEFORE cancel_order — "el8e l maw3ed" has "el8e") ────
+    if (/\b(cancel\s*(my)?\s*(appointment|booking)|i\s*can'?t\s*come|i\s*won'?t\s*come|i\s*don'?t\s*want\s*the\s*appointment|remove\s*my\s*booking)\b/i.test(msg)) {
         return { intent: 'cancel_appointment', confidence: 0.92 };
+    }
+    if (/\b(el8e?|elghi)\s*(el|l)\s*(maw3ed|7ajez)\b/i.test(msg)) {
+        return { intent: 'cancel_appointment', confidence: 0.92 };
+    }
+    if (/\b(bde?|bade?|badde?)\s*(el8e?|elghi)\s*(l|el)?\s*(maw3ed|7ajez)\b/i.test(msg)) {
+        return { intent: 'cancel_appointment', confidence: 0.92 };
+    }
+    if (/\b(ma\s*b[a2]?a?\s*bde?\s*(l|el)?\s*maw3ed|ma\s*fiy?ye?\s*eje|ma\s*rah\s*eje|ma\s*bde?\s*eje)\b/i.test(msg)) {
+        return { intent: 'cancel_appointment', confidence: 0.92 };
+    }
+    if (/\b(cancel\s*(lal|l)\s*(maw3ed|7ajez))\b/i.test(msg)) {
+        return { intent: 'cancel_appointment', confidence: 0.92 };
+    }
+    if (/\b(fik\s*t3mel\s*cancel)\b/i.test(msg) && /\b(maw3ed|7ajez)\b/i.test(msg)) {
+        return { intent: 'cancel_appointment', confidence: 0.92 };
+    }
+
+    // ── Cancel order (MUST be before purchase_intent) ────────
+    // Comprehensive Arabizi cancel patterns
+    if (/\b(cancel\s*(my)?\s*order|cancel\s*(it|this)|i\s*don'?t\s*want\s*(the\s*order|it\s*anymore)|never\s*mind\s*(the\s*)?order|stop\s*the\s*order|remove\s*the\s*order)\b/i.test(msg)) {
+        return { intent: 'cancel_order', confidence: 0.92 };
+    }
+    if (/\b(el8e?|elghi|el8iya|el8eha)\s*(el|l)?\s*(order|talbiye)?\b/i.test(msg)) {
+        return { intent: 'cancel_order', confidence: 0.92 };
+    }
+    if (/\b(m[a3]sh?\s*bde?\s*(l|el)?\s*order|ma\s*b[a2]?a?\s*bde?\s*(l|el)?\s*order|ma\s*badd?e?\s*(l|el)?\s*order)\b/i.test(msg)) {
+        return { intent: 'cancel_order', confidence: 0.92 };
+    }
+    if (/\b(bde?|bade?|badde?)\s*(el8e?|elghi)\s*(l|el)?\s*(order|talbiye)\b/i.test(msg)) {
+        return { intent: 'cancel_order', confidence: 0.92 };
+    }
+    if (/\b(cancel\s*(lal|l)\s*order|order\s*cancel|3mell?e\s*cancel|fik\s*t3mel\s*cancel|ma\s*bde?\s*ye?ha)\b/i.test(msg)) {
+        return { intent: 'cancel_order', confidence: 0.92 };
+    }
+    if (/\b(khalas\s*ma\s*bde?)\b/i.test(msg) && /\b(order|talbiye)\b/i.test(msg)) {
+        return { intent: 'cancel_order', confidence: 0.90 };
     }
 
     // ── Order status (MUST be before purchase_intent) ────────
@@ -161,7 +210,7 @@ export function classifyByRegex(message: string): RegexClassification | null {
     }
 
     // ── Product / Service availability ────────────────────────
-    if (/\b(available|in\s*stock|do\s*you\s*have|fi\s*(meno|3andkon)|mawjud|mawjoud|what.*(?:sell|offer|provide)|menu|catalog)\b/i.test(msg)) {
+    if (/\b(available|in\s*stock|do\s*you\s*have|fi\s*(meno|3andkon)?|mawjud|mawjoud|what.*(?:sell|offer|provide)|menu|catalog)\b/i.test(msg)) {
         return { intent: 'product_availability', confidence: 0.82 };
     }
     // ── Service question ─────────────────────────────────────

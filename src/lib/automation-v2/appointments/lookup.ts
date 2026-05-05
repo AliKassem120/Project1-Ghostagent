@@ -40,7 +40,7 @@ export async function lookupLatestAppointment(
         .select('id, service, appointment_date, start_time, end_time, duration_minutes, customer_name, customer_phone, status, created_at')
         .eq('workspace_id', workspaceId)
         .eq('instagram_user_id', chatId)
-        .in('status', ['confirmed', 'pending'])
+        .in('status', ['confirmed', 'pending', 'Confirmed', 'Pending'])
         .gte('appointment_date', today)
         .order('appointment_date', { ascending: true })
         .limit(1)
@@ -107,7 +107,7 @@ export async function rescheduleAppointment(
             end_time: endTime,
         })
         .eq('id', appointmentId)
-        .in('status', ['confirmed', 'pending']);
+        .in('status', ['confirmed', 'pending', 'Confirmed', 'Pending']);
 
     if (error) {
         v2log.error('APPT_LOOKUP', 'Failed to reschedule', { appointmentId, error });

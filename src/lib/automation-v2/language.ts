@@ -112,11 +112,13 @@ export function detectLanguage(message: string): DetectedLanguage {
 
 const YES_WORDS = [
     // English
-    'yes', 'yeah', 'yep', 'yea', 'ok', 'okay', 'sure', 'confirm', 'correct',
+    'yes', 'yeah', 'yep', 'yea', 'y', 'ok', 'okay', 'sure', 'confirm', 'correct',
+    'go ahead', 'do it',
     // Arabic
     'نعم', 'ايوا', 'اي', 'ايه', 'تمام', 'أكيد', 'صح', 'طيب',
     // Arabizi
-    'eh', 'ee', 'akid', 'tamem', 'tayeb', 'yalla', 'mazbout',
+    'eh', 'ee', 'e', 'akid', 'tamem', 'tamam', 'tayeb', 'yalla', 'mazbout',
+    'aywa', 'tmm', 'mnih',
     // French
     'oui', 'ouais', 'd\'accord', 'bien sur', 'absolument',
     // Spanish
@@ -125,11 +127,11 @@ const YES_WORDS = [
 
 const NO_WORDS = [
     // English
-    'no', 'nope', 'nah', 'cancel', 'stop', 'never',
+    'no', 'nope', 'nah', 'cancel', 'stop', 'never', 'no thanks', 'never mind',
     // Arabic
     'لا', 'مش', 'ابدا',
     // Arabizi
-    'la', 'la2', 'mish', 'msh',
+    'la', 'la2', 'mish', 'msh', 'mesh', 'khalas',
     // French
     'non', 'pas', 'jamais', 'annuler',
     // Spanish
@@ -142,7 +144,8 @@ export function detectYesNo(message: string): 'yes' | 'no' | null {
 
     // Short messages (1-4 words) are more likely to be yes/no
     if (tokens.length <= 4) {
-        const hasWord = (list: string[]) => tokens.some(token => list.includes(token));
+        const hasWord = (list: string[]) => 
+            list.some(w => w.includes(' ') ? normalized.includes(w) : tokens.includes(w));
         
         if (hasWord(YES_WORDS)) return 'yes';
         if (hasWord(NO_WORDS)) return 'no';

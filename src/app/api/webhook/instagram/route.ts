@@ -4,6 +4,12 @@ import { generateGhostReply } from '@/utils/ghost-brain';
 import { upsertDmBuffer, claimDmBuffer, clearDmBuffer, releaseDmBuffer, DEBOUNCE_SECONDS } from '@/utils/dm-debounce';
 import { containsAlertKeyword, triggerManagerAlert, ALERT_KEYWORDS } from '@/utils/whatsapp-alerts';
 import { getBotControlDecision } from '@/lib/god-mode/bot-controls';
+import { classifyByRegex } from '@/lib/automation-v2/classify/regex-fallbacks';
+import { extractAvailabilityCandidate } from '@/lib/automation-v2/ecommerce/extract-product';
+import { searchProducts, findBestProductMatch } from '@/lib/automation-v2/ecommerce/products';
+import { loadActiveServices, findBestServiceMatch } from '@/lib/automation-v2/appointments/services';
+import { clearConversationState } from '@/lib/automation-v2/state/store';
+import type { PostActionContext } from '@/lib/automation-v2/state/types';
 
 import crypto from 'crypto';
 import { checkUserLimit } from '@/lib/billing';
@@ -354,10 +360,10 @@ async function processWebhookEvent(body: any) {
                     // ── GATE: Check user's comment_auto_reply setting ──
                     let commentSettings: any = null;
                     if (commentWorkspaceId) {
-                        const { data: ws } = await supabaseAdmin.from('ai_settings').select('comment_auto_reply, comment_keywords, comment_max_per_post, comment_reply_style').eq('id', commentWorkspaceId).maybeSingle();
+                        const { data: ws } = await supabaseAdmin.from('ai_settings').select('business_type, comment_auto_reply, comment_keywords, comment_max_per_post, comment_reply_style').eq('id', commentWorkspaceId).maybeSingle();
                         commentSettings = ws;
                     } else {
-                        const { data: ws } = await supabaseAdmin.from('ai_settings').select('comment_auto_reply, comment_keywords, comment_max_per_post, comment_reply_style').eq('user_id', ownerId).maybeSingle();
+                        const { data: ws } = await supabaseAdmin.from('ai_settings').select('business_type, comment_auto_reply, comment_keywords, comment_max_per_post, comment_reply_style').eq('user_id', ownerId).maybeSingle();
                         commentSettings = ws;
                     }
                     if (commentSettings && commentSettings.comment_auto_reply === false) {
@@ -492,6 +498,71 @@ async function processWebhookEvent(body: any) {
                         logDescription = replyStyle === 'dm'
                             ? `Sent DM to @${commenterName}: "${plan.privateDmText}"`
                             : `Replied publicly & via DM to @${commenterName}`;
+
+                        // ── Context Seeding (Brain Optimization) ──
+                        try {
+                            const businessType = commentSettings?.business_type || 'ecommerce';
+                            const intentClass = classifyByRegex(commentText);
+                            const intent = intentClass?.intent;
+
+                            let seedContext: PostActionContext | undefined;
+
+                            if ((intent === 'product_availability' || intent === 'purchase_intent') && businessType === 'ecommerce') {
+                                const candidate = extractAvailabilityCandidate(commentText);
+                                if (candidate) {
+                                    const products = await searchProducts({ supabase: supabaseAdmin, workspaceId: commentWorkspaceId || ownerId, query: candidate, limit: 10 });
+                                    const matched = findBestProductMatch(products, candidate);
+                                    if (matched && matched.stockLevel > 0) {
+                                        seedContext = {
+                                            type: 'order',
+                                            productName: matched.itemName,
+                                            productId: matched.id,
+                                            unitPrice: matched.price,
+                                            quantity: 1,
+                                            customer: { name: '', phone: '' },
+                                            createdAt: new Date().toISOString(),
+                                            editableUntil: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+                                            source: 'comment_private_reply',
+                                            ctaType: 'purchase_offer',
+                                        };
+                                    }
+                                }
+                            } else if ((intent === 'product_availability' || intent === 'booking_intent' || intent === 'service_question') && businessType === 'appointments') {
+                                const candidate = extractAvailabilityCandidate(commentText);
+                                if (candidate) {
+                                    const services = await loadActiveServices(supabaseAdmin, commentWorkspaceId || ownerId);
+                                    const matched = findBestServiceMatch(services, candidate);
+                                    if (matched) {
+                                        seedContext = {
+                                            type: 'appointment',
+                                            serviceName: matched.name,
+                                            serviceId: matched.id,
+                                            servicePrice: matched.price,
+                                            serviceDuration: matched.durationMinutes,
+                                            customer: { name: '', phone: '' },
+                                            createdAt: new Date().toISOString(),
+                                            editableUntil: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+                                            source: 'comment_private_reply',
+                                            ctaType: 'booking_offer',
+                                        };
+                                    }
+                                }
+                            }
+
+                            if (seedContext) {
+                                await clearConversationState(
+                                    supabaseAdmin, 
+                                    ownerId, 
+                                    commentWorkspaceId || ownerId, 
+                                    commenterId, 
+                                    businessType, 
+                                    seedContext
+                                );
+                                console.log(`🌱 [Context Seed] Seeded ${seedContext.type} context for @${commenterName} from comment DM.`);
+                            }
+                        } catch (seedErr) {
+                            console.error('❌ Failed to seed context from comment:', seedErr);
+                        }
                     }
 
                     await supabaseAdmin.from('activity_log').insert({

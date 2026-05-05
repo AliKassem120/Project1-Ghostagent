@@ -40,6 +40,9 @@ export interface PostActionContext {
     // Appointment-specific
     lastAppointmentId?: string;
     serviceName?: string;
+    serviceId?: string;
+    servicePrice?: number;
+    serviceDuration?: number;
     date?: string;
     startTime?: string;
     endTime?: string;
@@ -52,6 +55,16 @@ export interface PostActionContext {
     createdAt: string;
     /** Timestamp after which the action is no longer editable via DM */
     editableUntil: string;
+    /** Where this context originated from */
+    source?: 'comment_private_reply' | 'dm_cta' | 'completed_action';
+    /** What kind of CTA the bot sent that expects a follow-up */
+    ctaType?: 'purchase_offer' | 'booking_offer' | 'price_answer' | 'availability_answer';
+    /** Original comment text if this came from a comment */
+    originalCommentText?: string;
+    /** Instagram comment ID */
+    commentId?: string;
+    /** Product ID from inventory match */
+    productId?: string;
 }
 
 // ── Appointment State Data ───────────────────────────────────
@@ -75,9 +88,9 @@ export interface AppointmentStateData {
     };
     missingFields: string[];
     postContext?: PostActionContext | null;
+    /** Where this state was initiated from */
+    source?: 'comment_private_reply' | 'dm_cta' | 'completed_action';
 }
-
-// ── E-Commerce State Data ────────────────────────────────────
 
 export interface EcommerceStateData {
     stage: ConversationStage;
@@ -97,9 +110,9 @@ export interface EcommerceStateData {
     };
     missingFields: string[];
     postContext?: PostActionContext | null;
+    /** Where this state was initiated from */
+    source?: 'comment_private_reply' | 'dm_cta' | 'completed_action';
 }
-
-// ── Idle State Data (holds only post-context) ────────────────
 
 export interface IdleStateData {
     stage: 'idle';

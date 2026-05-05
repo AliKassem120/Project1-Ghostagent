@@ -26,7 +26,7 @@ import { lookupLatestOrder, cancelLatestOrder, updateOrderVariant, updateOrderAd
 import { searchProducts, findBestProductMatch } from './ecommerce/products';
 import { extractAvailabilityCandidate } from './ecommerce/extract-product';
 import { lookupLatestAppointment, cancelLatestAppointment, rescheduleAppointment } from './appointments/lookup';
-import { loadActiveServices } from './appointments/services';
+import { loadActiveServices, findBestServiceMatch } from './appointments/services';
 import { loadBusinessHours, getHoursForDay } from './appointments/hours';
 import { formatTime12 } from './time';
 import { detectLanguage, detectYesNo } from './language';
@@ -184,6 +184,30 @@ export async function runDecisionEngine(
                 shouldReply: true,
             },
             classifiedIntent: 'greeting',
+            language: replyLang,
+            stateBefore: 'idle',
+            stateAfter: 'idle',
+        };
+    }
+
+    // ── Frustration / Stop — polite disengage ────────────────
+    if (classification.intent === 'frustration_stop') {
+        return {
+            handledByFSM: true,
+            fsmResult: {
+                replyText: t(
+                    'Sorry about that. I won\'t bother you. If you need anything, just message us.',
+                    'Be3tezer. Ma b3ajzak. Eza bdk shi, rase.',
+                    replyLang
+                ),
+                nextStage: 'idle',
+                nextData: null,
+                actions: ['frustration_stop'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            },
+            classifiedIntent: 'frustration_stop',
             language: replyLang,
             stateBefore: 'idle',
             stateAfter: 'idle',
@@ -439,6 +463,81 @@ export async function runDecisionEngine(
         };
     }
 
+    // ── Cancel status check ("did you cancel it?") ──────────
+    if (classification.intent === 'cancel_status') {
+        if (input.workspaceType === 'ecommerce') {
+            const order = await lookupLatestOrder(input.supabase, input.workspaceId, input.chatId);
+            if (order) {
+                const isCancelled = order.status.toLowerCase() === 'cancelled';
+                const isPending = order.status.toLowerCase() === 'pending';
+                let replyText: string;
+                if (isCancelled) {
+                    replyText = t('Yes, your order has been cancelled.', 'Eh, el order tenla8a.', replyLang);
+                } else if (isPending) {
+                    replyText = t('Not yet — it\'s still pending. Want me to cancel it?', 'La2 ba3do pending. Badak el8e?', replyLang);
+                } else {
+                    replyText = t(`Your order status is: ${order.status}`, `Status el order: ${order.status}`, replyLang);
+                }
+                return {
+                    handledByFSM: true,
+                    fsmResult: {
+                        replyText,
+                        nextStage: 'idle', nextData: null,
+                        actions: ['cancel_status_order'],
+                        dbWriteAttempted: false, dbWriteSuccess: false, shouldReply: true,
+                    },
+                    classifiedIntent: 'cancel_status', language: replyLang,
+                    stateBefore: 'idle', stateAfter: 'idle',
+                };
+            }
+            return {
+                handledByFSM: true,
+                fsmResult: {
+                    replyText: t('I can\'t find a recent order.', 'Ma l2et order 2arib.', replyLang),
+                    nextStage: 'idle', nextData: null,
+                    actions: ['cancel_status_no_order'],
+                    dbWriteAttempted: false, dbWriteSuccess: false, shouldReply: true,
+                },
+                classifiedIntent: 'cancel_status', language: replyLang,
+                stateBefore: 'idle', stateAfter: 'idle',
+            };
+        }
+        if (input.workspaceType === 'appointments') {
+            const appt = await lookupLatestAppointment(input.supabase, input.workspaceId, input.chatId);
+            if (appt) {
+                const isCancelled = appt.status.toLowerCase() === 'cancelled';
+                let replyText: string;
+                if (isCancelled) {
+                    replyText = t('Yes, your appointment has been cancelled.', 'Eh, el maw3ed tenla8a.', replyLang);
+                } else {
+                    replyText = t('Not yet — it\'s still active. Want me to cancel it?', 'La2 ba3do mawjoud. Badak el8e?', replyLang);
+                }
+                return {
+                    handledByFSM: true,
+                    fsmResult: {
+                        replyText,
+                        nextStage: 'idle', nextData: null,
+                        actions: ['cancel_status_appointment'],
+                        dbWriteAttempted: false, dbWriteSuccess: false, shouldReply: true,
+                    },
+                    classifiedIntent: 'cancel_status', language: replyLang,
+                    stateBefore: 'idle', stateAfter: 'idle',
+                };
+            }
+            return {
+                handledByFSM: true,
+                fsmResult: {
+                    replyText: t('I can\'t find an upcoming appointment.', 'Ma l2et maw3ed 2arib.', replyLang),
+                    nextStage: 'idle', nextData: null,
+                    actions: ['cancel_status_no_appt'],
+                    dbWriteAttempted: false, dbWriteSuccess: false, shouldReply: true,
+                },
+                classifiedIntent: 'cancel_status', language: replyLang,
+                stateBefore: 'idle', stateAfter: 'idle',
+            };
+        }
+    }
+
     // ── Business hours — deterministic DB lookup ─────────────
     if (classification.intent === 'business_hours') {
         const hours = await loadBusinessHours(input.supabase, input.workspaceId);
@@ -563,6 +662,7 @@ export async function runDecisionEngine(
             if (matched) {
                 const inStock = matched.stockLevel > 0;
                 let replyText: string;
+                let ctaType: 'purchase_offer' | 'price_answer' | 'availability_answer' | undefined;
 
                 if (classification.intent === 'price_question') {
                     replyText = t(
@@ -570,19 +670,44 @@ export async function runDecisionEngine(
                         `${matched.itemName} — $${matched.price}`,
                         replyLang
                     );
+                    ctaType = 'price_answer';
                 } else {
                     // availability
-                    replyText = inStock
-                        ? t(
+                    if (inStock) {
+                        replyText = t(
                             `Yes, ${matched.itemName} is available — $${matched.price}. Want one?`,
                             `Eh, ${matched.itemName} mawjoud — $${matched.price}. Badak wa7ad?`,
                             replyLang
-                        )
-                        : t(
+                        );
+                        ctaType = 'purchase_offer';
+                    } else {
+                        replyText = t(
                             `${matched.itemName} is currently out of stock.`,
                             `${matched.itemName} msh mawjoud halla2.`,
                             replyLang
                         );
+                    }
+                }
+
+                // Seed postContext so "yeah" after "Want one?" continues the flow
+                const offerPostContext: PostActionContext | undefined = (inStock && ctaType) ? {
+                    type: 'order',
+                    productName: matched.itemName,
+                    productId: matched.id,
+                    unitPrice: matched.price,
+                    quantity: 1,
+                    customer: { name: '', phone: '' },
+                    createdAt: new Date().toISOString(),
+                    editableUntil: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+                    source: 'dm_cta',
+                    ctaType,
+                } : undefined;
+
+                if (offerPostContext) {
+                    await clearConversationState(
+                        input.supabase, input.userId, input.workspaceId, input.chatId,
+                        input.workspaceType, offerPostContext
+                    );
                 }
 
                 return {
@@ -595,6 +720,7 @@ export async function runDecisionEngine(
                         dbWriteAttempted: false,
                         dbWriteSuccess: false,
                         shouldReply: true,
+                        postContext: offerPostContext,
                     },
                     classifiedIntent: classification.intent,
                     language: replyLang,
@@ -699,6 +825,60 @@ export async function runDecisionEngine(
         const services = await loadActiveServices(input.supabase, input.workspaceId);
 
         if (services.length > 0) {
+            // Extract service candidate from the message
+            const candidate = extractAvailabilityCandidate(input.message);
+            const isSpecificQuery = candidate.length > 0;
+
+            // Try to match a specific service
+            if (isSpecificQuery) {
+                const matched = findBestServiceMatch(services, candidate);
+                if (matched) {
+                    const replyText = t(
+                        `${matched.name} — $${matched.price} (${matched.durationMinutes}min). Want to book?`,
+                        `${matched.name} — $${matched.price} (${matched.durationMinutes}d2i2a). Badak te7joz?`,
+                        replyLang
+                    );
+
+                    // Seed postContext for booking CTA
+                    const servicePostContext: PostActionContext = {
+                        type: 'appointment',
+                        serviceName: matched.name,
+                        serviceId: matched.id,
+                        servicePrice: matched.price,
+                        serviceDuration: matched.durationMinutes,
+                        customer: { name: '', phone: '' },
+                        createdAt: new Date().toISOString(),
+                        editableUntil: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+                        source: 'dm_cta',
+                        ctaType: 'booking_offer',
+                    };
+
+                    await clearConversationState(
+                        input.supabase, input.userId, input.workspaceId, input.chatId,
+                        input.workspaceType, servicePostContext
+                    );
+
+                    return {
+                        handledByFSM: true,
+                        fsmResult: {
+                            replyText,
+                            nextStage: 'idle',
+                            nextData: null,
+                            actions: ['service_search_specific'],
+                            dbWriteAttempted: false,
+                            dbWriteSuccess: false,
+                            shouldReply: true,
+                            postContext: servicePostContext,
+                        },
+                        classifiedIntent: classification.intent,
+                        language: replyLang,
+                        stateBefore: 'idle',
+                        stateAfter: 'idle',
+                    };
+                }
+            }
+
+            // General service listing
             const listing = services.slice(0, 6).map(s => `• ${s.name} — $${s.price} (${s.durationMinutes}min)`).join('\n');
             const replyText = classification.intent === 'price_question'
                 ? (services.length === 1
@@ -912,6 +1092,117 @@ async function handlePostContextIntent(
                 nextStage: 'idle',
                 nextData: null,
                 actions: ['post_context_reschedule_ask'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            };
+        }
+
+        case 'accept_offer': {
+            // User said "yeah/ok/sure" after a CTA like "Want one?" or "Want to book?"
+            if (!pc.ctaType) return null;
+
+            if (pc.ctaType === 'purchase_offer' && pc.type === 'order' && pc.productName) {
+                // Enter ecommerce FSM with product pre-filled
+                const initialState: EcommerceStateData = {
+                    stage: 'awaiting_order_details',
+                    pendingAction: 'create_order',
+                    order: {
+                        productId: pc.productId,
+                        productName: pc.productName,
+                        unitPrice: pc.unitPrice,
+                        quantity: pc.quantity || 1,
+                        variantLabel: pc.variantLabel,
+                    },
+                    customer: pc.customer?.name ? {
+                        name: pc.customer.name,
+                        phone: pc.customer.phone,
+                        address: pc.customer.address,
+                    } : {},
+                    missingFields: ['customerName', 'customerPhone', 'deliveryAddress'],
+                    source: pc.source,
+                };
+
+                // Save FSM state so next message goes through ecommerce FSM
+                await saveConversationState(
+                    input.supabase, input.userId, input.workspaceId, input.chatId,
+                    input.workspaceType as 'ecommerce', 'awaiting_order_details', initialState
+                );
+
+                return {
+                    replyText: t(
+                        'Send your name, phone number, and delivery address.',
+                        'B3atle ismak, ra2mak w el 3nwen.',
+                        lang
+                    ),
+                    nextStage: 'awaiting_order_details',
+                    nextData: initialState,
+                    actions: ['accept_offer_ecommerce'],
+                    dbWriteAttempted: false,
+                    dbWriteSuccess: false,
+                    shouldReply: true,
+                };
+            }
+
+            if (pc.ctaType === 'booking_offer' && pc.type === 'appointment' && pc.serviceName) {
+                // Enter appointment FSM with service pre-filled
+                const initialState: AppointmentStateData = {
+                    stage: 'awaiting_date_time',
+                    pendingAction: 'create_appointment',
+                    appointment: {
+                        serviceId: pc.serviceId,
+                        serviceName: pc.serviceName,
+                        servicePrice: pc.servicePrice,
+                        serviceDuration: pc.serviceDuration,
+                    },
+                    customer: pc.customer?.name ? {
+                        name: pc.customer.name,
+                        phone: pc.customer.phone,
+                    } : {},
+                    missingFields: ['date', 'time'],
+                    source: pc.source,
+                };
+
+                // Save FSM state so next message goes through appointments FSM
+                await saveConversationState(
+                    input.supabase, input.userId, input.workspaceId, input.chatId,
+                    input.workspaceType as 'appointments', 'awaiting_date_time', initialState
+                );
+
+                return {
+                    replyText: t(
+                        'What day and time works for you?',
+                        'Aya yom w se3a byna7sebak?',
+                        lang
+                    ),
+                    nextStage: 'awaiting_date_time',
+                    nextData: initialState,
+                    actions: ['accept_offer_appointment'],
+                    dbWriteAttempted: false,
+                    dbWriteSuccess: false,
+                    shouldReply: true,
+                };
+            }
+
+            return null;
+        }
+
+        case 'reject_offer': {
+            // User said "no/la/mish" after a CTA
+            if (!pc.ctaType) return null;
+
+            // Clear the CTA context
+            await clearConversationState(input.supabase, input.userId, input.workspaceId, input.chatId, input.workspaceType);
+
+            return {
+                replyText: t(
+                    'No problem. Let me know if you need anything.',
+                    'Wala yhemak. Khaberne eza bdk shi.',
+                    lang
+                ),
+                nextStage: 'idle',
+                nextData: null,
+                actions: ['reject_offer'],
                 dbWriteAttempted: false,
                 dbWriteSuccess: false,
                 shouldReply: true,

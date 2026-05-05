@@ -47,7 +47,7 @@ export async function lookupLatestOrder(
 
     if (error || !data) return null;
 
-    const isEditable = data.status === 'Pending' && isWithinEditWindow(data.created_at, 30);
+    const isEditable = data.status.toLowerCase() === 'pending' && isWithinEditWindow(data.created_at, 30);
 
     return {
         id: data.id,
@@ -76,7 +76,7 @@ export async function updateOrderVariant(
         .from('orders')
         .update({ variant_label: newVariant })
         .eq('id', orderId)
-        .eq('status', 'Pending');
+        .in('status', ['Pending', 'pending']);
 
     if (error) {
         v2log.error('ECOM_LOOKUP', 'Failed to update variant', { orderId, error });
@@ -97,7 +97,7 @@ export async function updateOrderAddress(
         .from('orders')
         .update({ customer_address: newAddress })
         .eq('id', orderId)
-        .eq('status', 'Pending');
+        .in('status', ['Pending', 'pending']);
 
     if (error) {
         v2log.error('ECOM_LOOKUP', 'Failed to update address', { orderId, error });
@@ -118,7 +118,7 @@ export async function updateOrderQuantity(
         .from('orders')
         .update({ quantity: newQuantity })
         .eq('id', orderId)
-        .eq('status', 'Pending');
+        .in('status', ['Pending', 'pending']);
 
     if (error) {
         v2log.error('ECOM_LOOKUP', 'Failed to update quantity', { orderId, error });
@@ -136,7 +136,7 @@ export async function cancelLatestOrder(
     chatId: string
 ): Promise<{ success: boolean; productName?: string }> {
     const order = await lookupLatestOrder(supabase, workspaceId, chatId);
-    if (!order || order.status !== 'Pending') {
+    if (!order || order.status.toLowerCase() !== 'pending') {
         return { success: false };
     }
 

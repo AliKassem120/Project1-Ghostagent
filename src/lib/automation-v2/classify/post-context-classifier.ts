@@ -15,6 +15,8 @@ export type PostContextIntent =
     | 'reuse_details'         // "same address", "same 3nwen"
     | 'reschedule'            // "same time next week", "change the date"
     | 'modify_appointment'    // "change it to 4pm"
+    | 'accept_offer'          // "yeah", "ok", "sure" after a CTA
+    | 'reject_offer'          // "no", "la", "mish" after a CTA
     | 'unrelated';            // does not refer to recent action
 
 export interface PostContextClassification {
@@ -51,12 +53,20 @@ const ORDER_STATUS_PATTERNS = [
 const CANCEL_LATEST_PATTERNS = [
     // English
     /\b(cancel)\s*(it|this|that|the\s*(order|appointment|booking))\b/i,
-    /\b(i\s*don'?t\s*want\s*it)\b/i,
+    /\b(i\s*don'?t\s*want\s*(it|the\s*order|the\s*appointment))\b/i,
     /\b(never\s*mind)\b/i,
+    /\b(i\s*don'?t\s*want\s*it\s*anymore)\b/i,
+    /\b(stop\s*the\s*order|remove\s*(the|my)\s*(order|booking))\b/i,
     // Arabizi
-    /\b(el8e|el8iya|el8i|elghiya|elghi)\b/i,
+    /\b(el8e?|el8iya|el8i|el8eha|elghiya|elghi)\b/i,
     /\b(cancel)\s*(el|l)?\s*(order|talbiye|maw3ed|7ajez)\b/i,
-    /\b(ma\s*(bade|badde|bde))\b/i,
+    /\b(cancel\s*(lal|l)\s*(order|maw3ed|7ajez))\b/i,
+    /\b(ma\s*(bade|badde|bde))\s*(l|el)?\s*(order|maw3ed)?\b/i,
+    /\b(m[a3]sh?\s*bde?)\s*(l|el)?\s*(order|maw3ed)\b/i,
+    /\b(bde?|bade?|badde?)\s*(el8e?|elghi)\b/i,
+    /\b(3mell?e\s*cancel|fik\s*t3mel\s*cancel)\b/i,
+    /\b(khalas\s*ma\s*bde?)\b/i,
+    /\b(ma\s*bde?\s*ye?ha)\b/i,
 ];
 
 const REUSE_DETAILS_PATTERNS = [
@@ -120,10 +130,29 @@ export function classifyPostContext(message: string): PostContextClassification 
         }
     }
 
-    // ── Reuse details ────────────────────────────────────────
+    // ── Reuse details ──────────────────────────────────────
     for (const p of REUSE_DETAILS_PATTERNS) {
         if (p.test(msg)) {
             return { intent: 'reuse_details', confidence: 0.88 };
+        }
+    }
+
+    // ── Accept/Reject offer (short yes/no after CTA) ────────
+    // Import-free yes/no check for post-context
+    const normalizedMsg = msg.toLowerCase().trim();
+    const tokens = normalizedMsg.split(/\s+/);
+    if (tokens.length <= 4) {
+        const YES_PC = ['yes', 'yeah', 'yep', 'yea', 'y', 'ok', 'okay', 'sure', 'confirm',
+            'eh', 'ee', 'e', 'akid', 'tamem', 'tamam', 'tayeb', 'yalla', 'aywa', 'tmm', 'mnih',
+            'oui', 'ouais', 'si', 'claro', 'go ahead', 'do it'];
+        const NO_PC = ['no', 'nope', 'nah', 'la', 'la2', 'mish', 'msh', 'mesh', 'khalas',
+            'non', 'no thanks', 'never mind'];
+
+        if (tokens.some(t => YES_PC.includes(t)) || YES_PC.some(p => normalizedMsg === p)) {
+            return { intent: 'accept_offer', confidence: 0.85 };
+        }
+        if (tokens.some(t => NO_PC.includes(t)) || NO_PC.some(p => normalizedMsg === p)) {
+            return { intent: 'reject_offer', confidence: 0.85 };
         }
     }
 
