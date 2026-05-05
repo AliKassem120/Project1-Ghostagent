@@ -29,12 +29,21 @@ export function buildConversations(logs: any[], fetchedProfiles: Record<string, 
         const chatId = meta.chat_id || meta.chatId || 'unknown';
 
         // 🛑 Strict Event Filtering: Only process actual conversations
-        const allowedEvents = ['INCOMING_DM', 'INCOMING_MESSAGE', 'AI_REPLY', 'DRAFT_REPLY', 'MANUAL_REPLY'];
+        const allowedEvents = ['INCOMING_DM', 'INCOMING_MESSAGE', 'AI_REPLY', 'DRAFT_REPLY', 'MANUAL_REPLY', 'COMMENT_REPLY', 'DRAFT_COMMENT_REPLY'];
         if (!allowedEvents.includes(log.event_type)) return;
 
         if (log.event_type === 'INCOMING_DM' && log.description.includes('ghostagent.qzz.io')) return;
 
-        // Orphan check: If this is an outgoing message (AI, DRAFT, MANUAL) and we haven't seen an incoming message for this chat yet, ignore it
+        // Hide public-only comment replies, but keep those that sent a private DM
+        if (log.event_type === 'COMMENT_REPLY' || log.event_type === 'DRAFT_COMMENT_REPLY') {
+            const replyStyle = meta.reply_style || '';
+            const source = meta.source || '';
+            const isPrivateDm = replyStyle.includes('dm') || replyStyle === 'both' || source === 'comment_private_reply' || meta.private_dm_text;
+            if (!isPrivateDm) return; // Ignore public-only comment replies
+        }
+
+        // Orphan check: If this is an outgoing message (AI, DRAFT, MANUAL) and we haven't seen an incoming message for this chat yet, ignore it.
+        // We do NOT ignore COMMENT_REPLY/DRAFT_COMMENT_REPLY here because the business did send a DM to that person, creating a thread.
         if (['AI_REPLY', 'DRAFT_REPLY', 'MANUAL_REPLY'].includes(log.event_type)) {
             if (!threads[chatId]) return;
         }
@@ -44,10 +53,10 @@ export function buildConversations(logs: any[], fetchedProfiles: Record<string, 
         rawDescription = rawDescription.replace(/^(V[1-3]\s+sent:\s*)/i, 'Sent: ');
 
         let text = rawDescription;
-        const isBot = log.event_type === 'AI_REPLY';
-        const isDraft = log.event_type === 'DRAFT_REPLY';
+        const isBot = log.event_type === 'AI_REPLY' || log.event_type === 'COMMENT_REPLY';
+        const isDraft = log.event_type === 'DRAFT_REPLY' || log.event_type === 'DRAFT_COMMENT_REPLY';
         const isManual = log.event_type === 'MANUAL_REPLY' || (meta.is_sender && !isBot && !isDraft);
-        const isComment = false; // We no longer show comments in the main inbox
+        const isComment = false; // They are private DMs now, so treat them as normal messages.
         let senderName = 'Unknown';
 
         // Extract Sender Name & Text
@@ -80,9 +89,15 @@ export function buildConversations(logs: any[], fetchedProfiles: Record<string, 
         } else if (isBot) {
             senderName = 'Ghost AI';
             text = text.replace(/^(Sent|Replied to @.*): "(.*)"$/, '$2').replace(/"/g, '').trim();
+            if ((log.event_type === 'COMMENT_REPLY' || log.event_type === 'DRAFT_COMMENT_REPLY') && meta.private_dm_text) {
+                text = meta.private_dm_text;
+            }
         } else if (isDraft) {
             senderName = 'Ghost AI (Draft)';
             text = text.replace(/^Draft( Comment Reply)?: "(.*)"$/, '$2').replace(/"/g, '').trim();
+            if ((log.event_type === 'COMMENT_REPLY' || log.event_type === 'DRAFT_COMMENT_REPLY') && meta.private_dm_text) {
+                text = meta.private_dm_text;
+            }
         } else if (isManual) {
             senderName = 'You';
             text = text.replace(/^Sent \(Manual\): "(.*)"$/, '$1').replace(/"/g, '').trim();

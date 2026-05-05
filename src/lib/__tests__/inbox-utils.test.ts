@@ -14,11 +14,11 @@ describe('Inbox Conversation Builder', () => {
         expect(convos).toHaveLength(0);
     });
 
-    it('COMMENT_REPLY does not create normal Inbox conversation', () => {
+    it('COMMENT_REPLY with only public reply does not create normal Inbox conversation', () => {
         const logs = [{
             id: '1',
             event_type: 'COMMENT_REPLY',
-            metadata: { chat_id: '123' },
+            metadata: { chat_id: '123', reply_style: 'public' },
             timestamp: new Date().toISOString(),
             description: 'Replied to comment'
         }];
@@ -26,7 +26,25 @@ describe('Inbox Conversation Builder', () => {
         expect(convos).toHaveLength(0);
     });
 
-    it('DRAFT_COMMENT_REPLY does not create normal Inbox conversation', () => {
+    it('COMMENT_REPLY with private DM creates normal Inbox conversation', () => {
+        const logs = [{
+            id: '1',
+            event_type: 'COMMENT_REPLY',
+            metadata: { 
+                chat_id: '123', 
+                reply_style: 'dm',
+                private_dm_text: 'Hello via DM'
+            },
+            timestamp: new Date().toISOString(),
+            description: 'Replied to comment'
+        }];
+        const convos = buildConversations(logs, {});
+        expect(convos).toHaveLength(1);
+        expect(convos[0].lastMessage).toBe('Hello via DM');
+        expect(convos[0].messages).toHaveLength(1);
+    });
+
+    it('DRAFT_COMMENT_REPLY without private DM does not create normal Inbox conversation', () => {
         const logs = [{
             id: '1',
             event_type: 'DRAFT_COMMENT_REPLY',
