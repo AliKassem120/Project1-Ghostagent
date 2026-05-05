@@ -184,7 +184,7 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                                             ) : (
                                                 <div className="px-3 py-2">
                                                     <p className="text-[9px] text-muted-foreground mb-1">{upgradeMessage}</p>
-                                                    {planTier !== 'empire' && (
+                                                    {planTier && planTier !== 'empire' && (
                                                         <Link href="/dashboard/billing" onClick={() => setIsWorkspaceSwitcherOpen(false)} className="text-[10px] text-primary font-bold hover:underline">
                                                             Upgrade plan →
                                                         </Link>
@@ -203,24 +203,24 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                                 <Zap className="w-3.5 h-3.5 text-primary" />
                                 Autopilot
                             </span>
-                            <button
-                                onClick={() => setAutopilot(!autopilot)}
-                                disabled={isLoading}
-                                className={clsx(
-                                    "relative w-11 rounded-full transition-all duration-300 press",
-                                    autopilot ? "bg-primary" : "bg-surface-2",
-                                    isLoading && "opacity-50 cursor-not-allowed"
-                                )}
-                                style={{ height: '24px' }}
-                            >
-                                <div className={clsx(
-                                    "absolute top-[2px] w-[20px] h-[20px] rounded-full bg-white transition-transform duration-300 shadow-sm",
-                                    autopilot ? "translate-x-[22px]" : "translate-x-[2px]"
-                                )} />
-                            </button>
+                                <button
+                                    onClick={() => autopilot !== null && setAutopilot(!autopilot)}
+                                    disabled={isLoading || autopilot === null}
+                                    className={clsx(
+                                        "relative w-11 rounded-full transition-all duration-300 press",
+                                        autopilot === true ? "bg-primary" : "bg-surface-2",
+                                        (isLoading || autopilot === null) && "opacity-50 cursor-not-allowed"
+                                    )}
+                                    style={{ height: '24px' }}
+                                >
+                                    <div className={clsx(
+                                        "absolute top-[2px] w-[20px] h-[20px] rounded-full bg-white transition-transform duration-300 shadow-sm",
+                                        autopilot === true ? "translate-x-[22px]" : "translate-x-[2px]"
+                                    )} />
+                                </button>
                         </div>
                         <p className="text-[10px] text-muted-foreground leading-relaxed">
-                            {isLoading ? "Syncing status..." : (autopilot ? "AI replies are sent automatically." : "Manual approval required for replies.")}
+                            {isLoading || autopilot === null ? "Syncing status..." : (autopilot ? "AI replies are sent automatically." : "Manual approval required for replies.")}
                         </p>
                     </div>
                 </div>

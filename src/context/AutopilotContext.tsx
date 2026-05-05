@@ -7,7 +7,7 @@ import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 
 interface AutopilotContextType {
-    autopilot: boolean;
+    autopilot: boolean | null;
     setAutopilot: (value: boolean) => Promise<void>;
     isLoading: boolean;
 }
@@ -15,8 +15,9 @@ interface AutopilotContextType {
 const AutopilotContext = createContext<AutopilotContextType | undefined>(undefined);
 
 export function AutopilotProvider({ children }: { children: React.ReactNode }) {
-    const [autopilot, setAutopilotState] = useState(true);
+    const [autopilot, setAutopilotState] = useState<boolean | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
     const { activeWorkspaceId } = useWorkspace();
     const supabase = createClient();
     const toast = useToast();
@@ -26,11 +27,14 @@ export function AutopilotProvider({ children }: { children: React.ReactNode }) {
             if (!activeWorkspaceId) return;
             if (!isSilent) setIsLoading(true);
 
+            const currentWS = activeWorkspaceId;
             const { data, error } = await supabase
                 .from('ai_settings')
                 .select('is_autopilot_enabled')
                 .eq('id', activeWorkspaceId)
                 .single();
+
+            if (currentWS !== activeWorkspaceId) return;
 
             if (data) {
                 setAutopilotState(data.is_autopilot_enabled ?? true);
@@ -39,6 +43,7 @@ export function AutopilotProvider({ children }: { children: React.ReactNode }) {
             console.error('Failed to fetch autopilot status:', err);
         } finally {
             setIsLoading(false);
+            setIsInitialLoad(false);
         }
     }, [supabase, activeWorkspaceId]);
 
@@ -80,7 +85,7 @@ export function AutopilotProvider({ children }: { children: React.ReactNode }) {
     };
 
     return (
-        <AutopilotContext.Provider value={{ autopilot, setAutopilot, isLoading }}>
+        <AutopilotContext.Provider value={{ autopilot, setAutopilot, isLoading: isLoading || isInitialLoad }}>
             {children}
         </AutopilotContext.Provider>
     );

@@ -25,7 +25,7 @@ interface WorkspaceContextType {
     workspaces: Workspace[];
     activeWorkspaceId: string | null;
     activeWorkspace: Workspace | null;
-    planTier: PlanTier;
+    planTier: PlanTier | null;
     workspaceLimit: number;
     canAddWorkspace: boolean;
     upgradeMessage: string | null;
@@ -80,7 +80,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
     const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
     const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
-    const [planTier, setPlanTier] = useState<PlanTier>('free_trial');
+    const [planTier, setPlanTier] = useState<PlanTier | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isInitialLoad, setIsInitialLoad] = useState(true);
 
@@ -177,13 +177,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }, [activeWorkspaceId]);
 
     const activeWorkspace = workspaces.find(w => w.id === activeWorkspaceId) ?? null;
-    const workspaceLimit = WORKSPACE_LIMITS[planTier];
-    const canAddWorkspace = workspaces.length < workspaceLimit;
-    const upgradeMessage = getUpgradeMessage(planTier, workspaces.length);
+    const workspaceLimit = planTier ? WORKSPACE_LIMITS[planTier] : 1;
+    const canAddWorkspace = planTier ? workspaces.length < workspaceLimit : false;
+    const upgradeMessage = planTier ? getUpgradeMessage(planTier, workspaces.length) : null;
 
     // Compute workspace connection status
     const workspaceStatus: WorkspaceStatus = (() => {
-        if (isLoading) return 'loading';
+        if (isLoading || planTier === null) return 'loading';
         if (!activeWorkspace) return 'needs_setup';
         const hasInstagram = !!(activeWorkspace.instagram_username && activeWorkspace.instagram_account_id);
         if (!hasInstagram) return 'needs_setup';

@@ -450,13 +450,15 @@ export default function DashboardPage() {
                             </div>
                             <div className={clsx(
                                 "flex items-center gap-2 px-4 py-2 rounded-xl border",
-                                autopilot
+                                autopilot === true
                                     ? "bg-primary/5 border-primary/20 text-primary"
-                                    : "bg-surface-2 border-border text-muted-foreground"
+                                    : autopilot === false
+                                        ? "bg-surface-2 border-border text-muted-foreground"
+                                        : "bg-surface-1 border-border animate-pulse"
                             )}>
                                 <Zap className="w-4 h-4" />
                                 <span className="text-xs font-medium">
-                                    {autopilot ? 'Agent Active' : 'Agent Paused'}
+                                    {autopilot === true ? 'Agent Active' : autopilot === false ? 'Agent Paused' : 'Syncing...'}
                                 </span>
                             </div>
                         </>

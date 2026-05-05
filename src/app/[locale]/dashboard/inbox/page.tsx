@@ -79,6 +79,7 @@ export default function InteractionsPage() {
             .select('*')
             .eq('workspace_id', activeWorkspaceId);
 
+        const currentWS = activeWorkspaceId;
         // Fetch Logs
         const { data: logsData } = await query.order('timestamp', { ascending: true });
 
@@ -88,6 +89,8 @@ export default function InteractionsPage() {
             .select('external_chat_id, is_muted')
             .eq('workspace_id', activeWorkspaceId)
             .eq('is_muted', true);
+
+        if (currentWS !== activeWorkspaceId) return;
 
         if (logsData) {
             // Force Deduplication (UI Side) - use Map for guaranteed uniqueness

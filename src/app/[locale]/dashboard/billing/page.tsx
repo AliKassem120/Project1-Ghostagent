@@ -9,21 +9,22 @@ import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
 
 export default function BillingPage() {
-    const [currentPlan, setCurrentPlan] = useState<string>('Starter');
+    const [currentPlan, setCurrentPlan] = useState<string | null>(null);
     const [planDetails, setPlanDetails] = useState<{
         tier: string;
         trial_ends_at: string | null;
         period_end: string | null;
         cancel_at_period_end: boolean;
         next_plan_tier: string | null;
-    }>({ tier: 'free_trial', trial_ends_at: null, period_end: null, cancel_at_period_end: false, next_plan_tier: null });
+    } | null>(null);
+    const [billingLoading, setBillingLoading] = useState(true);
 
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [showDowngradeModal, setShowDowngradeModal] = useState(false);
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [targetPlan, setTargetPlan] = useState<{name: string, price: number} | null>(null);
     const [isUpdating, setIsUpdating] = useState(false);
-    const [usage, setUsage] = useState({ replies: 0, conversations: 0, revenue: 0 });
+    const [usage, setUsage] = useState<{ replies: number; conversations: number; revenue: number } | null>(null);
     const supabase = createClient();
     const toast = useToast();
 
@@ -59,8 +60,7 @@ export default function BillingPage() {
                             next_plan_tier: null,
                         }).eq('id', user.id);
                         const newPlan = getPlanByTier(userData.next_plan_tier);
-                        setCurrentPlan(newPlan.name);
-                        setPlanDetails(prev => ({ ...prev, tier: userData.next_plan_tier!, cancel_at_period_end: false, next_plan_tier: null }));
+                        setPlanDetails(prev => prev ? ({ ...prev, tier: userData.next_plan_tier!, cancel_at_period_end: false, next_plan_tier: null }) : null);
                         toast.info(`Your plan has been changed to ${newPlan.name}.`);
                         return;
                     }
@@ -80,7 +80,8 @@ export default function BillingPage() {
                 .in('event_type', ['AI_REPLY', 'COMMENT_REPLY'])
                 .gte('timestamp', firstDayOfMonth);
 
-            setUsage(prev => ({ ...prev, replies: count || 0 }));
+            setUsage({ replies: count || 0, conversations: 0, revenue: 0 });
+            setBillingLoading(false);
         };
         fetchData();
     }, []);
@@ -119,7 +120,7 @@ export default function BillingPage() {
                     if (userData) {
                         const resolved = getPlanByTier(userData.plan_tier);
                         setCurrentPlan(resolved.name);
-                        setPlanDetails(prev => ({ ...prev, tier: userData.plan_tier }));
+                        setPlanDetails(prev => prev ? ({ ...prev, tier: userData.plan_tier }) : null);
                         toast.success(`You're now on the ${resolved.name} plan! 🎉`);
                     }
                 }
@@ -212,7 +213,7 @@ export default function BillingPage() {
 
             setShowDowngradeModal(false);
             toast.info(`Downgrade scheduled. You will move to ${targetPlan.name} at the end of your billing cycle.`);
-            setPlanDetails(prev => ({ ...prev, cancel_at_period_end: true }));
+            setPlanDetails(prev => prev ? ({ ...prev, cancel_at_period_end: true }) : null);
         } catch (err: any) {
             console.error(err);
             toast.error('Failed to schedule downgrade.');
@@ -236,7 +237,7 @@ export default function BillingPage() {
 
             setShowCancelModal(false);
             toast.info('Subscription cancelled. You will move to Starter at the end of the billing cycle.');
-            setPlanDetails(prev => ({ ...prev, cancel_at_period_end: true, next_plan_tier: 'starter' }));
+            setPlanDetails(prev => prev ? ({ ...prev, cancel_at_period_end: true, next_plan_tier: 'starter' }) : null);
         } catch (err: any) {
             console.error(err);
             toast.error('Failed to cancel subscription.');
@@ -259,7 +260,7 @@ export default function BillingPage() {
             if (error) throw error;
 
             toast.success('Downgrade cancelled! You will keep your current plan.');
-            setPlanDetails(prev => ({ ...prev, cancel_at_period_end: false, next_plan_tier: null }));
+            setPlanDetails(prev => prev ? ({ ...prev, cancel_at_period_end: false, next_plan_tier: null }) : null);
         } catch (err: any) {
             console.error(err);
             toast.error('Failed to undo downgrade.');
@@ -291,91 +292,108 @@ export default function BillingPage() {
             </motion.div>
 
             {/* ═══ CURRENT PLAN CARD ═══ */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.05 }}
-                className="bg-surface-1 border border-border shadow-sm rounded-2xl overflow-hidden"
-            >
-                {/* Plan gradient strip */}
-                <div className="h-1 bg-gradient-to-r from-primary via-violet-400 to-fuchsia-500" />
-
-                <div className="p-6 sm:p-8">
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 mb-6">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 rounded-2xl bg-primary/10">
-                                <Crown className="w-7 h-7 text-primary" />
-                            </div>
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <h2 className="text-xl font-bold text-foreground">{currentPlan}</h2>
-                                    {planDetails.cancel_at_period_end ? (
-                                        <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-[10px] font-bold uppercase tracking-wider">
-                                            Cancels {planDetails.period_end ? new Date(planDetails.period_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Soon'}
-                                        </span>
-                                    ) : (
-                                        <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider">Active</span>
-                                    )}
-                                </div>
-                                <p className="text-sm text-muted-foreground mt-0.5">{currentPlanData?.description}</p>
-                            </div>
-                        </div>
-                        <div className="text-left sm:text-right">
-                            <div className="text-3xl font-bold text-foreground">
-                                ${currentPlanData?.price || 0}
-                                <span className="text-sm text-muted-foreground font-normal ml-1">/mo</span>
-                            </div>
+            {billingLoading || !currentPlan || !planDetails ? (
+                <div className="bg-surface-1 border border-border shadow-sm rounded-2xl p-8 animate-pulse">
+                    <div className="flex gap-4 mb-6">
+                        <div className="w-14 h-14 bg-surface-2 rounded-2xl" />
+                        <div className="space-y-2 pt-1">
+                            <div className="h-5 w-32 bg-surface-2 rounded-full" />
+                            <div className="h-3 w-48 bg-surface-2 rounded-full" />
                         </div>
                     </div>
-
-                    <div className="mb-6">
-                        <div className="flex items-center gap-3 p-4 rounded-xl bg-surface-2 max-w-sm">
-                            <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
-                            <div>
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                                    {planDetails.tier === 'free_trial' ? 'Trial Ends' : 'Next Billing'}
-                                </p>
-                                <p className="text-sm font-semibold text-muted-foreground">
-                                    {planDetails.period_end || planDetails.trial_ends_at
-                                        ? new Date(planDetails.period_end || planDetails.trial_ends_at!).toLocaleDateString('en-US', {
-                                            month: 'short',
-                                            day: 'numeric',
-                                            year: 'numeric'
-                                        })
-                                        : 'Account verify pending'}
-                                </p>
-                            </div>
-                        </div>
-                    </div>                    <div className="flex flex-col sm:flex-row gap-3">
-                        
-                        {planDetails.cancel_at_period_end ? (
-                            <div className="flex items-center gap-3 w-full">
-                                <div className="flex-1 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/5 border border-amber-500/10">
-                                    <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-                                    <span className="text-sm text-amber-400/80 font-medium">
-                                        Downgrade to {getPlanByTier(planDetails.next_plan_tier || 'starter').name} scheduled
-                                    </span>
-                                </div>
-                                <button
-                                    onClick={handleUndoDowngrade}
-                                    disabled={isUpdating}
-                                    className="px-5 py-2.5 bg-primary/10 border border-primary/20 rounded-xl hover:bg-primary/20 transition-all text-sm font-medium text-primary flex items-center gap-2 disabled:opacity-50 shrink-0"
-                                >
-                                    <RotateCcw className="w-3.5 h-3.5" />
-                                    Undo
-                                </button>
-                            </div>
-                        ) : currentPlan !== 'Starter' && (
-                            <button
-                                onClick={() => setShowCancelModal(true)}
-                                className="px-5 py-2.5 bg-red-500/5 border border-red-500/10 rounded-xl hover:bg-red-500/10 transition-all text-sm font-medium text-red-400/60 hover:text-red-400"
-                            >
-                                Cancel Subscription
-                            </button>
-                        )}
+                    <div className="h-12 w-full max-w-sm bg-surface-2 rounded-xl mb-6" />
+                    <div className="flex gap-3">
+                        <div className="h-10 w-32 bg-surface-2 rounded-xl" />
                     </div>
                 </div>
-            </motion.div>
+            ) : (
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.05 }}
+                    className="bg-surface-1 border border-border shadow-sm rounded-2xl overflow-hidden"
+                >
+                    {/* Plan gradient strip */}
+                    <div className="h-1 bg-gradient-to-r from-primary via-violet-400 to-fuchsia-500" />
+
+                    <div className="p-6 sm:p-8">
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 mb-6">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 rounded-2xl bg-primary/10">
+                                    <Crown className="w-7 h-7 text-primary" />
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h2 className="text-xl font-bold text-foreground">{currentPlan}</h2>
+                                        {planDetails.cancel_at_period_end ? (
+                                            <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-[10px] font-bold uppercase tracking-wider">
+                                                Cancels {planDetails.period_end ? new Date(planDetails.period_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Soon'}
+                                            </span>
+                                        ) : (
+                                            <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider">Active</span>
+                                        )}
+                                    </div>
+                                    <p className="text-sm text-muted-foreground mt-0.5">{currentPlanData?.description}</p>
+                                </div>
+                            </div>
+                            <div className="text-left sm:text-right">
+                                <div className="text-3xl font-bold text-foreground">
+                                    ${currentPlanData?.price || 0}
+                                    <span className="text-sm text-muted-foreground font-normal ml-1">/mo</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mb-6">
+                            <div className="flex items-center gap-3 p-4 rounded-xl bg-surface-2 max-w-sm">
+                                <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+                                <div>
+                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                                        {planDetails.tier === 'free_trial' ? 'Trial Ends' : 'Next Billing'}
+                                    </p>
+                                    <p className="text-sm font-semibold text-muted-foreground">
+                                        {planDetails.period_end || planDetails.trial_ends_at
+                                            ? new Date(planDetails.period_end || planDetails.trial_ends_at!).toLocaleDateString('en-US', {
+                                                month: 'short',
+                                                day: 'numeric',
+                                                year: 'numeric'
+                                            })
+                                            : 'Account verify pending'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            
+                            {planDetails.cancel_at_period_end ? (
+                                <div className="flex items-center gap-3 w-full">
+                                    <div className="flex-1 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/5 border border-amber-500/10">
+                                        <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                                        <span className="text-sm text-amber-400/80 font-medium">
+                                            Downgrade to {getPlanByTier(planDetails.next_plan_tier || 'starter').name} scheduled
+                                        </span>
+                                    </div>
+                                    <button
+                                        onClick={handleUndoDowngrade}
+                                        disabled={isUpdating}
+                                        className="px-5 py-2.5 bg-primary/10 border border-primary/20 rounded-xl hover:bg-primary/20 transition-all text-sm font-medium text-primary flex items-center gap-2 disabled:opacity-50 shrink-0"
+                                    >
+                                        <RotateCcw className="w-3.5 h-3.5" />
+                                        Undo
+                                    </button>
+                                </div>
+                            ) : currentPlan !== 'Starter' && (
+                                <button
+                                    onClick={() => setShowCancelModal(true)}
+                                    className="px-5 py-2.5 bg-red-500/5 border border-red-500/10 rounded-xl hover:bg-red-500/10 transition-all text-sm font-medium text-red-400/60 hover:text-red-400"
+                                >
+                                    Cancel Subscription
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </motion.div>
+            )}
 
             {/* ═══ USAGE STATS ═══ */}
             <motion.div
@@ -386,15 +404,19 @@ export default function BillingPage() {
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 ml-1">This Month&apos;s Usage</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     {[
-                        { icon: MessageSquare, label: 'Auto-Replies Sent', value: usage.replies, limit: currentPlan === 'Empire' ? 'Unlimited' : `/ ${currentPlanData?.dmLimit || 100} limit`, color: 'text-violet-400', bg: 'bg-violet-500/10' },
-                        { icon: TrendingUp, label: 'Conversations', value: usage.conversations, limit: 'Active threads', color: 'text-blue-400', bg: 'bg-blue-500/10' },
-                        { icon: DollarSign, label: 'Revenue Generated', value: `$${usage.revenue}`, limit: 'From AI sales', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+                        { icon: MessageSquare, label: 'Auto-Replies Sent', value: usage?.replies ?? 0, limit: currentPlan === 'Empire' ? 'Unlimited' : `/ ${currentPlanData?.dmLimit || 100} limit`, color: 'text-violet-400', bg: 'bg-violet-500/10' },
+                        { icon: TrendingUp, label: 'Conversations', value: usage?.conversations ?? 0, limit: 'Active threads', color: 'text-blue-400', bg: 'bg-blue-500/10' },
+                        { icon: DollarSign, label: 'Revenue Generated', value: `$${usage?.revenue ?? 0}`, limit: 'From AI sales', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
                     ].map((stat, i) => (
                         <div key={stat.label} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-5">
                             <div className={clsx("p-2 rounded-xl w-fit mb-3", stat.bg)}>
                                 <stat.icon className={clsx("w-4 h-4", stat.color)} />
                             </div>
-                            <div className="text-2xl font-bold text-foreground tracking-tight">{stat.value}</div>
+                            {!usage ? (
+                                <div className="h-8 w-20 bg-surface-2 rounded-lg animate-pulse mb-1" />
+                            ) : (
+                                <div className="text-2xl font-bold text-foreground tracking-tight">{stat.value}</div>
+                            )}
                             <div className="text-[11px] text-muted-foreground mt-0.5">{stat.label}</div>
                             <div className={clsx("text-[10px] font-semibold mt-2", stat.color === 'text-emerald-400' ? 'text-emerald-400/60' : 'text-muted-foreground')}>{stat.limit}</div>
                         </div>
@@ -584,12 +606,12 @@ export default function BillingPage() {
                                     You are moving to the <span className="font-medium text-foreground">{targetPlan.name}</span> plan. 
                                     You will keep your current <span className="text-primary font-medium">{currentPlan}</span> features until the end of your billing cycle on{' '}
                                     <span className="font-medium text-foreground">
-                                        {planDetails.period_end ? new Date(planDetails.period_end).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'the end of your cycle'}
+                                        {planDetails?.period_end ? new Date(planDetails.period_end).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'the end of your cycle'}
                                     </span>.
                                 </p>
 
                                 {(() => {
-                                    const lost = getLostFeatures(currentPlan, targetPlan.name);
+                                    const lost = getLostFeatures(currentPlan!, targetPlan.name);
                                     return lost.length > 0 ? (
                                         <div className="mb-6 p-4 rounded-xl bg-red-500/5 border border-red-500/10">
                                             <p className="text-[10px] font-bold text-red-400/80 uppercase tracking-widest mb-3">You will lose access to:</p>
@@ -658,7 +680,7 @@ export default function BillingPage() {
                                 </div>
 
                                 <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-                                    You&apos;ll lose access to <span className="text-muted-foreground font-medium">{currentPlan}</span> features after {planDetails.period_end || planDetails.trial_ends_at
+                                    You&apos;ll lose access to <span className="text-muted-foreground font-medium">{currentPlan}</span> features after {planDetails?.period_end || planDetails?.trial_ends_at
                                         ? new Date(planDetails.period_end || planDetails.trial_ends_at!).toLocaleDateString('en-US', {
                                             month: 'short',
                                             day: 'numeric',
@@ -668,7 +690,7 @@ export default function BillingPage() {
                                 </p>
 
                                 {(() => {
-                                    const lost = getLostFeatures(currentPlan, 'Starter');
+                                    const lost = getLostFeatures(currentPlan!, 'Starter');
                                     return lost.length > 0 ? (
                                         <div className="mb-6 p-4 rounded-xl bg-red-500/5 border border-red-500/10">
                                             <p className="text-[10px] font-bold text-red-400/80 uppercase tracking-widest mb-3">You will lose:</p>

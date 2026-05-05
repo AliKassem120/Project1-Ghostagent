@@ -83,7 +83,7 @@ export function buildConversations(logs: any[], fetchedProfiles: Record<string, 
             } else if (meta.platform === 'whatsapp') {
                 senderName = `WhatsApp User (${chatId})`;
             } else {
-                senderName = 'User';
+        senderName = meta.platform === 'whatsapp' ? `WhatsApp User (${chatId})` : 'Instagram User';
             }
             text = text.replace(/^.*: "(.*)"$/, '$1').replace(/"/g, '').trim();
         } else if (isBot) {
@@ -130,7 +130,7 @@ export function buildConversations(logs: any[], fetchedProfiles: Record<string, 
 
         // Update Username Logic (Prioritize Customer Name)
         const currentName = threads[chatId].username;
-        const isGenericName = currentName === 'User' || currentName === 'You' || currentName === 'Ghost AI' || currentName === 'Unknown' || currentName.startsWith('User ');
+        const isGenericName = currentName === 'User' || currentName === 'You' || currentName === 'Ghost AI' || currentName === 'Unknown' || currentName.startsWith('User ') || currentName === 'Instagram User' || currentName.startsWith('WhatsApp User');
         const isNewSenderGeneric = senderName === 'User' || senderName === 'You' || senderName === 'Ghost AI' || senderName === 'Unknown' || senderName.startsWith('User ');
 
         // 1. First priority: fetched profile name from instagram
