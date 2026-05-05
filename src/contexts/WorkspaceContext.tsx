@@ -9,7 +9,7 @@ import { BusinessCategory } from '@/components/BusinessTypeSelector';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type PlanTier = 'free_trial' | 'starter' | 'pro' | 'empire';
-export type WorkspaceStatus = 'needs_setup' | 'connected' | 'live';
+export type WorkspaceStatus = 'loading' | 'needs_setup' | 'connected' | 'live';
 
 export interface Workspace {
     id: string;
@@ -183,6 +183,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
     // Compute workspace connection status
     const workspaceStatus: WorkspaceStatus = (() => {
+        if (isLoading) return 'loading';
         if (!activeWorkspace) return 'needs_setup';
         const hasInstagram = !!(activeWorkspace.instagram_username && activeWorkspace.instagram_account_id);
         if (!hasInstagram) return 'needs_setup';

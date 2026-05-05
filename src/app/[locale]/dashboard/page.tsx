@@ -161,7 +161,7 @@ export default function DashboardPage() {
     const { activeWorkspaceId, activeWorkspace, workspaces, workspaceStatus } = useWorkspace();
     const [clearModalOpen, setClearModalOpen] = useState(false);
     const [sendingDrafts, setSendingDrafts] = useState<string[]>([]);
-    const [instagramStatus, setInstagramStatus] = useState<{ connected: boolean }>({ connected: false });
+    const [instagramStatus, setInstagramStatus] = useState<{ connected: boolean } | null>(null);
     const toast = useToast();
 
     // Re-check Instagram status whenever the active workspace changes
@@ -182,7 +182,7 @@ export default function DashboardPage() {
     }, [activeWorkspaceId]);
 
     // Check if AI settings have been configured (business_name or system_instructions set)
-    const [hasAiSettings, setHasAiSettings] = useState(false);
+    const [hasAiSettings, setHasAiSettings] = useState<boolean | null>(null);
     useEffect(() => {
         if (!activeWorkspaceId) return;
         supabase
@@ -196,7 +196,7 @@ export default function DashboardPage() {
     }, [activeWorkspaceId]);
 
     // Check if a CSV catalog has been uploaded (counts as having inventory for the checklist)
-    const [hasCatalog, setHasCatalog] = useState(false);
+    const [hasCatalog, setHasCatalog] = useState<boolean | null>(null);
     useEffect(() => {
         if (!activeWorkspaceId || !userId) return;
         supabase
@@ -210,7 +210,7 @@ export default function DashboardPage() {
     }, [activeWorkspaceId, userId]);
 
     // Also show connected if the activeWorkspace has instagram info from WorkspaceContext
-    const isConnected = instagramStatus.connected || !!activeWorkspace?.instagram_username;
+    const isConnected = instagramStatus?.connected || !!activeWorkspace?.instagram_username;
 
     const handleApproveDraft = async (activity: ActivityLog) => {
         if (!activity.metadata?.reply_text || !activity.metadata?.chat_id) {
@@ -303,7 +303,7 @@ export default function DashboardPage() {
     // Adjust count to match the client-side filtered set
     const totalInteractions = activities.length;
 
-    const { data: allInventoryItems, refetch: refetchInventory } = useRealtime<InventoryItem>(
+    const { data: allInventoryItems, loading: inventoryLoading, refetch: refetchInventory } = useRealtime<InventoryItem>(
         'inventory',
         'id, stock_level',
         {
@@ -463,8 +463,8 @@ export default function DashboardPage() {
             {/* ACTIVATION CHECKLIST                               */}
             {/* ═══════════════════════════════════════════════════ */}
             <SetupChecklist
-                hasInstagram={!!(activeWorkspace?.instagram_username && activeWorkspace?.instagram_account_id)}
-                hasInventory={inventoryItems.length > 0 || hasCatalog}
+                hasInstagram={activeWorkspace ? !!(activeWorkspace.instagram_username && activeWorkspace.instagram_account_id) : instagramStatus?.connected ?? null}
+                hasInventory={inventoryLoading ? null : (inventoryItems.length > 0 || !!hasCatalog)}
                 hasAiSettings={hasAiSettings}
                 businessType={activeWorkspace?.business_type}
             />

@@ -25,11 +25,17 @@ export default function SetupChecklist({
     hasAiSettings,
     businessType,
 }: {
-    hasInstagram: boolean;
-    hasInventory: boolean;
-    hasAiSettings: boolean;
+    hasInstagram: boolean | null;
+    hasInventory: boolean | null;
+    hasAiSettings: boolean | null;
     businessType?: BusinessCategory;
 }) {
+    // If any status is null, it means we're still loading.
+    // Return null to prevent flickering during initial data fetch.
+    if (hasInstagram === null || hasInventory === null || hasAiSettings === null) {
+        return null;
+    }
+
     const needsInventory = !businessType || INVENTORY_BUSINESS_TYPES.includes(businessType);
 
     const steps: SetupStep[] = [
