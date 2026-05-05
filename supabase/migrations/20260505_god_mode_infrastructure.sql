@@ -15,10 +15,12 @@
 ALTER TABLE ai_settings ADD COLUMN IF NOT EXISTS is_internal boolean DEFAULT false;
 ALTER TABLE ai_settings ADD COLUMN IF NOT EXISTS workspace_role text DEFAULT 'customer';
 ALTER TABLE ai_settings ADD COLUMN IF NOT EXISTS visibility text DEFAULT 'normal';
+ALTER TABLE ai_settings ADD COLUMN IF NOT EXISTS autopilot boolean DEFAULT true;
 
 COMMENT ON COLUMN ai_settings.is_internal IS 'True for God Mode-only workspaces (official support, test, admin)';
 COMMENT ON COLUMN ai_settings.workspace_role IS 'customer | official_support | test | admin';
 COMMENT ON COLUMN ai_settings.visibility IS 'normal | god_mode_only | hidden';
+COMMENT ON COLUMN ai_settings.autopilot IS 'Whether this workspace sends AI replies automatically. Used by dashboard and God Mode.';
 
 -- ─── 2. KNOWLEDGE EXTENSIONS ON business_knowledge ──────────
 
@@ -72,7 +74,7 @@ CREATE INDEX IF NOT EXISTS idx_bot_control_flags_scope
 -- SELECT column_name, data_type, column_default
 -- FROM information_schema.columns
 -- WHERE table_name = 'ai_settings'
---   AND column_name IN ('is_internal', 'workspace_role', 'visibility');
+--   AND column_name IN ('is_internal', 'workspace_role', 'visibility', 'autopilot');
 
 -- SELECT column_name, data_type, column_default
 -- FROM information_schema.columns
