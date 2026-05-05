@@ -470,7 +470,7 @@ export default function DashboardPage() {
             {/* ACTIVATION CHECKLIST                               */}
             {/* ═══════════════════════════════════════════════════ */}
             <SetupChecklist
-                hasInstagram={activeWorkspace ? !!(activeWorkspace.instagram_username && activeWorkspace.instagram_account_id) : instagramStatus?.connected ?? null}
+                hasInstagram={instagramStatus === null && !activeWorkspace?.instagram_username ? null : isConnected}
                 hasInventory={inventoryLoading ? null : (inventoryItems.length > 0 || !!hasCatalog)}
                 hasAiSettings={hasAiSettings}
                 businessType={activeWorkspace?.business_type}
@@ -599,14 +599,18 @@ export default function DashboardPage() {
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs text-muted-foreground">Agent Mode</span>
-                                <span className={clsx(
-                                    "badge",
-                                    autopilot
-                                        ? "bg-emerald-500/10 text-emerald-400"
-                                        : "bg-amber-500/10 text-amber-400"
-                                )}>
-                                    {autopilot ? '🤖 Autopilot' : '👤 Manual'}
-                                </span>
+                                {autopilot === null ? (
+                                    <div className="h-5 w-20 bg-surface-2 rounded-full animate-pulse" />
+                                ) : (
+                                    <span className={clsx(
+                                        "badge",
+                                        autopilot === true
+                                            ? "bg-emerald-500/10 text-emerald-400"
+                                            : "bg-amber-500/10 text-amber-400"
+                                    )}>
+                                        {autopilot === true ? '🤖 Autopilot' : '👤 Manual'}
+                                    </span>
+                                )}
                             </div>
                             <div className="w-full h-px bg-surface-2" />
                             <div className="flex items-center justify-between">
@@ -621,7 +625,11 @@ export default function DashboardPage() {
                             {activeWorkspace?.business_type === 'ecommerce' ? (
                                 <div className="flex items-center justify-between">
                                     <span className="text-xs text-muted-foreground">Inventory</span>
-                                    <span className="text-xs text-muted-foreground font-medium">{stats.stock} items in stock</span>
+                                    {loading || inventoryLoading ? (
+                                        <div className="h-4 w-24 bg-surface-2 rounded-md animate-pulse" />
+                                    ) : (
+                                        <span className="text-xs text-muted-foreground font-medium">{stats.stock} items in stock</span>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="flex items-center justify-between">
@@ -634,15 +642,23 @@ export default function DashboardPage() {
                             <div className="pt-2">
                                 <div className="flex items-center justify-between mb-2">
                                     <span className="text-[11px] text-muted-foreground">Automation Rate</span>
-                                    <span className="text-[11px] text-primary font-semibold">{stats.automationRate}%</span>
+                                    {loading || inventoryLoading ? (
+                                        <div className="h-3 w-8 bg-surface-2 rounded-md animate-pulse" />
+                                    ) : (
+                                        <span className="text-[11px] text-primary font-semibold">{stats.automationRate}%</span>
+                                    )}
                                 </div>
                                 <div className="w-full h-2 bg-surface-2 rounded-full overflow-hidden">
-                                    <motion.div
-                                        initial={{ width: '0%' }}
-                                        animate={{ width: `${stats.automationRate}%` }}
-                                        transition={{ duration: 1.5, ease: 'easeOut', delay: 0.5 }}
-                                        className="h-full bg-gradient-to-r from-primary to-violet-400 rounded-full"
-                                    />
+                                    {loading || inventoryLoading ? (
+                                        <div className="h-full w-full bg-surface-2" />
+                                    ) : (
+                                        <motion.div
+                                            initial={{ width: '0%' }}
+                                            animate={{ width: `${stats.automationRate}%` }}
+                                            transition={{ duration: 1.5, ease: 'easeOut', delay: 0.5 }}
+                                            className="h-full bg-gradient-to-r from-primary to-violet-400 rounded-full"
+                                        />
+                                    )}
                                 </div>
                             </div>
                         </div>

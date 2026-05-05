@@ -209,9 +209,14 @@ export default function SettingsPage() {
 
     // Automatically check status when activeWorkspaceId changes
     useEffect(() => {
+        setInstagramStatus(null); // Clear stale state during workspace switch
         const controller = new AbortController();
         checkInstagramStatus(controller.signal);
-        return () => controller.abort();
+        // Poll status every 5 seconds to catch connection updates without refresh
+        const interval = setInterval(() => {
+            if (!controller.signal.aborted) checkInstagramStatus(controller.signal);
+        }, 5000);
+        return () => { controller.abort(); clearInterval(interval); };
     }, [checkInstagramStatus]);
 
     const handleConnectInstagram = () => {
@@ -279,12 +284,6 @@ export default function SettingsPage() {
         }
     }, []);
 
-    useEffect(() => {
-        checkInstagramStatus();
-        // Poll status every 5 seconds to catch connection updates without refresh
-        const interval = setInterval(checkInstagramStatus, 5000);
-        return () => clearInterval(interval);
-    }, []);
     const handleDeleteWorkspace = async () => {
         if (!activeWorkspaceId) return;
         setDeletingWs(true);

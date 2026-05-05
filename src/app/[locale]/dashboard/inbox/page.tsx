@@ -42,7 +42,7 @@ const WhatsAppIcon = ({ className }: { className?: string }) => (
 // ...
 
 export default function InteractionsPage() {
-    const { autopilot, setAutopilot } = useAutopilot();
+    const { autopilot, setAutopilot, isLoading: autopilotLoading } = useAutopilot();
     const { success, error } = useToast();
     const [logs, setLogs] = useState<any[]>([]);
     const [mutedChats, setMutedChats] = useState<Set<string>>(new Set());
@@ -612,23 +612,26 @@ export default function InteractionsPage() {
                             <div className="relative group flex gap-3 items-center">
                                 {/* Global Autopilot Toggle */}
                                 <button
-                                    onClick={() => setAutopilot(!autopilot)}
+                                    onClick={() => { if (autopilot !== null) setAutopilot(!autopilot); }}
+                                    disabled={autopilot === null || autopilotLoading}
                                     className={clsx(
                                         "w-12 h-12 rounded-2xl flex items-center justify-center transition-all border shrink-0",
-                                        autopilot
-                                            ? "bg-primary/10 border-primary/20 text-primary hover:bg-primary/20"
-                                            : "bg-surface-3 border-border text-muted-foreground hover:text-foreground"
+                                        autopilot === null || autopilotLoading
+                                            ? "bg-surface-2 border-border text-muted-foreground opacity-50 cursor-not-allowed"
+                                            : autopilot === true
+                                                ? "bg-primary/10 border-primary/20 text-primary hover:bg-primary/20"
+                                                : "bg-surface-3 border-border text-muted-foreground hover:text-foreground"
                                     )}
-                                    title={autopilot ? "Autopilot ON (Mute)" : "Autopilot OFF (Resume)"}
+                                    title={autopilot === null ? "Syncing..." : autopilot ? "Autopilot ON (Mute)" : "Autopilot OFF (Resume)"}
                                 >
-                                    {autopilot ? <Bot className="w-6 h-6" /> : <PauseCircle className="w-6 h-6" />}
+                                    {autopilot === null ? <Loader2 className="w-5 h-5 animate-spin" /> : autopilot ? <Bot className="w-6 h-6" /> : <PauseCircle className="w-6 h-6" />}
                                 </button>
 
                                 <div className="relative flex-1">
                                     <input
                                         value={inputMessage}
                                         onChange={(e) => setInputMessage(e.target.value)}
-                                        placeholder={autopilot ? "Autopilot is active. Type here to intervene..." : "Type a message..."}
+                                        placeholder={autopilot === null ? "Syncing autopilot status..." : autopilot ? "Autopilot is active. Type here to intervene..." : "Type a message..."}
                                         className="input-premium w-full rounded-2xl py-3 pl-4 pr-12 disabled:opacity-50"
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter' && !e.shiftKey) {

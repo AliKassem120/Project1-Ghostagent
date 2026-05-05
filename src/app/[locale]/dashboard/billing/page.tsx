@@ -25,22 +25,33 @@ export default function BillingPage() {
     const [targetPlan, setTargetPlan] = useState<{name: string, price: number} | null>(null);
     const [isUpdating, setIsUpdating] = useState(false);
     const [usage, setUsage] = useState<{ replies: number; conversations: number; revenue: number } | null>(null);
+    const [billingError, setBillingError] = useState<string | null>(null);
     const supabase = createClient();
     const toast = useToast();
 
     useEffect(() => {
         const fetchData = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) {
+                    setBillingError('Unable to load billing info. Please sign in again.');
+                    setBillingLoading(false);
+                    return;
+                }
 
-            // 1. Fetch User Plan data
-            const { data: userData } = await supabase
-                .from('users')
-                .select('plan_tier, trial_ends_at, current_period_end, cancel_at_period_end, next_plan_tier')
-                .eq('id', user.id)
-                .single();
+                // 1. Fetch User Plan data
+                const { data: userData, error: userError } = await supabase
+                    .from('users')
+                    .select('plan_tier, trial_ends_at, current_period_end, cancel_at_period_end, next_plan_tier')
+                    .eq('id', user.id)
+                    .single();
 
-            if (userData) {
+                if (userError || !userData) {
+                    setBillingError('Failed to load plan details. Please try again.');
+                    setBillingLoading(false);
+                    return;
+                }
+
                 const tier = userData.plan_tier || 'free_trial';
                 setPlanDetails({
                     tier,
@@ -60,7 +71,10 @@ export default function BillingPage() {
                             next_plan_tier: null,
                         }).eq('id', user.id);
                         const newPlan = getPlanByTier(userData.next_plan_tier);
+                        setCurrentPlan(newPlan.name);
                         setPlanDetails(prev => prev ? ({ ...prev, tier: userData.next_plan_tier!, cancel_at_period_end: false, next_plan_tier: null }) : null);
+                        setUsage({ replies: 0, conversations: 0, revenue: 0 });
+                        setBillingLoading(false);
                         toast.info(`Your plan has been changed to ${newPlan.name}.`);
                         return;
                     }
@@ -69,19 +83,23 @@ export default function BillingPage() {
                 // Map database tier to UI plan name
                 const resolved = getPlanByTier(tier);
                 setCurrentPlan(resolved.name);
+
+                // 2. Fetch Usage (monthly)
+                const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+                const { count } = await supabase
+                    .from('activity_log')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('user_id', user.id)
+                    .in('event_type', ['AI_REPLY', 'COMMENT_REPLY'])
+                    .gte('timestamp', firstDayOfMonth);
+
+                setUsage({ replies: count || 0, conversations: 0, revenue: 0 });
+                setBillingLoading(false);
+            } catch (err) {
+                console.error('Billing fetch error:', err);
+                setBillingError('Something went wrong loading your billing data.');
+                setBillingLoading(false);
             }
-
-            // 2. Fetch Usage (monthly)
-            const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-            const { count } = await supabase
-                .from('activity_log')
-                .select('*', { count: 'exact', head: true })
-                .eq('user_id', user.id)
-                .in('event_type', ['AI_REPLY', 'COMMENT_REPLY'])
-                .gte('timestamp', firstDayOfMonth);
-
-            setUsage({ replies: count || 0, conversations: 0, revenue: 0 });
-            setBillingLoading(false);
         };
         fetchData();
     }, []);
@@ -292,7 +310,18 @@ export default function BillingPage() {
             </motion.div>
 
             {/* ═══ CURRENT PLAN CARD ═══ */}
-            {billingLoading || !currentPlan || !planDetails ? (
+            {billingError ? (
+                <div className="bg-surface-1 border border-border shadow-sm rounded-2xl p-8 text-center">
+                    <AlertCircle className="w-8 h-8 text-amber-400 mx-auto mb-3" />
+                    <p className="text-sm text-muted-foreground mb-4">{billingError}</p>
+                    <button
+                        onClick={() => { setBillingError(null); setBillingLoading(true); window.location.reload(); }}
+                        className="px-5 py-2.5 bg-primary/10 border border-primary/20 rounded-xl hover:bg-primary/20 transition-all text-sm font-medium text-primary"
+                    >
+                        Retry
+                    </button>
+                </div>
+            ) : billingLoading || !currentPlan || !planDetails ? (
                 <div className="bg-surface-1 border border-border shadow-sm rounded-2xl p-8 animate-pulse">
                     <div className="flex gap-4 mb-6">
                         <div className="w-14 h-14 bg-surface-2 rounded-2xl" />
@@ -485,7 +514,7 @@ export default function BillingPage() {
                             ) : (
                                 <button
                                     onClick={() => handlePlanChange(plan.name, plan.price)}
-                                    disabled={isUpdating}
+                                    disabled={isUpdating || billingLoading || !currentPlan}
                                     className={clsx(
                                         "w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50",
                                         plan.highlight
@@ -493,7 +522,7 @@ export default function BillingPage() {
                                             : "bg-surface-2 text-muted-foreground hover:bg-surface-3 hover:text-foreground"
                                     )}
                                 >
-                                    {isUpdating ? 'Processing...' : (
+                                    {isUpdating ? 'Processing...' : billingLoading || !currentPlan ? 'Loading...' : (
                                         <>
                                             {plan.price > (currentPlanData?.price || 0) ? 'Upgrade' : 'Downgrade'}
                                             <ArrowRight className="w-4 h-4" />

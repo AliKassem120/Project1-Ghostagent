@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
@@ -21,20 +21,21 @@ export function AutopilotProvider({ children }: { children: React.ReactNode }) {
     const { activeWorkspaceId } = useWorkspace();
     const supabase = createClient();
     const toast = useToast();
+    const latestWorkspaceIdRef = useRef(activeWorkspaceId);
+    latestWorkspaceIdRef.current = activeWorkspaceId;
 
     const fetchAutopilotStatus = useCallback(async (isSilent = false) => {
         try {
             if (!activeWorkspaceId) return;
             if (!isSilent) setIsLoading(true);
 
-            const currentWS = activeWorkspaceId;
             const { data, error } = await supabase
                 .from('ai_settings')
                 .select('is_autopilot_enabled')
                 .eq('id', activeWorkspaceId)
                 .single();
 
-            if (currentWS !== activeWorkspaceId) return;
+            if (latestWorkspaceIdRef.current !== activeWorkspaceId) return;
 
             if (data) {
                 setAutopilotState(data.is_autopilot_enabled ?? true);
