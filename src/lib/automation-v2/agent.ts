@@ -156,7 +156,7 @@ ${discountRules}
 ${config.systemInstructions ? `BUSINESS INFO:\n${config.systemInstructions}` : ''}
 ${config.storeLocation ? `LOCATION: ${config.storeLocation}` : ''}
 ${config.contactInfo ? `CONTACT: ${config.contactInfo}` : ''}
-${config.shippingRules ? `SHIPPING: ${config.shippingRules}` : ''}`;
+${config.businessType === 'ecommerce' && config.shippingRules ? `SHIPPING: ${config.shippingRules}` : ''}`;
 }
 
 // ── Determine reply language ─────────────────────────────────

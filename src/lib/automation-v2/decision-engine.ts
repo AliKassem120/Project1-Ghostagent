@@ -809,7 +809,7 @@ export async function runDecisionEngine(
     }
 
     // ── Shipping question — use config ───────────────────────
-    if (classification.intent === 'shipping_question' && config.shippingRules) {
+    if (classification.intent === 'shipping_question' && config.businessType === 'ecommerce' && config.shippingRules) {
         return {
             handledByFSM: true,
             fsmResult: {
