@@ -69,7 +69,8 @@ async function persistFsmResult(
             input.workspaceId,
             input.chatId,
             input.workspaceType,
-            newPostContext
+            newPostContext,
+            input.platform
         )
         : await saveConversationState(
             input.supabase,
@@ -78,7 +79,8 @@ async function persistFsmResult(
             input.chatId,
             input.workspaceType,
             fsmResult.nextStage,
-            fsmResult.nextData
+            fsmResult.nextData,
+            input.platform
         );
 
     if (writeResult.success) return fsmResult;
@@ -98,7 +100,8 @@ async function persistFsmResult(
                 input.workspaceId,
                 input.chatId,
                 input.workspaceType,
-                null
+                null,
+                input.platform
             );
             if (!clearOnly.success) {
                 v2log.error('DECISION', 'Failed to clear state after DB success', {
@@ -1343,7 +1346,7 @@ async function handlePostContextIntent(
                 // Save FSM state so next message goes through ecommerce FSM
                 const stateWrite = await saveConversationState(
                     input.supabase, input.userId, input.workspaceId, input.chatId,
-                    input.workspaceType as 'ecommerce', 'awaiting_order_details', initialState
+                    input.workspaceType as 'ecommerce', 'awaiting_order_details', initialState, input.platform
                 );
                 if (!stateWrite.success) {
                     return {
@@ -1394,7 +1397,7 @@ async function handlePostContextIntent(
                 // Save FSM state so next message goes through appointments FSM
                 const stateWrite = await saveConversationState(
                     input.supabase, input.userId, input.workspaceId, input.chatId,
-                    input.workspaceType as 'appointments', 'awaiting_date_time', initialState
+                    input.workspaceType as 'appointments', 'awaiting_date_time', initialState, input.platform
                 );
                 if (!stateWrite.success) {
                     return {

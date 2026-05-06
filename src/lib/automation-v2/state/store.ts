@@ -79,7 +79,8 @@ export async function saveConversationState(
     chatId: string,
     workspaceType: 'appointments' | 'ecommerce' | 'saas_support',
     stage: ConversationStage,
-    stateData: StateData | null
+    stateData: StateData | null,
+    platform: string = 'instagram'
 ): Promise<StateWriteResult> {
     const now = new Date().toISOString();
 
@@ -119,6 +120,7 @@ export async function saveConversationState(
                     workspace_id: workspaceId,
                     chat_id: chatId,
                     workspace_type: workspaceType,
+                    platform,
                     stage,
                     data: stateData || {},
                     updated_at: now,
@@ -146,8 +148,9 @@ export async function clearConversationState(
     workspaceId: string,
     chatId: string,
     workspaceType: 'appointments' | 'ecommerce' | 'saas_support',
-    postContext?: PostActionContext | null
+    postContext?: PostActionContext | null,
+    platform: string = 'instagram'
 ): Promise<StateWriteResult> {
     const data = postContext ? { stage: 'idle', postContext } : {};
-    return await saveConversationState(supabase, userId, workspaceId, chatId, workspaceType, 'idle', data as any);
+    return await saveConversationState(supabase, userId, workspaceId, chatId, workspaceType, 'idle', data as any, platform);
 }
