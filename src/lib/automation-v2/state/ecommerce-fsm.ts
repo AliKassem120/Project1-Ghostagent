@@ -51,7 +51,6 @@ export async function processEcommerceState(
 ): Promise<FSMResult> {
     const { message, language } = ctx;
 
-    // ── Handle cancellation/rejection at any stage ─────────────
     const yesNo = detectYesNo(message);
     const msgLower = message.toLowerCase().trim();
     const isCancelWord = /\b(cancel|stop|la2|la|mish|bas|khalas|خلص|لا|الغ)\b/i.test(msgLower);
@@ -100,15 +99,12 @@ async function handleAwaitingProduct(
     ctx: FSMContext,
     state: EcommerceStateData
 ): Promise<FSMResult> {
-    // ── Extract product candidate from natural language ──────
     const { productCandidate, quantity: extractedQty } = extractProductCandidate(ctx.message);
     const searchQuery = productCandidate || ctx.message;
 
-    // Search with extracted candidate first, fallback to all products
     let products = await searchProducts({ supabase: ctx.supabase, workspaceId: ctx.workspaceId, query: searchQuery });
     let match = findBestProductMatch(products, searchQuery);
 
-    // If no match with candidate, try loading all products and matching against candidate
     if (!match && productCandidate) {
         const allProducts = await searchProducts({ supabase: ctx.supabase, workspaceId: ctx.workspaceId, limit: 20 });
         match = findBestProductMatch(allProducts, searchQuery);
@@ -116,13 +112,11 @@ async function handleAwaitingProduct(
     }
 
     if (!match) {
-        // ── LLM Fallback: extract product entity when fuzzy matching fails ──
         if (products.length > 0) {
             const productNames = products.map(p => p.itemName);
             const llmResult = await llmExtractProduct(ctx.message, productNames);
 
             if (llmResult && llmResult.confidence >= 0.5 && llmResult.product_candidate) {
-                // Verify LLM candidate against DB (source of truth)
                 const llmMatch = findBestProductMatch(products, llmResult.product_candidate);
                 if (llmMatch) {
                     v2log.info('ECOM_FSM', 'LLM fallback matched product', {
@@ -131,11 +125,9 @@ async function handleAwaitingProduct(
                         confidence: llmResult.confidence,
                     });
                     match = llmMatch;
-                    // Use LLM-extracted quantity if higher
                     if (llmResult.quantity > 1) {
                         state = { ...state, order: { ...state.order, quantity: llmResult.quantity } };
                     }
-                    // Use LLM-extracted variant if provided
                     if (llmResult.variant) {
                         state = { ...state, order: { ...state.order, variantLabel: llmResult.variant } };
                     }
@@ -144,12 +136,10 @@ async function handleAwaitingProduct(
         }
     }
 
-    // Update quantity from extraction
     const qty = extractedQty > 1 ? extractedQty : (state.order.quantity || 1);
 
     if (!match) {
         if (products.length > 0) {
-            // Products exist but no match — ask clarification, STAY in awaiting_product
             const names = products.filter(p => p.stockLevel > 0).slice(0, 5).map(p => p.itemName).join(', ');
             return {
                 replyText: t(`We have: ${names}. Which one?`, `3anna: ${names}. Aya wahad?`, ctx.language),
@@ -184,14 +174,12 @@ async function handleAwaitingProduct(
         };
     }
 
-    // Product found and in stock — check if we have customer details already
     const known = await getKnownCustomerDetails(ctx.supabase, ctx.workspaceId, ctx.chatId);
     const customerName = known?.name || state.customer.name;
     const customerPhone = known?.phone || state.customer.phone;
     const customerAddress = known?.address || state.customer.address;
 
     if (customerName && customerPhone && customerAddress) {
-        // All details known — go straight to confirmation
         const updatedState: EcommerceStateData = {
             ...state,
             stage: 'awaiting_checkout_confirmation',
@@ -220,7 +208,6 @@ async function handleAwaitingProduct(
         };
     }
 
-    // Need customer details
     const updatedState: EcommerceStateData = {
         ...state,
         stage: 'awaiting_order_details',
@@ -292,7 +279,6 @@ async function handleAwaitingOrderDetails(
     const extractedPhone = phone || state.customer.phone;
     const extractedAddress = address || state.customer.address;
 
-    // If user just says "yes"/"ok" without providing info, repeat the ask
     const yesNo = detectYesNo(ctx.message);
     if (yesNo === 'yes' && !name && !phone && !address) {
         return {
@@ -335,7 +321,6 @@ async function handleAwaitingOrderDetails(
         };
     }
 
-    // All details collected — ask for confirmation
     const updatedState: EcommerceStateData = {
         ...state,
         stage: 'awaiting_checkout_confirmation',
@@ -382,7 +367,7 @@ async function handleCheckoutConfirmation(
 
     if (yesNo !== 'yes') {
         return {
-            replyText: t('Would you like to confirm the order?', 'Badek t2akked el order?', ctx.language),
+            replyText: t('Please reply yes or no.', 'Jawib yes aw no.', ctx.language),
             nextStage: 'awaiting_checkout_confirmation',
             nextData: state,
             actions: ['asked_confirmation_again'],
@@ -392,7 +377,6 @@ async function handleCheckoutConfirmation(
         };
     }
 
-    // YES — pre-checks before order
     const { order, customer } = state;
     if (!order.productName || !customer.name || !customer.phone || !customer.address) {
         v2log.error('ECOM_FSM', 'Missing fields at confirmation stage', { state });
@@ -407,8 +391,6 @@ async function handleCheckoutConfirmation(
         };
     }
 
-    // ── DUPLICATE PROTECTION ─────────────────────────────────
-    // Check if same product was ordered by same customer in last 60s
     const { data: recentOrders } = await ctx.supabase
         .from('orders')
         .select('id, created_at')
@@ -422,18 +404,17 @@ async function handleCheckoutConfirmation(
         const lastCreated = new Date(recentOrders[0].created_at).getTime();
         if (Date.now() - lastCreated < 60_000) {
             return {
-                replyText: t('Your order was already placed! ✅', 'Order-ak sar ma7jouz! ✅', ctx.language),
+                replyText: t('Your order was already placed!', 'Order-ak already ma7jouz!', ctx.language),
                 nextStage: 'idle',
                 nextData: null,
                 actions: ['duplicate_prevented'],
-                dbWriteAttempted: false,
-                dbWriteSuccess: false,
+                dbWriteAttempted: true,
+                dbWriteSuccess: true,
                 shouldReply: true,
             };
         }
     }
 
-    // ── INVENTORY RE-VERIFICATION ────────────────────────────
     if (order.productId) {
         const { data: currentStock } = await ctx.supabase
             .from('inventory')
@@ -444,8 +425,8 @@ async function handleCheckoutConfirmation(
         if (currentStock && currentStock.stock_level <= 0) {
             return {
                 replyText: t(
-                    `Sorry, ${order.productName} just sold out! 😔`,
-                    `Sorry, ${order.productName} kheles halla2! 😔`,
+                    `Sorry, ${order.productName} just sold out!`,
+                    `Sorry, ${order.productName} kheles halla2!`,
                     ctx.language
                 ),
                 nextStage: 'idle',
@@ -458,8 +439,7 @@ async function handleCheckoutConfirmation(
         }
     }
 
-    // ── CREATE ORDER ─────────────────────────────────────────
-    const orderId = await createOrderV2({
+    const orderResult = await createOrderV2({
         supabase: ctx.supabase,
         userId: ctx.userId,
         workspaceId: ctx.workspaceId,
@@ -472,15 +452,15 @@ async function handleCheckoutConfirmation(
         unitPrice: order.unitPrice || 0,
         quantity: order.quantity || 1,
         instagramHandle: customer.instagramHandle || 'Customer',
+        productId: order.productId || null,
     });
 
-    if (orderId) {
-        // Build post-action context for follow-up messages
+    if (orderResult.success && orderResult.orderId) {
         const now = new Date();
         const editableUntil = new Date(now.getTime() + 30 * 60 * 1000).toISOString();
         const postContext: PostActionContext = {
             type: 'order',
-            lastOrderId: orderId,
+            lastOrderId: orderResult.orderId,
             productName: order.productName,
             variantLabel: order.variantLabel,
             quantity: order.quantity || 1,
@@ -496,7 +476,7 @@ async function handleCheckoutConfirmation(
         };
 
         return {
-            replyText: t('Order confirmed! ✅', 'Tmm order-ak t2akkad! ✅', ctx.language),
+            replyText: t('Order confirmed!', 'Tmm order-ak t2akkad!', ctx.language),
             nextStage: 'idle',
             nextData: null,
             actions: ['order_created'],
@@ -505,15 +485,15 @@ async function handleCheckoutConfirmation(
             shouldReply: true,
             postContext,
         };
-    } else {
-        return {
-            replyText: t('Something went wrong with the order. Try again?', 'Fi 8alat bel order. Jarreb kamen?', ctx.language),
-            nextStage: 'idle',
-            nextData: null,
-            actions: ['order_failed'],
-            dbWriteAttempted: true,
-            dbWriteSuccess: false,
-            shouldReply: true,
-        };
     }
+
+    return {
+        replyText: t('Something went wrong with the order. Try again?', 'Fi 8alat bel order. Jarreb kamen?', ctx.language),
+        nextStage: 'idle',
+        nextData: null,
+        actions: ['order_failed'],
+        dbWriteAttempted: true,
+        dbWriteSuccess: false,
+        shouldReply: true,
+    };
 }
