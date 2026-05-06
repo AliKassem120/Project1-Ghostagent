@@ -119,6 +119,7 @@ export async function saveConversationState(
                     user_id: userId,
                     workspace_id: workspaceId,
                     chat_id: chatId,
+                    external_chat_id: chatId,
                     workspace_type: workspaceType,
                     platform,
                     stage,
