@@ -169,7 +169,7 @@ export async function cancelLatestOrder(
 
     const { error } = await supabase
         .from('orders')
-        .update({ status: 'Cancelled' })
+        .update({ status: 'cancelled' })
         .eq('id', order.id);
 
     if (error) {

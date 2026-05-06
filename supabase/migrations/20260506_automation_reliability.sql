@@ -72,6 +72,18 @@ CREATE INDEX IF NOT EXISTS automation_runs_chat_created_idx
 CREATE INDEX IF NOT EXISTS automation_runs_platform_idx
     ON public.automation_runs (platform);
 
+ALTER TABLE public.automation_runs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view their own automation runs" ON public.automation_runs;
+CREATE POLICY "Users can view their own automation runs"
+    ON public.automation_runs FOR SELECT
+    USING (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "Service role can insert automation runs" ON public.automation_runs;
+CREATE POLICY "Service role can insert automation runs"
+    ON public.automation_runs FOR INSERT
+    WITH CHECK (true);
+
 ALTER TABLE public.dm_buffer ADD COLUMN IF NOT EXISTS workspace_id uuid;
 
 ALTER TABLE public.dm_buffer

@@ -70,7 +70,7 @@ export async function createOrderV2(input: CreateOrderInput): Promise<CreateOrde
                 workspace_id: workspaceId,
                 platform,
                 chat_id: chatId,
-                instagram_user_id: chatId,
+                instagram_user_id: platform === 'instagram' ? chatId : null,
                 instagram_handle: instagramHandle,
                 customer_name: customerName,
                 customer_phone: customerPhone,

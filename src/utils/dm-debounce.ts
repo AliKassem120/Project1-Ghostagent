@@ -172,7 +172,7 @@ export async function claimDmBuffer(
     // Call the Postgres RPC function to atomically claim the buffer
     // This bypasses PostgREST .or() URL filter limitations and ensures
     // the query executes fully-qualified as public.dm_buffer in Postgres.
-    let { data: claimedRows, error } = await supabase
+    const { data: claimedRows, error } = await supabase
         .rpc('claim_dm_buffer', {
             p_owner_id: ownerId,
             p_sender_id: senderId,
@@ -181,19 +181,6 @@ export async function claimDmBuffer(
             p_scheduled_reply_at: scheduledReplyAt,
             p_lock_ttl_seconds: LOCK_TTL_SECONDS
         });
-
-    if (error) {
-        const fallback = await supabase
-            .rpc('claim_dm_buffer', {
-                p_owner_id: ownerId,
-                p_sender_id: senderId,
-                p_channel: channel,
-                p_scheduled_reply_at: scheduledReplyAt,
-                p_lock_ttl_seconds: LOCK_TTL_SECONDS
-            });
-        claimedRows = fallback.data;
-        error = fallback.error;
-    }
 
     const claimed = claimedRows?.[0];
 
