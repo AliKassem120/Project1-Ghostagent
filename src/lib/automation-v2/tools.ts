@@ -243,7 +243,7 @@ export function createSaasSupportTools(ctx: ToolContext) {
     return {
         search_knowledge: {
             description: 'Search the GhostAgent internal knowledge base for docs, pricing, features, and capabilities. ALWAYS use this before answering technical or pricing questions.',
-            parameters: z.object({ query: z.string().optional().describe('Keywords to search for, e.g. "pricing", "whatsapp", "instagram"') }),
+            parameters: z.object({ query: z.string().describe('Keywords to search for, e.g. "pricing", "whatsapp", "how it works"') }),
             execute: async ({ query }: { query?: string }) => {
                 const results = await searchSaasKnowledge(ctx.supabase, ctx.workspaceId, query);
                 return { 
