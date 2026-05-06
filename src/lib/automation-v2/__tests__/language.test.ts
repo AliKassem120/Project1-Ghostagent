@@ -54,23 +54,35 @@ describe('detectYesNo', () => {
         expect(detectYesNo('sure')).toBe('yes');
     });
 
+    it('detects fuzzy yes confirmations', () => {
+        expect(detectYesNo('yesss')).toBe('yes');
+        expect(detectYesNo('yeahh')).toBe('yes');
+        expect(detectYesNo('I told you yes')).toBe('yes');
+        expect(detectYesNo('I already said yes')).toBe('yes');
+        expect(detectYesNo('please confirm')).toBe('yes');
+    });
+
     it('detects yes in Arabizi', () => {
         expect(detectYesNo('eh')).toBe('yes');
         expect(detectYesNo('akid')).toBe('yes');
         expect(detectYesNo('tamem')).toBe('yes');
         expect(detectYesNo('yalla')).toBe('yes');
+        expect(detectYesNo('aywa')).toBe('yes');
+        expect(detectYesNo('tmm')).toBe('yes');
     });
 
     it('detects no in English', () => {
         expect(detectYesNo('no')).toBe('no');
         expect(detectYesNo('nope')).toBe('no');
         expect(detectYesNo('cancel')).toBe('no');
+        expect(detectYesNo('nooo')).toBe('no');
     });
 
     it('detects no in Arabizi', () => {
         expect(detectYesNo('la2')).toBe('no');
         expect(detectYesNo('la')).toBe('no');
         expect(detectYesNo('mish')).toBe('no');
+        expect(detectYesNo('ma bde')).toBe('no');
     });
 
     it('returns null for non-yes/no messages', () => {
