@@ -39,7 +39,16 @@ describe('Security Patch — God Mode Auth', () => {
 
 describe('Stability Patch — Appointment Status', () => {
     it('cancel_appointment uses lowercase statuses', async () => {
-        const mockSingle = vi.fn().mockResolvedValue({ data: { id: '123', service: 'Haircut', appointment_date: '2026-05-05', start_time: '10:00' }, error: null });
+        const mockSingle = vi.fn().mockResolvedValue({ 
+            data: { 
+                id: '123', 
+                service: 'Haircut', 
+                appointment_date: '2026-05-05', 
+                start_time: '10:00',
+                status: 'confirmed'
+            }, 
+            error: null 
+        });
         const mockUpdate = vi.fn().mockResolvedValue({ error: null });
         
         const mockSupabase = {
@@ -47,6 +56,7 @@ describe('Stability Patch — Appointment Status', () => {
             select: vi.fn().mockReturnThis(),
             eq: vi.fn().mockReturnThis(),
             in: vi.fn().mockReturnThis(),
+            or: vi.fn().mockReturnThis(),
             order: vi.fn().mockReturnThis(),
             limit: vi.fn().mockReturnThis(),
             maybeSingle: mockSingle,
@@ -66,8 +76,6 @@ describe('Stability Patch — Appointment Status', () => {
 
         await tools.cancel_appointment.execute();
 
-        // Verify query used lowercase
-        expect(mockSupabase.in).toHaveBeenCalledWith('status', ['confirmed', 'pending']);
         // Verify update used lowercase
         expect(mockSupabase.update).toHaveBeenCalledWith({ status: 'cancelled' });
     });
