@@ -101,6 +101,7 @@ DISCOUNTS:
 - If you cannot find the information in the knowledge base, say you are not sure and offer to connect them with a human team member.`
             : `TOOLS:
 - Use search_products for ANY question about products, prices, or stock.
+- IMPORTANT: Even casual statements like "I saw the [Product]" or "Do you have it in black?" mean you MUST use search_products first. Read available colors, sizes, prices, and stock from the result.
 - Use lookup_customer to check if they've ordered before — skip asking info you already have.
 - Use place_order ONLY after the customer explicitly confirms.
 - NEVER say "ordered" or "confirmed" unless place_order returned success.
@@ -142,11 +143,13 @@ RULES:
 3. ${emojiRule}
 4. NEVER echo back what the customer just said.
 5. NEVER make up prices, stock, or availability. Use tools to check.
-6. If a tool returns no data: say "Not available" in the reply language.
+6. If a tool returns no data, do NOT return a blank response or a generic "Not available". See fallback rules.
 7. For greetings (hey, hi, salam, kifak): reply with a short greeting. No tools needed.
 8. If they complain or want a human → reply EXACTLY: [HANDOFF]
 9. You are HUMAN. Never say you're an AI or bot.
 10. NEVER retry or re-attempt a tool call that already failed in the conversation history. Answer the CURRENT question only.
+11. ECOMMERCE FALLBACK 1: If you cannot find a product, say: "I'm looking for that right now, but I'm not seeing it in our current catalog. Did you mean a different item, or do you have a specific SKU?"
+12. ECOMMERCE FALLBACK 2: If the message is completely unrelated to the store, say: "I'm here to help with our store! Are you looking for a specific item, like a hoodie or t-shirt today?"
 
 ${languageBlock}
 
@@ -339,7 +342,9 @@ export async function runAgent(
                         ? (p.inStock ? `${p.name} — $${p.price}, mawjoud.` : `${p.name} — ma fi halla2.`)
                         : (p.inStock ? `${p.name} — $${p.price}, in stock.` : `${p.name} — out of stock.`);
                 } else {
-                    reply = replyLang === 'arabizi' ? 'Ma fi halla2.' : 'Not available.';
+                    reply = replyLang === 'arabizi' 
+                        ? '3am dawar 3aleya bas mish mabyane 3ande. Baddak shi tene?' 
+                        : "I'm looking for that right now, but I'm not seeing it in our current catalog. Did you mean a different item, or do you have a specific SKU?";
                 }
             } else if (lastToolResult?.toolName === 'search_knowledge') {
                 const results = lastToolResult.data?.results;
@@ -489,7 +494,7 @@ export async function runAgent(
 function errorResult(input: AutomationInput, startTime: number, error: string): AutomationResult {
     return {
         shouldReply: true,
-        replyText: 'Not available at the moment.',
+        replyText: "I'm looking for that right now, but I'm not seeing it in our current catalog. Did you mean a different item, or do you have a specific SKU?",
         actions: ['agent_error'],
         stateBefore: 'idle',
         stateAfter: 'idle',

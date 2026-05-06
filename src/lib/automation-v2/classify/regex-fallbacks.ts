@@ -209,9 +209,17 @@ export function classifyByRegex(message: string): RegexClassification | null {
         return { intent: 'discount_question', confidence: 0.85 };
     }
 
-    // ── Product / Service availability ────────────────────────
+    // ── Product / Service availability & inquiry ──────────────
     if (/\b(available|in\s*stock|do\s*you\s*have|fi\s*(meno|3andkon)?|mawjud|mawjoud|what.*(?:sell|offer|provide)|menu|catalog)\b/i.test(msg)) {
         return { intent: 'product_availability', confidence: 0.82 };
+    }
+    
+    // Casual mentions of products (e.g. "I saw the Heavyweight Hoodie in your store" or clothing categories)
+    if (/\b(hoodies?|t-?shirts?|jeans?|pants?|sweaters?|jackets?|crewnecks?|shorts?|shoes?|sneakers?|hats?|caps?|socks?|Heavyweight\s*Hoodie|Classic\s*Cotton)\b/i.test(msg)) {
+        return { intent: 'product_question', confidence: 0.85 };
+    }
+    if (/\b(i\s*saw\s*the\s*|saw\s*the\s*|in\s*your\s*store|on\s*your\s*page|do\s*you\s*have\s*it\s*in\s*)\b/i.test(msg)) {
+        return { intent: 'product_question', confidence: 0.85 };
     }
     // ── Service question ─────────────────────────────────────
     if (/\b(services?|what\s*do\s*you\s*do|treatments?|packages?|khedamet|khedme)\b/i.test(msg)) {
