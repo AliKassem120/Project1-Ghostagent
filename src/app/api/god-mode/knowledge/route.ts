@@ -103,6 +103,7 @@ export async function POST(req: Request) {
                 content,
                 source_type,
                 visibility,
+                file_name: `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.txt`,
                 updated_at: new Date().toISOString(),
             };
 
