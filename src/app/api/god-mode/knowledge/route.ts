@@ -75,12 +75,16 @@ export async function POST(req: Request) {
 
         const { data: wsData, error: wsError } = await sb
             .from('ai_settings')
-            .select('is_internal, workspace_role, business_type')
+            .select('user_id, is_internal, workspace_role, business_type')
             .eq('id', targetWorkspaceId)
             .maybeSingle();
 
         if (wsError || !wsData) {
             return NextResponse.json({ success: false, error: 'Workspace not found' }, { status: 404 });
+        }
+
+        if (!wsData.user_id) {
+            return NextResponse.json({ success: false, error: 'Workspace owner user_id missing' }, { status: 500 });
         }
 
         if (!(wsData.is_internal === true || wsData.workspace_role === 'official_support' || wsData.business_type === 'saas_support')) {
@@ -93,6 +97,7 @@ export async function POST(req: Request) {
             }
 
             const payload = {
+                user_id: wsData.user_id,
                 workspace_id: targetWorkspaceId,
                 title,
                 content,
