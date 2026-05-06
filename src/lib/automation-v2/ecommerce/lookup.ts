@@ -28,6 +28,13 @@ export interface OrderSnapshot {
     isEditable: boolean;
 }
 
+export type CancelOrderResult =
+    | { success: true; orderId: string; productName: string; previousStatus: string }
+    | { success: false; reason: 'no_order' }
+    | { success: false; reason: 'already_cancelled'; orderId: string; productName: string }
+    | { success: false; reason: 'not_pending_status'; orderId: string; productName: string; status: string }
+    | { success: false; reason: 'db_error'; error: string };
+
 /**
  * Lookup the most recent order for a chat.
  */
@@ -40,7 +47,7 @@ export async function lookupLatestOrder(
         .from('orders')
         .select('id, item_requested, variant_label, quantity, unit_price, customer_name, customer_phone, customer_address, status, created_at')
         .eq('workspace_id', workspaceId)
-        .eq('instagram_user_id', chatId)
+        .or(`chat_id.eq.${chatId},instagram_user_id.eq.${chatId}`)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -128,16 +135,36 @@ export async function updateOrderQuantity(
 }
 
 /**
- * Cancel the most recent pending order.
+ * Cancel the most recent order if it is still pending.
  */
 export async function cancelLatestOrder(
     supabase: SupabaseClient,
     workspaceId: string,
     chatId: string
-): Promise<{ success: boolean; productName?: string }> {
+): Promise<CancelOrderResult> {
     const order = await lookupLatestOrder(supabase, workspaceId, chatId);
-    if (!order || order.status.toLowerCase() !== 'pending') {
-        return { success: false };
+    if (!order) {
+        return { success: false, reason: 'no_order' };
+    }
+
+    const normalizedStatus = order.status.toLowerCase();
+    if (normalizedStatus === 'cancelled' || normalizedStatus === 'canceled') {
+        return {
+            success: false,
+            reason: 'already_cancelled',
+            orderId: order.id,
+            productName: order.productName,
+        };
+    }
+
+    if (normalizedStatus !== 'pending') {
+        return {
+            success: false,
+            reason: 'not_pending_status',
+            orderId: order.id,
+            productName: order.productName,
+            status: order.status,
+        };
     }
 
     const { error } = await supabase
@@ -145,7 +172,17 @@ export async function cancelLatestOrder(
         .update({ status: 'Cancelled' })
         .eq('id', order.id);
 
-    return { success: !error, productName: order.productName };
+    if (error) {
+        v2log.error('ECOM_LOOKUP', 'Failed to cancel order', { orderId: order.id, error });
+        return { success: false, reason: 'db_error', error: error.message || 'cancel_order_failed' };
+    }
+
+    return {
+        success: true,
+        orderId: order.id,
+        productName: order.productName,
+        previousStatus: order.status,
+    };
 }
 
 // ── Helpers ──────────────────────────────────────────────────

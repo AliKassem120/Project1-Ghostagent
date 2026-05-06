@@ -83,6 +83,6 @@ describe('validateReply', () => {
     it('provides Arabizi repaired reply for false confirmation', () => {
         const r = validateReply('confirmed!', { isConfirmed: false, language: 'arabizi' });
         expect(r.isValid).toBe(false);
-        expect(r.repaired).toContain('8alat');
+        expect(r.repaired).toBe('Fi 8alat. Jarreb kamen.');
     });
 });

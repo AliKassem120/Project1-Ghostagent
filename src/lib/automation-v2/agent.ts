@@ -22,10 +22,22 @@ import { buildTimeContext } from './time';
 import { v2log } from './logger';
 import { LEBANESE_VOCABULARY } from './dictionaries';
 import { validateReply } from './validation/reply-validator';
+import { guardFinalReply, safeErrorReply } from './validation/final-reply-guard';
+import { classifyIntent } from './classify/intent-classifier';
 
 // ── Model ────────────────────────────────────────────────────
 
 const MODEL = 'llama-3.3-70b-versatile';
+
+const TRANSACTIONAL_INTENTS = new Set([
+    'purchase_intent',
+    'booking_intent',
+    'cancel_order',
+    'cancel_appointment',
+    'modify_order',
+    'modify_appointment',
+    'reschedule_appointment',
+]);
 
 function getGroq() {
     const key = process.env.GROQ_API_KEY;
@@ -45,15 +57,15 @@ function buildPrompt(
     const businessDesc = config.businessType === 'appointments'
         ? 'a service-based business that takes appointments'
         : config.businessType === 'saas_support'
-        ? 'an official AI representative for GhostAgent, a SaaS platform for AI customer service'
-        : 'an online store that sells products';
+            ? 'an official AI representative for GhostAgent, a SaaS platform for AI customer service'
+            : 'an online store that sells products';
 
     // ── Tone ─────────────────────────────────────────────────
     const toneMap: Record<string, string> = {
-        'Casual':       'Casual & friendly — like a cool employee texting a friend.',
+        'Casual': 'Casual & friendly — like a cool employee texting a friend.',
         'Professional': 'Professional & polished — courteous, precise, zero slang.',
-        'Luxury':       'Luxury & premium — elegant, refined, exclusive language.',
-        'Sarcastic':    'Sarcastic & witty — helpful but with dry humor. Never rude.',
+        'Luxury': 'Luxury & premium — elegant, refined, exclusive language.',
+        'Sarcastic': 'Sarcastic & witty — helpful but with dry humor. Never rude.',
     };
     const tone = toneMap[config.tone] || toneMap['Professional'];
 
@@ -82,12 +94,12 @@ DISCOUNTS:
 - Use book_appointment ONLY after the customer explicitly confirms.
 - NEVER say "booked" or "confirmed" unless book_appointment returned success.`
         : config.businessType === 'saas_support'
-        ? `TOOLS:
+            ? `TOOLS:
 - Use search_knowledge for ANY question about GhostAgent pricing, features, or capabilities.
 - Use lookup_account to see if the user has an account.
 - NEVER make up features or prices. Always search the knowledge base.
 - If you cannot find the information in the knowledge base, say you are not sure and offer to connect them with a human team member.`
-        : `TOOLS:
+            : `TOOLS:
 - Use search_products for ANY question about products, prices, or stock.
 - Use lookup_customer to check if they've ordered before — skip asking info you already have.
 - Use place_order ONLY after the customer explicitly confirms.
@@ -243,8 +255,8 @@ export async function runAgent(
     const tools = config.businessType === 'appointments'
         ? createAppointmentTools(toolCtx)
         : config.businessType === 'saas_support'
-        ? createSaasSupportTools(toolCtx)
-        : createEcommerceTools(toolCtx);
+            ? createSaasSupportTools(toolCtx)
+            : createEcommerceTools(toolCtx);
 
     // 5. LLM call
     const groq = getGroq();
@@ -301,7 +313,13 @@ export async function runAgent(
                         actions.push(toolName === 'book_appointment' ? 'appointment_failed' : 'order_failed');
                     }
                 } else if (toolName === 'cancel_appointment' || toolName === 'cancel_order') {
-                    if (data?.success) actions.push('cancelled');
+                    dbWriteAttempted = true;
+                    if (data?.success) {
+                        dbWriteSuccess = true;
+                        actions.push('cancelled');
+                    } else {
+                        actions.push(toolName === 'cancel_appointment' ? 'appointment_cancel_failed' : 'order_cancel_failed');
+                    }
                 } else if (toolName === 'lookup_customer' && data?.found) {
                     actions.push('memory_used');
                 } else {
@@ -347,7 +365,7 @@ export async function runAgent(
             const confirmWords = ['confirmed', 'booked', 'scheduled', 'placed', 't2akad', 't2akkad'];
             if (confirmWords.some(w => lower.includes(w))) {
                 v2log.warn('AGENT', 'Blocked false confirmation', { reply });
-                reply = replyLang === 'arabizi' ? 'Fi 8alat halla2. Jarreb ba3den.' : 'Something went wrong. Try again.';
+                reply = safeErrorReply(replyLang);
             }
         }
 
@@ -395,6 +413,19 @@ export async function runAgent(
         // Groq/Llama sometimes fails on tool schemas. Fall back to a
         // plain conversation so the customer isn't left hanging.
         if (errMsg.includes('function') || errMsg.includes('tool') || errMsg.includes('failed_generation')) {
+            const intent = classifyIntent(input.message).intent;
+            if (TRANSACTIONAL_INTENTS.has(intent)) {
+                v2log.warn('AGENT', 'Blocked retry without tools for transactional intent', { intent });
+                return {
+                    shouldReply: true,
+                    replyText: safeErrorReply(replyLang),
+                    actions: ['agent_retry_no_tools_blocked_transactional'],
+                    stateBefore: 'idle',
+                    stateAfter: 'idle',
+                    debug: makeDebug(input, detected, Date.now() - startTime, intent),
+                };
+            }
+
             try {
                 v2log.info('AGENT', 'Retrying without tools...');
                 const retryResult = await generateText({
@@ -404,8 +435,33 @@ export async function runAgent(
                     temperature: 0.3,
                 });
 
-                const retryReply = retryResult.text?.trim();
+                let retryReply = retryResult.text?.trim();
                 if (retryReply) {
+                    const guarded = guardFinalReply({
+                        replyText: retryReply,
+                        language: replyLang,
+                        dbWriteAttempted: false,
+                        dbWriteSuccess: false,
+                        actionType: 'retry_without_tools',
+                        sourcePath: 'agent_retry_without_tools',
+                    });
+                    if (!guarded.shouldReply) {
+                        return {
+                            shouldReply: false,
+                            actions: ['agent_retry_no_tools', ...guarded.actionsToAdd],
+                            stateBefore: 'idle',
+                            stateAfter: 'handoff',
+                            debug: makeDebug(input, detected, Date.now() - startTime, guarded.blockedReason || 'handoff'),
+                        };
+                    }
+                    retryReply = guarded.replyText || '';
+                    const validation = validateReply(retryReply, {
+                        isConfirmed: false,
+                        language: replyLang,
+                    });
+                    if (!validation.isValid) {
+                        retryReply = validation.repaired || safeErrorReply(replyLang);
+                    }
                     v2log.info('AGENT', `Retry succeeded in ${Date.now() - startTime}ms`, {
                         replyPreview: retryReply.slice(0, 60),
                     });

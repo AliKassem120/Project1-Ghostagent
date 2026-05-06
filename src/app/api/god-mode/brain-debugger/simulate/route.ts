@@ -86,7 +86,7 @@ export async function POST(req: Request) {
                     .from('orders')
                     .select('*')
                     .eq('workspace_id', workspaceId)
-                    .or(`metadata->>chat_id.eq.${replayChatId},metadata->>chatId.eq.${replayChatId}`)
+                    .or(`chat_id.eq.${replayChatId},instagram_user_id.eq.${replayChatId}`)
                     .order('created_at', { ascending: false })
                     .limit(1)
                     .maybeSingle();
@@ -99,7 +99,7 @@ export async function POST(req: Request) {
                     .from('appointments')
                     .select('*')
                     .eq('workspace_id', workspaceId)
-                    .or(`metadata->>chat_id.eq.${replayChatId},metadata->>chatId.eq.${replayChatId}`)
+                    .or(`chat_id.eq.${replayChatId},instagram_user_id.eq.${replayChatId}`)
                     .order('created_at', { ascending: false })
                     .limit(1)
                     .maybeSingle();

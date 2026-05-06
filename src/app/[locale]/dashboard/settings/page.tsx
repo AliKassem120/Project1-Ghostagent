@@ -1150,7 +1150,9 @@ export default function SettingsPage() {
                             </div>
                             <div className="flex items-center justify-between py-2">
                                 <span className="text-xs text-muted-foreground font-medium">Instagram Connected</span>
-                                <span className={`text-xs font-bold ${instagramStatus?.connected ? 'text-emerald-400' : 'text-red-400'}`}>{instagramStatus?.connected ? 'Yes' : 'No'}</span>
+                                <span className={`text-xs font-bold ${instagramStatus === null ? 'text-muted-foreground' : instagramStatus.connected ? 'text-emerald-400' : 'text-red-400'}`}>
+                                    {instagramStatus === null ? 'Loading...' : instagramStatus.connected ? 'Yes' : 'No'}
+                                </span>
                             </div>
                         </div>
                     </motion.div>

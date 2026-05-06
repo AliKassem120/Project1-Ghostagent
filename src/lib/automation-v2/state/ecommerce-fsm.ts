@@ -34,6 +34,7 @@ interface FSMContext {
     config: WorkspaceConfig;
     message: string;
     language: string;
+    platform: 'instagram' | 'whatsapp';
 }
 
 function t(en: string, arabizi: string, lang: string): string {
@@ -413,7 +414,7 @@ async function handleCheckoutConfirmation(
         .from('orders')
         .select('id, created_at')
         .eq('workspace_id', ctx.workspaceId)
-        .eq('instagram_user_id', ctx.chatId)
+        .or(`chat_id.eq.${ctx.chatId},instagram_user_id.eq.${ctx.chatId}`)
         .eq('status', 'Pending')
         .order('created_at', { ascending: false })
         .limit(1);
@@ -422,7 +423,7 @@ async function handleCheckoutConfirmation(
         const lastCreated = new Date(recentOrders[0].created_at).getTime();
         if (Date.now() - lastCreated < 60_000) {
             return {
-                replyText: t('Your order was already placed! ✅', 'Order-ak sar ma7jouz! ✅', ctx.language),
+                replyText: t('I already have this order.', 'Hal order mawjoud already.', ctx.language),
                 nextStage: 'idle',
                 nextData: null,
                 actions: ['duplicate_prevented'],
@@ -459,11 +460,13 @@ async function handleCheckoutConfirmation(
     }
 
     // ── CREATE ORDER ─────────────────────────────────────────
-    const orderId = await createOrderV2({
+    const orderResult = await createOrderV2({
         supabase: ctx.supabase,
         userId: ctx.userId,
         workspaceId: ctx.workspaceId,
         chatId: ctx.chatId,
+        platform: ctx.platform,
+        productId: order.productId,
         customerName: customer.name,
         customerPhone: customer.phone,
         customerAddress: customer.address,
@@ -472,15 +475,16 @@ async function handleCheckoutConfirmation(
         unitPrice: order.unitPrice || 0,
         quantity: order.quantity || 1,
         instagramHandle: customer.instagramHandle || 'Customer',
+        rawMessage: ctx.message,
     });
 
-    if (orderId) {
+    if (orderResult.success && orderResult.orderId) {
         // Build post-action context for follow-up messages
         const now = new Date();
         const editableUntil = new Date(now.getTime() + 30 * 60 * 1000).toISOString();
         const postContext: PostActionContext = {
             type: 'order',
-            lastOrderId: orderId,
+            lastOrderId: orderResult.orderId,
             productName: order.productName,
             variantLabel: order.variantLabel,
             quantity: order.quantity || 1,
@@ -507,7 +511,7 @@ async function handleCheckoutConfirmation(
         };
     } else {
         return {
-            replyText: t('Something went wrong with the order. Try again?', 'Fi 8alat bel order. Jarreb kamen?', ctx.language),
+            replyText: t('Something went wrong. Please try again.', 'Fi 8alat. Jarreb kamen.', ctx.language),
             nextStage: 'idle',
             nextData: null,
             actions: ['order_failed'],

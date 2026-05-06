@@ -15,6 +15,7 @@ export interface CreateAppointmentInput {
     userId: string;
     workspaceId: string;
     chatId: string;
+    platform?: 'instagram' | 'whatsapp';
     customerName: string;
     customerPhone: string;
     serviceName: string;
@@ -25,14 +26,21 @@ export interface CreateAppointmentInput {
     instagramHandle?: string;
 }
 
+export type CreateAppointmentResult = {
+    success: boolean;
+    appointmentId?: string;
+    error?: string;
+    supabaseCode?: string;
+};
+
 /**
- * Creates an appointment. Returns the appointment ID on success, null on failure.
+ * Creates an appointment. Returns a structured result for safe transactional replies.
  */
-export async function createAppointmentV2(input: CreateAppointmentInput): Promise<string | null> {
+export async function createAppointmentV2Structured(input: CreateAppointmentInput): Promise<CreateAppointmentResult> {
     const { 
         supabase, userId, workspaceId, chatId, customerName, 
         customerPhone, serviceName, date, startTime, endTime, 
-        durationMinutes, instagramHandle = 'Customer' 
+        durationMinutes, instagramHandle = 'Customer', platform = 'instagram'
     } = input;
 
     v2log.appointment.insertAttempt({ workspaceId, date, startTime, customerName });
@@ -44,6 +52,8 @@ export async function createAppointmentV2(input: CreateAppointmentInput): Promis
             .insert({
                 user_id: userId,
                 workspace_id: workspaceId,
+                platform,
+                chat_id: chatId,
                 instagram_user_id: chatId,
                 instagram_handle: instagramHandle,
                 customer_name: customerName,
@@ -61,7 +71,7 @@ export async function createAppointmentV2(input: CreateAppointmentInput): Promis
 
         if (error) {
             v2log.appointment.insertError({ error, workspaceId });
-            return null;
+            return { success: false, error: error.message, supabaseCode: error.code };
         }
 
         v2log.appointment.insertSuccess({ appointmentId: inserted.id });
@@ -97,10 +107,18 @@ export async function createAppointmentV2(input: CreateAppointmentInput): Promis
             v2log.appointment.calendarVisibility({ visible: true });
         }
 
-        return inserted.id;
+        return { success: true, appointmentId: inserted.id };
 
     } catch (err) {
         v2log.error('V2_APPOINTMENTS_CREATE', 'Unexpected error during appointment creation', { err, workspaceId });
-        return null;
+        return { success: false, error: err instanceof Error ? err.message : String(err) };
     }
+}
+
+/**
+ * Backward-compatible wrapper for older call sites.
+ */
+export async function createAppointmentV2(input: CreateAppointmentInput): Promise<string | null> {
+    const result = await createAppointmentV2Structured(input);
+    return result.success ? result.appointmentId || null : null;
 }

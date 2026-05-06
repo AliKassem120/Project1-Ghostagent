@@ -56,6 +56,9 @@ export interface AutomationDebug {
     intent?: string;
     dbWriteAttempted: boolean;
     dbWriteSuccess: boolean;
+    blockedReason?: string;
+    replyBeforeGuard?: string | null;
+    replyAfterGuard?: string | null;
     durationMs: number;
 }
 

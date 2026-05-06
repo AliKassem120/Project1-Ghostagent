@@ -20,6 +20,11 @@ export interface LoadedState {
     postContext: PostActionContext | null;
 }
 
+export interface StateWriteResult {
+    success: boolean;
+    error?: string;
+}
+
 /**
  * Load the current conversation state for a specific chat.
  * Returns idle with null data if no state exists.
@@ -75,11 +80,11 @@ export async function saveConversationState(
     workspaceType: 'appointments' | 'ecommerce' | 'saas_support',
     stage: ConversationStage,
     stateData: StateData | null
-): Promise<void> {
+): Promise<StateWriteResult> {
     const now = new Date().toISOString();
 
     try {
-        const { data: existing } = await supabase
+        const { data: existing, error: selectError } = await supabase
             .from('conversation_states')
             .select('id')
             .eq('user_id', userId)
@@ -88,8 +93,13 @@ export async function saveConversationState(
             .eq('workspace_type', workspaceType)
             .maybeSingle();
 
+        if (selectError) {
+            v2log.error('STATE_STORE', 'Failed to find existing state', { error: selectError, chatId, stage });
+            return { success: false, error: selectError.message || 'state_select_failed' };
+        }
+
         if (existing) {
-            await supabase
+            const { error } = await supabase
                 .from('conversation_states')
                 .update({
                     stage,
@@ -97,8 +107,12 @@ export async function saveConversationState(
                     updated_at: now,
                 })
                 .eq('id', existing.id);
+            if (error) {
+                v2log.error('STATE_STORE', 'Failed to update state', { error, chatId, stage });
+                return { success: false, error: error.message || 'state_update_failed' };
+            }
         } else {
-            await supabase
+            const { error } = await supabase
                 .from('conversation_states')
                 .insert({
                     user_id: userId,
@@ -109,11 +123,17 @@ export async function saveConversationState(
                     data: stateData || {},
                     updated_at: now,
                 });
+            if (error) {
+                v2log.error('STATE_STORE', 'Failed to insert state', { error, chatId, stage });
+                return { success: false, error: error.message || 'state_insert_failed' };
+            }
         }
 
         v2log.info('STATE_STORE', `Saved state: ${stage}`, { chatId, stage });
+        return { success: true };
     } catch (err) {
         v2log.error('STATE_STORE', 'Failed to save state', { err, chatId, stage });
+        return { success: false, error: err instanceof Error ? err.message : String(err) };
     }
 }
 
@@ -127,7 +147,7 @@ export async function clearConversationState(
     chatId: string,
     workspaceType: 'appointments' | 'ecommerce' | 'saas_support',
     postContext?: PostActionContext | null
-): Promise<void> {
+): Promise<StateWriteResult> {
     const data = postContext ? { stage: 'idle', postContext } : {};
-    await saveConversationState(supabase, userId, workspaceId, chatId, workspaceType, 'idle', data as any);
+    return await saveConversationState(supabase, userId, workspaceId, chatId, workspaceType, 'idle', data as any);
 }

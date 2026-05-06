@@ -16,7 +16,7 @@ import type { WorkspaceConfig } from '../types';
 import { loadActiveServices, findBestServiceMatch } from '../appointments/services';
 import { loadBusinessHours, getHoursForDay } from '../appointments/hours';
 import { checkAvailability } from '../appointments/availability';
-import { createAppointmentV2 } from '../appointments/create-appointment';
+import { createAppointmentV2Structured } from '../appointments/create-appointment';
 import { detectYesNo, extractNameAndPhone } from '../language';
 import { buildTimeContext, resolveDateFromMessage, resolveTimeFromMessage, formatTime12, minutesToTime, formatDateLabel } from '../time';
 import { getKnownCustomerDetails } from '../customer-history';
@@ -32,6 +32,7 @@ interface FSMContext {
     config: WorkspaceConfig;
     message: string;
     language: string;
+    platform: 'instagram' | 'whatsapp';
 }
 
 function t(en: string, arabizi: string, lang: string): string {
@@ -384,7 +385,7 @@ async function handleAwaitingDateTime(
             };
         }
         return {
-            replyText: t('That slot is taken. Do you have another time?', 'Hal maw3ed ma7jouz. Fi wa2t tene?', ctx.language),
+            replyText: t('That slot is taken. Do you have another time?', 'Hal wa2et msh fadi. Fi wa2t tene?', ctx.language),
             nextStage: 'awaiting_date_time',
             nextData: state,
             actions: ['slot_taken'],
@@ -586,7 +587,7 @@ async function handleBookingConfirmation(
         .from('appointments')
         .select('id, created_at')
         .eq('workspace_id', ctx.workspaceId)
-        .eq('instagram_user_id', ctx.chatId)
+        .or(`chat_id.eq.${ctx.chatId},instagram_user_id.eq.${ctx.chatId}`)
         .eq('appointment_date', appointment.date)
         .eq('start_time', appointment.startTime)
         .in('status', ['confirmed', 'pending'])
@@ -597,7 +598,7 @@ async function handleBookingConfirmation(
         const lastCreated = new Date(recentAppts[0].created_at).getTime();
         if (Date.now() - lastCreated < 60_000) {
             return {
-                replyText: t('Your appointment was already booked! ✅', 'Maw3edak sar ma7jouz! ✅', ctx.language),
+                replyText: t('I already have this appointment.', 'Hal maw3ed mawjoud already.', ctx.language),
                 nextStage: 'idle',
                 nextData: null,
                 actions: ['duplicate_prevented'],
@@ -624,7 +625,7 @@ async function handleBookingConfirmation(
         return {
             replyText: t(
                 'Sorry, that slot just got taken. Pick another time?',
-                'Sorry, hal wa2et sar ma7jouz. Wa2t tene?',
+                'Sorry, hal wa2et sar msh fadi. Wa2t tene?',
                 ctx.language
             ),
             nextStage: 'awaiting_date_time',
@@ -642,11 +643,12 @@ async function handleBookingConfirmation(
     }
 
     // ── CREATE APPOINTMENT ───────────────────────────────────
-    const appointmentId = await createAppointmentV2({
+    const appointmentResult = await createAppointmentV2Structured({
         supabase: ctx.supabase,
         userId: ctx.userId,
         workspaceId: ctx.workspaceId,
         chatId: ctx.chatId,
+        platform: ctx.platform,
         customerName: customer.name,
         customerPhone: customer.phone,
         serviceName: appointment.serviceName,
@@ -657,7 +659,7 @@ async function handleBookingConfirmation(
         instagramHandle: customer.instagramHandle || 'Customer',
     });
 
-    if (appointmentId) {
+    if (appointmentResult.success && appointmentResult.appointmentId) {
         const timeCtx = buildTimeContext(ctx.config.timezone);
         const dateLabel = formatDateLabel(appointment.date, timeCtx);
         const timeLabel = formatTime12(appointment.startTime);
@@ -669,7 +671,7 @@ async function handleBookingConfirmation(
         ).toISOString();
         const postContext: PostActionContext = {
             type: 'appointment',
-            lastAppointmentId: appointmentId,
+            lastAppointmentId: appointmentResult.appointmentId,
             serviceName: appointment.serviceName,
             date: appointment.date,
             startTime: appointment.startTime,
@@ -698,7 +700,7 @@ async function handleBookingConfirmation(
         };
     } else {
         return {
-            replyText: t('Something went wrong with the booking. Try again?', 'Fi 8alat bel 7ajez. Jarreb kamen?', ctx.language),
+            replyText: t('Something went wrong. Please try again.', 'Fi 8alat. Jarreb kamen.', ctx.language),
             nextStage: 'idle',
             nextData: null,
             actions: ['appointment_failed'],

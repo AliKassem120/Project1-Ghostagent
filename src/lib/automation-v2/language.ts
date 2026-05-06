@@ -112,13 +112,14 @@ export function detectLanguage(message: string): DetectedLanguage {
 
 const YES_WORDS = [
     // English
-    'yes', 'yeah', 'yep', 'yea', 'y', 'ok', 'okay', 'sure', 'confirm', 'correct',
-    'go ahead', 'do it',
+    'yes', 'yeah', 'yep', 'yea', 'yup', 'y', 'ok', 'okay', 'sure', 'confirm', 'confirmed', 'correct',
+    'confirm it', 'proceed', 'go ahead', 'do it', 'please confirm',
+    'i said yes', 'i told you yes', 'i already said yes',
     // Arabic
     'نعم', 'ايوا', 'اي', 'ايه', 'تمام', 'أكيد', 'صح', 'طيب',
     // Arabizi
-    'eh', 'ee', 'e', 'akid', 'tamem', 'tamam', 'tayeb', 'yalla', 'mazbout',
-    'aywa', 'tmm', 'mnih',
+    'eh', 'eeh', 'ee', 'e', 'akid', 'tamem', 'tamam', 'tayeb', 'yalla', 'mazbout',
+    'aywa', 'aywah', 'tmm', 'mnih',
     // French
     'oui', 'ouais', 'd\'accord', 'bien sur', 'absolument',
     // Spanish
@@ -127,11 +128,11 @@ const YES_WORDS = [
 
 const NO_WORDS = [
     // English
-    'no', 'nope', 'nah', 'cancel', 'stop', 'never', 'no thanks', 'never mind',
+    'no', 'nope', 'nah', 'cancel', 'stop', 'never', 'no thanks', 'never mind', 'dont', 'don t',
     // Arabic
     'لا', 'مش', 'ابدا',
     // Arabizi
-    'la', 'la2', 'mish', 'msh', 'mesh', 'khalas',
+    'la', 'la2', 'laa', 'mish', 'msh', 'mesh', 'khalas', 'ma bde', 'ma bade', 'ma badde',
     // French
     'non', 'pas', 'jamais', 'annuler',
     // Spanish
@@ -139,19 +140,37 @@ const NO_WORDS = [
 ];
 
 export function detectYesNo(message: string): 'yes' | 'no' | null {
-    const normalized = normalizeText(message);
+    const normalized = normalizeRepeatedLetters(normalizeText(message));
     const tokens = normalized.split(' ');
 
-    // Short messages (1-4 words) are more likely to be yes/no
-    if (tokens.length <= 4) {
-        const hasWord = (list: string[]) => 
-            list.some(w => w.includes(' ') ? normalized.includes(w) : tokens.includes(w));
-        
-        if (hasWord(YES_WORDS)) return 'yes';
+    const hasWord = (list: string[]) =>
+        list.some(w => {
+            const word = normalizeRepeatedLetters(w);
+            return word.includes(' ')
+                ? normalized.includes(word)
+                : tokens.includes(word);
+        });
+
+    if (tokens.length <= 5) {
         if (hasWord(NO_WORDS)) return 'no';
+        if (hasWord(YES_WORDS)) return 'yes';
     }
 
+    const yesPhrases = ['i said yes', 'i told you yes', 'i already said yes', 'please confirm'];
+    const noPhrases = ['never mind', 'no thanks', 'ma bde', 'ma bade', 'ma badde'];
+
+    if (noPhrases.some(phrase => normalized.includes(phrase))) return 'no';
+    if (yesPhrases.some(phrase => normalized.includes(phrase))) return 'yes';
+
     return null;
+}
+
+function normalizeRepeatedLetters(input: string): string {
+    return input
+        .replace(/\b(yes)s+\b/g, 'yes')
+        .replace(/\b(yeah)h+\b/g, 'yeah')
+        .replace(/\b(yep)p+\b/g, 'yep')
+        .replace(/\b(no)o+\b/g, 'no');
 }
 
 // ── Name/Phone/Address Extraction (heuristic) ───────────────
@@ -275,4 +294,3 @@ export function extractAddress(message: string): string | null {
 
     return null;
 }
-

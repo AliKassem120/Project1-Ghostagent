@@ -1,4 +1,5 @@
 import { handleAutomationMessage } from '@/lib/automation-v2';
+import type { AutomationResult } from '@/lib/automation-v2/types';
 
 // ═══════════════════════════════════════════════════════════════
 // 🧠 GHOST AGENT — Core AI Brain Router
@@ -38,10 +39,27 @@ export async function generateGhostReply(
             userId,
         });
 
-        if (!result.shouldReply) return { replyText: null, skipLegacyLogging: true };
-        return { replyText: result.replyText || null, skipLegacyLogging: true };
+        if (!result.shouldReply) {
+            return { replyText: null, skipLegacyLogging: true, automationResult: result };
+        }
+
+        return {
+            replyText: result.replyText || null,
+            skipLegacyLogging: true,
+            automationResult: result,
+            debug: result.debug,
+            actions: result.actions,
+        };
     } catch (error: any) {
         console.error('❌ [Ghost Brain] Failed:', error);
         return null;
     }
 }
+
+export type GhostReplyResult = {
+    replyText: string | null;
+    skipLegacyLogging: boolean;
+    automationResult?: AutomationResult;
+    debug?: AutomationResult['debug'];
+    actions?: string[];
+} | null;

@@ -4,6 +4,7 @@ import { generateGhostReply } from '@/utils/ghost-brain';
 import { upsertDmBuffer, claimDmBuffer, clearDmBuffer, releaseDmBuffer, DEBOUNCE_SECONDS } from '@/utils/dm-debounce';
 import { containsAlertKeyword, triggerManagerAlert, ALERT_KEYWORDS } from '@/utils/whatsapp-alerts';
 import { getBotControlDecision } from '@/lib/god-mode/bot-controls';
+import { guardFinalReply } from '@/lib/automation-v2/validation/final-reply-guard';
 import { classifyByRegex } from '@/lib/automation-v2/classify/regex-fallbacks';
 import { extractAvailabilityCandidate } from '@/lib/automation-v2/ecommerce/extract-product';
 import { searchProducts, findBestProductMatch } from '@/lib/automation-v2/ecommerce/products';
@@ -25,6 +26,22 @@ const getSupabaseAdmin = () => {
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY!;
     if (!supabaseServiceKey) throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY');
     return createClient(supabaseUrl, supabaseServiceKey);
+}
+
+function guardOutboundText(text: string | null | undefined, debug?: any, sourcePath = 'instagram_webhook'): string | null {
+    const guarded = guardFinalReply({
+        replyText: text,
+        language: debug?.language,
+        dbWriteAttempted: debug?.dbWriteAttempted,
+        dbWriteSuccess: debug?.dbWriteSuccess,
+        actionType: debug?.intent,
+        sourcePath,
+    });
+    if (!guarded.shouldReply || !guarded.replyText) {
+        console.warn(`Blocked outbound Instagram reply: ${guarded.blockedReason || 'empty'}`);
+        return null;
+    }
+    return guarded.replyText;
 }
 
 // ═══════════════════════════════════════
@@ -550,7 +567,7 @@ async function processWebhookEvent(body: any) {
                             }
 
                             if (seedContext) {
-                                await clearConversationState(
+                                const stateWrite = await clearConversationState(
                                     supabaseAdmin, 
                                     ownerId, 
                                     commentWorkspaceId || ownerId, 
@@ -558,6 +575,9 @@ async function processWebhookEvent(body: any) {
                                     businessType, 
                                     seedContext
                                 );
+                                if (!stateWrite.success) {
+                                    console.error('Context seed save failed:', stateWrite.error);
+                                }
                                 console.log(`🌱 [Context Seed] Seeded ${seedContext.type} context for @${commenterName} from comment DM.`);
                             }
                         } catch (seedErr) {
@@ -617,7 +637,7 @@ async function processDmBuffer({
     console.log(`🔄 [Buffer] processDmBuffer fired for sender ${senderId}`);
 
     // 1. Atomically claim the buffer row
-    const claimed = await claimDmBuffer(supabaseAdmin, ownerId, senderId, scheduledReplyAt, 'instagram');
+    const claimed = await claimDmBuffer(supabaseAdmin, ownerId, senderId, scheduledReplyAt, 'instagram', workspaceId);
     if (!claimed) {
         // A newer message pushed reply_at forward — its timer will handle it
         return;
@@ -641,13 +661,14 @@ async function processDmBuffer({
                 timestamp: new Date().toISOString(),
                 metadata: { chat_id: senderId, platform: 'instagram', type: 'billing_limit' }
             });
-            await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
+            await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram', effectiveWorkspaceId);
             return;
         }
 
         // 3. Generate AI reply (ghost-brain v4 owns checkout via finalize_transaction tool)
         let aiResponse: string | null = null;
         let skipLegacyLogging = false;
+        let brainDebug: any = null;
         try {
             const brainRes = await generateGhostReply(
                 ownerId,
@@ -656,17 +677,18 @@ async function processDmBuffer({
                 senderId,
                 effectiveWorkspaceId ?? undefined
             );
-            aiResponse = brainRes?.replyText || null;
+            brainDebug = brainRes?.debug || null;
+            aiResponse = guardOutboundText(brainRes?.replyText || null, brainRes?.debug, 'instagram_dm_webhook');
             skipLegacyLogging = brainRes?.skipLegacyLogging || false;
         } catch (ghostErr) {
             console.error('❌ [Ghost Brain] generateGhostReply threw:', ghostErr);
-            await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
+            await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram', effectiveWorkspaceId);
             return;
         }
 
         if (!aiResponse) {
             console.log('Ghost Protocol: No reply (handoff or empty).');
-            await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
+            await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram', effectiveWorkspaceId);
             return;
         }
 
@@ -682,7 +704,7 @@ async function processDmBuffer({
                 timestamp: new Date().toISOString(),
                 metadata: { chat_id: senderId, platform: 'instagram', status: 'pending_approval', reply_text: aiResponse }
             });
-            await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
+            await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram', effectiveWorkspaceId);
             return;
         }
 
@@ -695,7 +717,7 @@ async function processDmBuffer({
 
         // 8. Send the reply
         console.log('🤖 AI Reply:', aiResponse);
-        await sendReply(ownerId, senderId, aiResponse, supabaseAdmin, effectiveWorkspaceId || undefined);
+        await sendReply(ownerId, senderId, aiResponse, supabaseAdmin, effectiveWorkspaceId || undefined, brainDebug);
 
         // 7. Log the reply (Only if not already logged by V2 engine)
         if (!skipLegacyLogging) {
@@ -710,14 +732,14 @@ async function processDmBuffer({
         }
 
         // 8. Clear the buffer
-        await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
+        await clearDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram', effectiveWorkspaceId);
         console.log(`✅ [Buffer] Reply sent and buffer cleared for sender ${senderId}`);
 
 
     } catch (err) {
         console.error(`❌ [Buffer] processDmBuffer failed for sender ${senderId}:`, err);
         // Release lock so TTL can allow retry
-        await releaseDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram');
+        await releaseDmBuffer(supabaseAdmin, ownerId, senderId, 'instagram', workspaceId);
     }
 }
 
@@ -796,7 +818,11 @@ async function fetchUserProfile(senderId: string, supabaseAdmin: any, workspaceI
     }
 }
 
-async function sendReply(ownerId: string, recipientId: string, text: string, supabaseAdmin: any, workspaceId?: string) {
+async function sendReply(ownerId: string, recipientId: string, text: string, supabaseAdmin: any, workspaceId?: string, debug?: any) {
+    const guardedText = guardOutboundText(text, debug, 'instagram_send_reply');
+    if (!guardedText) return;
+    text = guardedText;
+
     let token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
     let url = `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`;
     let isNewAPI = false;
@@ -1008,6 +1034,10 @@ async function getReplyDelay(supabaseAdmin: any, ownerId: string, workspaceId?: 
 }
 
 async function sendCommentReply(ownerId: string, commentId: string, message: string, supabaseAdmin: any, workspaceId?: string) {
+    const guardedText = guardOutboundText(message, null, 'instagram_comment_reply');
+    if (!guardedText) return;
+    message = guardedText;
+
     let token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
     let isNewAPI = false;
 
@@ -1083,6 +1113,10 @@ async function sendCommentReply(ownerId: string, commentId: string, message: str
 }
 
 async function sendPrivateReplyToComment(ownerId: string, commentId: string, message: string, supabaseAdmin: any, workspaceId?: string) {
+    const guardedText = guardOutboundText(message, null, 'instagram_private_comment_reply');
+    if (!guardedText) return;
+    message = guardedText;
+
     let token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN;
     let isNewAPI = false;
 
@@ -1233,6 +1267,33 @@ async function generateCommentReplyPlan(
         const businessInstructions = settings?.system_instructions ? `BUSINESS INSTRUCTIONS: ${settings.system_instructions}` : '';
 
         const plan: CommentReplyPlan = { publicCommentText: null, privateDmText: null };
+
+        if (settings?.business_type === 'ecommerce') {
+            const candidate = extractAvailabilityCandidate(commentText);
+            if (candidate) {
+                const products = await searchProducts({
+                    supabase,
+                    workspaceId: workspaceId || userId,
+                    query: candidate,
+                    limit: 10,
+                });
+                const matched = findBestProductMatch(products, candidate);
+                if (matched) {
+                    const availability = matched.stockLevel > 0 ? 'in stock' : 'out of stock';
+                    if (replyStyle === 'public' || replyStyle === 'both') {
+                        plan.publicCommentText = replyStyle === 'both'
+                            ? 'Check your DMs.'
+                            : `DM us for ${matched.itemName} details.`;
+                    }
+                    if (replyStyle === 'dm' || replyStyle === 'both') {
+                        plan.privateDmText = matched.stockLevel > 0
+                            ? `${matched.itemName} - $${matched.price}, ${availability}. Want one?`
+                            : `${matched.itemName} is currently out of stock.`;
+                    }
+                    return plan;
+                }
+            }
+        }
 
         // ── Generate PUBLIC comment text (for 'public' and 'both' styles) ──
         if (replyStyle === 'public' || replyStyle === 'both') {

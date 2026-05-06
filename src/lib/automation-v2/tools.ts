@@ -14,12 +14,14 @@ import type { WorkspaceConfig } from './types';
 import { loadActiveServices, findBestServiceMatch } from './appointments/services';
 import { loadBusinessHours, getHoursForDay } from './appointments/hours';
 import { checkAvailability } from './appointments/availability';
-import { createAppointmentV2 } from './appointments/create-appointment';
+import { createAppointmentV2Structured } from './appointments/create-appointment';
+import { cancelLatestAppointment } from './appointments/lookup';
 import { formatTime12, minutesToTime } from './time';
 
 // ── E-Commerce imports ───────────────────────────────────────
 import { searchProducts, findBestProductMatch } from './ecommerce/products';
 import { createOrderV2 } from './ecommerce/orders';
+import { cancelLatestOrder } from './ecommerce/lookup';
 
 // ── Shared imports ───────────────────────────────────────────
 import { getKnownCustomerDetails } from './customer-history';
@@ -106,32 +108,15 @@ export function createAppointmentTools(ctx: ToolContext) {
                         }
                     }
                 } catch (_e) { /* fallback to 'Customer' */ }
-                const appointmentId = await createAppointmentV2({ supabase: ctx.supabase, userId: ctx.userId, workspaceId: ctx.workspaceId, chatId: ctx.chatId, customerName: customer_name, customerPhone: customer_phone, serviceName: match.name, date, startTime: time, endTime, durationMinutes: match.durationMinutes, instagramHandle: handle });
-                return { success: !!appointmentId, service: match.name, date, time: formatTime12(time), price: match.price };
+                const appointmentResult = await createAppointmentV2Structured({ supabase: ctx.supabase, userId: ctx.userId, workspaceId: ctx.workspaceId, chatId: ctx.chatId, platform: ctx.platform, customerName: customer_name, customerPhone: customer_phone, serviceName: match.name, date, startTime: time, endTime, durationMinutes: match.durationMinutes, instagramHandle: handle });
+                return { ...appointmentResult, service: match.name, date, time: formatTime12(time), price: match.price };
             },
         },
         cancel_appointment: {
             description: 'Cancel the customer\'s most recent upcoming confirmed appointment.',
             parameters: z.object({}),
             execute: async () => {
-                const { data: upcoming } = await ctx.supabase
-                    .from('appointments')
-                    .select('id, service, appointment_date, start_time')
-                    .eq('workspace_id', ctx.workspaceId)
-                    .eq('instagram_user_id', ctx.chatId)
-                    .in('status', ['confirmed', 'pending'])
-                    .order('appointment_date', { ascending: true })
-                    .limit(1)
-                    .maybeSingle();
-
-                if (!upcoming) return { success: false, message: 'No upcoming appointment found' };
-
-                const { error } = await ctx.supabase
-                    .from('appointments')
-                    .update({ status: 'cancelled' })
-                    .eq('id', upcoming.id);
-
-                return { success: !error, cancelled: { service: upcoming.service, date: upcoming.appointment_date, time: formatTime12(upcoming.start_time) } };
+                return await cancelLatestAppointment(ctx.supabase, ctx.workspaceId, ctx.chatId);
             },
         },
         lookup_customer: {
@@ -215,18 +200,15 @@ export function createEcommerceTools(ctx: ToolContext) {
                         }
                     }
                 } catch (_e) { /* fallback to 'Customer' */ }
-                const orderId = await createOrderV2({ supabase: ctx.supabase, userId: ctx.userId, workspaceId: ctx.workspaceId, chatId: ctx.chatId, customerName: customer_name, customerPhone: customer_phone, customerAddress: customer_address, itemRequested: match.itemName, variantLabel: variant, unitPrice: match.price, quantity, instagramHandle: handle });
-                return { success: !!orderId, product: match.itemName, price: match.price, quantity };
+                const orderResult = await createOrderV2({ supabase: ctx.supabase, userId: ctx.userId, workspaceId: ctx.workspaceId, chatId: ctx.chatId, platform: ctx.platform, productId: match.id, customerName: customer_name, customerPhone: customer_phone, customerAddress: customer_address, itemRequested: match.itemName, variantLabel: variant, unitPrice: match.price, quantity, instagramHandle: handle });
+                return { ...orderResult, product: match.itemName, price: match.price, quantity };
             },
         },
         cancel_order: {
             description: 'Cancel the customer\'s most recent pending order.',
             parameters: z.object({}),
             execute: async () => {
-                const { data: recent } = await ctx.supabase.from('orders').select('id, item_requested').eq('workspace_id', ctx.workspaceId).eq('instagram_user_id', ctx.chatId).eq('status', 'Pending').order('created_at', { ascending: false }).limit(1).maybeSingle();
-                if (!recent) return { success: false, message: 'No pending order found' };
-                const { error } = await ctx.supabase.from('orders').update({ status: 'Cancelled' }).eq('id', recent.id);
-                return { success: !error, item: recent.item_requested };
+                return await cancelLatestOrder(ctx.supabase, ctx.workspaceId, ctx.chatId);
             },
         },
         lookup_customer: {

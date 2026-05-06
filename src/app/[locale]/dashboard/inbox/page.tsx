@@ -299,9 +299,10 @@ export default function InteractionsPage() {
             // Includes logic to detect previously failed fetch attempts like 'User 0461'
             const unknowns = logs.filter(l => {
                 const isMessage = ['INCOMING_MESSAGE', 'INCOMING_DM', 'DRAFT_REPLY'].includes(l.event_type);
+                const isWhatsApp = l.metadata?.platform === 'whatsapp';
                 const hasBadName = !l.metadata?.sender?.attendee_name &&
                     (!l.metadata?.username || String(l.metadata?.username).startsWith('User '));
-                return isMessage && hasBadName && !fetchedProfiles[l.metadata?.chat_id];
+                return isMessage && !isWhatsApp && hasBadName && !fetchedProfiles[l.metadata?.chat_id];
             });
 
             // Deduplicate chat IDs

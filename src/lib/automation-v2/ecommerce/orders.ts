@@ -14,6 +14,8 @@ export interface CreateOrderInput {
     userId: string;
     workspaceId: string;
     chatId: string;
+    platform: 'instagram' | 'whatsapp';
+    productId?: string | null;
     customerName: string;
     customerPhone: string;
     customerAddress: string;
@@ -25,12 +27,20 @@ export interface CreateOrderInput {
     rawMessage?: string;
 }
 
+export type CreateOrderResult = {
+    success: boolean;
+    orderId?: string;
+    error?: string;
+    supabaseCode?: string;
+};
+
 /**
- * Creates an order. Returns the order ID on success, null on failure.
+ * Creates an order. Returns a structured result so callers never infer
+ * success from ambiguous/null values.
  */
-export async function createOrderV2(input: CreateOrderInput): Promise<string | null> {
+export async function createOrderV2(input: CreateOrderInput): Promise<CreateOrderResult> {
     const { 
-        supabase, userId, workspaceId, chatId, customerName, 
+        supabase, userId, workspaceId, chatId, platform, productId, customerName,
         customerPhone, customerAddress, itemRequested, 
         variantLabel, unitPrice, quantity, 
         instagramHandle = 'Customer', rawMessage = ''
@@ -41,8 +51,10 @@ export async function createOrderV2(input: CreateOrderInput): Promise<string | n
     try {
         // 1. Prepare raw_message JSON for extra context (dashboard uses this)
         const rawJson = JSON.stringify({
-            platform: 'instagram',
+            platform,
             chat_id: chatId,
+            workspace_id: workspaceId,
+            product_id: productId || null,
             item_variant: variantLabel || 'N/A',
             unit_price: unitPrice,
             quantity: quantity,
@@ -56,6 +68,8 @@ export async function createOrderV2(input: CreateOrderInput): Promise<string | n
             .insert({
                 user_id: userId,
                 workspace_id: workspaceId,
+                platform,
+                chat_id: chatId,
                 instagram_user_id: chatId,
                 instagram_handle: instagramHandle,
                 customer_name: customerName,
@@ -74,14 +88,24 @@ export async function createOrderV2(input: CreateOrderInput): Promise<string | n
 
         if (error) {
             v2log.ecommerce.orderError({ error, workspaceId });
-            return null;
+            v2log.error('V2_ECOMMERCE_ORDER_CREATE', 'Order insert failed', {
+                workspaceId,
+                chatId,
+                platform,
+                itemRequested,
+                productId,
+                customerPhone,
+                supabaseCode: error.code,
+                error: error.message,
+            });
+            return { success: false, error: error.message, supabaseCode: error.code };
         }
 
         v2log.ecommerce.orderSuccess({ orderId: inserted.id });
-        return inserted.id;
+        return { success: true, orderId: inserted.id };
 
     } catch (err) {
         v2log.error('V2_ECOMMERCE_ORDER_CREATE', 'Unexpected error during order creation', { err, workspaceId });
-        return null;
+        return { success: false, error: err instanceof Error ? err.message : String(err) };
     }
 }

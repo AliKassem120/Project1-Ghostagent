@@ -65,18 +65,25 @@ export async function GET(req: Request) {
                 };
             });
 
+        const { data: automationRuns } = await sb
+            .from('automation_runs')
+            .select('*')
+            .eq('chat_id', chatId)
+            .order('created_at', { ascending: true })
+            .limit(50);
+
         // Also fetch any related order or appointment IDs
         const { data: orders } = await sb
             .from('orders')
-            .select('id, status, created_at, item_name, total')
-            .or(`metadata->>chat_id.eq.${chatId},metadata->>chatId.eq.${chatId}`)
+            .select('id, status, created_at, item_requested, customer_name, platform, chat_id, instagram_user_id')
+            .or(`chat_id.eq.${chatId},instagram_user_id.eq.${chatId}`)
             .order('created_at', { ascending: false })
             .limit(5);
 
         const { data: appointments } = await sb
             .from('appointments')
-            .select('id, status, start_time, service_name')
-            .or(`metadata->>chat_id.eq.${chatId},metadata->>chatId.eq.${chatId}`)
+            .select('id, status, created_at, service, appointment_date, start_time, platform, chat_id, instagram_user_id')
+            .or(`chat_id.eq.${chatId},instagram_user_id.eq.${chatId}`)
             .order('created_at', { ascending: false })
             .limit(5);
 
@@ -93,6 +100,7 @@ export async function GET(req: Request) {
             linkedData: {
                 orders: orders || [],
                 appointments: appointments || [],
+                automationRuns: automationRuns || [],
                 currentState: stateData || null,
             },
         });

@@ -25,12 +25,13 @@ import { classifyPostContext } from './classify/post-context-classifier';
 import { lookupLatestOrder, cancelLatestOrder, updateOrderVariant, updateOrderAddress } from './ecommerce/lookup';
 import { searchProducts, findBestProductMatch } from './ecommerce/products';
 import { extractAvailabilityCandidate } from './ecommerce/extract-product';
-import { lookupLatestAppointment, cancelLatestAppointment, rescheduleAppointment } from './appointments/lookup';
+import { lookupLatestAppointment, lookupLatestAppointmentAnyStatus, cancelLatestAppointment, rescheduleAppointment } from './appointments/lookup';
 import { loadActiveServices, findBestServiceMatch } from './appointments/services';
 import { loadBusinessHours, getHoursForDay } from './appointments/hours';
 import { formatTime12 } from './time';
 import { detectLanguage, detectYesNo } from './language';
 import { v2log } from './logger';
+import { safeErrorReply } from './validation/final-reply-guard';
 
 export interface DecisionResult {
     /** If true, the FSM or post-context handler handled this message deterministically */
@@ -52,6 +53,282 @@ function t(en: string, arabizi: string, lang: string): string {
     // since we don't have formal Arabic translations.
     const isArabizi = lang === 'arabizi' || lang === 'lebanese franco' || lang === 'arabic' || lang === 'mixed';
     return isArabizi ? arabizi : en;
+}
+
+async function persistFsmResult(
+    input: AutomationInput,
+    fsmResult: FSMResult,
+    existingPostContext: PostActionContext | null,
+    lang: string
+): Promise<FSMResult> {
+    const newPostContext = fsmResult.postContext || existingPostContext;
+    const writeResult = fsmResult.nextStage === 'idle'
+        ? await clearConversationState(
+            input.supabase,
+            input.userId,
+            input.workspaceId,
+            input.chatId,
+            input.workspaceType,
+            newPostContext
+        )
+        : await saveConversationState(
+            input.supabase,
+            input.userId,
+            input.workspaceId,
+            input.chatId,
+            input.workspaceType,
+            fsmResult.nextStage,
+            fsmResult.nextData
+        );
+
+    if (writeResult.success) return fsmResult;
+
+    v2log.error('DECISION', 'State persistence failed', {
+        workspaceId: input.workspaceId,
+        chatId: input.chatId,
+        nextStage: fsmResult.nextStage,
+        error: writeResult.error,
+    });
+
+    if (fsmResult.dbWriteSuccess) {
+        if (fsmResult.nextStage === 'idle' && newPostContext) {
+            const clearOnly = await clearConversationState(
+                input.supabase,
+                input.userId,
+                input.workspaceId,
+                input.chatId,
+                input.workspaceType,
+                null
+            );
+            if (!clearOnly.success) {
+                v2log.error('DECISION', 'Failed to clear state after DB success', {
+                    workspaceId: input.workspaceId,
+                    chatId: input.chatId,
+                    error: clearOnly.error,
+                });
+            }
+        }
+        return {
+            ...fsmResult,
+            actions: [...fsmResult.actions, 'post_context_save_failed'],
+        };
+    }
+
+    return {
+        replyText: safeErrorReply(lang),
+        nextStage: 'idle',
+        nextData: null,
+        actions: [...fsmResult.actions, 'state_save_failed'],
+        dbWriteAttempted: fsmResult.dbWriteAttempted,
+        dbWriteSuccess: false,
+        shouldReply: true,
+    };
+}
+
+function isGlobalInterrupt(intent: string | undefined): boolean {
+    return !!intent && [
+        'cancel_order',
+        'cancel_appointment',
+        'cancel_status',
+        'human_handoff',
+        'frustration_stop',
+        'modify_order',
+        'modify_appointment',
+        'reschedule_appointment',
+    ].includes(intent);
+}
+
+function cancelOrderReply(result: Awaited<ReturnType<typeof cancelLatestOrder>>, lang: string): FSMResult {
+    if (result.success) {
+        return {
+            replyText: t('Order cancelled.', 'Tamem, el order tenla8a.', lang),
+            nextStage: 'idle',
+            nextData: null,
+            actions: ['order_cancelled'],
+            dbWriteAttempted: true,
+            dbWriteSuccess: true,
+            shouldReply: true,
+        };
+    }
+
+    if (result.reason === 'already_cancelled') {
+        return {
+            replyText: t('Order is already cancelled.', 'El order already tenla8a.', lang),
+            nextStage: 'idle',
+            nextData: null,
+            actions: ['order_already_cancelled'],
+            dbWriteAttempted: false,
+            dbWriteSuccess: false,
+            shouldReply: true,
+        };
+    }
+
+    if (result.reason === 'not_pending_status') {
+        return {
+            replyText: t(`I can't cancel it because status is ${result.status}.`, `Ma fiyye el8e, status: ${result.status}.`, lang),
+            nextStage: 'idle',
+            nextData: null,
+            actions: ['order_not_cancellable'],
+            dbWriteAttempted: false,
+            dbWriteSuccess: false,
+            shouldReply: true,
+        };
+    }
+
+    if (result.reason === 'db_error') {
+        return {
+            replyText: safeErrorReply(lang),
+            nextStage: 'idle',
+            nextData: null,
+            actions: ['order_cancel_failed'],
+            dbWriteAttempted: true,
+            dbWriteSuccess: false,
+            shouldReply: true,
+        };
+    }
+
+    return {
+        replyText: t("I can't find a recent order.", 'Ma l2et order 2arib.', lang),
+        nextStage: 'idle',
+        nextData: null,
+        actions: ['cancel_no_order'],
+        dbWriteAttempted: false,
+        dbWriteSuccess: false,
+        shouldReply: true,
+    };
+}
+
+function cancelAppointmentReply(result: Awaited<ReturnType<typeof cancelLatestAppointment>>, lang: string): FSMResult {
+    if (result.success) {
+        return {
+            replyText: t('Appointment cancelled.', 'Tamem, el maw3ed tenla8a.', lang),
+            nextStage: 'idle',
+            nextData: null,
+            actions: ['appointment_cancelled'],
+            dbWriteAttempted: true,
+            dbWriteSuccess: true,
+            shouldReply: true,
+        };
+    }
+
+    if (result.reason === 'already_cancelled') {
+        return {
+            replyText: t('Appointment is already cancelled.', 'El maw3ed already tenla8a.', lang),
+            nextStage: 'idle',
+            nextData: null,
+            actions: ['appointment_already_cancelled'],
+            dbWriteAttempted: false,
+            dbWriteSuccess: false,
+            shouldReply: true,
+        };
+    }
+
+    if (result.reason === 'not_cancellable_status') {
+        return {
+            replyText: t(`I can't cancel it because status is ${result.status}.`, `Ma fiyye el8e, status: ${result.status}.`, lang),
+            nextStage: 'idle',
+            nextData: null,
+            actions: ['appointment_not_cancellable'],
+            dbWriteAttempted: false,
+            dbWriteSuccess: false,
+            shouldReply: true,
+        };
+    }
+
+    if (result.reason === 'db_error') {
+        return {
+            replyText: safeErrorReply(lang),
+            nextStage: 'idle',
+            nextData: null,
+            actions: ['appointment_cancel_failed'],
+            dbWriteAttempted: true,
+            dbWriteSuccess: false,
+            shouldReply: true,
+        };
+    }
+
+    return {
+        replyText: t("I can't find a recent appointment.", 'Ma l2et maw3ed 2arib.', lang),
+        nextStage: 'idle',
+        nextData: null,
+        actions: ['cancel_no_appointment'],
+        dbWriteAttempted: false,
+        dbWriteSuccess: false,
+        shouldReply: true,
+    };
+}
+
+async function handleGlobalInterrupt(
+    input: AutomationInput,
+    lang: string,
+    currentStage: ConversationStage,
+    intent: string
+): Promise<FSMResult | null> {
+    if (intent === 'human_handoff') {
+        return {
+            replyText: '',
+            nextStage: 'handoff',
+            nextData: null,
+            actions: ['handoff'],
+            dbWriteAttempted: false,
+            dbWriteSuccess: false,
+            shouldReply: false,
+        };
+    }
+
+    if (intent === 'frustration_stop') {
+        return {
+            replyText: t(
+                "Sorry about that. I won't bother you. If you need anything, just message us.",
+                'Be3tezer. Ma b3ajzak. Eza bdk shi, rase.',
+                lang
+            ),
+            nextStage: 'idle',
+            nextData: null,
+            actions: ['frustration_stop'],
+            dbWriteAttempted: false,
+            dbWriteSuccess: false,
+            shouldReply: true,
+        };
+    }
+
+    if (intent === 'cancel_status') {
+        return null;
+    }
+
+    if ((intent === 'cancel_order' || intent === 'cancel_appointment') && input.workspaceType === 'ecommerce') {
+        const result = await cancelLatestOrder(input.supabase, input.workspaceId, input.chatId);
+        if (!result.success && result.reason === 'no_order' && currentStage !== 'idle' && currentStage !== 'handoff') {
+            return {
+                replyText: t('No problem. Let me know if you need anything.', 'Wala yhemak. Khaberne eza bdk shi.', lang),
+                nextStage: 'idle',
+                nextData: null,
+                actions: ['cancelled_flow'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            };
+        }
+        return cancelOrderReply(result, lang);
+    }
+
+    if ((intent === 'cancel_appointment' || intent === 'cancel_order') && input.workspaceType === 'appointments') {
+        const result = await cancelLatestAppointment(input.supabase, input.workspaceId, input.chatId);
+        if (!result.success && result.reason === 'no_appointment' && currentStage !== 'idle' && currentStage !== 'handoff') {
+            return {
+                replyText: t('No problem. Let me know if you need anything.', 'Wala yhemak. Khaberne eza bdk shi.', lang),
+                nextStage: 'idle',
+                nextData: null,
+                actions: ['cancelled_flow'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            };
+        }
+        return cancelAppointmentReply(result, lang);
+    }
+
+    return null;
 }
 
 /**
@@ -82,7 +359,24 @@ export async function runDecisionEngine(
         hasPostContext: !!postContext,
     });
 
-    // 2. STATE BEFORE CLASSIFIER — if active state, run FSM
+    // 2. GLOBAL INTERRUPTS - cancel/update/handoff before active FSM continuation.
+    const classification = classifyIntent(input.message);
+    if (isGlobalInterrupt(classification.intent)) {
+        const interruptResult = await handleGlobalInterrupt(input, replyLang, currentStage, classification.intent);
+        if (interruptResult) {
+            const fsmResult = await persistFsmResult(input, interruptResult, postContext, replyLang);
+            return {
+                handledByFSM: true,
+                fsmResult,
+                classifiedIntent: classification.intent,
+                language: replyLang,
+                stateBefore: currentStage,
+                stateAfter: fsmResult.nextStage,
+            };
+        }
+    }
+
+    // 3. STATE BEFORE CLASSIFIER - if active state, run FSM
     if (currentStage !== 'idle' && currentStage !== 'handoff' && currentData) {
         const fsmCtx = {
             supabase: input.supabase,
@@ -92,6 +386,7 @@ export async function runDecisionEngine(
             config,
             message: input.message,
             language: replyLang,
+            platform: input.platform,
         };
 
         let fsmResult: FSMResult;
@@ -113,16 +408,8 @@ export async function runDecisionEngine(
             };
         }
 
-        // Save the new state (preserving postContext if FSM returned one)
-        const newPostContext = fsmResult.postContext || postContext;
-        if (fsmResult.nextStage === 'idle' || !fsmResult.nextData) {
-            await clearConversationState(input.supabase, input.userId, input.workspaceId, input.chatId, input.workspaceType, newPostContext);
-        } else {
-            await saveConversationState(
-                input.supabase, input.userId, input.workspaceId, input.chatId,
-                input.workspaceType, fsmResult.nextStage, fsmResult.nextData
-            );
-        }
+        // Save the new state before asking follow-up questions.
+        fsmResult = await persistFsmResult(input, fsmResult, postContext, replyLang);
 
         return {
             handledByFSM: true,
@@ -160,9 +447,7 @@ export async function runDecisionEngine(
         }
     }
 
-    // 4. IDLE — classify intent
-    const classification = classifyIntent(input.message);
-
+    // 5. IDLE - use the classification already computed for global interrupts
     v2log.info('DECISION', `Classified: ${classification.intent} (${classification.confidence})`, {
         chatId: input.chatId,
         source: classification.source,
@@ -235,16 +520,11 @@ export async function runDecisionEngine(
             config,
             message: input.message,
             language: replyLang,
+            platform: input.platform,
         };
 
-        const fsmResult = await processAppointmentState(fsmCtx, initialState);
-
-        if (fsmResult.nextStage !== 'idle' && fsmResult.nextData) {
-            await saveConversationState(
-                input.supabase, input.userId, input.workspaceId, input.chatId,
-                input.workspaceType, fsmResult.nextStage, fsmResult.nextData
-            );
-        }
+        const rawFsmResult = await processAppointmentState(fsmCtx, initialState);
+        const fsmResult = await persistFsmResult(input, rawFsmResult, postContext, replyLang);
 
         return {
             handledByFSM: true,
@@ -277,16 +557,11 @@ export async function runDecisionEngine(
             config,
             message: input.message,
             language: replyLang,
+            platform: input.platform,
         };
 
-        const fsmResult = await processEcommerceState(fsmCtx, initialState);
-
-        if (fsmResult.nextStage !== 'idle' && fsmResult.nextData) {
-            await saveConversationState(
-                input.supabase, input.userId, input.workspaceId, input.chatId,
-                input.workspaceType, fsmResult.nextStage, fsmResult.nextData
-            );
-        }
+        const rawFsmResult = await processEcommerceState(fsmCtx, initialState);
+        const fsmResult = await persistFsmResult(input, rawFsmResult, postContext, replyLang);
 
         return {
             handledByFSM: true,
@@ -320,16 +595,11 @@ export async function runDecisionEngine(
             config,
             message: input.message,
             language: replyLang,
+            platform: input.platform,
         };
 
-        const fsmResult = await processAppointmentState(fsmCtx, initialState);
-
-        if (fsmResult.nextStage !== 'idle' && fsmResult.nextData) {
-            await saveConversationState(
-                input.supabase, input.userId, input.workspaceId, input.chatId,
-                input.workspaceType, fsmResult.nextStage, fsmResult.nextData
-            );
-        }
+        const rawFsmResult = await processAppointmentState(fsmCtx, initialState);
+        const fsmResult = await persistFsmResult(input, rawFsmResult, postContext, replyLang);
 
         return {
             handledByFSM: true,
@@ -388,78 +658,28 @@ export async function runDecisionEngine(
     // ── Cancel order — deterministic ─────────────────────────
     if (classification.intent === 'cancel_order' && input.workspaceType === 'ecommerce') {
         const result = await cancelLatestOrder(input.supabase, input.workspaceId, input.chatId);
-        if (result.success) {
-            return {
-                handledByFSM: true,
-                fsmResult: {
-                    replyText: t(`${result.productName} order cancelled.`, `Order el ${result.productName} tenla8a.`, replyLang),
-                    nextStage: 'idle',
-                    nextData: null,
-                    actions: ['order_cancelled'],
-                    dbWriteAttempted: true,
-                    dbWriteSuccess: true,
-                    shouldReply: true,
-                },
-                classifiedIntent: 'cancel_order',
-                language: replyLang,
-                stateBefore: 'idle',
-                stateAfter: 'idle',
-            };
-        }
+        const fsmResult = cancelOrderReply(result, replyLang);
         return {
             handledByFSM: true,
-            fsmResult: {
-                replyText: t('No pending order to cancel.', 'Ma fi order la yenle8e.', replyLang),
-                nextStage: 'idle',
-                nextData: null,
-                actions: ['cancel_no_order'],
-                dbWriteAttempted: false,
-                dbWriteSuccess: false,
-                shouldReply: true,
-            },
+            fsmResult,
             classifiedIntent: 'cancel_order',
             language: replyLang,
             stateBefore: 'idle',
-            stateAfter: 'idle',
+            stateAfter: fsmResult.nextStage,
         };
     }
 
     // ── Cancel appointment — deterministic ───────────────────
     if (classification.intent === 'cancel_appointment' && input.workspaceType === 'appointments') {
         const result = await cancelLatestAppointment(input.supabase, input.workspaceId, input.chatId);
-        if (result.success) {
-            return {
-                handledByFSM: true,
-                fsmResult: {
-                    replyText: t(`${result.serviceName} appointment cancelled.`, `Maw3ed el ${result.serviceName} tenla8a.`, replyLang),
-                    nextStage: 'idle',
-                    nextData: null,
-                    actions: ['appointment_cancelled'],
-                    dbWriteAttempted: true,
-                    dbWriteSuccess: true,
-                    shouldReply: true,
-                },
-                classifiedIntent: 'cancel_appointment',
-                language: replyLang,
-                stateBefore: 'idle',
-                stateAfter: 'idle',
-            };
-        }
+        const fsmResult = cancelAppointmentReply(result, replyLang);
         return {
             handledByFSM: true,
-            fsmResult: {
-                replyText: t('No upcoming appointment to cancel.', 'Ma fi maw3ed la yenle8e.', replyLang),
-                nextStage: 'idle',
-                nextData: null,
-                actions: ['cancel_no_appointment'],
-                dbWriteAttempted: false,
-                dbWriteSuccess: false,
-                shouldReply: true,
-            },
+            fsmResult,
             classifiedIntent: 'cancel_appointment',
             language: replyLang,
             stateBefore: 'idle',
-            stateAfter: 'idle',
+            stateAfter: fsmResult.nextStage,
         };
     }
 
@@ -472,7 +692,7 @@ export async function runDecisionEngine(
                 const isPending = order.status.toLowerCase() === 'pending';
                 let replyText: string;
                 if (isCancelled) {
-                    replyText = t('Yes, your order has been cancelled.', 'Eh, el order tenla8a.', replyLang);
+                    replyText = t('Your order status is Cancelled.', 'Status el order: Cancelled.', replyLang);
                 } else if (isPending) {
                     replyText = t('Not yet — it\'s still pending. Want me to cancel it?', 'La2 ba3do pending. Badak el8e?', replyLang);
                 } else {
@@ -503,12 +723,12 @@ export async function runDecisionEngine(
             };
         }
         if (input.workspaceType === 'appointments') {
-            const appt = await lookupLatestAppointment(input.supabase, input.workspaceId, input.chatId);
+            const appt = await lookupLatestAppointmentAnyStatus(input.supabase, input.workspaceId, input.chatId);
             if (appt) {
                 const isCancelled = appt.status.toLowerCase() === 'cancelled';
                 let replyText: string;
                 if (isCancelled) {
-                    replyText = t('Yes, your appointment has been cancelled.', 'Eh, el maw3ed tenla8a.', replyLang);
+                    replyText = t('Your appointment status is Cancelled.', 'Status el maw3ed: Cancelled.', replyLang);
                 } else {
                     replyText = t('Not yet — it\'s still active. Want me to cancel it?', 'La2 ba3do mawjoud. Badak el8e?', replyLang);
                 }
@@ -704,10 +924,28 @@ export async function runDecisionEngine(
                 } : undefined;
 
                 if (offerPostContext) {
-                    await clearConversationState(
+                    const stateWrite = await clearConversationState(
                         input.supabase, input.userId, input.workspaceId, input.chatId,
                         input.workspaceType, offerPostContext
                     );
+                    if (!stateWrite.success) {
+                        return {
+                            handledByFSM: true,
+                            fsmResult: {
+                                replyText: safeErrorReply(replyLang),
+                                nextStage: 'idle',
+                                nextData: null,
+                                actions: ['product_search_specific', 'state_save_failed'],
+                                dbWriteAttempted: false,
+                                dbWriteSuccess: false,
+                                shouldReply: true,
+                            },
+                            classifiedIntent: classification.intent,
+                            language: replyLang,
+                            stateBefore: 'idle',
+                            stateAfter: 'idle',
+                        };
+                    }
                 }
 
                 return {
@@ -853,10 +1091,28 @@ export async function runDecisionEngine(
                         ctaType: 'booking_offer',
                     };
 
-                    await clearConversationState(
+                    const stateWrite = await clearConversationState(
                         input.supabase, input.userId, input.workspaceId, input.chatId,
                         input.workspaceType, servicePostContext
                     );
+                    if (!stateWrite.success) {
+                        return {
+                            handledByFSM: true,
+                            fsmResult: {
+                                replyText: safeErrorReply(replyLang),
+                                nextStage: 'idle',
+                                nextData: null,
+                                actions: ['service_search_specific', 'state_save_failed'],
+                                dbWriteAttempted: false,
+                                dbWriteSuccess: false,
+                                shouldReply: true,
+                            },
+                            classifiedIntent: classification.intent,
+                            language: replyLang,
+                            stateBefore: 'idle',
+                            stateAfter: 'idle',
+                        };
+                    }
 
                     return {
                         handledByFSM: true,
@@ -949,52 +1205,13 @@ async function handlePostContextIntent(
         case 'cancel_latest': {
             if (pc.type === 'order') {
                 const result = await cancelLatestOrder(input.supabase, input.workspaceId, input.chatId);
-                if (result.success) {
-                    // Clear postContext since the action is cancelled
-                    await clearConversationState(input.supabase, input.userId, input.workspaceId, input.chatId, input.workspaceType);
-                    return {
-                        replyText: t(`${result.productName} order cancelled.`, `Order el ${result.productName} tenla8a.`, lang),
-                        nextStage: 'idle',
-                        nextData: null,
-                        actions: ['post_context_cancel_order'],
-                        dbWriteAttempted: true,
-                        dbWriteSuccess: true,
-                        shouldReply: true,
-                    };
-                }
-                return {
-                    replyText: t('No pending order to cancel.', 'Ma fi order la yenle8e.', lang),
-                    nextStage: 'idle',
-                    nextData: null,
-                    actions: ['post_context_cancel_no_order'],
-                    dbWriteAttempted: false,
-                    dbWriteSuccess: false,
-                    shouldReply: true,
-                };
+                const reply = cancelOrderReply(result, lang);
+                return { ...reply, actions: ['post_context_cancel_order', ...reply.actions] };
             }
             if (pc.type === 'appointment') {
                 const result = await cancelLatestAppointment(input.supabase, input.workspaceId, input.chatId);
-                if (result.success) {
-                    await clearConversationState(input.supabase, input.userId, input.workspaceId, input.chatId, input.workspaceType);
-                    return {
-                        replyText: t(`${result.serviceName} appointment cancelled.`, `Maw3ed el ${result.serviceName} tenla8a.`, lang),
-                        nextStage: 'idle',
-                        nextData: null,
-                        actions: ['post_context_cancel_appointment'],
-                        dbWriteAttempted: true,
-                        dbWriteSuccess: true,
-                        shouldReply: true,
-                    };
-                }
-                return {
-                    replyText: t('No upcoming appointment to cancel.', 'Ma fi maw3ed la yenle8e.', lang),
-                    nextStage: 'idle',
-                    nextData: null,
-                    actions: ['post_context_cancel_no_appt'],
-                    dbWriteAttempted: false,
-                    dbWriteSuccess: false,
-                    shouldReply: true,
-                };
+                const reply = cancelAppointmentReply(result, lang);
+                return { ...reply, actions: ['post_context_cancel_appointment', ...reply.actions] };
             }
             return null;
         }
@@ -1124,10 +1341,21 @@ async function handlePostContextIntent(
                 };
 
                 // Save FSM state so next message goes through ecommerce FSM
-                await saveConversationState(
+                const stateWrite = await saveConversationState(
                     input.supabase, input.userId, input.workspaceId, input.chatId,
                     input.workspaceType as 'ecommerce', 'awaiting_order_details', initialState
                 );
+                if (!stateWrite.success) {
+                    return {
+                        replyText: safeErrorReply(lang),
+                        nextStage: 'idle',
+                        nextData: null,
+                        actions: ['accept_offer_ecommerce', 'state_save_failed'],
+                        dbWriteAttempted: false,
+                        dbWriteSuccess: false,
+                        shouldReply: true,
+                    };
+                }
 
                 return {
                     replyText: t(
@@ -1164,10 +1392,21 @@ async function handlePostContextIntent(
                 };
 
                 // Save FSM state so next message goes through appointments FSM
-                await saveConversationState(
+                const stateWrite = await saveConversationState(
                     input.supabase, input.userId, input.workspaceId, input.chatId,
                     input.workspaceType as 'appointments', 'awaiting_date_time', initialState
                 );
+                if (!stateWrite.success) {
+                    return {
+                        replyText: safeErrorReply(lang),
+                        nextStage: 'idle',
+                        nextData: null,
+                        actions: ['accept_offer_appointment', 'state_save_failed'],
+                        dbWriteAttempted: false,
+                        dbWriteSuccess: false,
+                        shouldReply: true,
+                    };
+                }
 
                 return {
                     replyText: t(
@@ -1192,7 +1431,18 @@ async function handlePostContextIntent(
             if (!pc.ctaType) return null;
 
             // Clear the CTA context
-            await clearConversationState(input.supabase, input.userId, input.workspaceId, input.chatId, input.workspaceType);
+            const stateWrite = await clearConversationState(input.supabase, input.userId, input.workspaceId, input.chatId, input.workspaceType);
+            if (!stateWrite.success) {
+                return {
+                    replyText: safeErrorReply(lang),
+                    nextStage: 'idle',
+                    nextData: null,
+                    actions: ['reject_offer', 'state_save_failed'],
+                    dbWriteAttempted: false,
+                    dbWriteSuccess: false,
+                    shouldReply: true,
+                };
+            }
 
             return {
                 replyText: t(

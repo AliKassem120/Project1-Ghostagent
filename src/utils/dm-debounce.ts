@@ -32,6 +32,12 @@ export interface DmBufferParams {
     channel?: string;
 }
 
+function withWorkspaceFilter(query: any, workspaceId: string | null) {
+    return workspaceId
+        ? query.eq('workspace_id', workspaceId)
+        : query.is('workspace_id', null);
+}
+
 /**
  * Upsert the dm_buffer row for this sender.
  * If a row already exists, appends the new message and resets the reply_at timer.
@@ -49,13 +55,15 @@ export async function upsertDmBuffer({
     const now = new Date().toISOString();
 
     // Try to get existing buffer row first
-    const { data: existing } = await supabase
-        .from('dm_buffer')
-        .select('id, buffered_text')
-        .eq('owner_id', ownerId)
-        .eq('sender_id', senderId)
-        .eq('channel', channel)
-        .maybeSingle();
+    const { data: existing } = await withWorkspaceFilter(
+        supabase
+            .from('dm_buffer')
+            .select('id, buffered_text')
+            .eq('owner_id', ownerId)
+            .eq('sender_id', senderId)
+            .eq('channel', channel),
+        workspaceId
+    ).maybeSingle();
 
     if (existing) {
         // Append message to existing buffer and push reply_at forward
@@ -69,6 +77,7 @@ export async function upsertDmBuffer({
                 buffered_text: combinedText,
                 reply_at: replyAt,
                 status: 'waiting',
+                workspace_id: workspaceId,
                 lock_expires_at: null, // Release any stale lock
                 updated_at: now,
             })
@@ -102,13 +111,26 @@ export async function upsertDmBuffer({
             // and inserted first. Retry as an update (append) instead.
             if (error.code === '23505') {
                 console.log(`🔄 [Buffer] Race condition caught for sender ${senderId}. Retrying as update...`);
-                const { data: raceRow } = await supabase
-                    .from('dm_buffer')
-                    .select('id, buffered_text')
-                    .eq('owner_id', ownerId)
-                    .eq('sender_id', senderId)
-                    .eq('channel', channel)
-                    .maybeSingle();
+                let { data: raceRow } = await withWorkspaceFilter(
+                    supabase
+                        .from('dm_buffer')
+                        .select('id, buffered_text')
+                        .eq('owner_id', ownerId)
+                        .eq('sender_id', senderId)
+                        .eq('channel', channel),
+                    workspaceId
+                ).maybeSingle();
+
+                if (!raceRow) {
+                    const unscoped = await supabase
+                        .from('dm_buffer')
+                        .select('id, buffered_text')
+                        .eq('owner_id', ownerId)
+                        .eq('sender_id', senderId)
+                        .eq('channel', channel)
+                        .maybeSingle();
+                    raceRow = unscoped.data;
+                }
 
                 if (raceRow) {
                     const combined = raceRow.buffered_text
@@ -116,7 +138,7 @@ export async function upsertDmBuffer({
                         : messageText;
                     await supabase
                         .from('dm_buffer')
-                        .update({ buffered_text: combined, reply_at: replyAt, status: 'waiting', lock_expires_at: null, updated_at: now })
+                        .update({ buffered_text: combined, workspace_id: workspaceId, reply_at: replyAt, status: 'waiting', lock_expires_at: null, updated_at: now })
                         .eq('id', raceRow.id);
                     console.log(`📨 [Buffer] Race resolved — appended to existing buffer for sender ${senderId}.`);
                 }
@@ -145,21 +167,33 @@ export async function claimDmBuffer(
     senderId: string,
     scheduledReplyAt: string,
     channel = 'instagram',
+    workspaceId: string | null = null,
 ): Promise<{ text: string; workspaceId: string | null } | null> {
-    const now = new Date().toISOString();
-    const lockExpires = new Date(Date.now() + LOCK_TTL_SECONDS * 1000).toISOString();
-
     // Call the Postgres RPC function to atomically claim the buffer
     // This bypasses PostgREST .or() URL filter limitations and ensures
     // the query executes fully-qualified as public.dm_buffer in Postgres.
-    const { data: claimedRows, error } = await supabase
+    let { data: claimedRows, error } = await supabase
         .rpc('claim_dm_buffer', {
             p_owner_id: ownerId,
             p_sender_id: senderId,
             p_channel: channel,
+            p_workspace_id: workspaceId,
             p_scheduled_reply_at: scheduledReplyAt,
             p_lock_ttl_seconds: LOCK_TTL_SECONDS
         });
+
+    if (error) {
+        const fallback = await supabase
+            .rpc('claim_dm_buffer', {
+                p_owner_id: ownerId,
+                p_sender_id: senderId,
+                p_channel: channel,
+                p_scheduled_reply_at: scheduledReplyAt,
+                p_lock_ttl_seconds: LOCK_TTL_SECONDS
+            });
+        claimedRows = fallback.data;
+        error = fallback.error;
+    }
 
     const claimed = claimedRows?.[0];
 
@@ -185,13 +219,17 @@ export async function clearDmBuffer(
     ownerId: string,
     senderId: string,
     channel = 'instagram',
+    workspaceId: string | null = null,
 ): Promise<void> {
-    await supabase
-        .from('dm_buffer')
-        .delete()
-        .eq('owner_id', ownerId)
-        .eq('sender_id', senderId)
-        .eq('channel', channel);
+    await withWorkspaceFilter(
+        supabase
+            .from('dm_buffer')
+            .delete()
+            .eq('owner_id', ownerId)
+            .eq('sender_id', senderId)
+            .eq('channel', channel),
+        workspaceId
+    );
     console.log(`🗑️ [Buffer] Cleared buffer for sender ${senderId}`);
 }
 
@@ -204,12 +242,16 @@ export async function releaseDmBuffer(
     ownerId: string,
     senderId: string,
     channel = 'instagram',
+    workspaceId: string | null = null,
 ): Promise<void> {
-    await supabase
-        .from('dm_buffer')
-        .update({ status: 'waiting', lock_expires_at: null })
-        .eq('owner_id', ownerId)
-        .eq('sender_id', senderId)
-        .eq('channel', channel);
+    await withWorkspaceFilter(
+        supabase
+            .from('dm_buffer')
+            .update({ status: 'waiting', lock_expires_at: null })
+            .eq('owner_id', ownerId)
+            .eq('sender_id', senderId)
+            .eq('channel', channel),
+        workspaceId
+    );
     console.log(`🔓 [Buffer] Released lock for sender ${senderId}`);
 }

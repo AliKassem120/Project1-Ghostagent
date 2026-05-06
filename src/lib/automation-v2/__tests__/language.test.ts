@@ -49,28 +49,37 @@ describe('detectLanguage', () => {
 describe('detectYesNo', () => {
     it('detects yes in English', () => {
         expect(detectYesNo('yes')).toBe('yes');
+        expect(detectYesNo('Yes')).toBe('yes');
+        expect(detectYesNo('yesss')).toBe('yes');
         expect(detectYesNo('yeah')).toBe('yes');
+        expect(detectYesNo('Yeahh')).toBe('yes');
         expect(detectYesNo('ok')).toBe('yes');
         expect(detectYesNo('sure')).toBe('yes');
+        expect(detectYesNo('I told you yes')).toBe('yes');
     });
 
     it('detects yes in Arabizi', () => {
         expect(detectYesNo('eh')).toBe('yes');
+        expect(detectYesNo('eeh')).toBe('yes');
         expect(detectYesNo('akid')).toBe('yes');
         expect(detectYesNo('tamem')).toBe('yes');
+        expect(detectYesNo('tamam')).toBe('yes');
         expect(detectYesNo('yalla')).toBe('yes');
     });
 
     it('detects no in English', () => {
         expect(detectYesNo('no')).toBe('no');
+        expect(detectYesNo('nooo')).toBe('no');
         expect(detectYesNo('nope')).toBe('no');
         expect(detectYesNo('cancel')).toBe('no');
     });
 
     it('detects no in Arabizi', () => {
         expect(detectYesNo('la2')).toBe('no');
+        expect(detectYesNo('laa')).toBe('no');
         expect(detectYesNo('la')).toBe('no');
         expect(detectYesNo('mish')).toBe('no');
+        expect(detectYesNo('ma bde')).toBe('no');
     });
 
     it('returns null for non-yes/no messages', () => {

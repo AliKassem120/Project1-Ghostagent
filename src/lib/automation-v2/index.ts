@@ -12,6 +12,7 @@ import type { AutomationInput, AutomationResult } from './types';
 import { routeToAgent } from './router';
 import { shouldReplyToMessage } from './should-reply';
 import { v2log } from './logger';
+import { guardFinalReply } from './validation/final-reply-guard';
 
 export async function handleAutomationMessage(input: AutomationInput): Promise<AutomationResult> {
     const requestId = crypto.randomUUID();
@@ -79,6 +80,27 @@ export async function handleAutomationMessage(input: AutomationInput): Promise<A
     try {
         const result = await routeToAgent(input);
 
+        const replyBeforeGuard = result.replyText || null;
+        if (replyBeforeGuard) {
+            const guarded = guardFinalReply({
+                replyText: replyBeforeGuard,
+                language: result.debug.language,
+                dbWriteAttempted: result.debug.dbWriteAttempted,
+                dbWriteSuccess: result.debug.dbWriteSuccess,
+                actionType: result.debug.intent,
+                sourcePath: 'automation-v2/index',
+            });
+            result.shouldReply = result.shouldReply && guarded.shouldReply;
+            result.replyText = guarded.replyText || undefined;
+            result.actions = [...result.actions, ...guarded.actionsToAdd];
+            result.debug.blockedReason = guarded.blockedReason;
+            result.debug.replyBeforeGuard = replyBeforeGuard;
+            result.debug.replyAfterGuard = guarded.replyText;
+        } else {
+            result.debug.replyBeforeGuard = null;
+            result.debug.replyAfterGuard = null;
+        }
+
         // Override requestId in debug
         result.debug.requestId = requestId;
         result.debug.durationMs = Date.now() - startTime;
@@ -127,6 +149,35 @@ export async function handleAutomationMessage(input: AutomationInput): Promise<A
             });
         } catch (logErr) {
             v2log.warn('V2_ENGINE', 'Failed to persist analytics log', { error: logErr });
+        }
+
+        try {
+            await input.supabase.from('automation_runs').insert({
+                workspace_id: input.workspaceId,
+                user_id: input.userId,
+                platform: input.platform,
+                chat_id: input.chatId,
+                incoming_message: input.message,
+                buffered_message: input.message,
+                state_before: result.stateBefore,
+                state_after: result.stateAfter,
+                intent: result.debug.intent || null,
+                actions: result.actions || [],
+                db_write_attempted: result.debug.dbWriteAttempted,
+                db_write_success: result.debug.dbWriteSuccess,
+                reply_before_guard: result.debug.replyBeforeGuard,
+                reply_after_guard: result.debug.replyAfterGuard,
+                blocked_reason: result.debug.blockedReason || null,
+                source_path: 'automation-v2/index',
+                error: result.error || null,
+                metadata: {
+                    requestId,
+                    language: result.debug.language,
+                    durationMs: result.debug.durationMs,
+                },
+            });
+        } catch (runLogErr) {
+            v2log.warn('V2_ENGINE', 'Failed to persist automation run', { error: runLogErr });
         }
 
         return result;

@@ -17,6 +17,12 @@ export interface ValidationResult {
     repaired?: string;
 }
 
+function safeRepair(language?: string): string {
+    return language === 'arabizi'
+        ? 'Fi 8alat. Jarreb kamen.'
+        : 'Something went wrong. Please try again.';
+}
+
 const CONFIRMATION_WORDS = [
     'confirmed', 'booked', 'scheduled', 'reserved', 'placed',
     'has been created', 'has been placed', 'has been booked',
@@ -54,9 +60,7 @@ export function validateReply(
                 return {
                     isValid: false,
                     reason: `false_confirmation: "${word}"`,
-                    repaired: context.language === 'arabizi'
-                        ? 'Fi 8alat halla2. Jarreb ba3den.'
-                        : 'Something went wrong. Try again.',
+                    repaired: safeRepair(context.language),
                 };
             }
         }
