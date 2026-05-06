@@ -18,6 +18,12 @@ export interface LoadedState {
     stage: ConversationStage;
     data: StateData | null;
     postContext: PostActionContext | null;
+    error?: string;
+}
+
+export interface StateStoreResult {
+    success: boolean;
+    error?: string;
 }
 
 /**
@@ -43,11 +49,10 @@ export async function loadConversationState(
 
         if (error) {
             v2log.warn('STATE_STORE', 'Failed to load conversation state', { error, chatId });
-            return { stage: 'idle', data: null, postContext: null };
+            return { stage: 'idle', data: null, postContext: null, error: error.message };
         }
 
         if (!data || !data.stage || data.stage === 'idle') {
-            // Even in idle, there may be postContext from a previous action
             const pc = data?.data?.postContext || null;
             return { stage: 'idle', data: null, postContext: pc };
         }
@@ -57,9 +62,10 @@ export async function loadConversationState(
             data: data.data as StateData || null,
             postContext: data.data?.postContext || null,
         };
-    } catch (err) {
+    } catch (err: any) {
+        const message = err?.message || String(err);
         v2log.warn('STATE_STORE', 'Exception loading state', { err, chatId });
-        return { stage: 'idle', data: null, postContext: null };
+        return { stage: 'idle', data: null, postContext: null, error: message };
     }
 }
 
@@ -75,11 +81,11 @@ export async function saveConversationState(
     workspaceType: 'appointments' | 'ecommerce' | 'saas_support',
     stage: ConversationStage,
     stateData: StateData | null
-): Promise<void> {
+): Promise<StateStoreResult> {
     const now = new Date().toISOString();
 
     try {
-        const { data: existing } = await supabase
+        const { data: existing, error: lookupError } = await supabase
             .from('conversation_states')
             .select('id')
             .eq('user_id', userId)
@@ -88,8 +94,13 @@ export async function saveConversationState(
             .eq('workspace_type', workspaceType)
             .maybeSingle();
 
+        if (lookupError) {
+            v2log.error('STATE_STORE', 'Failed to look up existing state', { error: lookupError, chatId, stage });
+            return { success: false, error: lookupError.message };
+        }
+
         if (existing) {
-            await supabase
+            const { error } = await supabase
                 .from('conversation_states')
                 .update({
                     stage,
@@ -97,8 +108,13 @@ export async function saveConversationState(
                     updated_at: now,
                 })
                 .eq('id', existing.id);
+
+            if (error) {
+                v2log.error('STATE_STORE', 'Failed to update state', { error, chatId, stage });
+                return { success: false, error: error.message };
+            }
         } else {
-            await supabase
+            const { error } = await supabase
                 .from('conversation_states')
                 .insert({
                     user_id: userId,
@@ -109,11 +125,19 @@ export async function saveConversationState(
                     data: stateData || {},
                     updated_at: now,
                 });
+
+            if (error) {
+                v2log.error('STATE_STORE', 'Failed to insert state', { error, chatId, stage });
+                return { success: false, error: error.message };
+            }
         }
 
         v2log.info('STATE_STORE', `Saved state: ${stage}`, { chatId, stage });
-    } catch (err) {
+        return { success: true };
+    } catch (err: any) {
+        const message = err?.message || String(err);
         v2log.error('STATE_STORE', 'Failed to save state', { err, chatId, stage });
+        return { success: false, error: message };
     }
 }
 
@@ -127,7 +151,7 @@ export async function clearConversationState(
     chatId: string,
     workspaceType: 'appointments' | 'ecommerce' | 'saas_support',
     postContext?: PostActionContext | null
-): Promise<void> {
+): Promise<StateStoreResult> {
     const data = postContext ? { stage: 'idle', postContext } : {};
-    await saveConversationState(supabase, userId, workspaceId, chatId, workspaceType, 'idle', data as any);
+    return saveConversationState(supabase, userId, workspaceId, chatId, workspaceType, 'idle', data as any);
 }
