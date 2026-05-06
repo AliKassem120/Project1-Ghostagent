@@ -30,8 +30,9 @@ interface UseRealtimeOptions<T> {
 interface UseRealtimeReturn<T> {
     data: T[];
     loading: boolean;
+    refreshing: boolean;
     error: Error | null;
-    refetch: () => Promise<void>;
+    refetch: (opts?: { background?: boolean }) => Promise<void>;
 }
 
 /**
@@ -60,11 +61,13 @@ export function useRealtime<T extends { id: string | number }>(
 
     const [data, setData] = useState<T[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<Error | null>(null);
 
     const supabase = createClient();
     const channelRef = useRef<RealtimeChannel | null>(null);
     const isMountedRef = useRef(true);
+    const hasLoadedRef = useRef(false);
 
     // Keep latest options in ref to avoid dependency cycles with callbacks/filters
     const optionsRef = useRef(options);
@@ -115,15 +118,21 @@ export function useRealtime<T extends { id: string | number }>(
     }, []);
 
     // Stable fetch function
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (fetchOpts?: { background?: boolean }) => {
         // Use ref for latest options to avoid unnecessary re-creations
         const { enabled = true, orderBy = 'created_at', orderDirection = 'desc', limit = 100, filter } = optionsRef.current;
 
         if (!enabled) return;
 
         try {
-            if (isMountedRef.current) setLoading(true);
-            if (isMountedRef.current) setError(null);
+            if (isMountedRef.current) {
+                if (fetchOpts?.background || hasLoadedRef.current) {
+                    setRefreshing(true);
+                } else {
+                    setLoading(true);
+                }
+                setError(null);
+            }
 
             let query = supabase
                 .from(tableName)
@@ -150,6 +159,8 @@ export function useRealtime<T extends { id: string | number }>(
         } finally {
             if (isMountedRef.current) {
                 setLoading(false);
+                setRefreshing(false);
+                hasLoadedRef.current = true;
             }
         }
     }, [tableName, selectQuery, processData]); // Dependencies that actually require re-fetch logic change (excluding options)
@@ -260,7 +271,7 @@ export function useRealtime<T extends { id: string | number }>(
     useEffect(() => {
         if (!pollingInterval || !enabled) return;
         const interval = setInterval(() => {
-            fetchData();
+            fetchData({ background: true });
         }, pollingInterval);
         return () => clearInterval(interval);
     }, [pollingInterval, enabled, fetchData]);
@@ -268,6 +279,7 @@ export function useRealtime<T extends { id: string | number }>(
     return {
         data,
         loading,
+        refreshing,
         error,
         refetch: fetchData,
     };

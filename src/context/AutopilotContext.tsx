@@ -43,14 +43,25 @@ export function AutopilotProvider({ children }: { children: React.ReactNode }) {
         } catch (err) {
             console.error('Failed to fetch autopilot status:', err);
         } finally {
-            setIsLoading(false);
-            setIsInitialLoad(false);
+            if (latestWorkspaceIdRef.current === activeWorkspaceId) {
+                setIsLoading(false);
+                setIsInitialLoad(false);
+            }
         }
     }, [supabase, activeWorkspaceId]);
 
     useEffect(() => {
+        if (!activeWorkspaceId) {
+            setAutopilotState(null);
+            setIsLoading(false);
+            setIsInitialLoad(false);
+            return;
+        }
+
+        setAutopilotState(null);
+        setIsLoading(true);
         fetchAutopilotStatus();
-    }, [fetchAutopilotStatus]);
+    }, [activeWorkspaceId, fetchAutopilotStatus]);
 
     // Sync on window focus
     useEffect(() => {

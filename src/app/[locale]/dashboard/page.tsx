@@ -171,6 +171,10 @@ export default function DashboardPage() {
 
     // Re-check Instagram status whenever the active workspace changes
     useEffect(() => {
+        setInstagramStatus(null);
+        setHasAiSettings(null);
+        setHasCatalog(null);
+
         if (!activeWorkspaceId) return;
         const checkInstagramStatus = async () => {
             try {
@@ -285,7 +289,7 @@ export default function DashboardPage() {
         }
     };
 
-    const { data: allActivities, loading: activitiesLoading, refetch: refetchActivities } = useRealtime<ActivityLog>(
+    const { data: allActivities, loading: activitiesLoading, refreshing: activitiesRefreshing, refetch: refetchActivities } = useRealtime<ActivityLog>(
         'activity_log',
         '*',
         {
@@ -308,7 +312,7 @@ export default function DashboardPage() {
     // Adjust count to match the client-side filtered set
     const totalInteractions = activities.length;
 
-    const { data: allInventoryItems, loading: inventoryLoading, refetch: refetchInventory } = useRealtime<InventoryItem>(
+    const { data: allInventoryItems, loading: inventoryLoading, refreshing: inventoryRefreshing, refetch: refetchInventory } = useRealtime<InventoryItem>(
         'inventory',
         'id, stock_level',
         {
@@ -416,6 +420,11 @@ export default function DashboardPage() {
 
     const userName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there';
 
+    const initialLoading = activitiesLoading || inventoryLoading;
+    const isRefreshing = activitiesRefreshing || inventoryRefreshing;
+
+    const inventoryStatusLoading = inventoryLoading || hasCatalog === null;
+
     return (
         <div className="min-h-[calc(100vh-2rem)] pb-8">
 
@@ -428,8 +437,9 @@ export default function DashboardPage() {
                 className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8"
             >
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                    <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
                         {greeting}, {userName} 👋
+                        {isRefreshing && <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />}
                     </h1>
                     <p className="text-sm text-muted-foreground mt-1">
                         Here&apos;s what&apos;s happening with your Instagram today.
@@ -471,7 +481,7 @@ export default function DashboardPage() {
             {/* ═══════════════════════════════════════════════════ */}
             <SetupChecklist
                 hasInstagram={instagramStatus === null && !activeWorkspace?.instagram_username ? null : isConnected}
-                hasInventory={inventoryLoading ? null : (inventoryItems.length > 0 || !!hasCatalog)}
+                hasInventory={inventoryStatusLoading ? null : (inventoryItems.length > 0 || hasCatalog)}
                 hasAiSettings={hasAiSettings}
                 businessType={activeWorkspace?.business_type}
             />
@@ -539,7 +549,7 @@ export default function DashboardPage() {
                             </span>
                         </div>
                         <div className="text-2xl font-bold text-foreground leading-none mb-1.5 tracking-tight h-7 flex items-center">
-                            {loading || inventoryLoading ? (
+                            {initialLoading ? (
                                 <div className="h-6 w-16 bg-surface-2 rounded animate-pulse" />
                             ) : (
                                 <CountUp
@@ -575,7 +585,7 @@ export default function DashboardPage() {
                             aiReplies: stats.aiReplies,
                             manualReplies: stats.manualReplies,
                         }}
-                        loading={loading}
+                        loading={initialLoading}
                     />
                 </motion.div>
 
@@ -625,7 +635,7 @@ export default function DashboardPage() {
                             {activeWorkspace?.business_type === 'ecommerce' ? (
                                 <div className="flex items-center justify-between">
                                     <span className="text-xs text-muted-foreground">Inventory</span>
-                                    {loading || inventoryLoading ? (
+                                    {initialLoading ? (
                                         <div className="h-4 w-24 bg-surface-2 rounded-md animate-pulse" />
                                     ) : (
                                         <span className="text-xs text-muted-foreground font-medium">{stats.stock} items in stock</span>
@@ -642,14 +652,14 @@ export default function DashboardPage() {
                             <div className="pt-2">
                                 <div className="flex items-center justify-between mb-2">
                                     <span className="text-[11px] text-muted-foreground">Automation Rate</span>
-                                    {loading || inventoryLoading ? (
+                                    {initialLoading ? (
                                         <div className="h-3 w-8 bg-surface-2 rounded-md animate-pulse" />
                                     ) : (
                                         <span className="text-[11px] text-primary font-semibold">{stats.automationRate}%</span>
                                     )}
                                 </div>
                                 <div className="w-full h-2 bg-surface-2 rounded-full overflow-hidden">
-                                    {loading || inventoryLoading ? (
+                                    {initialLoading ? (
                                         <div className="h-full w-full bg-surface-2" />
                                     ) : (
                                         <motion.div
