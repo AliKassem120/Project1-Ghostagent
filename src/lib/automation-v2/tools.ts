@@ -20,6 +20,7 @@ import { formatTime12, minutesToTime } from './time';
 // ── E-Commerce imports ───────────────────────────────────────
 import { searchProducts, findBestProductMatch } from './ecommerce/products';
 import { createOrderV2 } from './ecommerce/orders';
+import { cancelLatestOrder } from './ecommerce/lookup';
 
 // ── Shared imports ───────────────────────────────────────────
 import { getKnownCustomerDetails } from './customer-history';
@@ -77,7 +78,6 @@ export function createAppointmentTools(ctx: ToolContext) {
                 const endTime = minutesToTime(h * 60 + m + match.durationMinutes);
                 let handle = 'Customer';
                 try { 
-                    // Query last 10 logs to find any that have a username/handle
                     const { data } = await ctx.supabase
                         .from('activity_log')
                         .select('metadata')
@@ -86,18 +86,15 @@ export function createAppointmentTools(ctx: ToolContext) {
                         .limit(10);
 
                     if (data && data.length > 0) {
-                        // Filter for logs matching this chat ID (checking both key variants)
                         const relevantLogs = data.filter(l => 
                             l.metadata?.chat_id === ctx.chatId || 
                             l.metadata?.chatId === ctx.chatId
                         );
-                        
                         const bestLog = relevantLogs.find(l => 
                             l.metadata?.username || 
                             l.metadata?.commenter_name || 
                             l.metadata?.sender?.attendee_name
                         );
-
                         if (bestLog) {
                             handle = bestLog.metadata.username || 
                                      bestLog.metadata.commenter_name || 
@@ -186,7 +183,6 @@ export function createEcommerceTools(ctx: ToolContext) {
                 if (!match) return { success: false, error: 'Product not found' };
                 let handle = 'Customer';
                 try { 
-                    // Query last 10 logs to find any that have a username/handle
                     const { data } = await ctx.supabase
                         .from('activity_log')
                         .select('metadata')
@@ -195,18 +191,15 @@ export function createEcommerceTools(ctx: ToolContext) {
                         .limit(10);
 
                     if (data && data.length > 0) {
-                        // Filter for logs matching this chat ID (checking both key variants)
                         const relevantLogs = data.filter(l => 
                             l.metadata?.chat_id === ctx.chatId || 
                             l.metadata?.chatId === ctx.chatId
                         );
-                        
                         const bestLog = relevantLogs.find(l => 
                             l.metadata?.username || 
                             l.metadata?.commenter_name || 
                             l.metadata?.sender?.attendee_name
                         );
-
                         if (bestLog) {
                             handle = bestLog.metadata.username || 
                                      bestLog.metadata.commenter_name || 
@@ -215,19 +208,29 @@ export function createEcommerceTools(ctx: ToolContext) {
                         }
                     }
                 } catch (_e) { /* fallback to 'Customer' */ }
-                const orderId = await createOrderV2({ supabase: ctx.supabase, userId: ctx.userId, workspaceId: ctx.workspaceId, chatId: ctx.chatId, customerName: customer_name, customerPhone: customer_phone, customerAddress: customer_address, itemRequested: match.itemName, variantLabel: variant, unitPrice: match.price, quantity, instagramHandle: handle });
-                return { success: !!orderId, product: match.itemName, price: match.price, quantity };
+                const orderResult = await createOrderV2({
+                    supabase: ctx.supabase,
+                    userId: ctx.userId,
+                    workspaceId: ctx.workspaceId,
+                    chatId: ctx.chatId,
+                    customerName: customer_name,
+                    customerPhone: customer_phone,
+                    customerAddress: customer_address,
+                    itemRequested: match.itemName,
+                    variantLabel: variant,
+                    unitPrice: match.price,
+                    quantity,
+                    instagramHandle: handle,
+                    platform: ctx.platform,
+                    productId: match.id,
+                });
+                return { success: orderResult.success, orderId: orderResult.orderId, error: orderResult.error, product: match.itemName, price: match.price, quantity };
             },
         },
         cancel_order: {
-            description: 'Cancel the customer\'s most recent pending order.',
+            description: 'Cancel the customer\'s most recent order if it is still pending.',
             parameters: z.object({}),
-            execute: async () => {
-                const { data: recent } = await ctx.supabase.from('orders').select('id, item_requested').eq('workspace_id', ctx.workspaceId).eq('instagram_user_id', ctx.chatId).eq('status', 'Pending').order('created_at', { ascending: false }).limit(1).maybeSingle();
-                if (!recent) return { success: false, message: 'No pending order found' };
-                const { error } = await ctx.supabase.from('orders').update({ status: 'Cancelled' }).eq('id', recent.id);
-                return { success: !error, item: recent.item_requested };
-            },
+            execute: async () => cancelLatestOrder(ctx.supabase, ctx.workspaceId, ctx.chatId),
         },
         lookup_customer: {
             description: 'Check if this customer has ordered before. Returns saved name/phone/address.',
@@ -263,7 +266,6 @@ export function createSaasSupportTools(ctx: ToolContext) {
             description: 'Check if this user already has an account on GhostAgent. Returns their user record if found.',
             parameters: z.object({}),
             execute: async () => {
-                // In a real system we would lookup by phone or instagram ID from `users` table
                 return { found: false, message: 'User does not appear to have a GhostAgent account yet. Offer them a signup link.' };
             },
         },
