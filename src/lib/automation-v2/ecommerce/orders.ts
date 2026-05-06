@@ -23,65 +23,87 @@ export interface CreateOrderInput {
     quantity: number;
     instagramHandle?: string;
     rawMessage?: string;
+    platform?: 'instagram' | 'whatsapp';
+    productId?: string | null;
+}
+
+export interface CreateOrderResult {
+    success: boolean;
+    orderId?: string;
+    error?: string;
+    supabaseCode?: string;
 }
 
 /**
- * Creates an order. Returns the order ID on success, null on failure.
+ * Creates an order. Returns a structured result so callers never confuse
+ * a failed insert with a successful transaction.
  */
-export async function createOrderV2(input: CreateOrderInput): Promise<string | null> {
-    const { 
-        supabase, userId, workspaceId, chatId, customerName, 
-        customerPhone, customerAddress, itemRequested, 
-        variantLabel, unitPrice, quantity, 
-        instagramHandle = 'Customer', rawMessage = ''
+export async function createOrderV2(input: CreateOrderInput): Promise<CreateOrderResult> {
+    const {
+        supabase, userId, workspaceId, chatId, customerName,
+        customerPhone, customerAddress, itemRequested,
+        variantLabel, unitPrice, quantity,
+        instagramHandle = 'Customer', rawMessage = '', platform = 'instagram', productId = null
     } = input;
 
     v2log.ecommerce.orderAttempt({ workspaceId, itemRequested, customerName });
 
     try {
-        // 1. Prepare raw_message JSON for extra context (dashboard uses this)
         const rawJson = JSON.stringify({
-            platform: 'instagram',
+            platform,
             chat_id: chatId,
-            item_variant: variantLabel || 'N/A',
+            workspace_id: workspaceId,
+            product_id: productId,
+            item_variant: variantLabel || null,
             unit_price: unitPrice,
-            quantity: quantity,
+            quantity,
             total_price: unitPrice * quantity,
             original_message: rawMessage
         });
 
-        // 2. Insert into orders table
+        const insertPayload: any = {
+            user_id: userId,
+            workspace_id: workspaceId,
+            instagram_user_id: chatId,
+            instagram_handle: instagramHandle,
+            customer_name: customerName,
+            customer_phone: customerPhone,
+            customer_address: customerAddress,
+            item_requested: `${itemRequested}${variantLabel ? ` (${variantLabel})` : ''} x${quantity}`,
+            variant_label: variantLabel || null,
+            quantity,
+            unit_price: unitPrice,
+            status: 'Pending',
+            raw_message: rawJson,
+            created_at: new Date().toISOString()
+        };
+
+        // These columns are added by the reliability migration. If a database
+        // has not run it yet, the insert error is returned clearly below.
+        insertPayload.platform = platform;
+        insertPayload.chat_id = chatId;
+
         const { data: inserted, error } = await supabase
             .from('orders')
-            .insert({
-                user_id: userId,
-                workspace_id: workspaceId,
-                instagram_user_id: chatId,
-                instagram_handle: instagramHandle,
-                customer_name: customerName,
-                customer_phone: customerPhone,
-                customer_address: customerAddress,
-                item_requested: `${itemRequested}${variantLabel ? ` (${variantLabel})` : ''} x${quantity}`,
-                variant_label: variantLabel || null,
-                quantity: quantity,
-                unit_price: unitPrice,
-                status: 'Pending',
-                raw_message: rawJson,
-                created_at: new Date().toISOString()
-            })
-            .select()
+            .insert(insertPayload)
+            .select('id')
             .single();
 
         if (error) {
             v2log.ecommerce.orderError({ error, workspaceId });
-            return null;
+            return {
+                success: false,
+                error: error.message || 'Order insert failed',
+                supabaseCode: error.code,
+            };
         }
 
         v2log.ecommerce.orderSuccess({ orderId: inserted.id });
-        return inserted.id;
+        return { success: true, orderId: inserted.id };
 
-    } catch (err) {
-        v2log.error('V2_ECOMMERCE_ORDER_CREATE', 'Unexpected error during order creation', { err, workspaceId });
-        return null;
+    } catch (err: any) {
+        const message = err?.message || String(err);
+        v2log.error('V2_ECOMMERCE_ORDER_CREATE', 'Unexpected error during order creation', { err, workspaceId, chatId, platform });
+        return { success: false, error: message };
     }
 }
