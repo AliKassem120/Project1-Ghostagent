@@ -30,9 +30,9 @@ export default function KnowledgeManagerSection() {
             const wsRes = await fetchGodMode('workspaces');
             if (wsRes.success) {
                 const internalWs = wsRes.workspaces.filter((w: any) => 
-                    w.is_internal === true || 
-                    w.workspace_role === 'official_support' || 
-                    w.business_type === 'saas_support'
+                    w.isInternal === true || 
+                    w.workspaceRole === 'official_support' || 
+                    w.businessType === 'saas_support'
                 );
                 setWorkspaces(internalWs);
                 
@@ -165,7 +165,7 @@ export default function KnowledgeManagerSection() {
                                 className="w-full bg-surface-2 border border-border rounded-lg px-4 py-2"
                             >
                                 {workspaces.map(w => (
-                                    <option key={w.id} value={w.id}>{w.business_name || 'Official Support Workspace'}</option>
+                                    <option key={w.id} value={w.id}>{w.name || 'Official Support Workspace'}</option>
                                 ))}
                             </select>
                         </div>
