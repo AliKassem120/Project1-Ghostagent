@@ -17,17 +17,29 @@ export async function GET(req: Request) {
     const sb = getAdmin();
 
     try {
+        if (!workspaceId) {
+            return NextResponse.json({ success: false, error: 'workspaceId is required for Knowledge Manager' }, { status: 400 });
+        }
+
+        const { data: wsData, error: wsError } = await sb
+            .from('ai_settings')
+            .select('is_internal, workspace_role, business_type')
+            .eq('id', workspaceId)
+            .maybeSingle();
+
+        if (wsError || !wsData) {
+            return NextResponse.json({ success: false, error: 'Workspace not found' }, { status: 404 });
+        }
+
+        if (!(wsData.is_internal === true || wsData.workspace_role === 'official_support' || wsData.business_type === 'saas_support')) {
+            return NextResponse.json({ success: false, error: 'Not an official SaaS workspace' }, { status: 403 });
+        }
+
         let query = sb
             .from('business_knowledge')
             .select('*')
+            .eq('workspace_id', workspaceId)
             .order('created_at', { ascending: false });
-
-        if (workspaceId) {
-            query = query.eq('workspace_id', workspaceId);
-        } else {
-            // If no workspace provided, just fetch knowledge intended for internal saas
-            query = query.in('visibility', ['internal_support', 'public', 'private_admin']);
-        }
 
         const { data, error } = await query;
         if (error) throw error;
@@ -48,13 +60,40 @@ export async function POST(req: Request) {
     try {
         const { action, id, workspace_id, content, title, source_type = 'manual', visibility = 'public' } = body;
 
+        let targetWorkspaceId = workspace_id;
+
+        if (action === 'delete') {
+            if (!id) return NextResponse.json({ success: false, error: 'ID required' }, { status: 400 });
+            const { data: existingK } = await sb.from('business_knowledge').select('workspace_id').eq('id', id).maybeSingle();
+            if (!existingK) return NextResponse.json({ success: false, error: 'Knowledge not found' }, { status: 404 });
+            targetWorkspaceId = existingK.workspace_id;
+        }
+
+        if (!targetWorkspaceId) {
+            return NextResponse.json({ success: false, error: 'workspace_id is required' }, { status: 400 });
+        }
+
+        const { data: wsData, error: wsError } = await sb
+            .from('ai_settings')
+            .select('is_internal, workspace_role, business_type')
+            .eq('id', targetWorkspaceId)
+            .maybeSingle();
+
+        if (wsError || !wsData) {
+            return NextResponse.json({ success: false, error: 'Workspace not found' }, { status: 404 });
+        }
+
+        if (!(wsData.is_internal === true || wsData.workspace_role === 'official_support' || wsData.business_type === 'saas_support')) {
+            return NextResponse.json({ success: false, error: 'Not an official SaaS workspace' }, { status: 403 });
+        }
+
         if (action === 'create' || action === 'update') {
             if (!content || !title) {
                 return NextResponse.json({ success: false, error: 'Title and Content are required' }, { status: 400 });
             }
 
             const payload = {
-                workspace_id,
+                workspace_id: targetWorkspaceId,
                 title,
                 content,
                 source_type,
@@ -70,7 +109,6 @@ export async function POST(req: Request) {
                 if (error) throw error;
             }
         } else if (action === 'delete') {
-            if (!id) return NextResponse.json({ success: false, error: 'ID required' }, { status: 400 });
             const { error } = await sb.from('business_knowledge').delete().eq('id', id);
             if (error) throw error;
         } else {

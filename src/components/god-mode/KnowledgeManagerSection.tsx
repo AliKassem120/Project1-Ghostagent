@@ -29,14 +29,22 @@ export default function KnowledgeManagerSection() {
             // Load SAAS Support / internal workspaces
             const wsRes = await fetchGodMode('workspaces');
             if (wsRes.success) {
-                const internalWs = wsRes.workspaces.filter((w: any) => w.is_internal || w.workspace_role === 'official_support');
+                const internalWs = wsRes.workspaces.filter((w: any) => 
+                    w.is_internal === true || 
+                    w.workspace_role === 'official_support' || 
+                    w.business_type === 'saas_support'
+                );
                 setWorkspaces(internalWs);
                 
-                // Load all knowledge
-                const kRes = await fetch('/api/god-mode/knowledge');
-                const kData = await kRes.json();
-                if (kData.success) {
-                    setKnowledge(kData.knowledge);
+                if (internalWs.length > 0) {
+                    const officialWorkspaceId = internalWs[0].id;
+                    const kRes = await fetch(`/api/god-mode/knowledge?workspaceId=${officialWorkspaceId}`);
+                    const kData = await kRes.json();
+                    if (kData.success) {
+                        setKnowledge(kData.knowledge);
+                    }
+                } else {
+                    setKnowledge([]);
                 }
             }
         } catch (err) {
@@ -124,7 +132,8 @@ export default function KnowledgeManagerSection() {
                 </div>
                 <button 
                     onClick={openCreate}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg font-bold transition-all text-sm"
+                    disabled={workspaces.length === 0}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg font-bold transition-all text-sm disabled:opacity-50"
                 >
                     <Plus className="w-4 h-4" /> Add Document
                 </button>
@@ -155,7 +164,6 @@ export default function KnowledgeManagerSection() {
                                 onChange={e => setEditForm({...editForm, workspace_id: e.target.value})}
                                 className="w-full bg-surface-2 border border-border rounded-lg px-4 py-2"
                             >
-                                <option value="">Global (All Workspaces)</option>
                                 {workspaces.map(w => (
                                     <option key={w.id} value={w.id}>{w.business_name || 'Official Support Workspace'}</option>
                                 ))}
@@ -234,8 +242,14 @@ export default function KnowledgeManagerSection() {
                     {knowledge.length === 0 && (
                         <div className="col-span-full py-12 text-center text-muted-foreground border border-dashed border-border rounded-xl">
                             <Database className="w-8 h-8 mx-auto mb-3 opacity-50" />
-                            <p>No knowledge documents found.</p>
-                            <button onClick={openCreate} className="mt-4 text-indigo-400 hover:underline">Create your first document</button>
+                            {workspaces.length === 0 ? (
+                                <p>Create Official SaaS Bot workspace first.</p>
+                            ) : (
+                                <>
+                                    <p>No knowledge documents found.</p>
+                                    <button onClick={openCreate} className="mt-4 text-indigo-400 hover:underline">Create your first document</button>
+                                </>
+                            )}
                         </div>
                     )}
                 </div>
