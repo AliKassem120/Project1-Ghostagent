@@ -85,7 +85,15 @@ export function detectLanguage(message: string): DetectedLanguage {
     const hasLatin = hasLatinLetters(message);
     const normalized = normalizeText(message);
 
-    const has = (words: string[]) => words.some(w => normalized.includes(w));
+    const has = (words: string[]) => words.some(w => {
+        // For short signals (≤3 chars), use word boundary matching to avoid
+        // false positives like "si" matching inside "size" or "business"
+        if (w.length <= 3 && !w.includes(' ')) {
+            const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            return new RegExp(`\\b${escaped}\\b`).test(normalized);
+        }
+        return normalized.includes(w);
+    });
 
     // Mixed Arabic + Latin
     if (hasArabic && hasLatin) return 'mixed';
@@ -247,6 +255,10 @@ function cleanNamePart(s: string): string {
  * Address is everything AFTER the name+phone parts.
  */
 export function extractAddress(message: string): string | null {
+    // First check for "change address to X" pattern
+    const fromChange = extractAddressFromChange(message);
+    if (fromChange) return fromChange;
+
     const phone = extractPhone(message);
 
     if (phone) {
@@ -272,7 +284,7 @@ export function extractAddress(message: string): string | null {
         if (afterPhoneIdx > 0 && afterPhoneIdx < message.length) {
             const afterPhone = message.slice(afterPhoneIdx).replace(/^[\s,\-:]+/, '').trim();
             // Check for labeled address
-            const addressLabel = afterPhone.match(/(?:address|3nwen|3nwene|عنوان)\s*[:.]?\s*(.+)/i);
+            const addressLabel = afterPhone.match(/(?:address|adress|adres|addres|3nwen|3nwene|عنوان)\s*[:.]?\s*(.+)/i);
             if (addressLabel) return addressLabel[1].trim() || null;
             if (afterPhone.length > 2 && afterPhone.length < 200) return afterPhone;
         }
@@ -288,9 +300,41 @@ export function extractAddress(message: string): string | null {
         }
     }
 
-    // No phone — check labeled address
-    const labeledAddress = message.match(/(?:address|3nwen|3nwene|عنوان)\s*[:.]?\s*(.+)/i);
+    // No phone — check labeled address (with typo normalization)
+    const labeledAddress = message.match(/(?:address|adress|adres|addres|3nwen|3nwene|عنوان)\s*[:.!]?\s*(.+)/i);
     if (labeledAddress) return labeledAddress[1].trim() || null;
 
     return null;
+}
+
+/**
+ * Extract address from "change the address to X" / "change adres to X" patterns.
+ * Strips the trigger phrase and returns only the address value.
+ * Handles common typos: adres, adress, addres, 3nwen, 3nwene
+ */
+export function extractAddressFromChange(message: string): string | null {
+    const pattern = /\b(?:change|update|switch|modify|baddel|8ayer|ghayyir)\s*(?:the|my|el|l)?\s*(?:address|adress|adres|addres|3nwen|3nwene)\s*(?:to|la|l)?\s+(.+)/i;
+    const match = pattern.exec(message);
+    if (match && match[1]) {
+        return match[1].replace(/[,.]$/, '').trim() || null;
+    }
+    return null;
+}
+
+/**
+ * Detect "same name", "same number/phone", "same address" reuse signals.
+ * Returns which customer fields should be reused from post-context.
+ */
+export function detectReuseSignals(message: string): {
+    reuseName: boolean;
+    reusePhone: boolean;
+    reuseAddress: boolean;
+} {
+    const msg = message.toLowerCase();
+    return {
+        reuseName: /\b(same\s*(name|ism)|nefs\s*(el\s*)?(ism|esm))\b/i.test(msg),
+        // Matches "same number", "same phone", AND "same name and number" pattern
+        reusePhone: /\b(same\s*(number|phone|ra2m|ra2em|num)|nefs\s*(el\s*)?(ra2m|ra2em|number)|same\s+\w+\s+and\s+(number|phone|ra2m))\b/i.test(msg),
+        reuseAddress: /\b(same\s*(address|adress|adres|addres|3nwen|3nwene)|nefs\s*(el\s*)?(3nwen|3nwene|address))\b/i.test(msg),
+    };
 }

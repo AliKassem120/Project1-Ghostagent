@@ -540,14 +540,22 @@ export async function runDecisionEngine(
     }
 
     if (classification.intent === 'purchase_intent' && input.workspaceType === 'ecommerce') {
+        // Detect reuse signals: "same name", "same number", "same address"
+        const reuse = postContext?.customer
+            ? (await import('./language')).detectReuseSignals(input.message)
+            : { reuseName: false, reusePhone: false, reuseAddress: false };
+
+        // Extract address from "change address to X" if present
+        const newAddress = (await import('./language')).extractAddressFromChange(input.message);
+
         const initialState: EcommerceStateData = {
             stage: 'awaiting_product',
             pendingAction: 'create_order',
             order: { quantity: 1 },
             customer: postContext?.customer ? {
-                name: postContext.customer.name,
-                phone: postContext.customer.phone,
-                address: postContext.customer.address,
+                name: reuse.reuseName ? postContext.customer.name : undefined,
+                phone: reuse.reusePhone ? postContext.customer.phone : undefined,
+                address: newAddress || (reuse.reuseAddress ? postContext.customer.address : undefined),
             } : {},
             missingFields: ['product'],
         };

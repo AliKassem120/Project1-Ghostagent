@@ -6,6 +6,11 @@
  * detect if the new message refers to the recent action.
  *
  * Purely regex — no LLM cost. Supports English + Arabizi.
+ *
+ * IMPORTANT: If the message contains a NEW ORDER intent
+ * (e.g. "I want to order X"), classify as 'unrelated' so
+ * the purchase_intent flow takes precedence. Only classify
+ * as 'modify_order' when there is NO new product/order intent.
  */
 
 export type PostContextIntent =
@@ -26,6 +31,28 @@ export interface PostContextClassification {
     extractedValue?: string;
 }
 
+// ── New Order Detection ──────────────────────────────────────
+
+const NEW_ORDER_SIGNALS = [
+    /\b(i\s*want\s*to\s*order)\b/i,
+    /\b(i\s*want\s*to\s*buy)\b/i,
+    /\b(i\s*want\s+(?:a|an|the|one|some|another)\s+)/i,
+    /\b(i\s*need\s+(?:a|an|the|one|some|another)\s+)/i,
+    /\b(can\s*i\s*(get|have)\s+(?:a|an|the|one|some|another)\s+)/i,
+    /\b(get\s*me\s+(?:a|an)\s+)/i,
+    /\b(order\s+(?:a|an|one|some|another)\s+)/i,
+    /\b(buy\s+(?:a|an|one|some|another)\s+)/i,
+    // Arabizi: only if NOT followed by modify verbs (ghayer/8ayer/ghayyir/baddel)
+    /\b(bde|bade|baddi|badde)\s+(?!(?:ghayer|8ayer|ghayyir|baddel)\b)/i,
+    /\b(bde\s*we7de|bade\s*we7de|baddi\s*wa7de)\b/i,
+    /\b(i('?d| would)\s*like\s+(?:a|an|one|some|to order))/i,
+];
+
+/** Returns true if the message contains a new order/purchase intent */
+function hasNewOrderIntent(msg: string): boolean {
+    return NEW_ORDER_SIGNALS.some(p => p.test(msg));
+}
+
 // ── Patterns ─────────────────────────────────────────────────
 
 const MODIFY_ORDER_PATTERNS = [
@@ -37,6 +64,8 @@ const MODIFY_ORDER_PATTERNS = [
     /\b(baddi|bade|bde)\s+(ghayer|8ayer|ghayyir)\b/i,
     /\b(ghayer|8ayer|ghayyir)\s*(el|l)?\s*(size|loun|color|kemiye|variant)\b/i,
     /\b(baddi|bade)\s+.{0,20}(size|loun|color|medium|large|small|xl)\b/i,
+    // Pure modify patterns (no product)
+    /\b(baddel|8ayer|ghayyir)\s*(el|l)?\s*(size|loun|color|address|3nwen)\b/i,
 ];
 
 const ORDER_STATUS_PATTERNS = [
@@ -117,22 +146,30 @@ export function classifyPostContext(message: string): PostContextClassification 
     }
 
     // ── Modify order ─────────────────────────────────────────
-    for (const p of MODIFY_ORDER_PATTERNS) {
-        const match = p.exec(msg);
-        if (match) {
-            // Try to extract the value they want to change to
-            const val = match[4]?.trim() || undefined;
-            return {
-                intent: 'modify_order',
-                confidence: 0.88,
-                extractedValue: val,
-            };
+    // CRITICAL: If the message also contains a new order intent,
+    // do NOT classify as modify_order — let purchase_intent handle it.
+    if (!hasNewOrderIntent(msg)) {
+        for (const p of MODIFY_ORDER_PATTERNS) {
+            const match = p.exec(msg);
+            if (match) {
+                // Try to extract the value they want to change to
+                const val = match[4]?.trim() || undefined;
+                return {
+                    intent: 'modify_order',
+                    confidence: 0.88,
+                    extractedValue: val,
+                };
+            }
         }
     }
 
     // ── Reuse details ──────────────────────────────────────
     for (const p of REUSE_DETAILS_PATTERNS) {
         if (p.test(msg)) {
+            // If there's also a new order intent, let purchase flow handle it
+            if (hasNewOrderIntent(msg)) {
+                return { intent: 'unrelated', confidence: 0 };
+            }
             return { intent: 'reuse_details', confidence: 0.88 };
         }
     }

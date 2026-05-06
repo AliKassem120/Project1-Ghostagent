@@ -112,7 +112,11 @@ export const v2log = {
         actions: string[];
         stateAfter: string;
         appointmentInsertSuccess?: boolean;
+        appointmentUpdateSuccess?: boolean;
+        appointmentCancelSuccess?: boolean;
         orderInsertSuccess?: boolean;
+        orderUpdateSuccess?: boolean;
+        orderCancelSuccess?: boolean;
         sentReply: string | null;
         error?: string;
     }) => log('info', { prefix: 'INSTAGRAM_WEBHOOK_OUTCOME', message: 'Request completed', data }),
