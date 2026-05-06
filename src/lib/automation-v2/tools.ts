@@ -103,8 +103,8 @@ export function createAppointmentTools(ctx: ToolContext) {
                         }
                     }
                 } catch (_e) { /* fallback to 'Customer' */ }
-                const appointmentId = await createAppointmentV2({ supabase: ctx.supabase, userId: ctx.userId, workspaceId: ctx.workspaceId, chatId: ctx.chatId, customerName: customer_name, customerPhone: customer_phone, serviceName: match.name, date, startTime: time, endTime, durationMinutes: match.durationMinutes, instagramHandle: handle });
-                return { success: !!appointmentId, service: match.name, date, time: formatTime12(time), price: match.price };
+                const appointmentResult = await createAppointmentV2({ supabase: ctx.supabase, userId: ctx.userId, workspaceId: ctx.workspaceId, chatId: ctx.chatId, customerName: customer_name, customerPhone: customer_phone, serviceName: match.name, date, startTime: time, endTime, durationMinutes: match.durationMinutes, instagramHandle: handle });
+                return { success: appointmentResult.success, appointmentId: appointmentResult.appointmentId, error: appointmentResult.error, service: match.name, date, time: formatTime12(time), price: match.price };
             },
         },
         cancel_appointment: {
