@@ -18,27 +18,35 @@ export interface CreateAppointmentInput {
     customerName: string;
     customerPhone: string;
     serviceName: string;
-    date: string;       // YYYY-MM-DD
-    startTime: string;  // HH:mm
-    endTime: string;    // HH:mm
+    date: string;
+    startTime: string;
+    endTime: string;
     durationMinutes: number;
     instagramHandle?: string;
 }
 
+export interface CreateAppointmentResult {
+    success: boolean;
+    appointmentId?: string;
+    error?: string;
+    supabaseCode?: string;
+    calendarVisible?: boolean;
+}
+
 /**
- * Creates an appointment. Returns the appointment ID on success, null on failure.
+ * Creates an appointment. Returns a structured result so callers never
+ * confuse an insert failure with a successful booking.
  */
-export async function createAppointmentV2(input: CreateAppointmentInput): Promise<string | null> {
-    const { 
-        supabase, userId, workspaceId, chatId, customerName, 
-        customerPhone, serviceName, date, startTime, endTime, 
-        durationMinutes, instagramHandle = 'Customer' 
+export async function createAppointmentV2(input: CreateAppointmentInput): Promise<CreateAppointmentResult> {
+    const {
+        supabase, userId, workspaceId, chatId, customerName,
+        customerPhone, serviceName, date, startTime, endTime,
+        durationMinutes, instagramHandle = 'Customer'
     } = input;
 
     v2log.appointment.insertAttempt({ workspaceId, date, startTime, customerName });
 
     try {
-        // 1. Insert into appointments table
         const { data: inserted, error } = await supabase
             .from('appointments')
             .insert({
@@ -56,19 +64,16 @@ export async function createAppointmentV2(input: CreateAppointmentInput): Promis
                 status: 'confirmed',
                 notes: 'Created via Automation Engine V2'
             })
-            .select()
+            .select('id')
             .single();
 
         if (error) {
             v2log.appointment.insertError({ error, workspaceId });
-            return null;
+            return { success: false, error: error.message || 'Appointment insert failed', supabaseCode: error.code };
         }
 
         v2log.appointment.insertSuccess({ appointmentId: inserted.id });
 
-        // 2. Visibility Check (Post-Insert)
-        // Verify the calendar dashboard query would see this.
-        // Calendar query: .gte("appointment_date", startOfMonth).lte("appointment_date", endOfMonth)
         const year = date.split('-')[0];
         const month = date.split('-')[1];
         const startOfMonth = `${year}-${month}-01`;
@@ -84,23 +89,24 @@ export async function createAppointmentV2(input: CreateAppointmentInput): Promis
             .lte('appointment_date', endOfMonth)
             .maybeSingle();
 
-        if (visError || !visible) {
-            v2log.appointment.calendarVisibility({ 
-                visible: false, 
-                error: visError, 
-                date, 
-                startOfMonth, 
-                endOfMonth 
+        const calendarVisible = !visError && !!visible;
+        if (!calendarVisible) {
+            v2log.appointment.calendarVisibility({
+                visible: false,
+                error: visError,
+                date,
+                startOfMonth,
+                endOfMonth
             });
-            // We don't fail the whole thing, but we log it as a visibility warning
         } else {
             v2log.appointment.calendarVisibility({ visible: true });
         }
 
-        return inserted.id;
+        return { success: true, appointmentId: inserted.id, calendarVisible };
 
-    } catch (err) {
+    } catch (err: any) {
+        const message = err?.message || String(err);
         v2log.error('V2_APPOINTMENTS_CREATE', 'Unexpected error during appointment creation', { err, workspaceId });
-        return null;
+        return { success: false, error: message };
     }
 }
