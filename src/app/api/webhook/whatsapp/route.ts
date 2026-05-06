@@ -179,19 +179,8 @@ async function processWhatsAppBuffer({
             }).catch(e => console.error('Failed to mark read:', e));
         }
 
-        await supabase.from('activity_log').insert({
-            user_id: ownerId,
-            workspace_id: effectiveWorkspaceId,
-            event_type: 'AI_REPLY',
-            description: `WhatsApp reply to ${customerPhone}: "${aiResponse}"`,
-            timestamp: new Date().toISOString(),
-            metadata: {
-                chat_id: customerPhone,
-                platform: 'whatsapp',
-                actions: brainRes?.actions || [],
-                debug: brainRes?.debug || null,
-            },
-        });
+        // AI_REPLY activity log is already inserted by the V2 automation engine (index.ts).
+        // Do not insert a second one here.
 
         await clearDmBuffer(supabase, ownerId, customerPhone, 'whatsapp', effectiveWorkspaceId);
         console.log(`WhatsApp reply sent to ${customerPhone}`);
