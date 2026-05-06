@@ -1,12 +1,3 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- * GhostAgent — Automation Engine V2: Create Appointment
- * ═══════════════════════════════════════════════════════════════
- * Handles the actual database insert for appointments.
- * Performs a post-insert visibility check to ensure the calendar
- * dashboard will see this appointment.
- */
-
 import { SupabaseClient } from '@supabase/supabase-js';
 import { v2log } from '../logger';
 
@@ -33,11 +24,7 @@ export interface CreateAppointmentResult {
     calendarVisible?: boolean;
 }
 
-/**
- * Creates an appointment. Returns a structured result so callers never
- * confuse an insert failure with a successful booking.
- */
-export async function createAppointmentV2(input: CreateAppointmentInput): Promise<CreateAppointmentResult> {
+async function createAppointmentInternal(input: CreateAppointmentInput): Promise<CreateAppointmentResult> {
     const {
         supabase, userId, workspaceId, chatId, customerName,
         customerPhone, serviceName, date, startTime, endTime,
@@ -109,4 +96,13 @@ export async function createAppointmentV2(input: CreateAppointmentInput): Promis
         v2log.error('V2_APPOINTMENTS_CREATE', 'Unexpected error during appointment creation', { err, workspaceId });
         return { success: false, error: message };
     }
+}
+
+export async function createAppointmentV2(input: CreateAppointmentInput): Promise<string | null> {
+    const result = await createAppointmentInternal(input);
+    return result.success ? result.appointmentId || null : null;
+}
+
+export async function createAppointmentV2Structured(input: CreateAppointmentInput): Promise<CreateAppointmentResult> {
+    return createAppointmentInternal(input);
 }
