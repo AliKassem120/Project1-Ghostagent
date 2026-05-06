@@ -3,11 +3,13 @@
  * GhostAgent — Router
  * ═══════════════════════════════════════════════════════════════
  * Loads workspace config from ai_settings and routes to the agent.
- * Checks handoff keywords before invoking the LLM.
+ * Checks handoff keywords and global interrupt intents before invoking
+ * the normal FSM/LLM agent flow.
  */
 
 import type { AutomationInput, AutomationResult, WorkspaceConfig } from './types';
 import { v2log } from './logger';
+import { handleGlobalInterrupt } from './global-interrupts';
 
 // ── Load workspace config from ai_settings ───────────────────
 
@@ -100,6 +102,20 @@ export async function routeToAgent(input: AutomationInput): Promise<AutomationRe
                 durationMs: Date.now() - startTime,
             },
         };
+    }
+
+    // ── Global interrupts BEFORE active FSM ──────────────────
+    // Examples: cancel order, cancel appointment, cancel-status, handoff,
+    // frustration stop. These must win over any active checkout/booking state.
+    const interrupt = await handleGlobalInterrupt(input, config);
+    if (interrupt) {
+        interrupt.debug.durationMs = Date.now() - startTime;
+        v2log.info('ROUTER', 'Global interrupt handled message', {
+            workspaceId: input.workspaceId,
+            chatId: input.chatId,
+            actions: interrupt.actions,
+        });
+        return interrupt;
     }
 
     // ── Agent ────────────────────────────────────────────────
