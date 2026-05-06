@@ -39,6 +39,38 @@ ALTER TABLE public.appointments
         'no_show',    'No Show'
     ));
 
--- ── 3. Reload PostgREST schema cache ───────────────────────────
+-- ── 3. Stock decrement function (called by order creation) ────
+
+CREATE OR REPLACE FUNCTION public.decrement_stock(
+    p_product_id uuid,
+    p_quantity integer DEFAULT 1
+)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE public.inventory
+    SET stock_level = GREATEST(stock_level - p_quantity, 0)
+    WHERE id = p_product_id;
+END;
+$$;
+
+-- ── 4. Stock restore function (called on order cancellation) ──
+
+CREATE OR REPLACE FUNCTION public.restore_stock(
+    p_product_id uuid,
+    p_quantity integer DEFAULT 1
+)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE public.inventory
+    SET stock_level = stock_level + p_quantity
+    WHERE id = p_product_id;
+END;
+$$;
+
+-- ── 5. Reload PostgREST schema cache ───────────────────────────
 
 NOTIFY pgrst, 'reload schema';

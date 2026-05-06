@@ -482,6 +482,7 @@ async function handleCheckoutConfirmation(
         // Build post-action context for follow-up messages
         const now = new Date();
         const editableUntil = new Date(now.getTime() + 30 * 60 * 1000).toISOString();
+        const totalPrice = (order.unitPrice || 0) * (order.quantity || 1);
         const postContext: PostActionContext = {
             type: 'order',
             lastOrderId: orderResult.orderId,
@@ -498,6 +499,27 @@ async function handleCheckoutConfirmation(
             createdAt: now.toISOString(),
             editableUntil,
         };
+
+        // Log SALE event for revenue tracking on the dashboard
+        try {
+            await ctx.supabase.from('activity_log').insert({
+                user_id: ctx.userId,
+                workspace_id: ctx.workspaceId,
+                event_type: 'SALE',
+                description: `Order: ${order.productName} x${order.quantity || 1} — $${totalPrice}`,
+                metadata: {
+                    order_id: orderResult.orderId,
+                    product_name: order.productName,
+                    quantity: order.quantity || 1,
+                    unit_price: order.unitPrice || 0,
+                    total_price: totalPrice,
+                    platform: ctx.platform,
+                    chat_id: ctx.chatId,
+                },
+            });
+        } catch (e) {
+            v2log.warn('ECOM_FSM', 'Failed to log SALE event', { error: e });
+        }
 
         return {
             replyText: t('Order confirmed! ✅', 'Tmm order-ak t2akkad! ✅', ctx.language),

@@ -340,7 +340,7 @@ export default function DashboardPage() {
         let dms = 0;
 
         activities.forEach(log => {
-            if (log.event_type === 'IG_SALE' && log.description) {
+            if ((log.event_type === 'IG_SALE' || log.event_type === 'SALE') && log.description) {
                 const match = log.description.match(/\$([\d.]+)/);
                 if (match) moneySaved += parseFloat(match[1]);
             }

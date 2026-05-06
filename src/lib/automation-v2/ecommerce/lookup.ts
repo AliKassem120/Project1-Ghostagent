@@ -26,6 +26,7 @@ export interface OrderSnapshot {
     status: string;
     createdAt: string;
     isEditable: boolean;
+    rawMessage: any;
 }
 
 export type CancelOrderResult =
@@ -45,7 +46,7 @@ export async function lookupLatestOrder(
 ): Promise<OrderSnapshot | null> {
     const { data, error } = await supabase
         .from('orders')
-        .select('id, item_requested, variant_label, quantity, unit_price, customer_name, customer_phone, customer_address, status, created_at')
+        .select('id, item_requested, variant_label, quantity, unit_price, customer_name, customer_phone, customer_address, status, created_at, raw_message')
         .eq('workspace_id', workspaceId)
         .or(`chat_id.eq.${chatId},instagram_user_id.eq.${chatId}`)
         .order('created_at', { ascending: false })
@@ -68,6 +69,7 @@ export async function lookupLatestOrder(
         status: data.status,
         createdAt: data.created_at,
         isEditable,
+        rawMessage: data.raw_message || null,
     };
 }
 
@@ -175,6 +177,21 @@ export async function cancelLatestOrder(
     if (error) {
         v2log.error('ECOM_LOOKUP', 'Failed to cancel order', { orderId: order.id, error });
         return { success: false, reason: 'db_error', error: error.message || 'cancel_order_failed' };
+    }
+
+    // Restore stock for the cancelled order
+    try {
+        let productId: string | null = null;
+        if (typeof order.rawMessage === 'string') {
+            try { productId = JSON.parse(order.rawMessage)?.product_id || null; } catch { /* not JSON */ }
+        } else if (order.rawMessage?.product_id) {
+            productId = order.rawMessage.product_id;
+        }
+        if (productId) {
+            await supabase.rpc('restore_stock', { p_product_id: productId, p_quantity: order.quantity || 1 });
+        }
+    } catch (e) {
+        v2log.warn('ECOM_LOOKUP', 'Stock restore failed (order still cancelled)', { orderId: order.id, error: e });
     }
 
     return {

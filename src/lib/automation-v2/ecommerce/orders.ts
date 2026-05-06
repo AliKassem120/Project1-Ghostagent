@@ -102,6 +102,21 @@ export async function createOrderV2(input: CreateOrderInput): Promise<CreateOrde
         }
 
         v2log.ecommerce.orderSuccess({ orderId: inserted.id });
+
+        // 3. Decrement inventory stock
+        if (productId) {
+            const { error: stockError } = await supabase.rpc('decrement_stock', {
+                p_product_id: productId,
+                p_quantity: quantity,
+            });
+            if (stockError) {
+                // Non-fatal: order is placed but stock sync failed
+                v2log.warn('V2_ECOMMERCE_ORDER_CREATE', 'Stock decrement failed (order still placed)', {
+                    productId, quantity, error: stockError.message,
+                });
+            }
+        }
+
         return { success: true, orderId: inserted.id };
 
     } catch (err) {
