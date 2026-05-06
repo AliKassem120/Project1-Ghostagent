@@ -1,13 +1,8 @@
 /**
- * ═══════════════════════════════════════════════════════════════
  * GhostAgent — State Store
- * ═══════════════════════════════════════════════════════════════
- * Reads/writes conversation state from the conversation_states
- * table. All access is scoped by user_id + workspace_id + chat_id.
- *
- * Post-context: When clearing to idle after a successful action,
- * we preserve postContext so the bot can handle "change it",
- * "where is my order?", "same address", etc.
+ * Reads/writes conversation state from conversation_states.
+ * State persistence is fail-closed: if a state transition cannot be saved,
+ * the engine must not continue as if the flow exists.
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
@@ -26,10 +21,6 @@ export interface StateStoreResult {
     error?: string;
 }
 
-/**
- * Load the current conversation state for a specific chat.
- * Returns idle with null data if no state exists.
- */
 export async function loadConversationState(
     supabase: SupabaseClient,
     userId: string,
@@ -69,10 +60,11 @@ export async function loadConversationState(
     }
 }
 
-/**
- * Save/upsert the conversation state for a specific chat.
- * Uses the unique constraint on (user_id, workspace_id, chat_id, workspace_type).
- */
+function failStateSave(message: string, details: any): never {
+    v2log.error('STATE_STORE', message, details);
+    throw new Error(details?.error?.message || details?.error || message);
+}
+
 export async function saveConversationState(
     supabase: SupabaseClient,
     userId: string,
@@ -95,24 +87,16 @@ export async function saveConversationState(
             .maybeSingle();
 
         if (lookupError) {
-            v2log.error('STATE_STORE', 'Failed to look up existing state', { error: lookupError, chatId, stage });
-            return { success: false, error: lookupError.message };
+            failStateSave('Failed to look up existing state', { error: lookupError, chatId, stage });
         }
 
         if (existing) {
             const { error } = await supabase
                 .from('conversation_states')
-                .update({
-                    stage,
-                    data: stateData || {},
-                    updated_at: now,
-                })
+                .update({ stage, data: stateData || {}, updated_at: now })
                 .eq('id', existing.id);
 
-            if (error) {
-                v2log.error('STATE_STORE', 'Failed to update state', { error, chatId, stage });
-                return { success: false, error: error.message };
-            }
+            if (error) failStateSave('Failed to update state', { error, chatId, stage });
         } else {
             const { error } = await supabase
                 .from('conversation_states')
@@ -126,10 +110,7 @@ export async function saveConversationState(
                     updated_at: now,
                 });
 
-            if (error) {
-                v2log.error('STATE_STORE', 'Failed to insert state', { error, chatId, stage });
-                return { success: false, error: error.message };
-            }
+            if (error) failStateSave('Failed to insert state', { error, chatId, stage });
         }
 
         v2log.info('STATE_STORE', `Saved state: ${stage}`, { chatId, stage });
@@ -137,13 +118,10 @@ export async function saveConversationState(
     } catch (err: any) {
         const message = err?.message || String(err);
         v2log.error('STATE_STORE', 'Failed to save state', { err, chatId, stage });
-        return { success: false, error: message };
+        throw new Error(message);
     }
 }
 
-/**
- * Clear the conversation state to idle, but optionally preserve postContext.
- */
 export async function clearConversationState(
     supabase: SupabaseClient,
     userId: string,
