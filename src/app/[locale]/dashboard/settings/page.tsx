@@ -448,16 +448,18 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Shipping &amp; Delivery Rules</label>
-                            <textarea
-                                value={settings.shippingRules}
-                                onChange={(e) => setSettings({ ...settings, shippingRules: e.target.value })}
-                                className="input-premium w-full h-24 resize-none text-sm"
-                                placeholder="e.g. Free shipping over $50. Delivery 2-3 days within Lebanon. No international shipping."
-                            />
-                            <p className="text-[10px] text-muted-foreground ml-1">The AI will quote these rules exactly when customers ask about shipping.</p>
-                        </div>
+                        {settings.businessType === 'ecommerce' && (
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Shipping &amp; Delivery Rules</label>
+                                <textarea
+                                    value={settings.shippingRules}
+                                    onChange={(e) => setSettings({ ...settings, shippingRules: e.target.value })}
+                                    className="input-premium w-full h-24 resize-none text-sm"
+                                    placeholder="e.g. Free shipping over $50. Delivery 2-3 days within Lebanon. No international shipping."
+                                />
+                                <p className="text-[10px] text-muted-foreground ml-1">The AI will quote these rules exactly when customers ask about shipping.</p>
+                            </div>
+                        )}
                     </div>
                 </motion.div>
             )}
