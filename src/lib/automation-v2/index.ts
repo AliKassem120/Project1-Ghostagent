@@ -12,6 +12,7 @@ import type { AutomationInput, AutomationResult } from './types';
 import { routeToAgent } from './router';
 import { shouldReplyToMessage } from './should-reply';
 import { v2log } from './logger';
+import { guardFinalReply } from './validation/final-reply-guard';
 
 export async function handleAutomationMessage(input: AutomationInput): Promise<AutomationResult> {
     const requestId = crypto.randomUUID();
@@ -83,6 +84,28 @@ export async function handleAutomationMessage(input: AutomationInput): Promise<A
         result.debug.requestId = requestId;
         result.debug.durationMs = Date.now() - startTime;
 
+        // Last-mile engine guard: no internal control tokens or false DB success claims.
+        const guard = guardFinalReply({
+            replyText: result.replyText,
+            language: result.debug.language,
+            dbWriteAttempted: result.debug.dbWriteAttempted,
+            dbWriteSuccess: result.debug.dbWriteSuccess,
+            actionType: result.actions?.[0],
+            sourcePath: 'v2_engine',
+        });
+        if (!guard.shouldReply) {
+            result.shouldReply = false;
+            result.replyText = undefined;
+        } else if (guard.replyText && guard.replyText !== result.replyText) {
+            result.replyText = guard.replyText;
+        }
+        if (guard.actionsToAdd.length > 0) {
+            result.actions = [...(result.actions || []), ...guard.actionsToAdd];
+        }
+        if (guard.blockedReason) {
+            result.error = result.error || guard.blockedReason;
+        }
+
         // Log final outcome to terminal
         v2log.webhookOutcome({
             requestId,
@@ -122,6 +145,9 @@ export async function handleAutomationMessage(input: AutomationInput): Promise<A
                     durationMs: result.debug.durationMs,
                     platform: input.platform,
                     chat_id: input.chatId,
+                    dbWriteAttempted: result.debug.dbWriteAttempted,
+                    dbWriteSuccess: result.debug.dbWriteSuccess,
+                    blockedReason: guard.blockedReason,
                     error: result.error
                 }
             });
