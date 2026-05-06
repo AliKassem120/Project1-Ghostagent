@@ -25,6 +25,17 @@ export function normalizeText(input: string): string {
         .trim();
 }
 
+function normalizeRepeatedLetters(input: string): string {
+    return input
+        // keep double-e variants such as "ee" useful for Arabizi, but collapse 3+
+        .replace(/([a-z])\1{2,}/gi, '$1$1')
+        // common chat variants that should map to canonical forms
+        .replace(/\byess?\b/i, 'yes')
+        .replace(/\byeah+\b/i, 'yeah')
+        .replace(/\byepp?\b/i, 'yep')
+        .replace(/\bnoo+\b/i, 'no');
+}
+
 // ── Script Detectors ─────────────────────────────────────────
 
 function hasArabicScript(msg: string): boolean {
@@ -112,41 +123,56 @@ export function detectLanguage(message: string): DetectedLanguage {
 
 const YES_WORDS = [
     // English
-    'yes', 'yeah', 'yep', 'yea', 'y', 'ok', 'okay', 'sure', 'confirm', 'correct',
-    'go ahead', 'do it',
+    'yes', 'yeah', 'yep', 'yea', 'y', 'yup', 'ok', 'okay', 'sure', 'confirm', 'confirmed', 'correct',
+    'proceed', 'go ahead', 'do it',
     // Arabic
     'نعم', 'ايوا', 'اي', 'ايه', 'تمام', 'أكيد', 'صح', 'طيب',
     // Arabizi
     'eh', 'ee', 'e', 'akid', 'tamem', 'tamam', 'tayeb', 'yalla', 'mazbout',
-    'aywa', 'tmm', 'mnih',
+    'aywa', 'aywah', 'tmm', 'mnih',
     // French
     'oui', 'ouais', 'd\'accord', 'bien sur', 'absolument',
     // Spanish
     'si', 'claro', 'vale', 'por supuesto', 'de acuerdo',
 ];
 
+const YES_PHRASES = [
+    'i said yes', 'i told you yes', 'i already said yes', 'already said yes',
+    'please confirm', 'confirm it', 'yes confirm', 'go ahead', 'do it',
+];
+
 const NO_WORDS = [
     // English
-    'no', 'nope', 'nah', 'cancel', 'stop', 'never', 'no thanks', 'never mind',
+    'no', 'nope', 'nah', 'cancel', 'stop', 'never', 'no thanks', 'never mind', 'dont', 'don\'t',
     // Arabic
     'لا', 'مش', 'ابدا',
     // Arabizi
-    'la', 'la2', 'mish', 'msh', 'mesh', 'khalas',
+    'la', 'la2', 'laa', 'mish', 'msh', 'mesh', 'khalas',
     // French
     'non', 'pas', 'jamais', 'annuler',
     // Spanish
     'no', 'nunca', 'cancelar', 'tampoco',
 ];
 
-export function detectYesNo(message: string): 'yes' | 'no' | null {
-    const normalized = normalizeText(message);
-    const tokens = normalized.split(' ');
+const NO_PHRASES = [
+    'no thanks', 'never mind', 'do not', 'don t', 'dont', 'don\'t',
+    'ma bde', 'ma bade', 'ma badde', 'mish bde', 'mesh bde', 'msh bde',
+];
 
-    // Short messages (1-4 words) are more likely to be yes/no
-    if (tokens.length <= 4) {
-        const hasWord = (list: string[]) => 
-            list.some(w => w.includes(' ') ? normalized.includes(w) : tokens.includes(w));
-        
+export function detectYesNo(message: string): 'yes' | 'no' | null {
+    const normalized = normalizeRepeatedLetters(normalizeText(message));
+    const tokens = normalized.split(' ').filter(Boolean);
+
+    const hasPhrase = (list: string[]) => list.some(p => normalized.includes(p));
+    const hasWord = (list: string[]) =>
+        list.some(w => w.includes(' ') ? normalized.includes(w) : tokens.includes(w));
+
+    // Explicit phrases can be longer than four words: "I told you yes".
+    if (hasPhrase(YES_PHRASES)) return 'yes';
+    if (hasPhrase(NO_PHRASES)) return 'no';
+
+    // Short messages (1-6 words) are more likely to be yes/no.
+    if (tokens.length <= 6) {
         if (hasWord(YES_WORDS)) return 'yes';
         if (hasWord(NO_WORDS)) return 'no';
     }
@@ -275,4 +301,3 @@ export function extractAddress(message: string): string | null {
 
     return null;
 }
-

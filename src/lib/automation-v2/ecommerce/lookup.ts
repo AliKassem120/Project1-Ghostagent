@@ -6,7 +6,7 @@
  * All modifications check editability (status + time window).
  *
  * Orders table columns used:
- *   id, user_id, workspace_id, instagram_user_id, instagram_handle,
+ *   id, user_id, workspace_id, instagram_user_id, chat_id, instagram_handle,
  *   customer_name, customer_phone, customer_address, item_requested,
  *   variant_label, quantity, unit_price, status, raw_message, created_at
  */
@@ -28,27 +28,19 @@ export interface OrderSnapshot {
     isEditable: boolean;
 }
 
-/**
- * Lookup the most recent order for a chat.
- */
-export async function lookupLatestOrder(
-    supabase: SupabaseClient,
-    workspaceId: string,
-    chatId: string
-): Promise<OrderSnapshot | null> {
-    const { data, error } = await supabase
-        .from('orders')
-        .select('id, item_requested, variant_label, quantity, unit_price, customer_name, customer_phone, customer_address, status, created_at')
-        .eq('workspace_id', workspaceId)
-        .eq('instagram_user_id', chatId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+export type CancelOrderResult =
+    | { success: true; orderId: string; productName: string; previousStatus: string }
+    | { success: false; reason: 'no_order' }
+    | { success: false; reason: 'already_cancelled'; orderId: string; productName: string }
+    | { success: false; reason: 'not_pending_status'; orderId: string; productName: string; status: string }
+    | { success: false; reason: 'db_error'; error: string };
 
-    if (error || !data) return null;
+function orderSelect() {
+    return 'id, item_requested, variant_label, quantity, unit_price, customer_name, customer_phone, customer_address, status, created_at';
+}
 
-    const isEditable = data.status.toLowerCase() === 'pending' && isWithinEditWindow(data.created_at, 30);
-
+function toSnapshot(data: any): OrderSnapshot {
+    const isEditable = String(data.status || '').toLowerCase() === 'pending' && isWithinEditWindow(data.created_at, 30);
     return {
         id: data.id,
         productName: data.item_requested,
@@ -62,6 +54,45 @@ export async function lookupLatestOrder(
         createdAt: data.created_at,
         isEditable,
     };
+}
+
+async function lookupByColumn(
+    supabase: SupabaseClient,
+    workspaceId: string,
+    column: 'chat_id' | 'instagram_user_id',
+    chatId: string
+): Promise<{ data: any | null; error: any | null }> {
+    return supabase
+        .from('orders')
+        .select(orderSelect())
+        .eq('workspace_id', workspaceId)
+        .eq(column, chatId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+}
+
+/**
+ * Lookup the most recent order for a chat.
+ * Supports both the newer chat_id column and the legacy instagram_user_id field.
+ */
+export async function lookupLatestOrder(
+    supabase: SupabaseClient,
+    workspaceId: string,
+    chatId: string
+): Promise<OrderSnapshot | null> {
+    let res = await lookupByColumn(supabase, workspaceId, 'chat_id', chatId);
+
+    // Older deployments may not have chat_id yet. Fall back gracefully.
+    if (res.error) {
+        v2log.warn('ECOM_LOOKUP', 'chat_id lookup failed, falling back to instagram_user_id', { error: res.error?.message, workspaceId, chatId });
+        res = await lookupByColumn(supabase, workspaceId, 'instagram_user_id', chatId);
+    } else if (!res.data) {
+        res = await lookupByColumn(supabase, workspaceId, 'instagram_user_id', chatId);
+    }
+
+    if (res.error || !res.data) return null;
+    return toSnapshot(res.data);
 }
 
 /**
@@ -128,16 +159,23 @@ export async function updateOrderQuantity(
 }
 
 /**
- * Cancel the most recent pending order.
+ * Cancel the most recent order, returning a reason when no cancellation occurs.
  */
 export async function cancelLatestOrder(
     supabase: SupabaseClient,
     workspaceId: string,
     chatId: string
-): Promise<{ success: boolean; productName?: string }> {
+): Promise<CancelOrderResult> {
     const order = await lookupLatestOrder(supabase, workspaceId, chatId);
-    if (!order || order.status.toLowerCase() !== 'pending') {
-        return { success: false };
+    if (!order) return { success: false, reason: 'no_order' };
+
+    const status = String(order.status || '').toLowerCase();
+    if (status === 'cancelled') {
+        return { success: false, reason: 'already_cancelled', orderId: order.id, productName: order.productName };
+    }
+
+    if (status !== 'pending') {
+        return { success: false, reason: 'not_pending_status', orderId: order.id, productName: order.productName, status: order.status };
     }
 
     const { error } = await supabase
@@ -145,7 +183,12 @@ export async function cancelLatestOrder(
         .update({ status: 'Cancelled' })
         .eq('id', order.id);
 
-    return { success: !error, productName: order.productName };
+    if (error) {
+        v2log.error('ECOM_LOOKUP', 'Failed to cancel order', { orderId: order.id, error });
+        return { success: false, reason: 'db_error', error: error.message || 'Failed to cancel order' };
+    }
+
+    return { success: true, orderId: order.id, productName: order.productName, previousStatus: order.status };
 }
 
 // ── Helpers ──────────────────────────────────────────────────

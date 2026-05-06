@@ -3,8 +3,7 @@ import { after } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { generateGhostReply } from '@/utils/ghost-brain';
 import { getBotControlDecision } from '@/lib/god-mode/bot-controls';
-
-// ─── Admin Client ─────────────────────────────────────────────────────────────
+import { upsertDmBuffer, claimDmBuffer, clearDmBuffer, releaseDmBuffer, DEBOUNCE_SECONDS } from '@/utils/dm-debounce';
 
 const getSupabaseAdmin = () => createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,9 +12,44 @@ const getSupabaseAdmin = () => createClient(
 
 const WA_API_BASE = 'https://graph.facebook.com/v18.0';
 
-// ═══════════════════════════════════════
-// 🔑 GET — Meta Webhook Verification
-// ═══════════════════════════════════════
+type WorkspaceRoute = {
+    id: string;
+    user_id: string;
+    business_name?: string | null;
+    whatsapp_access_token?: string | null;
+};
+
+function normalizePhone(p: string) {
+    return `+${p.replace(/\D/g, '')}`;
+}
+
+function sleep(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isUnsafeOutbound(text: string | null | undefined) {
+    return !text || text.includes('[HANDOFF]');
+}
+
+async function sendWhatsAppText(params: {
+    phoneNumberId: string;
+    accessToken: string;
+    to: string;
+    body: string;
+}) {
+    return fetch(`${WA_API_BASE}/${params.phoneNumberId}/messages`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${params.accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            recipient_type: 'individual',
+            to: normalizePhone(params.to),
+            type: 'text',
+            text: { body: params.body },
+        }),
+    });
+}
+
 export async function GET(request: NextRequest) {
     const params = request.nextUrl.searchParams;
     const mode = params.get('hub.mode');
@@ -32,9 +66,6 @@ export async function GET(request: NextRequest) {
     return new Response('Forbidden', { status: 403 });
 }
 
-// ═══════════════════════════════════════
-// 📨 POST — Incoming WhatsApp Messages
-// ═══════════════════════════════════════
 export async function POST(req: Request) {
     let body: any;
     try {
@@ -43,8 +74,6 @@ export async function POST(req: Request) {
         return new NextResponse('EVENT_RECEIVED', { status: 200 });
     }
 
-    // ⏰ Return 200 to Meta IMMEDIATELY so it never times out.
-    // Use after() to process the event AFTER the response is sent.
     after(async () => {
         try {
             await processWhatsAppEvent(body);
@@ -56,9 +85,123 @@ export async function POST(req: Request) {
     return new NextResponse('EVENT_RECEIVED', { status: 200 });
 }
 
-// ═══════════════════════════════════════
-// 🧠 Core Processing Logic
-// ═══════════════════════════════════════
+async function resolveWorkspace(supabase: any, phoneNumberId: string): Promise<{ workspace: WorkspaceRoute | null; accessToken: string | null; fallback: boolean }> {
+    const { data: workspace, error: wsError } = await supabase
+        .from('ai_settings')
+        .select('id, user_id, business_name, whatsapp_access_token')
+        .eq('whatsapp_phone_number_id', phoneNumberId)
+        .single();
+
+    if (!wsError && workspace) {
+        let accessToken = workspace.whatsapp_access_token || null;
+        const systemToken = process.env.WHATSAPP_SYSTEM_ACCESS_TOKEN || null;
+        const systemPhoneId = process.env.WHATSAPP_FROM_PHONE_NUMBER_ID;
+        if (!accessToken && phoneNumberId === systemPhoneId) accessToken = systemToken;
+        return { workspace, accessToken, fallback: false };
+    }
+
+    const systemToken = process.env.WHATSAPP_SYSTEM_ACCESS_TOKEN || null;
+    const systemPhoneId = process.env.WHATSAPP_FROM_PHONE_NUMBER_ID;
+    if (systemToken && systemPhoneId && phoneNumberId === systemPhoneId) {
+        const { data: anyWorkspace } = await supabase
+            .from('ai_settings')
+            .select('id, user_id, business_name, whatsapp_access_token')
+            .limit(1)
+            .maybeSingle();
+        if (anyWorkspace) return { workspace: anyWorkspace, accessToken: systemToken, fallback: true };
+    }
+
+    return { workspace: null, accessToken: null, fallback: false };
+}
+
+async function processClaimedWhatsAppBuffer(params: {
+    supabase: any;
+    workspace: WorkspaceRoute;
+    accessToken: string;
+    phoneNumberId: string;
+    customerPhone: string;
+    scheduledReplyAt: string;
+}) {
+    const { supabase, workspace, accessToken, phoneNumberId, customerPhone, scheduledReplyAt } = params;
+    const ownerId = workspace.user_id;
+
+    const claimed = await claimDmBuffer(supabase, ownerId, customerPhone, scheduledReplyAt, 'whatsapp');
+    if (!claimed) return;
+
+    const bufferedText = claimed.text;
+
+    try {
+        const brainRes = await generateGhostReply(
+            ownerId,
+            bufferedText,
+            supabase,
+            customerPhone,
+            workspace.id,
+            'whatsapp'
+        );
+        const aiResponse = brainRes?.replyText || null;
+
+        if (isUnsafeOutbound(aiResponse)) {
+            console.warn('🛡️ [WhatsApp Guard] Skipping unsafe/empty outbound reply', { customerPhone, aiResponse });
+            await clearDmBuffer(supabase, ownerId, customerPhone, 'whatsapp');
+            return;
+        }
+
+        const controls = await getBotControlDecision(supabase, {
+            workspaceId: workspace.id,
+            chatId: customerPhone,
+            channel: 'whatsapp',
+            type: 'dm'
+        });
+        if (controls.paused || controls.disableExternalSends || controls.forceDraft) {
+            console.warn(`🛑 [KILL SWITCH] WhatsApp send blocked. Reason: ${controls.reason}`);
+            await releaseDmBuffer(supabase, ownerId, customerPhone, 'whatsapp');
+            return;
+        }
+
+        let sendResult = await sendWhatsAppText({ phoneNumberId, accessToken, to: customerPhone, body: aiResponse! });
+
+        const systemToken = process.env.WHATSAPP_SYSTEM_ACCESS_TOKEN || undefined;
+        const systemPhoneId = process.env.WHATSAPP_FROM_PHONE_NUMBER_ID;
+        if (sendResult.status === 401 && systemToken && accessToken !== systemToken && phoneNumberId === systemPhoneId) {
+            console.warn('⚠️ [WhatsApp] Workspace token rejected. Falling back to system token.');
+            sendResult = await sendWhatsAppText({ phoneNumberId, accessToken: systemToken, to: customerPhone, body: aiResponse! });
+        }
+
+        if (!sendResult.ok) {
+            const errText = await sendResult.text();
+            console.error(`❌ WhatsApp send failed (${sendResult.status}):`, errText);
+            await releaseDmBuffer(supabase, ownerId, customerPhone, 'whatsapp');
+            return;
+        }
+
+        await supabase.from('activity_log').insert({
+            user_id: ownerId,
+            workspace_id: workspace.id,
+            event_type: 'AI_REPLY',
+            description: `WhatsApp reply to ${customerPhone}: "${aiResponse}"`,
+            timestamp: new Date().toISOString(),
+            metadata: {
+                chat_id: customerPhone,
+                platform: 'whatsapp',
+                buffered_text: bufferedText,
+                actions: brainRes?.actions || [],
+                stateBefore: brainRes?.stateBefore,
+                stateAfter: brainRes?.stateAfter,
+                dbWriteAttempted: brainRes?.dbWriteAttempted ?? false,
+                dbWriteSuccess: brainRes?.dbWriteSuccess ?? false,
+                error: brainRes?.error,
+            },
+        });
+
+        await clearDmBuffer(supabase, ownerId, customerPhone, 'whatsapp');
+        console.log(`✅ WhatsApp buffered reply sent to ${customerPhone}`);
+    } catch (err) {
+        console.error('❌ WhatsApp buffered processing failed:', err);
+        await releaseDmBuffer(supabase, ownerId, customerPhone, 'whatsapp');
+    }
+}
+
 async function processWhatsAppEvent(body: any) {
     if (body.object !== 'whatsapp_business_account') return;
 
@@ -73,234 +216,87 @@ async function processWhatsAppEvent(body: any) {
             const messages: any[] = value?.messages ?? [];
             const statuses: any[] = value?.statuses ?? [];
 
-            const normalizePhone = (p: string) => {
-                let cleaned = p.replace(/\D/g, ''); // Numbers only
-                return `+${cleaned}`;
-            };
-
-            // ── 1. HANDLE STATUS UPDATES (Sent, Delivered, Read, Failed) ──
             for (const status of statuses) {
                 const messageId = status.id;
-                const statusType = status.status; // sent, delivered, read, failed
+                const statusType = status.status;
                 const recipient = status.recipient_id;
 
                 if (statusType === 'failed') {
                     const error = status.errors?.[0];
                     console.error(`🔴 WhatsApp Delivery FAILURE to ${recipient}: [${error?.code}] ${error?.title} - ${error?.message}`);
-                    
-                    // Log the failure to activity log so the user can see it in dashboard
                     await supabase.from('activity_log').insert({
                         event_type: 'SYSTEM_ALERT',
                         description: `WhatsApp failed to ${recipient}: ${error?.title || 'Unknown error'}`,
                         timestamp: new Date().toISOString(),
-                        metadata: { 
-                            error_code: error?.code, 
+                        metadata: {
+                            error_code: error?.code,
                             error_details: error?.message,
                             message_id: messageId,
                             platform: 'whatsapp'
                         },
                     });
                 } else {
-                    console.log(`ℹ️ WhatsApp Status update for ${recipient}: ${statusType} (${messageId.slice(-8)})`);
+                    console.log(`ℹ️ WhatsApp Status update for ${recipient}: ${statusType} (${String(messageId || '').slice(-8)})`);
                 }
             }
 
-            // ── 2. HANDLE INCOMING MESSAGES ──
             for (const message of messages) {
-                // Only process inbound text messages
                 if (message.type !== 'text') continue;
 
                 const customerPhone: string = message.from;
                 const messageText: string = message.text?.body;
-
                 if (!messageText || !customerPhone || !phoneNumberId) continue;
+
+                const { workspace, accessToken } = await resolveWorkspace(supabase, phoneNumberId);
+                if (!workspace || !accessToken) {
+                    console.warn(`⚠️ No WhatsApp workspace/token found for phone_number_id: ${phoneNumberId}`);
+                    continue;
+                }
 
                 console.log(`📱 WhatsApp message from ${customerPhone}: "${messageText.slice(0, 80)}"`);
 
-                // ── 1. FIND WORKSPACE ──────────────────────────────────────
-                // Match by whatsapp_phone_number_id so each SaaS user's
-                // connected number routes to their correct agent.
-                const { data: workspace, error: wsError } = await supabase
-                    .from('ai_settings')
-                    .select('id, user_id, business_name, whatsapp_access_token')
-                    .eq('whatsapp_phone_number_id', phoneNumberId)
-                    .single();
-
-                if (wsError || !workspace) {
-                    console.warn(`⚠️ No workspace found for phone_number_id: ${phoneNumberId}`);
-                    
-                    // ── FALLBACK: use system-level env credentials ──────────
-                    // This allows testing with the Meta test number before
-                    // a workspace has been linked in ai_settings.
-                    const systemToken = process.env.WHATSAPP_SYSTEM_ACCESS_TOKEN;
-                    const systemPhoneId = process.env.WHATSAPP_FROM_PHONE_NUMBER_ID;
-                    
-                    if (systemToken && systemPhoneId && phoneNumberId === systemPhoneId) {
-                        console.log(`🔧 [WhatsApp Fallback] Using system-level credentials for phone ID: ${phoneNumberId}`);
-                        
-                        // Find the first workspace owner as a fallback user
-                        const { data: anyWorkspace } = await supabase
-                            .from('ai_settings')
-                            .select('id, user_id')
-                            .limit(1)
-                            .maybeSingle();
-                        
-                        if (!anyWorkspace) {
-                            console.warn('⚠️ No workspace at all in DB. Skipping.');
-                            continue;
-                        }
-                        
-                        const brainRes = await generateGhostReply(
-                            anyWorkspace.user_id,
-                            messageText,
-                            supabase,
-                            customerPhone,
-                            anyWorkspace.id,
-                            'whatsapp'
-                        );
-                        const aiResponse = brainRes?.replyText || null;
-                        if (!aiResponse) { console.log('👻 No reply (handoff/empty).'); continue; }
-                        
-                        const formattedRecipient = normalizePhone(customerPhone);
-                        console.log(`🔧 [Fallback] Sending to: ${formattedRecipient}`);
-                        
-                        const sendResult = await fetch(`${WA_API_BASE}/${phoneNumberId}/messages`, {
-                            method: 'POST',
-                            headers: { 'Authorization': `Bearer ${systemToken}`, 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                messaging_product: 'whatsapp',
-                                recipient_type: 'individual',
-                                to: formattedRecipient,
-                                type: 'text',
-                                text: { body: aiResponse },
-                            }),
-                        });
-                        const sendBody = await sendResult.text();
-                        if (!sendResult.ok) {
-                            console.error(`❌ [Fallback] WhatsApp send failed (${sendResult.status}):`, sendBody);
-                        } else {
-                            console.log(`✅ [Fallback] WhatsApp reply sent to ${customerPhone}:`, sendBody);
-                        }
-                    } else {
-                        console.warn(`⚠️ Phone ID ${phoneNumberId} does not match system ID ${process.env.WHATSAPP_FROM_PHONE_NUMBER_ID}. No handler found.`);
-                    }
-                    continue;
-                }
-
-                let accessToken = workspace?.whatsapp_access_token;
-                const ownerId = workspace?.user_id;
-                const systemToken = process.env.WHATSAPP_SYSTEM_ACCESS_TOKEN;
-                const systemPhoneId = process.env.WHATSAPP_FROM_PHONE_NUMBER_ID;
-
-                // If DB token missing, fallback to system token (for testing stability)
-                if (!accessToken && phoneNumberId === systemPhoneId) {
-                    console.log('🔧 [WhatsApp] No workspace token found. Using system-level test token.');
-                    accessToken = systemToken;
-                }
-
-                if (!accessToken) {
-                    console.warn(`⚠️ Phone ID ${phoneNumberId} has no WhatsApp access token in DB and does not match system fallback.`);
-                    continue;
-                }
-
-                // ── 2. LOG INCOMING MESSAGE ───────────────────────────────
                 await supabase.from('activity_log').insert({
-                    user_id: ownerId,
+                    user_id: workspace.user_id,
                     workspace_id: workspace.id,
                     event_type: 'INCOMING_MESSAGE',
                     description: `WhatsApp ${customerPhone}: "${messageText}"`,
                     timestamp: new Date().toISOString(),
-                    metadata: { chat_id: customerPhone, platform: 'whatsapp', username: customerPhone },
+                    metadata: {
+                        chat_id: customerPhone,
+                        platform: 'whatsapp',
+                        username: customerPhone,
+                        provider_message_id: message.id,
+                    },
                 });
 
-                // ── 3. GENERATE AI REPLY ──────────────────────────────────
-                const brainRes = await generateGhostReply(
-                    ownerId,
-                    messageText,
+                const scheduledReplyAt = await upsertDmBuffer({
                     supabase,
-                    customerPhone,
-                    workspace.id,
-                    'whatsapp'
-                );
-                const aiResponse = brainRes?.replyText || null;
-
-                if (!aiResponse) {
-                    console.log('👻 Ghost Protocol: No reply generated (handoff or empty).');
-                    continue;
-                }
-
-                const formattedRecipient = normalizePhone(customerPhone);
-
-                // 🛑 KILL SWITCH CHECK
-                const controls = await getBotControlDecision(supabase, { workspaceId: workspace.id, chatId: customerPhone, channel: 'whatsapp', type: 'dm' });
-                if (controls.paused) {
-                    console.warn(`🛑 [KILL SWITCH] WhatsApp DM sending paused. Reason: ${controls.reason}`);
-                    continue;
-                }
-                if (controls.disableExternalSends) {
-                    console.warn(`🛑 [KILL SWITCH] External Meta APIs disabled. Reason: ${controls.reason}`);
-                    continue;
-                }
-                if (controls.forceDraft) {
-                    console.log(`📝 [KILL SWITCH] Force Draft active. Dropping WhatsApp send request. Reason: ${controls.reason}`);
-                    continue;
-                }
-
-                // ── 4. SEND REPLY via WhatsApp Cloud API ──────────────────
-                let sendResult = await fetch(`${WA_API_BASE}/${phoneNumberId}/messages`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        messaging_product: 'whatsapp',
-                        recipient_type: 'individual',
-                        to: formattedRecipient,
-                        type: 'text',
-                        text: { body: aiResponse },
-                    }),
+                    ownerId: workspace.user_id,
+                    senderId: customerPhone,
+                    workspaceId: workspace.id,
+                    messageText,
+                    channel: 'whatsapp',
                 });
 
-                // Retry with system token if the user's test token expired (401)
-                if (sendResult.status === 401 && accessToken !== systemToken && phoneNumberId === systemPhoneId) {
-                    console.warn('⚠️ [WhatsApp] Workspace token was rejected (401). Falling back to system token.');
-                    sendResult = await fetch(`${WA_API_BASE}/${phoneNumberId}/messages`, {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${systemToken}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            messaging_product: 'whatsapp',
-                            recipient_type: 'individual',
-                            to: formattedRecipient,
-                            type: 'text',
-                            text: { body: aiResponse },
-                        }),
+                after(async () => {
+                    await sleep(DEBOUNCE_SECONDS * 1000 + 250);
+                    await processClaimedWhatsAppBuffer({
+                        supabase,
+                        workspace,
+                        accessToken,
+                        phoneNumberId,
+                        customerPhone,
+                        scheduledReplyAt,
                     });
-                }
+                });
 
-                if (!sendResult.ok) {
-                    const errText = await sendResult.text();
-                    console.error(`❌ WhatsApp send failed (${sendResult.status}):`, errText);
-                    continue;
-                }
-
-                // Mark the incoming message as read
                 if (message.id) {
                     fetch(`${WA_API_BASE}/${phoneNumberId}/messages`, {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
                         body: JSON.stringify({ messaging_product: 'whatsapp', message_id: message.id, status: 'read' })
-                    }).catch(e => console.error('Failed to mark read:', e));
+                    }).catch(e => console.error('Failed to mark WhatsApp read:', e));
                 }
-
-                // ── 5. LOG AI REPLY ───────────────────────────────────────
-                await supabase.from('activity_log').insert({
-                    user_id: ownerId,
-                    workspace_id: workspace.id,
-                    event_type: 'AI_REPLY',
-                    description: `WhatsApp reply to ${customerPhone}: "${aiResponse}"`,
-                    timestamp: new Date().toISOString(),
-                    metadata: { chat_id: customerPhone, platform: 'whatsapp' },
-                });
-
-                console.log(`✅ WhatsApp reply sent to ${customerPhone}`);
             }
         }
     }

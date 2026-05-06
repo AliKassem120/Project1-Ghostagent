@@ -19,7 +19,6 @@ export async function generateGhostReply(
             return null;
         }
 
-        // Fetch business type
         const { data: settings } = await supabase
             .from('ai_settings')
             .select('business_type')
@@ -38,8 +37,18 @@ export async function generateGhostReply(
             userId,
         });
 
-        if (!result.shouldReply) return { replyText: null, skipLegacyLogging: true };
-        return { replyText: result.replyText || null, skipLegacyLogging: true };
+        return {
+            shouldReply: result.shouldReply,
+            replyText: result.shouldReply ? (result.replyText || null) : null,
+            skipLegacyLogging: true,
+            actions: result.actions || [],
+            stateBefore: result.stateBefore,
+            stateAfter: result.stateAfter,
+            debug: result.debug,
+            dbWriteAttempted: result.debug?.dbWriteAttempted ?? false,
+            dbWriteSuccess: result.debug?.dbWriteSuccess ?? false,
+            error: result.error,
+        };
     } catch (error: any) {
         console.error('❌ [Ghost Brain] Failed:', error);
         return null;
