@@ -1,15 +1,11 @@
 /**
- * ═══════════════════════════════════════════════════════════════
  * GhostAgent — Router
- * ═══════════════════════════════════════════════════════════════
- * Loads workspace config from ai_settings and routes to the agent.
- * Checks handoff keywords before invoking the LLM.
+ * Loads workspace config and routes to the correct brain path.
  */
 
 import type { AutomationInput, AutomationResult, WorkspaceConfig } from './types';
 import { v2log } from './logger';
-
-// ── Load workspace config from ai_settings ───────────────────
+import { handleGlobalInterrupt } from './global-interrupts';
 
 export async function loadWorkspaceConfig(
     supabase: any,
@@ -52,8 +48,6 @@ export async function loadWorkspaceConfig(
     };
 }
 
-// ── Route to the agent ───────────────────────────────────────
-
 export async function routeToAgent(input: AutomationInput): Promise<AutomationResult> {
     const startTime = Date.now();
 
@@ -79,7 +73,6 @@ export async function routeToAgent(input: AutomationInput): Promise<AutomationRe
         };
     }
 
-    // ── Handoff keywords (zero-cost check before LLM) ────────
     const messageLower = input.message.toLowerCase();
     if (config.handoffKeywords.some((kw: string) => messageLower.includes(kw.toLowerCase()))) {
         v2log.info('ROUTER', 'Handoff keyword detected', { workspaceId: input.workspaceId });
@@ -102,7 +95,18 @@ export async function routeToAgent(input: AutomationInput): Promise<AutomationRe
         };
     }
 
-    // ── Agent ────────────────────────────────────────────────
+    // Critical: global interrupts win before any active FSM state.
+    const interrupt = await handleGlobalInterrupt(input, config);
+    if (interrupt) {
+        interrupt.debug.durationMs = Date.now() - startTime;
+        v2log.info('ROUTER', 'Global interrupt handled message', {
+            workspaceId: input.workspaceId,
+            chatId: input.chatId,
+            actions: interrupt.actions,
+        });
+        return interrupt;
+    }
+
     const { runAgent } = await import('./agent');
     return await runAgent(input, config);
 }
