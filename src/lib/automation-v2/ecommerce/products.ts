@@ -63,14 +63,26 @@ export async function searchProducts(args: {
                         return !queryLower || name.includes(queryLower);
                     })
                     .slice(0, limit - items.length)
-                    .map((row: any, index: number) => ({
-                        id: `csv-${index}`,
-                        itemName: row.name || row.title || row.product || row.item || `Item ${index + 1}`,
-                        price: parseFloat(String(row.price || row.cost || '0').replace(/[^0-9.]/g, '')) || 0,
-                        stockLevel: parseInt(String(row.stock || row.qty || '1').replace(/[^0-9]/g, '')) || 0,
-                        description: row.description || row.details || null,
-                        variants: [],
-                    }));
+                    .map((row: any, index: number) => {
+                        const colors = row.color || row.colors || row.Colour || row.colours || null;
+                        const sizes = row.size || row.sizes || row.Size || null;
+                        
+                        // Try to parse variants if they exist
+                        let variants: string[] = [];
+                        if (row.variants && Array.isArray(row.variants)) variants = row.variants;
+                        else if (row.variants && typeof row.variants === 'string') variants = row.variants.split(',').map((s: string) => s.trim());
+                        
+                        return {
+                            id: `csv-${index}`,
+                            itemName: row.name || row.title || row.product || row.item || `Item ${index + 1}`,
+                            price: parseFloat(String(row.price || row.cost || '0').replace(/[^0-9.]/g, '')) || 0,
+                            stockLevel: parseInt(String(row.stock || row.qty || '1').replace(/[^0-9]/g, '')) || 0,
+                            description: row.description || row.details || null,
+                            colors,
+                            sizes,
+                            variants,
+                        } as InventoryRecord & { colors?: string, sizes?: string };
+                    });
 
                 items = [...items, ...csvItems];
             }

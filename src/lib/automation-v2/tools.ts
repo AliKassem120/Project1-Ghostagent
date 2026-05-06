@@ -138,11 +138,22 @@ export function createAppointmentTools(ctx: ToolContext) {
 export function createEcommerceTools(ctx: ToolContext) {
     return {
         search_products: {
-            description: 'Search products in the store. Returns name, price, stock. Use for ALL product/price/stock questions.',
-            parameters: z.object({ query: z.string().optional().describe('Product name or keyword. Leave empty to list all.') }),
+            description: 'Searches the product database for clothing items by name, category, or keyword. Use for ALL product, price, or stock questions.',
+            parameters: z.object({ query: z.string().optional().describe('Product name, category, or keyword. Leave empty to list all.') }),
             execute: async ({ query }: { query?: string }) => {
                 const products = await searchProducts({ supabase: ctx.supabase, workspaceId: ctx.workspaceId, query });
-                return { products: products.map(p => ({ name: p.itemName, price: p.price, inStock: p.stockLevel > 0, stock: p.stockLevel })), count: products.length };
+                return { 
+                    products: products.map(p => ({ 
+                        name: p.itemName, 
+                        price: p.price, 
+                        inStock: p.stockLevel > 0, 
+                        stock: p.stockLevel,
+                        colors: (p as any).colors || undefined,
+                        sizes: (p as any).sizes || undefined,
+                        variants: p.variants || []
+                    })), 
+                    count: products.length 
+                };
             },
         },
         get_business_hours: {
