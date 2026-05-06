@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, ShoppingBag, Instagram, Clock, CheckCircle2, PhoneCall, Loader2, RefreshCw, ChevronDown, Trash2 } from 'lucide-react';
+import { Download, ShoppingBag, Instagram, Clock, CheckCircle2, PhoneCall, Loader2, RefreshCw, ChevronDown, Trash2, XCircle } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useRealtime } from '@/contexts/RealtimeContext';
@@ -10,7 +10,7 @@ import CustomSelect from '@/components/CustomSelect';
 import GhostModal from '@/components/GhostModal';
 import clsx from 'clsx';
 
-type OrderStatus = 'Pending' | 'Contacted' | 'Fulfilled';
+type OrderStatus = 'Pending' | 'Contacted' | 'Fulfilled' | 'Cancelled';
 
 interface OrderLead {
     id: string;
@@ -20,7 +20,7 @@ interface OrderLead {
     customer_name: string | null;
     customer_phone: string | null;
     customer_address: string | null;
-    status: OrderStatus;
+    status: OrderStatus | string;
     raw_message: string | null;
 }
 
@@ -28,10 +28,20 @@ const STATUS_CONFIG: Record<OrderStatus, { label: string; className: string; ico
     Pending: { label: 'Pending', className: 'bg-amber-500/15   text-amber-400   border border-amber-500/20', icon: Clock },
     Contacted: { label: 'Contacted', className: 'bg-blue-500/15    text-blue-400    border border-blue-500/20', icon: PhoneCall },
     Fulfilled: { label: 'Fulfilled', className: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20', icon: CheckCircle2 },
+    Cancelled: { label: 'Cancelled', className: 'bg-red-500/15 text-red-400 border border-red-500/20', icon: XCircle },
 };
 
-function StatusBadge({ status }: { status: OrderStatus }) {
-    const { label, className, icon: Icon } = STATUS_CONFIG[status];
+function normalizeStatus(status: string): OrderStatus {
+    const s = (status || '').toLowerCase();
+    if (s === 'contacted') return 'Contacted';
+    if (s === 'fulfilled' || s === 'completed') return 'Fulfilled';
+    if (s === 'cancelled' || s === 'canceled') return 'Cancelled';
+    return 'Pending';
+}
+
+function StatusBadge({ status }: { status: string }) {
+    const normalized = normalizeStatus(status);
+    const { label, className, icon: Icon } = STATUS_CONFIG[normalized];
     return (
         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide ${className}`}>
             <Icon className="w-3 h-3" />
@@ -40,18 +50,19 @@ function StatusBadge({ status }: { status: OrderStatus }) {
     );
 }
 
-function StatusSelector({ current, onChange }: { current: OrderStatus; onChange: (s: OrderStatus) => void }) {
+function StatusSelector({ current, onChange }: { current: string; onChange: (s: OrderStatus) => void }) {
     const options = [
         { label: 'Pending', value: 'Pending' },
         { label: 'Contacted', value: 'Contacted' },
-        { label: 'Fulfilled', value: 'Fulfilled' }
+        { label: 'Fulfilled', value: 'Fulfilled' },
+        { label: 'Cancelled', value: 'Cancelled' }
     ];
 
     return (
         <div className="relative inline-flex items-center min-w-[110px]" onClick={e => e.stopPropagation()}>
             <CustomSelect
                 options={options}
-                value={current}
+                value={normalizeStatus(current)}
                 onChange={(v) => onChange(v as OrderStatus)}
                 className="!py-0"
             />
@@ -59,10 +70,10 @@ function StatusSelector({ current, onChange }: { current: OrderStatus; onChange:
     );
 }
 
-// Custom specialized selector to fit in the table row
-function InlineStatusSelector({ current, onChange }: { current: OrderStatus; onChange: (s: OrderStatus) => void }) {
+function InlineStatusSelector({ current, onChange }: { current: string; onChange: (s: OrderStatus) => void }) {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
+    const normalizedCurrent = normalizeStatus(current);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -74,7 +85,7 @@ function InlineStatusSelector({ current, onChange }: { current: OrderStatus; onC
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isOpen]);
 
-    const options: OrderStatus[] = ['Pending', 'Contacted', 'Fulfilled'];
+    const options: OrderStatus[] = ['Pending', 'Contacted', 'Fulfilled', 'Cancelled'];
 
     return (
         <div className="relative" ref={containerRef} onClick={e => e.stopPropagation()}>
@@ -82,11 +93,11 @@ function InlineStatusSelector({ current, onChange }: { current: OrderStatus; onC
                 onClick={() => setIsOpen(!isOpen)}
                 className={clsx(
                     "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold tracking-wide transition-all",
-                    STATUS_CONFIG[current].className,
+                    STATUS_CONFIG[normalizedCurrent].className,
                     "hover:scale-[1.02] active:scale-[0.98]"
                 )}
             >
-                {current}
+                {normalizedCurrent}
                 <ChevronDown className={clsx("w-3 h-3 transition-transform", isOpen && "rotate-180")} />
             </button>
 
@@ -109,12 +120,12 @@ function InlineStatusSelector({ current, onChange }: { current: OrderStatus; onC
                                     }}
                                     className={clsx(
                                         "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors",
-                                        current === status ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-surface-2 hover:text-foreground"
+                                        normalizedCurrent === status ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-surface-2 hover:text-foreground"
                                     )}
                                 >
                                     <Icon className="w-3.5 h-3.5" />
                                     {status}
-                                    {current === status && <CheckCircle2 className="w-3 h-3 ml-auto" />}
+                                    {normalizedCurrent === status && <CheckCircle2 className="w-3 h-3 ml-auto" />}
                                 </button>
                             );
                         })}
@@ -182,7 +193,7 @@ export default function OrdersPage() {
 
     const handleExportCSV = () => {
         const header = 'Date,Instagram Handle,Item Requested,Status\n';
-        const rows = orders.map(o => `${formatDate(o.created_at)},@${o.instagram_handle},"${o.item_requested}",${o.status}`).join('\n');
+        const rows = orders.map(o => `${formatDate(o.created_at)},@${o.instagram_handle},"${o.item_requested}",${normalizeStatus(String(o.status))}`).join('\n');
         const blob = new Blob([header + rows], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -193,15 +204,14 @@ export default function OrdersPage() {
     };
 
     const counts = {
-        Pending: orders.filter(o => o.status === 'Pending').length,
-        Contacted: orders.filter(o => o.status === 'Contacted').length,
-        Fulfilled: orders.filter(o => o.status === 'Fulfilled').length,
+        Pending: orders.filter(o => normalizeStatus(String(o.status)) === 'Pending').length,
+        Contacted: orders.filter(o => normalizeStatus(String(o.status)) === 'Contacted').length,
+        Fulfilled: orders.filter(o => normalizeStatus(String(o.status)) === 'Fulfilled').length,
+        Cancelled: orders.filter(o => normalizeStatus(String(o.status)) === 'Cancelled').length,
     };
 
     return (
         <div className="space-y-6 pb-8">
-
-            {/* ── Header ── */}
             <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -230,12 +240,11 @@ export default function OrdersPage() {
                 </div>
             </motion.div>
 
-            {/* ── Stat Cards ── */}
             <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 }}
-                className="grid grid-cols-3 gap-4"
+                className="grid grid-cols-2 md:grid-cols-4 gap-4"
             >
                 {(Object.entries(counts) as [OrderStatus, number][]).map(([status, count]) => {
                     const { className, icon: Icon } = STATUS_CONFIG[status];
@@ -253,14 +262,12 @@ export default function OrdersPage() {
                 })}
             </motion.div>
 
-            {/* ── Table ── */}
             <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
                 className="bg-surface-1 border border-border rounded-2xl shadow-sm"
             >
-                {/* Card header */}
                 <div className="flex items-center gap-3 px-6 py-4 border-b border-border">
                     <div className="p-2 rounded-xl bg-purple-500/10">
                         <ShoppingBag className="w-4 h-4 text-purple-400" />
@@ -344,7 +351,7 @@ export default function OrdersPage() {
                                         <td className="px-6 py-4">
                                             {updating === order.id
                                                 ? <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-2 border border-border"><Loader2 className="w-3.5 h-3.5 animate-spin" /><span className="text-[11px]">Updating…</span></div>
-                                                : <InlineStatusSelector current={order.status} onChange={(s) => handleStatusChange(order.id, s)} />
+                                                : <InlineStatusSelector current={String(order.status)} onChange={(s) => handleStatusChange(order.id, s)} />
                                             }
                                         </td>
                                         <td className="px-6 py-4 text-right">
