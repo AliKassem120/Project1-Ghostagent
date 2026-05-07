@@ -72,34 +72,37 @@ export async function checkWorkspaceReadiness(
         detail: ws.language ? undefined : 'Set language preference in Settings',
     });
 
-    // ── Instagram connected ──────────────────────────────────
+    // ── Channel connected (Instagram OR WhatsApp) ────────────
     const { data: igConn } = await supabase
         .from('instagram_integrations')
         .select('id')
         .eq('workspace_id', workspaceId)
         .maybeSingle();
 
+    const hasWhatsApp = !!ws.whatsapp_phone_number_id && ws.whatsapp_phone_number_id !== 'NOT SET';
+    const hasChannel = !!igConn || hasWhatsApp;
+
     checks.push({
-        label: 'Instagram connected',
-        passed: !!igConn,
+        label: 'Messaging channel connected',
+        passed: hasChannel,
         severity: 'critical',
-        detail: igConn ? undefined : 'Connect Instagram in Settings to receive DMs',
+        detail: hasChannel ? undefined : 'Connect Instagram or WhatsApp in Settings to receive messages',
     });
 
     // ── Inventory/Services (type-specific) ───────────────────
     if (ws.business_type === 'ecommerce') {
-        const { data: products, error: prodErr } = await supabase
-            .from('inventory')
-            .select('id')
-            .eq('workspace_id', workspaceId)
-            .limit(1);
+        // Check both inventory table (manual add) AND business_knowledge (CSV upload)
+        const [{ data: products, error: prodErr }, { data: catalog }] = await Promise.all([
+            supabase.from('inventory').select('id').eq('workspace_id', workspaceId).limit(1),
+            supabase.from('business_knowledge').select('id').eq('workspace_id', workspaceId).limit(1),
+        ]);
 
-        const hasProducts = !prodErr && products && products.length > 0;
+        const hasProducts = (!prodErr && products && products.length > 0) || !!(catalog && catalog.length > 0);
         checks.push({
             label: 'Products in inventory',
             passed: hasProducts,
             severity: 'critical',
-            detail: hasProducts ? undefined : 'Add at least one product to Inventory',
+            detail: hasProducts ? undefined : 'Add at least one product to Inventory or upload a CSV catalog',
         });
     }
 
