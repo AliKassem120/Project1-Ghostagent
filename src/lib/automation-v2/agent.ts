@@ -18,6 +18,7 @@ import type { AutomationInput, AutomationResult, WorkspaceConfig } from './types
 import { loadConversationHistory } from './history';
 import { createAppointmentTools, createEcommerceTools, createSaasSupportTools, type ToolContext } from './tools';
 import { detectLanguage } from './language';
+import { searchSaasKnowledge } from './saas-support/knowledge';
 import { buildTimeContext } from './time';
 import { v2log } from './logger';
 import { LEBANESE_VOCABULARY } from './dictionaries';
@@ -118,10 +119,10 @@ ${LEBANESE_VOCABULARY}
 
 Examples of good Arabizi replies:
 - "Eh mawjoud, 50$"
-- "Ma fi halla2"
-- "B3atle ismak w ra2mak w el 3nwen"
+- "Ma fi hala2"
+- "B3atle esmak w ra2mak w l 3nwen"
 - "Tmm t2akad el order ✅"
-- "Hala! Kif fiyi se3dak?"`;
+- "Hala! Kif fiye se3dak?"`;
     } else if (replyLanguage === 'unknown' || replyLanguage === 'mixed') {
         languageBlock = `LANGUAGE: Reply in English.`;
     } else {
@@ -239,7 +240,21 @@ export async function runAgent(
     );
 
     // 2. System prompt
-    const system = buildPrompt(config, timeCtx, replyLang);
+    let system = buildPrompt(config, timeCtx, replyLang);
+
+    // 2b. SaaS support: pre-fetch knowledge and inject into prompt context
+    //     This removes the dependency on the LLM calling search_knowledge tool
+    if (config.businessType === 'saas_support') {
+        const knowledgeDocs = await searchSaasKnowledge(
+            input.supabase, input.workspaceId, input.message
+        );
+        if (knowledgeDocs.length > 0) {
+            const knowledgeBlock = knowledgeDocs.map(d =>
+                `### ${d.title}\n${d.content}`
+            ).join('\n\n---\n\n');
+            system += `\n\nKNOWLEDGE BASE (use this to answer the user's question):\n${knowledgeBlock}\n\nIMPORTANT: You MUST answer from the KNOWLEDGE BASE above. Do NOT say "I'm not sure" or "I don't know" if the answer is in the knowledge base. Summarize the relevant info in a concise DM-style reply.`;
+        }
+    }
 
     // 3. Messages
     const messages: { role: 'user' | 'assistant'; content: string }[] = [
@@ -342,8 +357,8 @@ export async function runAgent(
                         ? (p.inStock ? `${p.name} — $${p.price}, mawjoud.` : `${p.name} — ma fi halla2.`)
                         : (p.inStock ? `${p.name} — $${p.price}, in stock.` : `${p.name} — out of stock.`);
                 } else {
-                    reply = replyLang === 'arabizi' 
-                        ? '3am dawar 3aleya bas mish mabyane 3ande. Baddak shi tene?' 
+                    reply = replyLang === 'arabizi'
+                        ? '3am dawar 3aleya bas mish mabyane 3ande. Baddak shi tene?'
                         : "I'm looking for that right now, but I'm not seeing it in our current catalog. Did you mean a different item, or do you have a specific SKU?";
                 }
             } else if (lastToolResult?.toolName === 'search_knowledge') {

@@ -82,19 +82,21 @@ describe('Stability Patch — Appointment Status', () => {
 });
 
 describe('Security Patch — SaaS Knowledge Isolation', () => {
-    it('only retrieves public knowledge', async () => {
-        const mockLimit = vi.fn().mockResolvedValue({ data: [], error: null });
-        const mockSupabase = {
-            from: vi.fn().mockReturnThis(),
+    it('scopes knowledge search to the correct workspace', async () => {
+        const chain: any = {
             select: vi.fn().mockReturnThis(),
-            in: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
             or: vi.fn().mockReturnThis(),
-            is: vi.fn().mockReturnThis(),
-            limit: mockLimit,
+            order: vi.fn().mockReturnThis(),
+            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+        };
+        const mockSupabase = {
+            from: vi.fn().mockReturnValue(chain),
         } as any;
 
         await searchSaasKnowledge(mockSupabase, 'ws_123', 'test');
 
-        expect(mockSupabase.in).toHaveBeenCalledWith('visibility', ['public']);
+        // Must scope to the specific workspace — not a global visibility filter
+        expect(chain.eq).toHaveBeenCalledWith('workspace_id', 'ws_123');
     });
 });
