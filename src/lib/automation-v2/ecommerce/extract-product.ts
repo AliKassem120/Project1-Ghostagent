@@ -104,6 +104,11 @@ const AVAILABILITY_FILLER = new Set([
     // English price
     'how', 'much', 'price', 'cost', 'costs', 'what',
     'whats', "what's",
+    // Conversational context (casual mentions / browsing)
+    'cause', 'because', 'i', 'saw', 'see', 'noticed', 'found',
+    'your', 'store', 'shop', 'page', 'website', 'site', 'catalog',
+    'looking', 'at', 'on', 'want', 'need', 'about', 'like',
+    'can', 'get', 'me', 'my', 'just', 'also', 'too',
     // Arabizi availability
     'fi', 'fee', '3andkon', '3andk', '3andkun', '3andkom',
     'mawjoud', 'mawjoude', 'mawjoudin', 'mawjude',

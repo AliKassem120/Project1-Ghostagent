@@ -856,8 +856,8 @@ export async function runDecisionEngine(
         };
     }
 
-    // Product availability / price question — extract candidate, search, match ────
-    if ((classification.intent === 'product_availability' || classification.intent === 'price_question') && input.workspaceType === 'ecommerce') {
+    // Product availability / price / product question — extract candidate, search, match ────
+    if ((classification.intent === 'product_availability' || classification.intent === 'price_question' || classification.intent === 'product_question') && input.workspaceType === 'ecommerce') {
         // 1. Extract the product candidate from the message
         const candidate = extractAvailabilityCandidate(input.message);
         const isSpecificQuery = candidate.length > 0;
