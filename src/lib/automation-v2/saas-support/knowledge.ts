@@ -31,7 +31,11 @@ export async function searchSaasKnowledge(
     try {
         // ── Step 1: Try keyword search if query is provided ──
         if (query) {
-            const terms = query.toLowerCase().split(' ').filter(t => t.length > 2);
+            const STOP_WORDS = new Set(['the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'has', 'hey', 'what', 'how', 'who', 'why', 'when', 'about', 'this', 'that', 'with', 'from']);
+            const terms = query.toLowerCase()
+                .replace(/[^a-z0-9\s]/g, '') // strip ALL punctuation
+                .split(/\s+/)
+                .filter(t => t.length > 2 && !STOP_WORDS.has(t));
             
             if (terms.length > 0) {
                 const ilikeConditions = terms.map(t => `content.ilike.%${t}%,title.ilike.%${t}%`).join(',');
