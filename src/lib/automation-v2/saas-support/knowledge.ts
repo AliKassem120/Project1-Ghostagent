@@ -40,6 +40,7 @@ export async function searchSaasKnowledge(
                     .from('business_knowledge')
                     .select('id, title, content, source_type, visibility')
                     .eq('workspace_id', workspaceId)
+                    .eq('visibility', 'public')
                     .or(ilikeConditions)
                     .limit(5);
 
@@ -67,6 +68,7 @@ export async function searchSaasKnowledge(
             .from('business_knowledge')
             .select('id, title, content, source_type, visibility')
             .eq('workspace_id', workspaceId)
+            .eq('visibility', 'public')
             .order('created_at', { ascending: false })
             .limit(5);
 

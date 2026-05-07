@@ -18,6 +18,10 @@ export interface LoadedState {
     stage: ConversationStage;
     data: StateData | null;
     postContext: PostActionContext | null;
+    /** True if the DB query failed — the bot should NOT run transactional flows */
+    loadFailed?: boolean;
+    /** Error message if loadFailed is true */
+    loadError?: string;
 }
 
 export interface StateWriteResult {
@@ -47,8 +51,8 @@ export async function loadConversationState(
             .maybeSingle();
 
         if (error) {
-            v2log.warn('STATE_STORE', 'Failed to load conversation state', { error, chatId });
-            return { stage: 'idle', data: null, postContext: null };
+            v2log.error('STATE_STORE', 'CRITICAL: State load failed — will block transactional flows', { error, chatId });
+            return { stage: 'idle', data: null, postContext: null, loadFailed: true, loadError: error.message || 'state_load_error' };
         }
 
         if (!data || !data.stage || data.stage === 'idle') {
@@ -63,8 +67,8 @@ export async function loadConversationState(
             postContext: data.data?.postContext || null,
         };
     } catch (err) {
-        v2log.warn('STATE_STORE', 'Exception loading state', { err, chatId });
-        return { stage: 'idle', data: null, postContext: null };
+        v2log.error('STATE_STORE', 'CRITICAL: Exception loading state — will block transactional flows', { err, chatId });
+        return { stage: 'idle', data: null, postContext: null, loadFailed: true, loadError: err instanceof Error ? err.message : String(err) };
     }
 }
 

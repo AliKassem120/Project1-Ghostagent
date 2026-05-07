@@ -72,6 +72,40 @@ export function AutopilotProvider({ children }: { children: React.ReactNode }) {
 
     const setAutopilot = async (value: boolean) => {
         if (!activeWorkspaceId) return;
+
+        // ── Readiness gate: check before ENABLING ────────────
+        if (value === true) {
+            try {
+                setIsLoading(true);
+                const res = await fetch(`/api/workspace-readiness?workspaceId=${activeWorkspaceId}`);
+                const report = await res.json();
+
+                if (!report.autopilotAllowed) {
+                    const failing = (report.checks || [])
+                        .filter((c: any) => c.severity === 'critical' && !c.passed)
+                        .map((c: any) => c.detail || c.label);
+
+                    toast.error("Can't enable Autopilot", {
+                        description: failing.length > 0
+                            ? failing.join('. ')
+                            : report.summary || 'Critical checks failed.',
+                    });
+                    setIsLoading(false);
+                    return;
+                }
+            } catch (err) {
+                console.error('Readiness check failed:', err);
+                toast.error("Can't verify workspace readiness", {
+                    description: 'Please try again.',
+                });
+                setIsLoading(false);
+                return;
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        // ── Update autopilot status ──────────────────────────
         const previousValue = autopilot;
         setAutopilotState(value);
 

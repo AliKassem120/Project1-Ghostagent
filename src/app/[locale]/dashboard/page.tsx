@@ -1,20 +1,21 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useDashboard } from '@/contexts/DashboardContext';
-import { MessageSquare, DollarSign, Package, Clock, Zap, MessageCircle, Sparkles, Instagram, Shield, Activity, BarChart3, Send, Loader2, TrendingUp, ArrowUpRight, Users, Bot, Eye, AlertTriangle } from 'lucide-react';
+import { MessageSquare, DollarSign, Package, Clock, Zap, MessageCircle, Sparkles, Instagram, Shield, Activity, BarChart3, Send, Loader2, TrendingUp, ArrowUpRight, Users, Bot, Eye, AlertTriangle, CalendarCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from '@/components/CountUp';
 import GhostModal from '@/components/GhostModal';
-import SetupChecklist from '@/components/SetupChecklist';
+import WorkspaceReadiness from '@/components/WorkspaceReadiness';
 import { useAutopilot } from '@/context/AutopilotContext';
-import { useRealtime, useRealtimeCount } from '@/hooks/useRealtime';
+import { useRealtime } from '@/hooks/useRealtime';
 import clsx from 'clsx';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import type { DashboardMetrics } from '@/lib/dashboard/metrics';
 
 // Database types
 type ActivityLog = {
@@ -26,10 +27,6 @@ type ActivityLog = {
     metadata?: any;
 };
 
-type InventoryItem = {
-    id: string;
-    stock_level: number;
-};
 
 type ChartDataPoint = { day: string; interactions: number };
 type EngagementChartProps = {
@@ -192,20 +189,30 @@ export default function DashboardPage() {
 
     // Check if AI settings have been configured (business_name or system_instructions set)
     const [hasAiSettings, setHasAiSettings] = useState<boolean | null>(null);
+    const [setupCompletedAt, setSetupCompletedAt] = useState<string | null>(null);
+    const [setupDismissedAt, setSetupDismissedAt] = useState<string | null>(null);
+    const [hasWhatsApp, setHasWhatsApp] = useState<boolean | null>(null);
+
     useEffect(() => {
         if (!activeWorkspaceId) return;
         supabase
             .from('ai_settings')
-            .select('business_name, system_instructions')
+            .select('business_name, system_instructions, setup_completed_at, setup_dismissed_at, whatsapp_phone_number_id')
             .eq('id', activeWorkspaceId)
             .maybeSingle()
             .then(({ data }) => {
                 setHasAiSettings(!!(data?.business_name || data?.system_instructions));
+                setSetupCompletedAt(data?.setup_completed_at || null);
+                setSetupDismissedAt(data?.setup_dismissed_at || null);
+                setHasWhatsApp(!!data?.whatsapp_phone_number_id && data.whatsapp_phone_number_id !== 'NOT SET');
             });
     }, [activeWorkspaceId]);
 
     // Check if a CSV catalog has been uploaded (counts as having inventory for the checklist)
     const [hasCatalog, setHasCatalog] = useState<boolean | null>(null);
+    const [hasServices, setHasServices] = useState<boolean | null>(null);
+    const [hasBusinessHours, setHasBusinessHours] = useState<boolean | null>(null);
+
     useEffect(() => {
         if (!activeWorkspaceId || !userId) return;
         supabase
@@ -216,7 +223,28 @@ export default function DashboardPage() {
             .then(({ data }) => {
                 setHasCatalog(!!data);
             });
-    }, [activeWorkspaceId, userId]);
+
+        if (activeWorkspace?.business_type === 'appointments') {
+            supabase
+                .from('services')
+                .select('id')
+                .eq('workspace_id', activeWorkspaceId)
+                .eq('is_active', true)
+                .limit(1)
+                .then(({ data }) => setHasServices(!!(data && data.length > 0)));
+
+            supabase
+                .from('business_hours')
+                .select('id')
+                .eq('workspace_id', activeWorkspaceId)
+                .eq('is_open', true)
+                .limit(1)
+                .then(({ data }) => setHasBusinessHours(!!(data && data.length > 0)));
+        } else {
+            setHasServices(true);
+            setHasBusinessHours(true);
+        }
+    }, [activeWorkspaceId, userId, activeWorkspace?.business_type]);
 
     // Also show connected if the activeWorkspace has instagram info from WorkspaceContext
     const isConnected = instagramStatus?.connected || !!activeWorkspace?.instagram_username;
@@ -255,10 +283,10 @@ export default function DashboardPage() {
     const [clearing, setClearing] = useState(false);
     const [showClearConfirm, setShowClearConfirm] = useState(false);
 
-    // Function to refetch all dashboard data (activities and inventory)
+    // Function to refetch all dashboard data
     const fetchDashboardData = () => {
         refetchActivities();
-        refetchInventory();
+        fetchMetrics();
     };
 
     const handleClearActivities = async () => {
@@ -289,6 +317,7 @@ export default function DashboardPage() {
         }
     };
 
+    // ── Activity feed (recent 50 for display only — NOT for metrics) ──
     const { data: allActivities, loading: activitiesLoading, refreshing: activitiesRefreshing, refetch: refetchActivities } = useRealtime<ActivityLog>(
         'activity_log',
         '*',
@@ -301,63 +330,60 @@ export default function DashboardPage() {
             pollingInterval: 3000,
         }
     );
-
     const activities = allActivities;
-
-    useRealtimeCount(
-        'activity_log',
-        activeWorkspaceId ? { column: 'workspace_id', value: activeWorkspaceId } : undefined,
-        { pollingInterval: 3000, enabled: !!activeWorkspaceId }
-    );
-    // Adjust count to match the client-side filtered set
-    const totalInteractions = activities.length;
-
-    const { data: allInventoryItems, loading: inventoryLoading, refreshing: inventoryRefreshing, refetch: refetchInventory } = useRealtime<InventoryItem>(
-        'inventory',
-        'id, stock_level',
-        {
-            filter: activeWorkspaceId ? { column: 'workspace_id', value: activeWorkspaceId } : undefined,
-            enabled: !!activeWorkspaceId,
-            pollingInterval: 3000,
-        }
-    );
-    const inventoryItems = allInventoryItems;
 
     const { version } = useDashboard();
 
     useEffect(() => {
-        if (version > 0) {
-            refetchActivities();
-            refetchInventory();
+        if (version > 0) refetchActivities();
+    }, [version, refetchActivities]);
+
+    // ── Server-side metrics (source of truth) ────────────────
+    const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+    const [metricsLoading, setMetricsLoading] = useState(true);
+    const metricsRef = useRef<DashboardMetrics | null>(null);
+
+    const fetchMetrics = useCallback(async (background = false) => {
+        if (!activeWorkspaceId) return;
+        if (!background) setMetricsLoading(true);
+        try {
+            const res = await fetch(`/api/dashboard/overview?workspaceId=${activeWorkspaceId}`);
+            if (!res.ok) throw new Error('Failed to fetch metrics');
+            const data = await res.json();
+            metricsRef.current = data;
+            setMetrics(data);
+        } catch (err) {
+            console.error('[Dashboard] Metrics fetch failed:', err);
+        } finally {
+            setMetricsLoading(false);
         }
-    }, [version, refetchActivities, refetchInventory]);
+    }, [activeWorkspaceId]);
 
-    const stats = useMemo(() => {
-        let moneySaved = 0;
-        let aiReplies = 0;
-        let manualReplies = 0;
-        let comments = 0;
-        let dms = 0;
+    // Fetch on workspace change
+    useEffect(() => {
+        setMetrics(null);
+        setMetricsLoading(true);
+        fetchMetrics();
+    }, [fetchMetrics]);
 
-        activities.forEach(log => {
-            if ((log.event_type === 'IG_SALE' || log.event_type === 'SALE') && log.description) {
-                const match = log.description.match(/\$([\d.]+)/);
-                if (match) moneySaved += parseFloat(match[1]);
-            }
-            if (log.event_type === 'AI_REPLY' || log.event_type === 'COMMENT_REPLY' || log.event_type === 'automation_v2') aiReplies++;
-            if (log.event_type === 'MANUAL_REPLY') manualReplies++;
-            if (log.event_type === 'INCOMING_COMMENT') comments++;
-            if (log.event_type === 'INCOMING_DM' || log.event_type === 'INCOMING_MESSAGE') dms++;
-        });
+    // Poll every 30s
+    useEffect(() => {
+        if (!activeWorkspaceId) return;
+        const interval = setInterval(() => fetchMetrics(true), 30000);
+        return () => clearInterval(interval);
+    }, [activeWorkspaceId, fetchMetrics]);
 
-        const timeSaved = (totalInteractions * 2) / 60;
-        const stock = inventoryItems.reduce((sum, item) => sum + (item.stock_level || 0), 0);
-        const automationRate = totalInteractions > 0 ? Math.round((aiReplies / Math.max(aiReplies + manualReplies, 1)) * 100) : 0;
+    // Convenience accessors (safe defaults while loading)
+    const m = metrics || {
+        totalInteractions: 0, dmsReceived: 0, comments: 0,
+        aiReplies: 0, manualReplies: 0, automationRate: 0,
+        revenue: 0, stock: 0,
+        orders: { pending: 0, contacted: 0, fulfilled: 0, cancelled: 0, total: 0 },
+        appointments: { pending: 0, confirmed: 0, cancelled: 0, completed: 0, noShow: 0, total: 0 },
+        chart: [],
+    };
 
-        return { timeSaved, moneySaved, repliesSent: totalInteractions, stock, aiReplies, manualReplies, comments, dms, automationRate };
-    }, [activities, totalInteractions, inventoryItems]);
-
-    const loading = activitiesLoading;
+    const loading = activitiesLoading || metricsLoading;
 
     const getEventIcon = (eventType: string) => {
         if (eventType === 'SYSTEM_WARNING') return <AlertTriangle className="w-3.5 h-3.5" />;
@@ -392,23 +418,17 @@ export default function DashboardPage() {
         return desc.replace(/^V\d+\s+sent:\s*/i, 'Sent: ');
     };
 
-    // Generate chart data from activities (last 7 days)
+    // Chart data from server-side metrics (real 7-day aggregation)
     const chartData = useMemo(() => {
-        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        const series: ChartDataPoint[] = [];
-
-        for (let i = 6; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
-            let count = 0;
-            activities.forEach(a => {
-                const ts = new Date(a.timestamp);
-                if (ts.getDate() === d.getDate() && ts.getMonth() === d.getMonth()) count++;
+        if (!m.chart || m.chart.length === 0) {
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            return Array.from({ length: 7 }, (_, i) => {
+                const d = new Date(); d.setDate(d.getDate() - (6 - i));
+                return { day: days[d.getDay()], interactions: 0 };
             });
-            series.push({ day: days[d.getDay()], interactions: count });
         }
-        return series;
-    }, [activities]);
+        return m.chart.map(c => ({ day: c.day, interactions: c.interactions }));
+    }, [m.chart]);
 
     // Get greeting based on time
     const greeting = useMemo(() => {
@@ -420,10 +440,10 @@ export default function DashboardPage() {
 
     const userName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there';
 
-    const initialLoading = activitiesLoading || inventoryLoading;
-    const isRefreshing = activitiesRefreshing || inventoryRefreshing;
+    const initialLoading = metricsLoading && !metrics;
+    const isRefreshing = activitiesRefreshing || (metricsLoading && !!metrics);
 
-    const inventoryStatusLoading = inventoryLoading || hasCatalog === null;
+    const inventoryStatusLoading = metricsLoading || hasCatalog === null;
 
     return (
         <div className="min-h-[calc(100vh-2rem)] pb-8">
@@ -477,13 +497,32 @@ export default function DashboardPage() {
             </motion.div>
 
             {/* ═══════════════════════════════════════════════════ */}
-            {/* ACTIVATION CHECKLIST                               */}
+            {/* WORKSPACE READINESS (formerly Activation Checklist) */}
             {/* ═══════════════════════════════════════════════════ */}
-            <SetupChecklist
+            <WorkspaceReadiness
                 hasInstagram={instagramStatus === null && !activeWorkspace?.instagram_username ? null : isConnected}
-                hasInventory={inventoryStatusLoading ? null : (inventoryItems.length > 0 || hasCatalog)}
+                hasWhatsApp={hasWhatsApp}
+                hasInventory={inventoryStatusLoading ? null : (m.stock > 0 || hasCatalog)}
+                hasServices={hasServices}
+                hasBusinessHours={hasBusinessHours}
                 hasAiSettings={hasAiSettings}
                 businessType={activeWorkspace?.business_type}
+                setupCompletedAt={setupCompletedAt}
+                setupDismissedAt={setupDismissedAt}
+                onCompleteSetup={async () => {
+                    const now = new Date().toISOString();
+                    setSetupCompletedAt(now);
+                    if (activeWorkspaceId) {
+                        await supabase.from('ai_settings').update({ setup_completed_at: now }).eq('id', activeWorkspaceId);
+                    }
+                }}
+                onDismissSetup={async () => {
+                    const now = new Date().toISOString();
+                    setSetupDismissedAt(now);
+                    if (activeWorkspaceId) {
+                        await supabase.from('ai_settings').update({ setup_dismissed_at: now }).eq('id', activeWorkspaceId);
+                    }
+                }}
             />
 
             {/* ═══════════════════════════════════════════════════ */}
@@ -494,37 +533,45 @@ export default function DashboardPage() {
                     {
                         icon: MessageSquare,
                         label: 'Total Interactions',
-                        value: stats.repliesSent,
+                        value: m.totalInteractions,
                         color: 'text-violet-400',
                         bg: 'bg-violet-500/10',
                         change: 'All time',
                         changeColor: 'text-muted-foreground',
                     },
-                    {
-                        icon: Clock,
-                        label: 'Time Saved',
-                        value: stats.timeSaved,
-                        suffix: 'h',
-                        decimals: 1,
-                        color: 'text-blue-400',
-                        bg: 'bg-blue-500/10',
-                        change: 'This week',
-                        changeColor: 'text-muted-foreground',
-                    },
+                    activeWorkspace?.business_type === 'ecommerce'
+                        ? {
+                            icon: Package,
+                            label: 'Orders Captured',
+                            value: m.orders.total - m.orders.cancelled,
+                            color: 'text-blue-400',
+                            bg: 'bg-blue-500/10',
+                            change: `${m.orders.pending} pending`,
+                            changeColor: 'text-muted-foreground',
+                        }
+                        : {
+                            icon: CalendarCheck,
+                            label: 'Bookings',
+                            value: m.appointments.total - m.appointments.cancelled,
+                            color: 'text-blue-400',
+                            bg: 'bg-blue-500/10',
+                            change: `${m.appointments.confirmed} confirmed`,
+                            changeColor: 'text-muted-foreground',
+                        },
                     {
                         icon: DollarSign,
-                        label: 'Revenue Generated',
-                        value: stats.moneySaved,
+                        label: 'Order Value',
+                        value: m.revenue,
                         prefix: '$',
                         color: 'text-emerald-400',
                         bg: 'bg-emerald-500/10',
-                        change: 'From sales',
+                        change: 'From orders',
                         changeColor: 'text-muted-foreground',
                     },
                     {
                         icon: Bot,
                         label: 'Automation Rate',
-                        value: stats.automationRate,
+                        value: m.automationRate,
                         suffix: '%',
                         color: 'text-primary',
                         bg: 'bg-primary/10',
@@ -556,7 +603,7 @@ export default function DashboardPage() {
                                     end={metric.value}
                                     prefix={metric.prefix}
                                     suffix={metric.suffix}
-                                    decimals={metric.decimals ?? (metric.value % 1 !== 0 ? 1 : 0)}
+                                    decimals={metric.value % 1 !== 0 ? 2 : 0}
                                 />
                             )}
                         </div>
@@ -580,10 +627,10 @@ export default function DashboardPage() {
                     <EngagementOverview
                         data={chartData}
                         metrics={{
-                            dmsReceived: stats.dms,
-                            comments: stats.comments,
-                            aiReplies: stats.aiReplies,
-                            manualReplies: stats.manualReplies,
+                            dmsReceived: m.dmsReceived,
+                            comments: m.comments,
+                            aiReplies: m.aiReplies,
+                            manualReplies: m.manualReplies,
                         }}
                         loading={initialLoading}
                     />
@@ -638,7 +685,7 @@ export default function DashboardPage() {
                                     {initialLoading ? (
                                         <div className="h-4 w-24 bg-surface-2 rounded-md animate-pulse" />
                                     ) : (
-                                        <span className="text-xs text-muted-foreground font-medium">{stats.stock} items in stock</span>
+                                        <span className="text-xs text-muted-foreground font-medium">{m.stock} items in stock</span>
                                     )}
                                 </div>
                             ) : (
@@ -655,7 +702,7 @@ export default function DashboardPage() {
                                     {initialLoading ? (
                                         <div className="h-3 w-8 bg-surface-2 rounded-md animate-pulse" />
                                     ) : (
-                                        <span className="text-[11px] text-primary font-semibold">{stats.automationRate}%</span>
+                                        <span className="text-[11px] text-primary font-semibold">{m.automationRate}%</span>
                                     )}
                                 </div>
                                 <div className="w-full h-2 bg-surface-2 rounded-full overflow-hidden">
@@ -664,7 +711,7 @@ export default function DashboardPage() {
                                     ) : (
                                         <motion.div
                                             initial={{ width: '0%' }}
-                                            animate={{ width: `${stats.automationRate}%` }}
+                                            animate={{ width: `${m.automationRate}%` }}
                                             transition={{ duration: 1.5, ease: 'easeOut', delay: 0.5 }}
                                             className="h-full bg-gradient-to-r from-primary to-violet-400 rounded-full"
                                         />
@@ -688,9 +735,9 @@ export default function DashboardPage() {
                             <h3 className="text-sm font-semibold text-foreground">Today&apos;s Summary</h3>
                         </div>
                         <p className="text-sm text-muted-foreground leading-relaxed">
-                            {totalInteractions > 10 ? (
-                                <>Your agent handled <span className="text-foreground font-semibold">{totalInteractions}</span> interactions, saving you <span className="text-foreground font-semibold">{stats.timeSaved.toFixed(1)} hours</span> of manual work. {stats.moneySaved > 0 && <>You&apos;ve generated <span className="text-emerald-400 font-semibold">${stats.moneySaved.toFixed(0)}</span> in revenue.</>}</>
-                            ) : totalInteractions > 0 ? (
+                            {m.totalInteractions > 10 ? (
+                                <>Your agent handled <span className="text-foreground font-semibold">{m.totalInteractions}</span> interactions. {m.aiReplies > 0 && <>AI replied to <span className="text-foreground font-semibold">{m.aiReplies}</span> customers. </>}{m.revenue > 0 && <>You&apos;ve captured <span className="text-emerald-400 font-semibold">${m.revenue.toFixed(0)}</span> in order value.</>}{m.orders.total > 0 && <> {m.orders.total} orders total.</>}{m.appointments.total > 0 && <> {m.appointments.total} appointments booked.</>}</>
+                            ) : m.totalInteractions > 0 ? (
                                 <>Your agent has started processing interactions. Keep going — the data will get richer as more conversations come in!</>
                             ) : (
                                 <span className="text-muted-foreground italic">Collecting data for your first summary. Once customers message you on Instagram, stats will appear here.</span>

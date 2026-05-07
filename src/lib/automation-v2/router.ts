@@ -79,6 +79,21 @@ export async function routeToAgent(input: AutomationInput): Promise<AutomationRe
         };
     }
 
+    // ── SaaS Support: Dedicated simple responder ─────────────
+    // Bypasses decision engine, FSM, transactional tools entirely.
+    if (config.businessType === 'saas_support') {
+        const { answerSaasSupportMessage } = await import('./saas-support/responder');
+        return await answerSaasSupportMessage({
+            supabase: input.supabase,
+            userId: input.userId,
+            workspaceId: input.workspaceId,
+            chatId: input.chatId,
+            message: input.message,
+            platform: input.platform,
+            config,
+        });
+    }
+
     // ── Handoff keywords (zero-cost check before LLM) ────────
     const messageLower = input.message.toLowerCase();
     if (config.handoffKeywords.some((kw: string) => messageLower.includes(kw.toLowerCase()))) {

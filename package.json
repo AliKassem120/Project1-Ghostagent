@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:scenarios": "vitest run src/lib/automation-v2/__tests__/scenarios/",
+    "test:db-smoke": "npx tsx scripts/db-smoke-test.ts"
   },
   "dependencies": {
     "@ai-sdk/groq": "^3.0.29",

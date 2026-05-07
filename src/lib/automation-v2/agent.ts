@@ -16,9 +16,8 @@ import { generateText, stepCountIs } from 'ai';
 import { createGroq } from '@ai-sdk/groq';
 import type { AutomationInput, AutomationResult, WorkspaceConfig } from './types';
 import { loadConversationHistory } from './history';
-import { createAppointmentTools, createEcommerceTools, createSaasSupportTools, type ToolContext } from './tools';
+import { createAppointmentTools, createEcommerceTools, type ToolContext } from './tools';
 import { detectLanguage } from './language';
-import { searchSaasKnowledge } from './saas-support/knowledge';
 import { buildTimeContext } from './time';
 import { v2log } from './logger';
 import { LEBANESE_VOCABULARY } from './dictionaries';
@@ -240,21 +239,9 @@ export async function runAgent(
     );
 
     // 2. System prompt
-    let system = buildPrompt(config, timeCtx, replyLang);
-
-    // 2b. SaaS support: pre-fetch knowledge and inject into prompt context
-    //     This removes the dependency on the LLM calling search_knowledge tool
-    if (config.businessType === 'saas_support') {
-        const knowledgeDocs = await searchSaasKnowledge(
-            input.supabase, input.workspaceId, input.message
-        );
-        if (knowledgeDocs.length > 0) {
-            const knowledgeBlock = knowledgeDocs.map(d =>
-                `### ${d.title}\n${d.content}`
-            ).join('\n\n---\n\n');
-            system += `\n\nKNOWLEDGE BASE (use this to answer the user's question):\n${knowledgeBlock}\n\nIMPORTANT: You MUST answer from the KNOWLEDGE BASE above. Do NOT say "I'm not sure" or "I don't know" if the answer is in the knowledge base. Summarize the relevant info in a concise DM-style reply.`;
-        }
-    }
+    // NOTE: saas_support is handled by the dedicated responder in router.ts
+    //       and never reaches this agent.
+    const system = buildPrompt(config, timeCtx, replyLang);
 
     // 3. Messages
     const messages: { role: 'user' | 'assistant'; content: string }[] = [
@@ -273,9 +260,7 @@ export async function runAgent(
     };
     const tools = config.businessType === 'appointments'
         ? createAppointmentTools(toolCtx)
-        : config.businessType === 'saas_support'
-            ? createSaasSupportTools(toolCtx)
-            : createEcommerceTools(toolCtx);
+        : createEcommerceTools(toolCtx);
 
     // 5. LLM call
     const groq = getGroq();
@@ -298,21 +283,13 @@ export async function runAgent(
 
         // ── Handoff ──────────────────────────────────────────
         if (reply.includes('[HANDOFF]')) {
-            // SaaS support bot should never hand off — strip the token and let it answer
-            if (config.businessType === 'saas_support') {
-                reply = reply.replace(/\[HANDOFF\]/g, '').trim();
-                if (!reply) {
-                    reply = 'I can help with that! What would you like to know about GhostAgent?';
-                }
-            } else {
-                return {
-                    shouldReply: false,
-                    actions: ['handoff'],
-                    stateBefore: 'idle',
-                    stateAfter: 'handoff',
-                    debug: makeDebug(input, detected, Date.now() - startTime, 'handoff'),
-                };
-            }
+            return {
+                shouldReply: false,
+                actions: ['handoff'],
+                stateBefore: 'idle',
+                stateAfter: 'handoff',
+                debug: makeDebug(input, detected, Date.now() - startTime, 'handoff'),
+            };
         }
 
         // ── Parse tool results ───────────────────────────────

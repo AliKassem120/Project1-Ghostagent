@@ -82,7 +82,7 @@ describe('Stability Patch — Appointment Status', () => {
 });
 
 describe('Security Patch — SaaS Knowledge Isolation', () => {
-    it('scopes knowledge search to the correct workspace', async () => {
+    it('scopes knowledge search to the correct workspace and public visibility', async () => {
         const chain: any = {
             select: vi.fn().mockReturnThis(),
             eq: vi.fn().mockReturnThis(),
@@ -96,7 +96,9 @@ describe('Security Patch — SaaS Knowledge Isolation', () => {
 
         await searchSaasKnowledge(mockSupabase, 'ws_123', 'test');
 
-        // Must scope to the specific workspace — not a global visibility filter
+        // Must scope to the specific workspace
         expect(chain.eq).toHaveBeenCalledWith('workspace_id', 'ws_123');
+        // Must filter by public visibility only
+        expect(chain.eq).toHaveBeenCalledWith('visibility', 'public');
     });
 });

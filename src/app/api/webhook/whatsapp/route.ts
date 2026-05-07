@@ -279,11 +279,16 @@ async function processWhatsAppEvent(body: any) {
                     .single();
 
                 if (wsError || !workspace) {
-                    console.warn(`⚠️ No workspace found for phone_number_id: ${phoneNumberId}`);
-                    
-                    // ── FALLBACK: use system-level env credentials ──────────
-                    // This allows testing with the Meta test number before
-                    // a workspace has been linked in ai_settings.
+                    // ── PRODUCTION SAFETY: Never route to a random workspace ──
+                    const allowDevFallback = process.env.WHATSAPP_ALLOW_DEV_FALLBACK === 'true';
+
+                    if (!allowDevFallback) {
+                        console.error(`🚨 [SYSTEM_ALERT] No workspace found for whatsapp_phone_number_id: ${phoneNumberId}. Message from ${customerPhone} DROPPED. Set WHATSAPP_ALLOW_DEV_FALLBACK=true for dev testing.`);
+                        continue; // Do not reply — prevents wrong-workspace routing
+                    }
+
+                    // ── DEV-ONLY FALLBACK: use system-level env credentials ──────────
+                    console.warn(`⚠️ [DEV FALLBACK] No workspace for phone_number_id: ${phoneNumberId}. Using system credentials (dev mode).`);
                     const systemToken = process.env.WHATSAPP_SYSTEM_ACCESS_TOKEN;
                     const systemPhoneId = process.env.WHATSAPP_FROM_PHONE_NUMBER_ID;
                     

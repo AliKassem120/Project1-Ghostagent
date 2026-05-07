@@ -346,52 +346,49 @@ export async function runDecisionEngine(
     // Normalize 'Lebanese Franco' setting → 'arabizi' for consistent t() handling
     if (replyLang === 'lebanese franco') replyLang = 'arabizi';
 
-    // ── FAST PATH: SaaS Support ─────────────────────────────
-    // No FSM, no state, no interrupts. Just classify + LLM with knowledge injection.
-    if (input.workspaceType === 'saas_support') {
-        const classification = classifyIntent(input.message);
-        v2log.info('DECISION', `SaaS support fast-path — intent: ${classification.intent}`, {
-            chatId: input.chatId,
-        });
-
-        // Only handle greetings deterministically
-        if (classification.intent === 'greeting') {
-            return {
-                handledByFSM: true,
-                fsmResult: {
-                    replyText: t('Hey! How can I help you with GhostAgent?', 'Hala! Kif fiyi se3dak?', replyLang),
-                    nextStage: 'idle',
-                    nextData: null,
-                    actions: ['greeting'],
-                    dbWriteAttempted: false,
-                    dbWriteSuccess: false,
-                    shouldReply: true,
-                },
-                classifiedIntent: 'greeting',
-                language: replyLang,
-                stateBefore: 'idle',
-                stateAfter: 'idle',
-            };
-        }
-
-        // Everything else → LLM with knowledge injection (handled in agent.ts)
-        return {
-            handledByFSM: false,
-            classifiedIntent: classification.intent,
-            language: replyLang,
-            stateBefore: 'idle',
-            stateAfter: 'idle',
-        };
-    }
+    // NOTE: saas_support is handled by the dedicated responder in router.ts
+    // and never reaches this decision engine.
 
     // 1. Load current conversation state
-    const { stage: currentStage, data: currentData, postContext } = await loadConversationState(
+    const loadResult = await loadConversationState(
         input.supabase,
         input.userId,
         input.workspaceId,
         input.chatId,
         input.workspaceType
     );
+
+    const { stage: currentStage, data: currentData, postContext } = loadResult;
+
+    // ── FAIL-SAFE: If state load failed, do NOT run transactional flows ──
+    if (loadResult.loadFailed) {
+        v2log.error('DECISION', 'STATE_LOAD_FAILURE — blocking transactional flows', {
+            chatId: input.chatId,
+            workspaceId: input.workspaceId,
+            loadError: loadResult.loadError,
+        });
+
+        return {
+            handledByFSM: true,
+            fsmResult: {
+                replyText: t(
+                    "I'm having a temporary issue. Could you repeat that in a moment?",
+                    'Fi moshkle mo2aqate. Fik t3id ba3d shway?',
+                    replyLang
+                ),
+                nextStage: 'idle',
+                nextData: null,
+                actions: ['state_load_failure'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            },
+            classifiedIntent: 'state_load_failure',
+            language: replyLang,
+            stateBefore: 'idle',
+            stateAfter: 'idle',
+        };
+    }
 
     v2log.info('DECISION', `State loaded: ${currentStage}`, {
         chatId: input.chatId,
