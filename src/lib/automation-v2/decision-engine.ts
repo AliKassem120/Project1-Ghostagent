@@ -346,6 +346,44 @@ export async function runDecisionEngine(
     // Normalize 'Lebanese Franco' setting → 'arabizi' for consistent t() handling
     if (replyLang === 'lebanese franco') replyLang = 'arabizi';
 
+    // ── FAST PATH: SaaS Support ─────────────────────────────
+    // No FSM, no state, no interrupts. Just classify + LLM with knowledge injection.
+    if (input.workspaceType === 'saas_support') {
+        const classification = classifyIntent(input.message);
+        v2log.info('DECISION', `SaaS support fast-path — intent: ${classification.intent}`, {
+            chatId: input.chatId,
+        });
+
+        // Only handle greetings deterministically
+        if (classification.intent === 'greeting') {
+            return {
+                handledByFSM: true,
+                fsmResult: {
+                    replyText: t('Hey! How can I help you with GhostAgent?', 'Hala! Kif fiyi se3dak?', replyLang),
+                    nextStage: 'idle',
+                    nextData: null,
+                    actions: ['greeting'],
+                    dbWriteAttempted: false,
+                    dbWriteSuccess: false,
+                    shouldReply: true,
+                },
+                classifiedIntent: 'greeting',
+                language: replyLang,
+                stateBefore: 'idle',
+                stateAfter: 'idle',
+            };
+        }
+
+        // Everything else → LLM with knowledge injection (handled in agent.ts)
+        return {
+            handledByFSM: false,
+            classifiedIntent: classification.intent,
+            language: replyLang,
+            stateBefore: 'idle',
+            stateAfter: 'idle',
+        };
+    }
+
     // 1. Load current conversation state
     const { stage: currentStage, data: currentData, postContext } = await loadConversationState(
         input.supabase,

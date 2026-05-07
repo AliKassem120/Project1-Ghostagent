@@ -298,13 +298,21 @@ export async function runAgent(
 
         // ── Handoff ──────────────────────────────────────────
         if (reply.includes('[HANDOFF]')) {
-            return {
-                shouldReply: false,
-                actions: ['handoff'],
-                stateBefore: 'idle',
-                stateAfter: 'handoff',
-                debug: makeDebug(input, detected, Date.now() - startTime, 'handoff'),
-            };
+            // SaaS support bot should never hand off — strip the token and let it answer
+            if (config.businessType === 'saas_support') {
+                reply = reply.replace(/\[HANDOFF\]/g, '').trim();
+                if (!reply) {
+                    reply = 'I can help with that! What would you like to know about GhostAgent?';
+                }
+            } else {
+                return {
+                    shouldReply: false,
+                    actions: ['handoff'],
+                    stateBefore: 'idle',
+                    stateAfter: 'handoff',
+                    debug: makeDebug(input, detected, Date.now() - startTime, 'handoff'),
+                };
+            }
         }
 
         // ── Parse tool results ───────────────────────────────
