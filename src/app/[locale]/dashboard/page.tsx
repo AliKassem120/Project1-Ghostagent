@@ -736,7 +736,7 @@ export default function DashboardPage() {
                         </div>
                         <p className="text-sm text-muted-foreground leading-relaxed">
                             {m.totalInteractions > 10 ? (
-                                <>Your agent handled <span className="text-foreground font-semibold">{m.totalInteractions}</span> interactions. {m.aiReplies > 0 && <>AI replied to <span className="text-foreground font-semibold">{m.aiReplies}</span> customers. </>}{m.revenue > 0 && <>You&apos;ve captured <span className="text-emerald-400 font-semibold">${m.revenue.toFixed(0)}</span> in order value.</>}{m.orders.total > 0 && <> {m.orders.total} orders total.</>}{m.appointments.total > 0 && <> {m.appointments.total} appointments booked.</>}</>
+                                <>Your agent handled <span className="text-foreground font-semibold">{m.totalInteractions}</span> interactions. {m.aiReplies > 0 && <>AI sent <span className="text-foreground font-semibold">{m.aiReplies}</span> replies. </>}{m.revenue > 0 && <>You&apos;ve captured <span className="text-emerald-400 font-semibold">${m.revenue.toFixed(0)}</span> in order value.</>}{m.orders.total > 0 && <> {m.orders.total} orders total.</>}{m.appointments.total > 0 && <> {m.appointments.total} appointments booked.</>}</>
                             ) : m.totalInteractions > 0 ? (
                                 <>Your agent has started processing interactions. Keep going — the data will get richer as more conversations come in!</>
                             ) : (
