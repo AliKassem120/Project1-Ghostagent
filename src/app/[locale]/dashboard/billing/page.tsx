@@ -86,6 +86,8 @@ export default function BillingPage() {
 
                 // 2. Fetch Usage (monthly)
                 const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+
+                // AI replies count this month
                 const { count } = await supabase
                     .from('activity_log')
                     .select('*', { count: 'exact', head: true })
@@ -93,7 +95,33 @@ export default function BillingPage() {
                     .in('event_type', ['AI_REPLY', 'COMMENT_REPLY'])
                     .gte('timestamp', firstDayOfMonth);
 
-                setUsage({ replies: count || 0, conversations: 0, revenue: 0 });
+                // Unique conversations (distinct chat_id from DMs this month)
+                const { data: convData } = await supabase
+                    .from('activity_log')
+                    .select('metadata')
+                    .eq('user_id', user.id)
+                    .in('event_type', ['INCOMING_DM', 'INCOMING_MESSAGE'])
+                    .gte('timestamp', firstDayOfMonth);
+
+                const uniqueChats = new Set(
+                    (convData || [])
+                        .map((r: any) => r.metadata?.chat_id || r.metadata?.sender_id)
+                        .filter(Boolean)
+                );
+
+                // Revenue from orders this month (non-cancelled)
+                const { data: orderData } = await supabase
+                    .from('orders')
+                    .select('quantity, unit_price')
+                    .eq('user_id', user.id)
+                    .neq('status', 'cancelled')
+                    .gte('created_at', firstDayOfMonth);
+
+                const monthRevenue = (orderData || []).reduce(
+                    (sum: number, o: any) => sum + ((o.quantity || 1) * (o.unit_price || 0)), 0
+                );
+
+                setUsage({ replies: count || 0, conversations: uniqueChats.size, revenue: monthRevenue });
                 setBillingLoading(false);
             } catch (err) {
                 console.error('Billing fetch error:', err);
