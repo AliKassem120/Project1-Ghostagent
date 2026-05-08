@@ -1,5 +1,5 @@
 import { setRequestLocale } from 'next-intl/server';
-import HowItWorksPage from '@/components/pages/HowItWorksPage';
+import HowItWorksPage from '../../../components/pages/HowItWorksPage';
 
 export const metadata = {
     title: 'How It Works | GhostAgent',
