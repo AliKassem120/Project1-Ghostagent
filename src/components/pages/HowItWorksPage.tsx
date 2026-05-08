@@ -22,7 +22,15 @@ import {
 import clsx from 'clsx';
 
 export default function HowItWorksPage() {
-  const [activeTab, setActiveTab] = useState<'ecom' | 'appointments'>('ecom');
+  const [activeFlowStep, setActiveFlowStep] = useState(0);
+
+  // Auto-play message flow
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveFlowStep((prev) => (prev + 1) % 6);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -166,22 +174,47 @@ export default function HowItWorksPage() {
                 { step: "04", title: "Action Selected", desc: "The correct business logic handles the request." },
                 { step: "05", title: "Result Verified", desc: "Database confirms the stock exists or the calendar is open." },
                 { step: "06", title: "Reply Sent", desc: "A natural, accurate response is sent to the customer." }
-              ].map((flow, idx) => (
-                <motion.div 
-                  key={idx}
-                  initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: idx * 0.1 }}
-                  className="flex items-center gap-6 bg-surface-1 border border-border rounded-2xl p-4 md:p-6 hover:border-primary/30 transition-colors"
-                >
-                  <div className="text-2xl font-black text-primary/20 shrink-0 w-12">{flow.step}</div>
-                  <div className="flex-1">
-                    <h4 className="font-bold text-foreground text-lg">{flow.title}</h4>
-                    <p className="text-sm text-muted-foreground font-medium">{flow.desc}</p>
-                  </div>
-                  <div className="w-8 h-8 rounded-full bg-surface-2 flex items-center justify-center shrink-0">
-                    <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                  </div>
-                </motion.div>
-              ))}
+              ].map((flow, idx) => {
+                const isActive = activeFlowStep === idx;
+                return (
+                  <motion.div 
+                    key={idx}
+                    onClick={() => setActiveFlowStep(idx)}
+                    initial={{ opacity: 0, x: -20 }} 
+                    whileInView={{ opacity: 1, x: 0 }} 
+                    viewport={{ once: true }} 
+                    transition={{ delay: idx * 0.1 }}
+                    className={clsx(
+                      "flex items-center gap-6 rounded-2xl p-4 md:p-6 cursor-pointer transition-all duration-300",
+                      isActive 
+                        ? "bg-surface-2 border-primary/50 border shadow-[0_0_30px_rgba(139,92,246,0.1)] scale-[1.02]" 
+                        : "bg-surface-1 border border-border hover:border-primary/30 opacity-70 hover:opacity-100"
+                    )}
+                  >
+                    <div className={clsx(
+                      "text-2xl font-black shrink-0 w-12 transition-colors",
+                      isActive ? "text-primary" : "text-primary/20"
+                    )}>
+                      {flow.step}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className={clsx(
+                        "font-bold text-lg transition-colors",
+                        isActive ? "text-primary" : "text-foreground"
+                      )}>
+                        {flow.title}
+                      </h4>
+                      <p className="text-sm text-muted-foreground font-medium">{flow.desc}</p>
+                    </div>
+                    <div className={clsx(
+                      "w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors",
+                      isActive ? "bg-primary text-primary-foreground shadow-[0_0_15px_rgba(139,92,246,0.5)]" : "bg-surface-2 text-muted-foreground"
+                    )}>
+                      <ArrowRight className="w-4 h-4" />
+                    </div>
+                  </motion.div>
+                );
+              })}
             </div>
           </section>
           {/* ECOMMERCE WORKFLOW */}
@@ -329,18 +362,44 @@ export default function HowItWorksPage() {
                     <div className="w-8 h-8 rounded-full bg-primary/20" />
                  </div>
                  <div className="flex-1 flex gap-4">
-                    <div className="w-1/3 bg-surface-1 rounded-xl border border-border p-4 flex flex-col gap-2">
-                       <div className="w-full h-8 bg-surface-2 rounded-lg" />
-                       <div className="w-full h-8 bg-surface-2 rounded-lg" />
-                       <div className="w-full h-8 bg-surface-2 rounded-lg" />
+                    <div className="w-1/3 bg-surface-1 rounded-xl border border-border p-4 flex flex-col gap-3">
+                       {[0.2, 0.4, 0.6, 0.8].map((delay, i) => (
+                         <motion.div 
+                           key={i}
+                           className="w-full h-8 bg-surface-2 rounded-lg" 
+                           animate={{ opacity: [0.5, 1, 0.5] }}
+                           transition={{ duration: 2, repeat: Infinity, delay }}
+                         />
+                       ))}
                     </div>
                     <div className="w-2/3 bg-surface-1 rounded-xl border border-border flex flex-col p-4 gap-4">
                        <div className="flex justify-between items-center">
-                          <div className="w-1/2 h-6 bg-surface-2 rounded-md" />
-                          <div className="w-16 h-6 bg-green-500/20 rounded-full" />
+                          <motion.div 
+                            className="h-6 bg-surface-2 rounded-md" 
+                            animate={{ width: ["40%", "60%", "40%"] }}
+                            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                          />
+                          <motion.div 
+                            className="w-16 h-6 bg-green-500/20 rounded-full flex items-center justify-center"
+                            animate={{ scale: [1, 1.05, 1] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                          >
+                             <div className="w-2 h-2 rounded-full bg-green-500" />
+                          </motion.div>
                        </div>
                        <div className="w-full h-px bg-border/50" />
-                       <div className="w-full h-32 bg-surface-2 rounded-lg" />
+                       <div className="w-full flex-1 bg-surface-2 rounded-lg relative overflow-hidden flex items-end p-2 gap-2">
+                          {/* Animated Chart Bars */}
+                          {[40, 70, 45, 90, 60, 85].map((height, i) => (
+                             <motion.div
+                               key={i}
+                               className="flex-1 bg-primary/40 rounded-t-sm"
+                               initial={{ height: "10%" }}
+                               animate={{ height: `${height}%` }}
+                               transition={{ duration: 1.5, repeat: Infinity, repeatType: "reverse", delay: i * 0.2 }}
+                             />
+                          ))}
+                       </div>
                     </div>
                  </div>
               </div>
