@@ -33,14 +33,7 @@ export type Intent =
     | 'frustration_stop'
     | 'confirmation'
     | 'rejection'
-    | 'pricing_question'
-    | 'feature_question'
-    | 'setup_question'
-    | 'integration_question'
-    | 'arabizi_question'
-    | 'demo_request'
-    | 'support_request'
-    | 'refund_question'
+    | 'repeat_last_order'
     | 'unknown';
 
 export interface RegexClassification {
@@ -77,7 +70,7 @@ export function classifyByRegex(message: string): RegexClassification | null {
     if (/\b(leave\s*me\s*alone|stop\s*replying|stop\s*messaging|shut\s*up|don'?t\s*message\s*me|forget\s*it)\b/i.test(msg)) {
         return { intent: 'frustration_stop', confidence: 0.93 };
     }
-    if (/^(khalas|khallas|tyb\s*meshe|meshe\s*khalas)$/i.test(msg)) {
+    if (/^(khalas|khallas|tyb\s*meshe|meshe\s*khalas|bas\s*khalas|khalas\s*bas)$/i.test(msg)) {
         return { intent: 'frustration_stop', confidence: 0.90 };
     }
 
@@ -109,6 +102,10 @@ export function classifyByRegex(message: string): RegexClassification | null {
     // ── Cancel order (MUST be before purchase_intent) ────────
     // Comprehensive Arabizi cancel patterns
     if (/\b(cancel\s*(my)?\s*order|cancel\s*(it|this)|i\s*don'?t\s*want\s*(the\s*order|it\s*anymore)|never\s*mind\s*(the\s*)?order|stop\s*the\s*order|remove\s*the\s*order)\b/i.test(msg)) {
+        return { intent: 'cancel_order', confidence: 0.92 };
+    }
+    // Scoped cancel: "cancel both orders", "cancel all orders", "cancel first/second/last order"
+    if (/\b(cancel\s*(both|all|all\s*pending|first|second|third|last)\s*(orders?|talbiye))\b/i.test(msg)) {
         return { intent: 'cancel_order', confidence: 0.92 };
     }
     if (/\b(el8e?|elghi|el8iya|el8eha)\s*(el|l)?\s*(order|talbiye)?\b/i.test(msg)) {
@@ -145,33 +142,25 @@ export function classifyByRegex(message: string): RegexClassification | null {
         return { intent: 'price_question', confidence: 0.85 };
     }
 
-    // ── SaaS Specific Intents ──────────────────────────────────
-    if (/\b(setup|how\s*to\s*start|how\s*to\s*use|get\s*started|create\s*account)\b/i.test(msg)) {
-        return { intent: 'setup_question', confidence: 0.85 };
-    }
-    if (/\b(arabizi|arabic|lebanese|language|french|spanish|detect\s*language)\b/i.test(msg)) {
-        return { intent: 'arabizi_question', confidence: 0.85 };
-    }
-    if (/\b(demo|show\s*me|try\s*it|test\s*it)\b/i.test(msg)) {
-        return { intent: 'demo_request', confidence: 0.85 };
-    }
-    if (/\b(features?|can\s*it|does\s*it|whatsapp|instagram|channels)\b/i.test(msg)) {
-        return { intent: 'feature_question', confidence: 0.85 };
-    }
-    if (/\b(help|support|not\s*working|bug|error)\b/i.test(msg)) {
-        // "support" without other words could be help, but if it has "whatsapp" or "instagram", it matched feature_question above
-        return { intent: 'support_request', confidence: 0.85 };
-    }
-    if (/\b(refund|money\s*back)\b/i.test(msg)) {
-        return { intent: 'refund_question', confidence: 0.85 };
-    }
-    if (/\b(integration|shopify|api|webhook)\b/i.test(msg)) {
-        return { intent: 'integration_question', confidence: 0.85 };
-    }
-
     // ── Booking intent (Arabizi + English) ────────────────────
     if (/\b(book|reserve|appointment|maw3ed|7ajez|e7joz|bde\s*e?7joz|bade\s*e?7joz|rendez[\s-]?vous)\b/i.test(msg)) {
         return { intent: 'booking_intent', confidence: 0.90 };
+    }
+    // ── Repeat last order (MUST be before purchase_intent) ────
+    // "add one more", "another one", "same product", "repeat order", etc.
+    if (/\b(add\s*(one|1)\s*more|one\s*more|another\s*one|same\s*(one|product|order|thing)|repeat\s*(my\s*)?(order|last\s*order)|order\s*another|add\s*another)\b/i.test(msg)) {
+        return { intent: 'repeat_last_order', confidence: 0.90 };
+    }
+    // Arabizi: "bde we7de tene", "bde kamen we7de", "kamen wahad", "nafs l order"
+    if (/\b(bde|bade|badde?)\s*(we7de|wa7de|wahad|wa7ad)\s*(tene|teni|kamen)?\b/i.test(msg) && wordCount <= 5) {
+        return { intent: 'repeat_last_order', confidence: 0.88 };
+    }
+    if (/\b(kamen\s*(wahad|wa7ad|we7de)|nafs\s*(el|l)\s*(order|talbiye))\b/i.test(msg)) {
+        return { intent: 'repeat_last_order', confidence: 0.88 };
+    }
+    // "can u/you add one more"
+    if (/\b(can\s*(u|you)\s*add\s*(one|1)\s*more)\b/i.test(msg)) {
+        return { intent: 'repeat_last_order', confidence: 0.90 };
     }
 
     // ── Purchase intent ──────────────────────────────────────

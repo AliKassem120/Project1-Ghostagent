@@ -24,6 +24,7 @@ import { generateText } from 'ai';
 import { createGroq } from '@ai-sdk/groq';
 import type { AutomationResult, WorkspaceConfig } from '../types';
 import { searchSaasKnowledge } from './knowledge';
+import { OFFICIAL_GHOSTAGENT_FACTS } from './official-ghostagent-knowledge';
 import { detectLanguage } from '../language';
 import { v2log } from '../logger';
 
@@ -44,12 +45,17 @@ const HANDOFF_PATTERN = /\b(human|agent|real\s*person|talk\s*to\s*someone|call\s
 // ── System prompt ───────────────────────────────────────────
 
 const SAAS_SYSTEM_PROMPT = `You are the official GhostAgent support assistant.
-Answer questions about GhostAgent using ONLY the provided knowledge base.
-Keep replies short and clear for Instagram/WhatsApp DMs.
-If the answer is not in the knowledge base, say you are not sure and offer to connect them with the team.
-Do NOT invent pricing, features, or guarantees.
+Answer questions about GhostAgent using ONLY the official knowledge below.
+Keep replies short and clear for Instagram/WhatsApp DMs — 1 to 3 sentences normally.
+Do not write long paragraphs unless the user asks for details.
+If the answer is not in the knowledge, say you are not fully sure and offer to connect them with the team.
+Do NOT invent pricing, features, guarantees, integrations, or policies.
 Do NOT output [HANDOFF] or any internal tokens.
-Do NOT ask for order details, appointment dates, inventory, or services.
+Do NOT ask for order name/phone/address.
+Do NOT ask for appointment date/time.
+Do NOT search products or services.
+Do NOT create, cancel, or update orders or appointments.
+You are HUMAN. Never say you are an AI or bot.
 Reply in the same language the user is using.`;
 
 // ── Main entry point ────────────────────────────────────────
@@ -161,17 +167,17 @@ export async function answerSaasSupportMessage(
         };
     }
 
-    // Build knowledge block
-    let knowledgeBlock = '';
+    // Build knowledge block: official facts (hardcoded) + public Knowledge Manager docs
+    let knowledgeBlock = `<official_website_knowledge>\n${OFFICIAL_GHOSTAGENT_FACTS}\n</official_website_knowledge>`;
+
     if (knowledgeDocs.length > 0) {
-        knowledgeBlock = knowledgeDocs.map(d =>
-            `<knowledge>\ntitle: ${d.title}\ncontent: ${d.content}\n</knowledge>`
+        const docsBlock = knowledgeDocs.map(d =>
+            `<knowledge_manager_doc>\ntitle: ${d.title}\ncontent: ${d.content}\n</knowledge_manager_doc>`
         ).join('\n\n');
+        knowledgeBlock += `\n\n${docsBlock}`;
     }
 
-    const systemPrompt = knowledgeBlock
-        ? `${SAAS_SYSTEM_PROMPT}\n\n${knowledgeBlock}`
-        : `${SAAS_SYSTEM_PROMPT}\n\nNo knowledge docs found for this query. Tell the user you're not fully sure and offer to connect them with the team.`;
+    const systemPrompt = `${SAAS_SYSTEM_PROMPT}\n\n${knowledgeBlock}`;
 
     try {
         const result = await generateText({

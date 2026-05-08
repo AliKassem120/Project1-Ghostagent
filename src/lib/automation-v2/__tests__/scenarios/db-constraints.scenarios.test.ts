@@ -241,6 +241,6 @@ describe('Workspace Readiness Score', () => {
         const report = await checkWorkspaceReadiness(mockSb, 'ws-1');
 
         expect(report.autopilotAllowed).toBe(false);
-        expect(report.checks.some(c => c.label === 'Instagram connected' && !c.passed)).toBe(true);
+        expect(report.checks.some(c => c.label === 'Messaging channel connected' && !c.passed)).toBe(true);
     });
 });

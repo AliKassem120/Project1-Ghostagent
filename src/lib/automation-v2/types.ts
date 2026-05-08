@@ -60,6 +60,10 @@ export interface AutomationDebug {
     replyBeforeGuard?: string | null;
     replyAfterGuard?: string | null;
     durationMs: number;
+    /** Classifier observability */
+    classifierSource?: 'regex' | 'llm';
+    classifierConfidence?: number;
+    classifierResult?: unknown;
 }
 
 // ── Workspace Config ─────────────────────────────────────────

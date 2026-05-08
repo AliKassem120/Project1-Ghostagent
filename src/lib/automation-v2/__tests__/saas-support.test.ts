@@ -1,39 +1,80 @@
 import { describe, it, expect, vi } from 'vitest';
 import { classifyIntent } from '../classify/intent-classifier';
 import { searchSaasKnowledge } from '../saas-support/knowledge';
+import { OFFICIAL_GHOSTAGENT_FACTS } from '../saas-support/official-ghostagent-knowledge';
 
-describe('SaaS Support Intents', () => {
-    it('classifies feature questions correctly', () => {
-        expect(classifyIntent('does it support whatsapp?').intent).toBe('feature_question');
-        expect(classifyIntent('what features do you have?').intent).toBe('feature_question');
-        expect(classifyIntent('can it connect to instagram?').intent).toBe('feature_question');
-    });
-
-    it('classifies setup questions correctly', () => {
-        expect(classifyIntent('how to start?').intent).toBe('setup_question');
-        expect(classifyIntent('how do i create account').intent).toBe('setup_question');
-    });
-
-    it('classifies arabizi questions correctly', () => {
-        expect(classifyIntent('do you support arabizi?').intent).toBe('arabizi_question');
-        expect(classifyIntent('can it detect language?').intent).toBe('arabizi_question');
-    });
-
-    it('classifies demo requests correctly', () => {
-        expect(classifyIntent('can i see a demo?').intent).toBe('demo_request');
-        expect(classifyIntent('try it').intent).toBe('demo_request');
-    });
-
-    it('classifies support requests correctly', () => {
-        expect(classifyIntent('i need help').intent).toBe('support_request');
-        expect(classifyIntent('its not working').intent).toBe('support_request');
-        expect(classifyIntent('i found a bug').intent).toBe('support_request');
-    });
-
-    it('classifies pricing questions correctly', () => {
-        // Handled by existing price_question intent
+/**
+ * SaaS support intents are handled by the dedicated responder.
+ * The regex classifier no longer contains SaaS-specific intents
+ * (feature_question, setup_question, etc.) because saas_support
+ * workspaces are routed BEFORE the classifier runs.
+ *
+ * These tests verify:
+ * 1. SaaS-style messages do NOT falsely trigger transactional intents
+ * 2. Pricing questions still hit price_question (shared intent)
+ * 3. The official knowledge module exists and contains key facts
+ */
+describe('SaaS Support — Intent Safety', () => {
+    it('pricing questions hit price_question (shared intent)', () => {
         expect(classifyIntent('how much does it cost?').intent).toBe('price_question');
         expect(classifyIntent('price?').intent).toBe('price_question');
+    });
+
+    it('"does it support whatsapp?" does NOT trigger purchase_intent', () => {
+        const result = classifyIntent('does it support whatsapp?');
+        expect(result.intent).not.toBe('purchase_intent');
+    });
+
+    it('"how to get started" does NOT trigger purchase_intent', () => {
+        const result = classifyIntent('how to get started');
+        expect(result.intent).not.toBe('purchase_intent');
+    });
+
+    it('"i need help" does NOT trigger booking_intent', () => {
+        const result = classifyIntent('i need help');
+        expect(result.intent).not.toBe('booking_intent');
+    });
+
+    it('"can i see a demo?" does NOT trigger purchase_intent', () => {
+        const result = classifyIntent('can i see a demo?');
+        expect(result.intent).not.toBe('purchase_intent');
+    });
+});
+
+describe('SaaS Official Knowledge Module', () => {
+    it('contains key facts about GhostAgent', () => {
+        expect(OFFICIAL_GHOSTAGENT_FACTS).toContain('GhostAgent');
+        expect(OFFICIAL_GHOSTAGENT_FACTS).toContain('Instagram');
+        expect(OFFICIAL_GHOSTAGENT_FACTS).toContain('WhatsApp');
+    });
+
+    it('contains pricing info', () => {
+        expect(OFFICIAL_GHOSTAGENT_FACTS).toContain('Starter');
+        expect(OFFICIAL_GHOSTAGENT_FACTS).toContain('Pro Agent');
+        expect(OFFICIAL_GHOSTAGENT_FACTS).toContain('Empire');
+        expect(OFFICIAL_GHOSTAGENT_FACTS).toContain('$49');
+        expect(OFFICIAL_GHOSTAGENT_FACTS).toContain('$199');
+    });
+
+    it('contains workspace types', () => {
+        expect(OFFICIAL_GHOSTAGENT_FACTS).toContain('E-Commerce');
+        expect(OFFICIAL_GHOSTAGENT_FACTS).toContain('Appointments');
+    });
+
+    it('contains language support', () => {
+        expect(OFFICIAL_GHOSTAGENT_FACTS).toContain('Arabizi');
+        expect(OFFICIAL_GHOSTAGENT_FACTS).toContain('Lebanese Franco');
+    });
+
+    it('contains Autopilot info', () => {
+        expect(OFFICIAL_GHOSTAGENT_FACTS).toContain('Autopilot');
+        expect(OFFICIAL_GHOSTAGENT_FACTS).toContain('Draft');
+    });
+
+    it('does NOT contain private admin details', () => {
+        expect(OFFICIAL_GHOSTAGENT_FACTS).not.toContain('service_role');
+        expect(OFFICIAL_GHOSTAGENT_FACTS).not.toContain('SUPABASE_URL');
+        expect(OFFICIAL_GHOSTAGENT_FACTS).not.toContain('god_mode');
     });
 });
 

@@ -191,7 +191,16 @@ async function handleAwaitingProduct(
     const customerPhone = known?.phone || state.customer.phone;
     const customerAddress = known?.address || state.customer.address;
 
-    if (customerName && customerPhone && customerAddress) {
+    // ── BUFFERED DETAILS: extract name/phone/address from same message ──
+    // Handles: "Yeah i want it\nAli Kassem\n78820707\nBeirut"
+    const { name: msgName, phone: msgPhone } = extractNameAndPhone(ctx.message);
+    const msgAddress = extractAddress(ctx.message);
+
+    const finalName = customerName || msgName;
+    const finalPhone = customerPhone || msgPhone;
+    const finalAddress = customerAddress || msgAddress;
+
+    if (finalName && finalPhone && finalAddress) {
         // All details known — go straight to confirmation
         const updatedState: EcommerceStateData = {
             ...state,
@@ -203,9 +212,14 @@ async function handleAwaitingProduct(
                 unitPrice: match.price,
                 quantity: qty,
             },
-            customer: { ...state.customer, name: customerName, phone: customerPhone, address: customerAddress },
+            customer: { ...state.customer, name: finalName, phone: finalPhone, address: finalAddress },
             missingFields: [],
         };
+
+        const actions = ['product_resolved', 'asked_confirmation'];
+        if (msgName || msgPhone || msgAddress) actions.push('buffered_details_extracted');
+        if (customerName || customerPhone || customerAddress) actions.push('memory_used');
+
         return {
             replyText: t(
                 `${match.itemName} — $${match.price}. Confirm order?`,
@@ -214,7 +228,7 @@ async function handleAwaitingProduct(
             ),
             nextStage: 'awaiting_checkout_confirmation',
             nextData: updatedState,
-            actions: ['product_resolved', 'memory_used', 'asked_confirmation'],
+            actions,
             dbWriteAttempted: false,
             dbWriteSuccess: false,
             shouldReply: true,
@@ -232,17 +246,29 @@ async function handleAwaitingProduct(
             unitPrice: match.price,
             quantity: qty,
         },
+        customer: {
+            ...state.customer,
+            name: finalName,
+            phone: finalPhone,
+            address: finalAddress,
+        },
         missingFields: [
-            ...(!customerName ? ['customerName'] : []),
-            ...(!customerPhone ? ['customerPhone'] : []),
-            ...(!customerAddress ? ['deliveryAddress'] : []),
+            ...(!finalName ? ['customerName'] : []),
+            ...(!finalPhone ? ['customerPhone'] : []),
+            ...(!finalAddress ? ['deliveryAddress'] : []),
         ],
     };
 
+    // Ask only for missing fields
+    const missing = [];
+    if (!finalName) missing.push(ctx.language === 'arabizi' ? 'ismak' : 'name');
+    if (!finalPhone) missing.push(ctx.language === 'arabizi' ? 'ra2mak' : 'phone');
+    if (!finalAddress) missing.push(ctx.language === 'arabizi' ? 'el 3nwen' : 'delivery address');
+
     return {
         replyText: t(
-            `${match.itemName} — $${match.price}, in stock. Send your name, phone, and delivery address.`,
-            `${match.itemName} — $${match.price}, mawjoud. B3atle ismak, ra2mak w el 3nwen.`,
+            `${match.itemName} — $${match.price}, in stock. Send your ${missing.join(', ')}.`,
+            `${match.itemName} — $${match.price}, mawjoud. B3atle ${missing.join(' w ')}.`,
             ctx.language
         ),
         nextStage: 'awaiting_order_details',
@@ -292,6 +318,52 @@ async function handleAwaitingOrderDetails(
     const extractedName = name || state.customer.name;
     const extractedPhone = phone || state.customer.phone;
     const extractedAddress = address || state.customer.address;
+
+    // ── "Already sent it" recovery ──────────────────────────
+    // If user says "already sent it" / "sent above" / "check above" 
+    // and we have no new data but DO have state data, use it
+    const alreadySentPattern = /\b(already\s*sent|sent\s*(it|above)|check\s*above|I\s*sent\s*it|b3atton|b3attak|b3ata)\b/i;
+    if (alreadySentPattern.test(ctx.message) && !name && !phone && !address) {
+        // Check if state already has partial data we can use
+        if (state.customer.name || state.customer.phone || state.customer.address) {
+            // We have partial data from previous messages — use it
+            const stillMissing = [];
+            if (!state.customer.name) stillMissing.push(ctx.language === 'arabizi' ? 'ismak' : 'name');
+            if (!state.customer.phone) stillMissing.push(ctx.language === 'arabizi' ? 'ra2mak' : 'phone');
+            if (!state.customer.address) stillMissing.push(ctx.language === 'arabizi' ? 'el 3nwen' : 'delivery address');
+
+            if (stillMissing.length > 0) {
+                return {
+                    replyText: t(
+                        `I have some of your info. I still need your ${stillMissing.join(', ')}.`,
+                        `3ande ba3do. Bado ${stillMissing.join(' w ')}.`,
+                        ctx.language
+                    ),
+                    nextStage: 'awaiting_order_details',
+                    nextData: state,
+                    actions: ['already_sent_partial_recovery'],
+                    dbWriteAttempted: false,
+                    dbWriteSuccess: false,
+                    shouldReply: true,
+                };
+            }
+            // All present — fall through to confirmation below
+        } else {
+            return {
+                replyText: t(
+                    'I need your name, phone, and delivery address to place the order.',
+                    'B3atle ismak, ra2mak w el 3nwen la n2akked el order.',
+                    ctx.language
+                ),
+                nextStage: 'awaiting_order_details',
+                nextData: state,
+                actions: ['already_sent_no_data'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            };
+        }
+    }
 
     // If user just says "yes"/"ok" without providing info, repeat the ask
     const yesNo = detectYesNo(ctx.message);

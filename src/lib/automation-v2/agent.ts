@@ -16,7 +16,7 @@ import { generateText, stepCountIs } from 'ai';
 import { createGroq } from '@ai-sdk/groq';
 import type { AutomationInput, AutomationResult, WorkspaceConfig } from './types';
 import { loadConversationHistory } from './history';
-import { createAppointmentTools, createEcommerceTools, type ToolContext } from './tools';
+import { createAppointmentToolsReadOnly, createEcommerceToolsReadOnly, TRANSACTIONAL_TOOL_NAMES, type ToolContext } from './tools';
 import { detectLanguage } from './language';
 import { buildTimeContext } from './time';
 import { v2log } from './logger';
@@ -226,6 +226,9 @@ export async function runAgent(
                 dbWriteAttempted: fsm.dbWriteAttempted,
                 dbWriteSuccess: fsm.dbWriteSuccess,
                 durationMs: Date.now() - startTime,
+                classifierSource: decision.classifierSource,
+                classifierConfidence: decision.classifierConfidence,
+                classifierResult: decision.classifierResult,
             },
         };
     }
@@ -249,7 +252,10 @@ export async function runAgent(
         { role: 'user' as const, content: input.message },
     ];
 
-    // 4. Tools
+    // 4. Tools — READ-ONLY: no transactional tools in fallback LLM agent
+    //    All transactional actions (orders, bookings, cancellations) go through
+    //    deterministic handlers/FSM only. The fallback agent can only answer
+    //    non-transactional questions (product info, hours, location, policy).
     const toolCtx: ToolContext = {
         supabase: input.supabase,
         userId: input.userId,
@@ -259,8 +265,8 @@ export async function runAgent(
         platform: input.platform,
     };
     const tools = config.businessType === 'appointments'
-        ? createAppointmentTools(toolCtx)
-        : createEcommerceTools(toolCtx);
+        ? createAppointmentToolsReadOnly(toolCtx)
+        : createEcommerceToolsReadOnly(toolCtx);
 
     // 5. LLM call
     const groq = getGroq();

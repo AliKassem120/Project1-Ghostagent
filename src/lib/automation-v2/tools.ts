@@ -262,3 +262,39 @@ export function createSaasSupportTools(ctx: ToolContext) {
         },
     };
 }
+
+// ═══════════════════════════════════════════════════════════════
+// TRANSACTIONAL TOOL BLOCKLIST
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Tools that perform DB writes (order/appointment creation, cancellation, updates).
+ * These must NEVER be available to the fallback LLM agent.
+ * All transactional actions go through deterministic handlers/FSM only.
+ */
+export const TRANSACTIONAL_TOOL_NAMES = [
+    'place_order',
+    'cancel_order',
+    'book_appointment',
+    'cancel_appointment',
+] as const;
+
+/**
+ * Create ecommerce tools with transactional tools stripped.
+ * Fallback LLM agent can only search products, check hours, and lookup customers.
+ */
+export function createEcommerceToolsReadOnly(ctx: ToolContext) {
+    const all = createEcommerceTools(ctx);
+    const { place_order, cancel_order, ...readOnly } = all;
+    return readOnly;
+}
+
+/**
+ * Create appointment tools with transactional tools stripped.
+ * Fallback LLM agent can only check slots, check hours, and lookup customers.
+ */
+export function createAppointmentToolsReadOnly(ctx: ToolContext) {
+    const all = createAppointmentTools(ctx);
+    const { book_appointment, cancel_appointment, ...readOnly } = all;
+    return readOnly;
+}

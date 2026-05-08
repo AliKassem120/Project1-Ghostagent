@@ -9,7 +9,6 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { answerSaasSupportMessage } from '../../saas-support/responder';
-import { classifyByRegex } from '../../classify/regex-fallbacks';
 import type { WorkspaceConfig } from '../../types';
 
 const WORKSPACE_ID = '2601af65-3e57-4460-adef-08f72641142f';
@@ -57,10 +56,10 @@ function makeInput(message: string, docs: any[] = []) {
 }
 
 describe('SaaS Support Scenarios — Deterministic', () => {
-    it('S1: "What is GhostAgent?" → greeting-style question', () => {
-        const r = classifyByRegex('what is ghostagent');
-        // Will be feature_question or unknown — both valid for SaaS
-        expect(true).toBe(true);
+    it('S1: "What is GhostAgent?" → handled by responder', async () => {
+        const result = await answerSaasSupportMessage(makeInput('what is ghostagent'));
+        expect(result.shouldReply).toBe(true);
+        // SaaS responder always handles this — no classifier needed
     });
 
     it('S2: greeting "hey" → static greeting', async () => {
@@ -121,34 +120,51 @@ describe('SaaS Support Scenarios — Deterministic', () => {
     });
 });
 
-describe('SaaS Support Scenarios — SaaS classifier intents', () => {
-    it('pricing question detected', () => {
-        const r = classifyByRegex('how much does it cost?');
-        expect(r).not.toBeNull();
-        expect(r!.intent).toBe('price_question');
+describe('SaaS Support Scenarios — SaaS Bypass Proof', () => {
+    it('feature question handled by responder, not classifier', async () => {
+        // "does it support whatsapp?" should be answerable by the SaaS responder directly
+        // without needing a regex intent — the responder has official knowledge
+        const result = await answerSaasSupportMessage(makeInput('does it support whatsapp?'));
+        expect(result.shouldReply).toBe(true);
+        expect(result.debug.dbWriteAttempted).toBe(false);
     });
 
-    it('feature question detected', () => {
-        const r = classifyByRegex('does it support whatsapp?');
-        expect(r).not.toBeNull();
-        expect(r!.intent).toBe('feature_question');
+    it('setup question handled by responder', async () => {
+        const result = await answerSaasSupportMessage(makeInput('how do I get started?'));
+        expect(result.shouldReply).toBe(true);
+        expect(result.debug.dbWriteAttempted).toBe(false);
     });
 
-    it('setup question detected', () => {
-        const r = classifyByRegex('how to get started');
-        expect(r).not.toBeNull();
-        expect(r!.intent).toBe('setup_question');
+    it('pricing question handled by responder', async () => {
+        const result = await answerSaasSupportMessage(makeInput('how much does it cost?'));
+        expect(result.shouldReply).toBe(true);
+        expect(result.debug.dbWriteAttempted).toBe(false);
     });
 
-    it('support request detected', () => {
-        const r = classifyByRegex('bot not working');
-        expect(r).not.toBeNull();
-        expect(r!.intent).toBe('support_request');
+    it('bug report handled by responder without order/appointment creation', async () => {
+        const result = await answerSaasSupportMessage(makeInput('bot not working'));
+        expect(result.shouldReply).toBe(true);
+        expect(result.debug.dbWriteAttempted).toBe(false);
     });
 
-    it('integration question detected', () => {
-        const r = classifyByRegex('do you have a shopify integration?');
-        expect(r).not.toBeNull();
-        expect(r!.intent).toBe('integration_question');
+    it('Arabizi questions handled', async () => {
+        const result = await answerSaasSupportMessage(makeInput('shu howe GhostAgent?'));
+        expect(result.shouldReply).toBe(true);
+    });
+
+    it('never outputs [HANDOFF] for any query type', async () => {
+        const queries = [
+            'what is ghostagent?',
+            'how does it work?',
+            'does it support whatsapp?',
+            'can it take orders?',
+            'can it book appointments?',
+            'does it support arabizi?',
+        ];
+        for (const q of queries) {
+            const result = await answerSaasSupportMessage(makeInput(q));
+            expect(result.replyText).not.toContain('[HANDOFF]');
+        }
     });
 });
+

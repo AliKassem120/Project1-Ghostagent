@@ -178,6 +178,9 @@ export async function handleAutomationMessage(input: AutomationInput): Promise<A
                     requestId,
                     language: result.debug.language,
                     durationMs: result.debug.durationMs,
+                    classifierSource: result.debug.classifierSource || null,
+                    classifierConfidence: result.debug.classifierConfidence || null,
+                    classifierResult: result.debug.classifierResult || null,
                 },
             });
         } catch (runLogErr) {

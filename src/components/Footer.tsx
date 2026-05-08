@@ -38,6 +38,7 @@ export default function Footer() {
                         <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">{t('product')}</h4>
                         <ul className="space-y-4">
                             <li><Link href="/#features" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">{t('features')}</Link></li>
+                            <li><Link href="/how-it-works" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">{t('howItWorks')}</Link></li>
                             <li><Link href="/#pricing" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">{t('pricing')}</Link></li>
                             <li><Link href="/about" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">{t('about')}</Link></li>
                         </ul>

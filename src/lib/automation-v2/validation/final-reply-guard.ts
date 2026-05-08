@@ -17,6 +17,12 @@ export interface FinalReplyGuardInput {
     dbWriteSuccess?: boolean;
     actionType?: GuardActionType | null;
     sourcePath?: string | null;
+    /** Count-aware cancel metadata */
+    cancelMeta?: {
+        requestedScope?: string;
+        requestedCount?: number;
+        cancelledCount?: number;
+    };
 }
 
 export interface FinalReplyGuardResult {
@@ -44,6 +50,12 @@ const SUCCESS_PATTERNS = [
     /\bma7jouz\b/i,
     /\btenla8a\b/i,
     /\bnla8a\b/i,
+    // Multi-cancel success patterns
+    /\bboth\s+(?:orders?|appointments?)\s+(?:are\s+)?cancell?ed\b/i,
+    /\ball\s+(?:orders?|appointments?)\s+(?:are\s+)?cancell?ed\b/i,
+    /\b\d+\s+(?:orders?|appointments?)\s+(?:are\s+)?cancell?ed\b/i,
+    /\borders?\s+cancell?ed\b/i,
+    /\bappointments?\s+cancell?ed\b/i,
 ];
 
 const STATUS_EXPLANATION_PATTERNS = [
@@ -65,6 +77,10 @@ const STATUS_EXPLANATION_PATTERNS = [
     /\bel\s+order\s+already\s+tenla8a\b/i,
     /\bel\s+maw3ed\s+already\s+tenla8a\b/i,
     /\bma\s+fiyye\s+el8e\b/i,
+    // Handler results that say "only X cancelled" are explanations, not false claims
+    /\bonly\s+\d+\s+(?:order|appointment)\b/i,
+    /\bcouldn't cancel\b/i,
+    /\bnot\s+cancellable\b/i,
 ];
 
 function isArabizi(language?: string | null): boolean {
@@ -80,6 +96,38 @@ function hasFalseSuccessClaim(reply: string): boolean {
         return false;
     }
     return SUCCESS_PATTERNS.some((pattern) => pattern.test(reply));
+}
+
+/**
+ * Check if a multi-cancel reply is count-accurate.
+ * Returns false (claim is ok) if counts match, true (false claim) if they don't.
+ */
+function hasCountMismatch(reply: string, cancelMeta?: FinalReplyGuardInput['cancelMeta']): boolean {
+    if (!cancelMeta) return false;
+
+    const { requestedScope, requestedCount, cancelledCount } = cancelMeta;
+    if (cancelledCount === undefined) return false;
+
+    // "both" in reply requires cancelledCount >= 2
+    if (/\bboth\b/i.test(reply) && cancelledCount < 2) return true;
+
+    // "all" in reply requires cancelledCount >= 1 (and scope was all_pending)
+    if (/\ball\s+(?:orders?|appointments?)\b/i.test(reply) && requestedScope === 'all_pending' && cancelledCount < 1) return true;
+
+    // Number in reply (e.g., "2 orders cancelled") requires matching cancelledCount
+    const numMatch = reply.match(/\b(\d+)\s+(?:orders?|appointments?)\s+cancell?ed\b/i);
+    if (numMatch) {
+        const claimed = parseInt(numMatch[1], 10);
+        if (claimed > cancelledCount) return true;
+    }
+
+    // scope=count with requested count requires cancelledCount >= requestedCount
+    if (requestedScope === 'count' && requestedCount && cancelledCount < requestedCount) {
+        // Only a mismatch if the reply claims the full count
+        if (reply.match(new RegExp(`\\b${requestedCount}\\b`))) return true;
+    }
+
+    return false;
 }
 
 export function guardFinalReply(input: FinalReplyGuardInput): FinalReplyGuardResult {
@@ -100,6 +148,16 @@ export function guardFinalReply(input: FinalReplyGuardInput): FinalReplyGuardRes
             replyText: null,
             actionsToAdd: ['handoff_token_blocked'],
             blockedReason: 'handoff_token',
+        };
+    }
+
+    // Count-aware cancel guard — must be before general false success check
+    if (hasCountMismatch(replyText, input.cancelMeta)) {
+        return {
+            shouldReply: true,
+            replyText: safeErrorReply(input.language),
+            actionsToAdd: ['cancel_count_mismatch_blocked'],
+            blockedReason: 'cancel_count_mismatch',
         };
     }
 

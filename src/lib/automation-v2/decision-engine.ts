@@ -21,11 +21,15 @@ import { loadConversationState, saveConversationState, clearConversationState } 
 import { processAppointmentState } from './state/appointments-fsm';
 import { processEcommerceState } from './state/ecommerce-fsm';
 import { classifyIntent } from './classify/intent-classifier';
+import { classifyIntentWithSemanticFallback } from './classify/intent-classifier';
+import type { NormalizedIntent } from './classify/normalized-intent';
 import { classifyPostContext } from './classify/post-context-classifier';
 import { lookupLatestOrder, cancelLatestOrder, updateOrderVariant, updateOrderAddress } from './ecommerce/lookup';
 import { searchProducts, findBestProductMatch } from './ecommerce/products';
 import { extractAvailabilityCandidate } from './ecommerce/extract-product';
+import { cancelOrdersForChat } from './ecommerce/cancel-orders';
 import { lookupLatestAppointment, lookupLatestAppointmentAnyStatus, cancelLatestAppointment, rescheduleAppointment } from './appointments/lookup';
+import { cancelAppointmentsForChat } from './appointments/cancel-appointments';
 import { loadActiveServices, findBestServiceMatch } from './appointments/services';
 import { loadBusinessHours, getHoursForDay } from './appointments/hours';
 import { formatTime12 } from './time';
@@ -46,6 +50,10 @@ export interface DecisionResult {
     stateBefore: ConversationStage;
     /** The conversation stage after processing */
     stateAfter: ConversationStage;
+    /** Classifier metadata for observability */
+    classifierSource?: 'regex' | 'llm';
+    classifierConfidence?: number;
+    classifierResult?: NormalizedIntent;
 }
 
 function t(en: string, arabizi: string, lang: string): string {
@@ -398,7 +406,7 @@ export async function runDecisionEngine(
     });
 
     // 2. GLOBAL INTERRUPTS - cancel/update/handoff before active FSM continuation.
-    const classification = classifyIntent(input.message);
+    let classification = classifyIntent(input.message);
     if (isGlobalInterrupt(classification.intent)) {
         const interruptResult = await handleGlobalInterrupt(input, replyLang, currentStage, classification.intent);
         if (interruptResult) {
@@ -485,10 +493,28 @@ export async function runDecisionEngine(
         }
     }
 
-    // 5. IDLE - use the classification already computed for global interrupts
+    // 5. IDLE — if regex returned unknown, upgrade to semantic classifier
+    let semanticResult: NormalizedIntent | null = null;
+    if (classification.intent === 'unknown' && (input.workspaceType === 'ecommerce' || input.workspaceType === 'appointments')) {
+        semanticResult = await classifyIntentWithSemanticFallback(input.message, input.workspaceType, {
+            stage: currentStage,
+            recentProduct: postContext?.productName,
+            recentService: undefined,
+        });
+        if (semanticResult.intent !== 'unknown') {
+            // Upgrade classification with LLM result
+            classification = {
+                intent: semanticResult.intent as any,
+                confidence: semanticResult.confidence,
+                source: semanticResult.source as 'regex' | 'llm',
+            };
+        }
+    }
+
     v2log.info('DECISION', `Classified: ${classification.intent} (${classification.confidence})`, {
         chatId: input.chatId,
         source: classification.source,
+        semanticFallback: !!semanticResult,
     });
 
     // 5. DETERMINISTIC HANDLERS — no LLM needed ────────────────
@@ -701,28 +727,166 @@ export async function runDecisionEngine(
         };
     }
 
-    // ── Cancel order — deterministic ─────────────────────────
+    // ── Cancel order — scoped cancellation ────────────────────
     if (classification.intent === 'cancel_order' && input.workspaceType === 'ecommerce') {
-        const result = await cancelLatestOrder(input.supabase, input.workspaceId, input.chatId);
-        const fsmResult = cancelOrderReply(result, replyLang);
+        // Prefer LLM entities (scope/count/ordinal) over regex detectCancelScope
+        const llmScope = semanticResult && semanticResult.intent === 'cancel_order'
+            ? { scope: semanticResult.scope || 'latest', count: semanticResult.count, ordinal: semanticResult.ordinal, product: semanticResult.entities?.product }
+            : null;
+        const cancelScope = llmScope || detectCancelScope(input.message);
+        const result = await cancelOrdersForChat({
+            supabase: input.supabase,
+            workspaceId: input.workspaceId,
+            chatId: input.chatId,
+            scope: cancelScope.scope as any,
+            count: cancelScope.count,
+            ordinal: cancelScope.ordinal as any,
+            product: cancelScope.product,
+        });
+        const fsmResult = buildScopedCancelReply(result, 'order', replyLang);
         return {
             handledByFSM: true,
             fsmResult,
             classifiedIntent: 'cancel_order',
+            classifierSource: classification.source as 'regex' | 'llm',
+            classifierConfidence: classification.confidence,
+            classifierResult: semanticResult || undefined,
             language: replyLang,
             stateBefore: 'idle',
             stateAfter: fsmResult.nextStage,
         };
     }
 
-    // ── Cancel appointment — deterministic ───────────────────
+    // ── Cancel appointment — scoped cancellation ─────────────
     if (classification.intent === 'cancel_appointment' && input.workspaceType === 'appointments') {
-        const result = await cancelLatestAppointment(input.supabase, input.workspaceId, input.chatId);
-        const fsmResult = cancelAppointmentReply(result, replyLang);
+        const cancelScope = detectCancelScope(input.message);
+        const result = await cancelAppointmentsForChat({
+            supabase: input.supabase,
+            workspaceId: input.workspaceId,
+            chatId: input.chatId,
+            scope: cancelScope.scope,
+            count: cancelScope.count,
+            ordinal: cancelScope.ordinal,
+        });
+        const fsmResult = buildScopedCancelReply(result, 'appointment', replyLang);
         return {
             handledByFSM: true,
             fsmResult,
             classifiedIntent: 'cancel_appointment',
+            language: replyLang,
+            stateBefore: 'idle',
+            stateAfter: fsmResult.nextStage,
+        };
+    }
+
+    // ── Repeat last order — reuse postContext ────────────────
+    if (classification.intent === 'repeat_last_order' && input.workspaceType === 'ecommerce') {
+        if (!postContext || postContext.type !== 'order' || !postContext.productName) {
+            return {
+                handledByFSM: true,
+                fsmResult: {
+                    replyText: t(
+                        'I don\'t have a recent order to repeat. What would you like to order?',
+                        'Ma fi order 2arib la3ido. Shu baddak tetlob?',
+                        replyLang
+                    ),
+                    nextStage: 'idle',
+                    nextData: null,
+                    actions: ['repeat_no_context'],
+                    dbWriteAttempted: false,
+                    dbWriteSuccess: false,
+                    shouldReply: true,
+                },
+                classifiedIntent: 'repeat_last_order',
+                language: replyLang,
+                stateBefore: 'idle',
+                stateAfter: 'idle',
+            };
+        }
+
+        // Detect reuse signals
+        const { detectReuseSignals } = await import('./language');
+        const reuse = detectReuseSignals(input.message);
+
+        // Build state for confirmation
+        const repeatState: EcommerceStateData = {
+            stage: 'awaiting_checkout_confirmation',
+            pendingAction: 'create_order',
+            order: {
+                productId: postContext.productId,
+                productName: postContext.productName,
+                variantLabel: postContext.variantLabel,
+                quantity: 1,
+                unitPrice: postContext.unitPrice,
+            },
+            customer: {
+                name: reuse.reuseName || /same\s*(name|ism)/i.test(input.message)
+                    ? postContext.customer.name : undefined,
+                phone: reuse.reusePhone || /same\s*(phone|number|ra2em)/i.test(input.message)
+                    ? postContext.customer.phone : undefined,
+                address: reuse.reuseAddress || /same\s*(address|3nwen)/i.test(input.message)
+                    ? postContext.customer.address : undefined,
+            },
+            missingFields: [],
+        };
+
+        // Determine missing fields
+        const missing: string[] = [];
+        if (!repeatState.customer.name) missing.push('name');
+        if (!repeatState.customer.phone) missing.push('phone');
+        if (!repeatState.customer.address) missing.push('address');
+
+        if (missing.length > 0) {
+            repeatState.missingFields = missing;
+            repeatState.stage = 'awaiting_order_details';
+
+            const askReply = t(
+                `${postContext.productName} x1 — $${postContext.unitPrice || '?'}. I need your ${missing.join(', ')}.`,
+                `${postContext.productName} x1 — $${postContext.unitPrice || '?'}. B3atle ${missing.join(' w ')}.`,
+                replyLang
+            );
+
+            const fsmResult = await persistFsmResult(input, {
+                replyText: askReply,
+                nextStage: 'awaiting_order_details',
+                nextData: repeatState,
+                actions: ['repeat_order_ask_details'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            }, postContext, replyLang);
+
+            return {
+                handledByFSM: true,
+                fsmResult,
+                classifiedIntent: 'repeat_last_order',
+                language: replyLang,
+                stateBefore: 'idle',
+                stateAfter: fsmResult.nextStage,
+            };
+        }
+
+        // All details present — ask for confirmation
+        const confirmReply = t(
+            `${postContext.productName} x1 — $${postContext.unitPrice || '?'}. Confirm?`,
+            `${postContext.productName} x1 — $${postContext.unitPrice || '?'}. Akid?`,
+            replyLang
+        );
+
+        const fsmResult = await persistFsmResult(input, {
+            replyText: confirmReply,
+            nextStage: 'awaiting_checkout_confirmation',
+            nextData: repeatState,
+            actions: ['repeat_order_confirm'],
+            dbWriteAttempted: false,
+            dbWriteSuccess: false,
+            shouldReply: true,
+        }, postContext, replyLang);
+
+        return {
+            handledByFSM: true,
+            fsmResult,
+            classifiedIntent: 'repeat_last_order',
             language: replyLang,
             stateBefore: 'idle',
             stateAfter: fsmResult.nextStage,
@@ -1228,6 +1392,9 @@ export async function runDecisionEngine(
     return {
         handledByFSM: false,
         classifiedIntent: classification.intent,
+        classifierSource: classification.source as 'regex' | 'llm',
+        classifierConfidence: classification.confidence,
+        classifierResult: semanticResult || undefined,
         language: replyLang,
         stateBefore: 'idle',
         stateAfter: 'idle',
@@ -1508,4 +1675,133 @@ async function handlePostContextIntent(
         default:
             return null;
     }
+}
+
+// ── Scoped Cancel Helpers ────────────────────────────────────
+
+import type { IntentScope, IntentOrdinal } from './classify/normalized-intent';
+import type { CancelOrdersResult } from './ecommerce/cancel-orders';
+import type { CancelAppointmentsResult } from './appointments/cancel-appointments';
+
+interface DetectedCancelScope {
+    scope: IntentScope;
+    count?: number;
+    ordinal?: IntentOrdinal;
+    product?: string;
+}
+
+function detectCancelScope(message: string): DetectedCancelScope {
+    const msg = message.toLowerCase().trim();
+
+    // "cancel all pending orders/appointments"
+    if (/\b(all\s*pending|all\s*orders|all\s*appointments|all\s*bookings|kellon)\b/i.test(msg)) {
+        return { scope: 'all_pending' };
+    }
+
+    // "cancel both" → count: 2
+    if (/\b(both|el\s*tnen|tnayneton|teneton)\b/i.test(msg)) {
+        return { scope: 'count', count: 2 };
+    }
+
+    // "cancel the first/second/third one"
+    const ordinalMatch = msg.match(/\b(first|second|third|last|el\s*awal|el\s*tene|el\s*telit)\b/i);
+    if (ordinalMatch) {
+        const ordMap: Record<string, IntentOrdinal> = {
+            'first': 'first', 'el awal': 'first',
+            'second': 'second', 'el tene': 'second',
+            'third': 'third', 'el telit': 'third',
+            'last': 'last',
+        };
+        const ord = ordMap[ordinalMatch[1].toLowerCase()];
+        if (ord) return { scope: 'ordinal', ordinal: ord };
+    }
+
+    // "cancel the PS5 order" — extract product reference
+    const productMatch = msg.match(/cancel\s+(?:the\s+)?(.+?)\s+order/i);
+    if (productMatch && productMatch[1] && !/\b(my|el|l|all|both|first|second|third|last)\b/i.test(productMatch[1])) {
+        return { scope: 'product_reference', product: productMatch[1].trim() };
+    }
+
+    // Default: latest
+    return { scope: 'latest' };
+}
+
+function buildScopedCancelReply(
+    result: CancelOrdersResult | CancelAppointmentsResult,
+    itemType: 'order' | 'appointment',
+    lang: string
+): FSMResult {
+    const noun = itemType === 'order' ? 'order' : 'appointment';
+    const nounAr = itemType === 'order' ? 'order' : 'maw3ed';
+    const plural = itemType === 'order' ? 'orders' : 'appointments';
+
+    // Error cases
+    if (result.error === 'no_orders' || result.error === 'no_appointments') {
+        return {
+            replyText: t(`I can't find a recent ${noun}.`, `Ma l2et ${nounAr} 2arib.`, lang),
+            nextStage: 'idle', nextData: null,
+            actions: [`cancel_no_${noun}`],
+            dbWriteAttempted: false, dbWriteSuccess: false, shouldReply: true,
+        };
+    }
+
+    if (result.error) {
+        return {
+            replyText: safeErrorReply(lang),
+            nextStage: 'idle', nextData: null,
+            actions: [`cancel_${noun}_error`],
+            dbWriteAttempted: true, dbWriteSuccess: false, shouldReply: true,
+        };
+    }
+
+    // All already cancelled
+    if (result.cancelledCount === 0 && result.alreadyCancelledCount > 0) {
+        return {
+            replyText: result.alreadyCancelledCount === 1
+                ? t(`${noun.charAt(0).toUpperCase() + noun.slice(1)} is already cancelled.`, `El ${nounAr} already tenla8a.`, lang)
+                : t(`${result.alreadyCancelledCount} ${plural} are already cancelled.`, `${result.alreadyCancelledCount} ${nounAr} already tenla8o.`, lang),
+            nextStage: 'idle', nextData: null,
+            actions: [`${noun}_already_cancelled`],
+            dbWriteAttempted: false, dbWriteSuccess: false, shouldReply: true,
+        };
+    }
+
+    // Not cancellable (shipped, delivered, etc.)
+    if (result.cancelledCount === 0 && result.notCancellableCount > 0) {
+        const statuses = [...new Set(result.notCancellableStatuses)].join(', ');
+        return {
+            replyText: t(
+                `I can't cancel — status is ${statuses}.`,
+                `Ma fiyye el8e — status: ${statuses}.`,
+                lang
+            ),
+            nextStage: 'idle', nextData: null,
+            actions: [`${noun}_not_cancellable`],
+            dbWriteAttempted: false, dbWriteSuccess: false, shouldReply: true,
+        };
+    }
+
+    // Success — generate accurate reply
+    let replyText: string;
+    if (result.cancelledCount === 1) {
+        replyText = t(`${noun.charAt(0).toUpperCase() + noun.slice(1)} cancelled.`, `Tamem, el ${nounAr} tenla8a.`, lang);
+    } else {
+        replyText = t(`${result.cancelledCount} ${plural} cancelled.`, `Tamem, ${result.cancelledCount} ${nounAr} tenla8o.`, lang);
+    }
+
+    // Append info about already cancelled / not cancellable
+    if (result.alreadyCancelledCount > 0) {
+        replyText += ' ' + t(
+            `(${result.alreadyCancelledCount} already cancelled)`,
+            `(${result.alreadyCancelledCount} keno already cancelled)`,
+            lang
+        );
+    }
+
+    return {
+        replyText,
+        nextStage: 'idle', nextData: null,
+        actions: [`${noun}_cancelled`],
+        dbWriteAttempted: true, dbWriteSuccess: true, shouldReply: true,
+    };
 }

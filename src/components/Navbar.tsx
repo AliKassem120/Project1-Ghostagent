@@ -41,6 +41,7 @@ export default function Navbar() {
 
     const links = [
         { name: t('features'), href: '/#features', section: 'features' },
+        { name: t('howItWorks'), href: '/how-it-works', section: null },
         { name: t('pricing'), href: '/#pricing', section: 'pricing' },
         { name: t('about'), href: '/about', section: null },
         { name: t('contact'), href: '/contact', section: null },
