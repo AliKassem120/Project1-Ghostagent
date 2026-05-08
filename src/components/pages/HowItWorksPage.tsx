@@ -166,55 +166,91 @@ export default function HowItWorksPage() {
               </p>
             </div>
 
-            <div className="max-w-4xl mx-auto space-y-4">
-              {[
-                { step: "01", title: "Message Received", desc: "Customer sends a DM on Instagram or WhatsApp." },
-                { step: "02", title: "Context Loaded", desc: "System checks the conversation history and workspace rules." },
-                { step: "03", title: "Intent Understood", desc: "The classifier detects if it's a greeting, product question, or order cancellation." },
-                { step: "04", title: "Action Selected", desc: "The correct business logic handles the request." },
-                { step: "05", title: "Result Verified", desc: "Database confirms the stock exists or the calendar is open." },
-                { step: "06", title: "Reply Sent", desc: "A natural, accurate response is sent to the customer." }
-              ].map((flow, idx) => {
-                const isActive = activeFlowStep === idx;
-                return (
-                  <motion.div 
-                    key={idx}
-                    onClick={() => setActiveFlowStep(idx)}
-                    initial={{ opacity: 0, x: -20 }} 
-                    whileInView={{ opacity: 1, x: 0 }} 
-                    viewport={{ once: true }} 
-                    transition={{ delay: idx * 0.1 }}
-                    className={clsx(
-                      "flex items-center gap-6 rounded-2xl p-4 md:p-6 cursor-pointer transition-all duration-300",
-                      isActive 
-                        ? "bg-surface-2 border-primary/50 border shadow-[0_0_30px_rgba(139,92,246,0.1)] scale-[1.02]" 
-                        : "bg-surface-1 border border-border hover:border-primary/30 opacity-70 hover:opacity-100"
-                    )}
-                  >
-                    <div className={clsx(
-                      "text-2xl font-black shrink-0 w-12 transition-colors",
-                      isActive ? "text-primary" : "text-primary/20"
-                    )}>
-                      {flow.step}
-                    </div>
-                    <div className="flex-1">
-                      <h4 className={clsx(
-                        "font-bold text-lg transition-colors",
-                        isActive ? "text-primary" : "text-foreground"
+            <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+              {/* STEPS LIST */}
+              <div className="space-y-4 order-2 lg:order-1">
+                {[
+                  { step: "01", title: "Message Received", desc: "Customer sends a DM on Instagram or WhatsApp." },
+                  { step: "02", title: "Context Loaded", desc: "System checks the conversation history and workspace rules." },
+                  { step: "03", title: "Intent Understood", desc: "The classifier detects if it's a greeting, product question, or order cancellation." },
+                  { step: "04", title: "Action Selected", desc: "The correct business logic handles the request." },
+                  { step: "05", title: "Result Verified", desc: "Database confirms the stock exists or the calendar is open." },
+                  { step: "06", title: "Reply Sent", desc: "A natural, accurate response is sent to the customer." }
+                ].map((flow, idx) => {
+                  const isActive = activeFlowStep === idx;
+                  return (
+                    <motion.div 
+                      key={idx}
+                      onClick={() => setActiveFlowStep(idx)}
+                      initial={{ opacity: 0, x: -20 }} 
+                      whileInView={{ opacity: 1, x: 0 }} 
+                      viewport={{ once: true }} 
+                      transition={{ delay: idx * 0.1 }}
+                      className={clsx(
+                        "flex items-center gap-4 md:gap-6 rounded-2xl p-4 cursor-pointer transition-all duration-300",
+                        isActive 
+                          ? "bg-surface-2 border-primary/50 border shadow-[0_0_30px_rgba(139,92,246,0.1)] md:scale-[1.02]" 
+                          : "bg-surface-1 border border-border hover:border-primary/30 opacity-70 hover:opacity-100"
+                      )}
+                    >
+                      <div className={clsx(
+                        "text-xl md:text-2xl font-black shrink-0 w-8 md:w-12 transition-colors",
+                        isActive ? "text-primary" : "text-primary/20"
                       )}>
-                        {flow.title}
-                      </h4>
-                      <p className="text-sm text-muted-foreground font-medium">{flow.desc}</p>
+                        {flow.step}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className={clsx(
+                          "font-bold text-base md:text-lg transition-colors",
+                          isActive ? "text-primary" : "text-foreground"
+                        )}>
+                          {flow.title}
+                        </h4>
+                        <p className="text-xs md:text-sm text-muted-foreground font-medium">{flow.desc}</p>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+
+              {/* DYNAMIC VISUALIZER */}
+              <div className="order-1 lg:order-2 bg-surface-1 border border-border rounded-[2.5rem] p-8 aspect-square md:aspect-video lg:aspect-square flex flex-col items-center justify-center relative overflow-hidden shadow-xl">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={activeFlowStep}
+                    initial={{ opacity: 0, scale: 0.8, filter: "blur(10px)" }}
+                    animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+                    exit={{ opacity: 0, scale: 0.8, filter: "blur(10px)" }}
+                    transition={{ duration: 0.4 }}
+                    className="flex flex-col items-center text-center gap-6 z-10"
+                  >
+                    <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-surface-2 border border-border flex items-center justify-center shadow-[0_0_50px_rgba(139,92,246,0.15)] relative">
+                      {activeFlowStep === 0 && <MessageCircle className="w-12 h-12 md:w-16 md:h-16 text-blue-500" />}
+                      {activeFlowStep === 1 && <Database className="w-12 h-12 md:w-16 md:h-16 text-purple-500" />}
+                      {activeFlowStep === 2 && <BrainCircuit className="w-12 h-12 md:w-16 md:h-16 text-pink-500" />}
+                      {activeFlowStep === 3 && <Code2 className="w-12 h-12 md:w-16 md:h-16 text-orange-500" />}
+                      {activeFlowStep === 4 && <Shield className="w-12 h-12 md:w-16 md:h-16 text-green-500" />}
+                      {activeFlowStep === 5 && <Bot className="w-12 h-12 md:w-16 md:h-16 text-primary" />}
+                      
+                      {/* Pulse Ring */}
+                      <motion.div 
+                        className="absolute inset-0 rounded-full border-2 border-primary/30"
+                        animate={{ scale: [1, 1.5], opacity: [1, 0] }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                      />
                     </div>
-                    <div className={clsx(
-                      "w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors",
-                      isActive ? "bg-primary text-primary-foreground shadow-[0_0_15px_rgba(139,92,246,0.5)]" : "bg-surface-2 text-muted-foreground"
-                    )}>
-                      <ArrowRight className="w-4 h-4" />
+                    <div>
+                      <div className="text-xs font-black tracking-widest uppercase text-primary/50 mb-2">Step 0{activeFlowStep + 1}</div>
+                      <div className="text-xl md:text-2xl font-bold text-foreground">
+                        {
+                          ["Message Received", "Context Loaded", "Intent Understood", "Action Selected", "Result Verified", "Reply Sent"][activeFlowStep]
+                        }
+                      </div>
                     </div>
                   </motion.div>
-                );
-              })}
+                </AnimatePresence>
+              </div>
             </div>
           </section>
           {/* ECOMMERCE WORKFLOW */}
@@ -257,7 +293,7 @@ export default function HowItWorksPage() {
                   <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 0.5 }} className="chat-bubble chat-bubble-bot">Yes — it's available for $25. Want one?</motion.div>
                   <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 1 }} className="chat-bubble chat-bubble-user">Yes</motion.div>
                   <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 1.5 }} className="chat-bubble chat-bubble-bot">Please send your name, phone number, and address.</motion.div>
-                  <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 2 }} className="chat-bubble chat-bubble-user">Ali, 71234567, Beirut Hamra</motion.div>
+                  <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 2 }} className="chat-bubble chat-bubble-user">Sarah, 03 123456, Beirut Gemmayze</motion.div>
                   <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 2.5 }} className="chat-bubble chat-bubble-bot">Perfect — confirm your order?</motion.div>
                   <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 3 }} className="chat-bubble chat-bubble-user">Yes</motion.div>
                   <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 3.5 }} className="chat-bubble chat-bubble-bot border-green-500/30 bg-green-500/5">Order confirmed! Your total is $25 on delivery.</motion.div>
