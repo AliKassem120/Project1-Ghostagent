@@ -40,6 +40,7 @@ export async function updateSession(request: NextRequest) {
     
     const isPublicRoute = 
         cleanPath === '/' ||
+        cleanPath.startsWith('/how-it-works') ||
         cleanPath.startsWith('/login') ||
         cleanPath.startsWith('/auth') ||
         cleanPath.startsWith('/register') ||
