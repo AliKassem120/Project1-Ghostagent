@@ -149,9 +149,6 @@ function isGlobalInterrupt(intent: string | undefined): boolean {
     ].includes(intent);
 }
 
-import type { CancelOrdersResult } from './ecommerce/cancel-orders';
-import type { CancelAppointmentsResult } from './appointments/cancel-appointments';
-
 function cancelOrderReply(result: CancelOrdersResult, lang: string): FSMResult {
     if (result.cancelledCount > 0) {
         const isMultiple = result.cancelledCount > 1;
@@ -1440,12 +1437,12 @@ async function handlePostContextIntent(
     switch (intent) {
         case 'cancel_latest': {
             if (pc.type === 'order') {
-                const result = await cancelLatestOrder(input.supabase, input.workspaceId, input.chatId);
+                const result = await cancelOrdersForChat({ supabase: input.supabase, workspaceId: input.workspaceId, chatId: input.chatId, scope: 'latest' });
                 const reply = cancelOrderReply(result, lang);
                 return { ...reply, actions: ['post_context_cancel_order', ...reply.actions] };
             }
             if (pc.type === 'appointment') {
-                const result = await cancelLatestAppointment(input.supabase, input.workspaceId, input.chatId);
+                const result = await cancelAppointmentsForChat({ supabase: input.supabase, workspaceId: input.workspaceId, chatId: input.chatId, scope: 'latest' });
                 const reply = cancelAppointmentReply(result, lang);
                 return { ...reply, actions: ['post_context_cancel_appointment', ...reply.actions] };
             }

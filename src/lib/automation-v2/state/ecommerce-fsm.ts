@@ -316,9 +316,9 @@ async function handleAwaitingOrderDetails(
     const { name, phone } = extractNameAndPhone(ctx.message);
     const address = extractAddress(ctx.message);
 
-    const extractedName = name || state.customer.name;
-    const extractedPhone = phone || state.customer.phone;
-    const extractedAddress = address || state.customer.address;
+    let extractedName = name || state.customer.name;
+    let extractedPhone = phone || state.customer.phone;
+    let extractedAddress = address || state.customer.address;
 
     // ── "Already sent it" recovery ──────────────────────────
     // If user says "already sent it" / "sent above" / "check above" 
