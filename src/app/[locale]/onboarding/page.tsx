@@ -63,6 +63,7 @@ export default function OnboardingPage() {
                     user_id: user.id,
                     name: workspaceName.trim(),
                     business_type: selectedCategory,
+                    is_autopilot_enabled: false,
                 });
             if (botError) throw botError;
 
@@ -237,7 +238,7 @@ export default function OnboardingPage() {
                                         setIsSaving(true);
                                         try {
                                             await supabase.from("users").upsert({ id: user.id, business_type: selectedCategory }, { onConflict: "id" });
-                                            const { data: wsData } = await supabase.from("ai_settings").insert({ user_id: user.id, name: workspaceName.trim(), business_type: selectedCategory }).select('id').single();
+                                            const { data: wsData } = await supabase.from("ai_settings").insert({ user_id: user.id, name: workspaceName.trim(), business_type: selectedCategory, is_autopilot_enabled: false }).select('id').single();
                                             const workspaceId = wsData?.id || '';
                                             // Build the proper Instagram OAuth URL (same as Settings page)
                                             const appId = process.env.NEXT_PUBLIC_INSTAGRAM_APP_ID;
