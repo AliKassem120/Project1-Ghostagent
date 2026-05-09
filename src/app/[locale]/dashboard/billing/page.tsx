@@ -142,20 +142,28 @@ export default function BillingPage() {
 
         if (paymentStatus === 'success' && transactionId) {
             const verifyPayment = async () => {
-                // 1. Check if transaction was already processed
+                // 1. Check if transaction was already processed by webhook
                 const { data: txn } = await supabase
                     .from('transactions')
                     .select('status, plan_name, user_id')
                     .eq('id', transactionId)
                     .single();
 
+                console.log('[Billing] Transaction status on return:', txn?.status);
+
                 if (txn && txn.status === 'pending') {
-                    // Webhook hasn't fired yet — trigger it manually
-                    console.log('[Billing] Webhook slow, triggering fallback...');
-                    await fetch(`/api/webhooks/whish?status=success&transaction_id=${transactionId}`);
+                    // Webhook hasn't fired yet — trigger it manually and WAIT for it
+                    console.log('[Billing] Webhook slow or missed, triggering fallback...');
+                    try {
+                        await fetch(`/api/webhooks/whish?status=success&transaction_id=${transactionId}`);
+                        console.log('[Billing] Fallback webhook triggered successfully');
+                    } catch (err) {
+                        console.error('[Billing] Fallback webhook error:', err);
+                    }
                 }
 
-                // 2. Re-fetch user data to reflect the upgrade
+                // 2. Re-fetch user data to reflect the upgrade (with small additional delay)
+                await new Promise(res => setTimeout(res, 500));
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user) {
                     const { data: userData } = await supabase
@@ -167,7 +175,13 @@ export default function BillingPage() {
                         const resolved = getPlanByTier(userData.plan_tier);
                         setCurrentPlan(resolved.name);
                         setPlanDetails(prev => prev ? ({ ...prev, tier: userData.plan_tier }) : null);
-                        toast.success(`You're now on the ${resolved.name} plan! 🎉`);
+                        if (userData.plan_tier !== 'starter') {
+                            toast.success(`You're now on the ${resolved.name} plan! 🎉`);
+                        } else {
+                            // Plan still starter — something went wrong
+                            toast.error('Plan upgrade not confirmed yet. Please refresh or contact support.');
+                            console.error('[Billing] Plan still starter after payment success!', { transactionId, txn });
+                        }
                     }
                 }
 
@@ -175,8 +189,8 @@ export default function BillingPage() {
                 window.history.replaceState({}, '', window.location.pathname);
             };
 
-            // Small delay to let webhook fire first
-            setTimeout(verifyPayment, 2000);
+            // Give webhook 3 seconds to fire first, then run verification
+            setTimeout(verifyPayment, 3000);
         }
     }, []);
 

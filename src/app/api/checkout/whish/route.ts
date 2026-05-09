@@ -47,7 +47,7 @@ export async function POST(req: Request) {
             invoice: plan_name || 'Pro Agent',
             externalId: numericId,
             successCallbackUrl: `${appUrl}/api/webhooks/whish?status=success&transaction_id=${data.id}`,
-            failureCallbackUrl: `${appUrl}/api/webhooks/whish?status=failure&transaction_id=${data.id}`,
+            failureCallbackUrl: `${appUrl}/api/webhooks/whish?status=failed&transaction_id=${data.id}`,
             successRedirectUrl: `${appUrl}/dashboard/billing?payment=success&transaction_id=${data.id}`,
             failureRedirectUrl: `${appUrl}/dashboard/billing?payment=failed&transaction_id=${data.id}`
         };

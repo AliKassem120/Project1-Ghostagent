@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { tierFromName } from '@/lib/plans';
 
 // Use the Service Role Key here to bypass row level security for incoming webhooks.
 const supabaseAdmin = createClient(
@@ -63,12 +64,10 @@ async function handleWebhook(req: NextRequest): Promise<NextResponse> {
         if (status === 'success' && transaction.user_id) {
             const plan_name = transaction.plan_name || 'Pro Agent';
 
-            // Normalize to database tier key
-            let dbTier = 'starter';
-            if (plan_name === 'Pro Agent' || plan_name.toLowerCase() === 'pro') dbTier = 'pro';
-            else if (plan_name.toLowerCase() === 'empire') dbTier = 'empire';
+            // Use centralized plan name → tier mapping
+            const dbTier = tierFromName(plan_name);
 
-            console.log('[Whish Webhook] Upgrading user', { userId: transaction.user_id, from: 'current', to: dbTier, plan_name });
+            console.log('[Whish Webhook] Upgrading user', { userId: transaction.user_id, dbTier, plan_name, transaction_id });
 
             const { error: userError } = await supabaseAdmin
                 .from('users')
