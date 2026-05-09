@@ -67,7 +67,7 @@ export async function GET() {
                 name: ws.name || 'Unnamed',
                 businessType: ws.business_type || 'unknown',
                 userId: ws.user_id,
-                ownerPlan: owner?.plan_tier || 'free_trial',
+                ownerPlan: owner?.plan_tier || 'starter',
                 isInternal: ws.is_internal || false,
                 workspaceRole: ws.workspace_role || 'customer',
                 visibility: ws.visibility || 'normal',

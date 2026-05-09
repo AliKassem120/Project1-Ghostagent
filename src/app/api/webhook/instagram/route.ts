@@ -244,7 +244,7 @@ async function processWebhookEvent(body: any) {
 
                             // 🔒 WhatsApp alerts are a Pro & Empire feature
                             const { data: ownerUser } = await supabaseAdmin.from('users').select('plan_tier').eq('id', ownerId).single();
-                            const planTier = ownerUser?.plan_tier?.toLowerCase() || 'free_trial';
+                            const planTier = ownerUser?.plan_tier?.toLowerCase() || 'starter';
                             if (planTier !== 'empire' && planTier !== 'pro' && planTier !== 'pro agent') {
                                 console.log(`🚨 [Alert] Skipping: WhatsApp alerts require Pro/Empire plan (current: ${planTier}).`);
                                 return;
@@ -368,8 +368,8 @@ async function processWebhookEvent(body: any) {
 
                     // ── GATE: Starter tier cannot auto-reply to comments ──
                     const { data: ownerUser } = await supabaseAdmin.from('users').select('plan_tier').eq('id', ownerId).single();
-                    const planTier = ownerUser?.plan_tier?.toLowerCase() || 'free_trial';
-                    if (planTier === 'starter' || planTier === 'free_trial') {
+                    const planTier = ownerUser?.plan_tier?.toLowerCase() || 'starter';
+                    if (planTier === 'starter') {
                         console.log('🛑 SKIPPING COMMENT: Starter tier does not support Comment Auto-Reply.');
                         continue;
                     }
@@ -984,7 +984,7 @@ async function checkAutopilot(supabaseAdmin: any, ownerId: string, externalChatI
         .eq(workspaceId ? 'id' : 'user_id', workspaceId || ownerId)
         .maybeSingle();
 
-    const globalAutopilot = settings?.is_autopilot_enabled ?? true;
+    const globalAutopilot = settings?.is_autopilot_enabled ?? false;
 
     if (!globalAutopilot) {
         console.log(`🤖 Global Autopilot for ${workspaceId || ownerId}: OFF`);

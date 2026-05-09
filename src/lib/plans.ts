@@ -30,10 +30,10 @@ export const PLANS: PlanDefinition[] = [
         dmLimit: 100,
         features: [
             '100 AI replies / month',
-            '1 Instagram account',
-            'Choose E-Commerce or Appointments',
-            'Basic inventory or calendar sync',
-            'Customer detail capture',
+            'Instagram OR WhatsApp (pick one)',
+            'E-Commerce or Appointments',
+            'Live inventory & calendar sync',
+            'Automated order & lead capture',
             'Standard email support',
         ],
         highlight: false,
@@ -51,12 +51,12 @@ export const PLANS: PlanDefinition[] = [
         dmLimit: 1000,
         features: [
             '1,000 AI replies / month',
-            '1 Instagram account',
-            'Dual workspace: E-Commerce + Appointments',
-            'Live inventory and calendar sync',
-            'Strict checkout and booking logic',
-            'Custom AI persona and tone',
-            'Sales and booking analytics',
+            'Instagram + WhatsApp (both channels)',
+            'Auto-reply to Instagram comments',
+            'Reply delay — feels human, not robotic',
+            'Conversation handoff (take over from AI)',
+            'Manager alerts to your WhatsApp',
+            'Sales & booking analytics',
             'Priority email support',
         ],
         highlight: true,
@@ -67,34 +67,34 @@ export const PLANS: PlanDefinition[] = [
     {
         name: 'Empire',
         tier: 'empire',
-        price: 199,
+        price: 149,
         description: 'Scale across brands and teams',
         icon: Shield,
         color: 'text-amber-400',
         bg: 'bg-amber-500/10',
-        dmLimit: null, // unlimited
+        dmLimit: 10000,
         features: [
-            'Unlimited AI replies',
-            'Up to 5 Instagram accounts',
-            'Unlimited workspaces',
-            'Combined sales and booking analytics',
-            'Advanced automation logs',
-            'Team access',
+            '10,000 AI replies / month',
+            'Up to 3 workspaces (brands/clients)',
+            'Instagram + WhatsApp on every workspace',
+            'Team access — invite staff members',
+            'Advanced analytics with revenue attribution',
             'Priority onboarding and support',
         ],
         highlight: false,
-        cta: 'Contact Sales',
-        ctaLink: '/contact',
-        valueLine: 'For high-volume teams',
+        cta: 'Get Empire',
+        ctaLink: '/register',
+        valueLine: 'For agencies and high-volume teams',
     },
 ];
+
 
 /** Map a database tier string to a plan definition */
 export function getPlanByTier(tier: string): PlanDefinition {
     const normalized = tier.toLowerCase().replace(/\s+/g, '_');
     if (normalized === 'pro' || normalized === 'pro_agent') return PLANS[1];
     if (normalized === 'empire') return PLANS[2];
-    return PLANS[0]; // starter / free_trial / unknown
+    return PLANS[0]; // starter / unknown
 }
 
 /** Map a UI plan name to its database tier string */

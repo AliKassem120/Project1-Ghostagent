@@ -8,7 +8,7 @@ import { BusinessCategory } from '@/components/BusinessTypeSelector';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type PlanTier = 'free_trial' | 'starter' | 'pro' | 'empire';
+export type PlanTier = 'starter' | 'pro' | 'empire';
 export type WorkspaceStatus = 'loading' | 'needs_setup' | 'connected' | 'live';
 
 export interface Workspace {
@@ -41,26 +41,25 @@ interface WorkspaceContextType {
 
 /** Normalise the messy plan_tier strings from the DB */
 function normalisePlan(raw: string | null | undefined): PlanTier {
-    if (!raw) return 'free_trial';
+    if (!raw) return 'starter';
     const v = raw.toLowerCase().trim();
     if (v === 'empire') return 'empire';
     if (v === 'pro' || v === 'pro agent') return 'pro';
     if (v === 'starter') return 'starter';
-    return 'free_trial';
+    return 'starter';
 }
 
 const WORKSPACE_LIMITS: Record<PlanTier, number> = {
-    free_trial: 1,
     starter: 1,
-    pro: 1, // Only Empire gets multi-account
-    empire: 5,
+    pro: 1,
+    empire: 3,
 };
 
 function getUpgradeMessage(plan: PlanTier, count: number): string | null {
     const limit = WORKSPACE_LIMITS[plan];
     if (count < limit) return null;
     
-    if (plan === 'starter' || plan === 'free_trial') return 'Upgrade to Pro to unlock features';
+    if (plan === 'starter') return 'Upgrade to Pro to unlock features';
     if (plan === 'pro') return 'Multi-account is an Empire-level move. Time to conquer 👑';
     if (plan === 'empire') return '5 Brands Max. You already own the world 🌍';
     

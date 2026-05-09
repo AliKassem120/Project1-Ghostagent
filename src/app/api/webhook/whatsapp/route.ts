@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { generateGhostReply } from '@/utils/ghost-brain';
 import { getBotControlDecision } from '@/lib/god-mode/bot-controls';
 import { upsertDmBuffer, claimDmBuffer, clearDmBuffer, releaseDmBuffer, DEBOUNCE_SECONDS } from '@/utils/dm-debounce';
+import { checkUserLimit } from '@/lib/billing';
 import { guardFinalReply } from '@/lib/automation-v2/validation/final-reply-guard';
 
 // ─── Admin Client ─────────────────────────────────────────────────────────────
@@ -128,6 +129,13 @@ async function processWhatsAppBuffer({
     systemToken?: string;
     systemPhoneId?: string;
 }) {
+    // ── BILLING GATE: Enforce reply limits before processing ──
+    const limitCheck = await checkUserLimit(ownerId);
+    if (!limitCheck.allowed) {
+        console.warn(`🚫 WhatsApp reply blocked for ${ownerId}: ${limitCheck.reason}`);
+        return;
+    }
+
     const claimed = await claimDmBuffer(supabase, ownerId, customerPhone, scheduledReplyAt, 'whatsapp', workspaceId);
     if (!claimed) return;
 
@@ -348,6 +356,20 @@ async function processWhatsAppEvent(body: any) {
                 const ownerId = workspace?.user_id;
                 const systemToken = process.env.WHATSAPP_SYSTEM_ACCESS_TOKEN;
                 const systemPhoneId = process.env.WHATSAPP_FROM_PHONE_NUMBER_ID;
+
+                // ── PLAN GATE: Verify user has Pro or Empire for WhatsApp ──
+                const { data: ownerData } = await supabase
+                    .from('users')
+                    .select('plan_tier')
+                    .eq('id', ownerId)
+                    .single();
+                const ownerPlan = (ownerData?.plan_tier || '').toLowerCase();
+                const allowDevFallbackWA = process.env.WHATSAPP_ALLOW_DEV_FALLBACK === 'true';
+                const hasWhatsAppAccess = ownerPlan === 'pro' || ownerPlan === 'empire';
+                if (!hasWhatsAppAccess && !allowDevFallbackWA) {
+                    console.warn(`🚫 WhatsApp blocked for ${ownerId}: plan is '${ownerPlan}', requires Pro or Empire. Message from ${customerPhone} dropped.`);
+                    continue;
+                }
 
                 // If DB token missing, fallback to system token (for testing stability)
                 if (!accessToken && phoneNumberId === systemPhoneId) {

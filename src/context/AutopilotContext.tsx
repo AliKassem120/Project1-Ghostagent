@@ -38,7 +38,7 @@ export function AutopilotProvider({ children }: { children: React.ReactNode }) {
             if (latestWorkspaceIdRef.current !== activeWorkspaceId) return;
 
             if (data) {
-                setAutopilotState(data.is_autopilot_enabled ?? true);
+                setAutopilotState(data.is_autopilot_enabled ?? false);
             }
         } catch (err) {
             console.error('Failed to fetch autopilot status:', err);

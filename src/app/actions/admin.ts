@@ -69,7 +69,7 @@ export async function getGodModeData() {
                 id: pu.id,
                 email: "Hidden (Add Service Key)",
                 name: "User",
-                plan: pu.plan_tier || "free_trial",
+                plan: pu.plan_tier || "starter",
                 created_at: pu.trial_ends_at ? new Date(new Date(pu.trial_ends_at).getTime() - 14 * 24 * 60 * 60 * 1000).toISOString() : new Date().toISOString(),
                 ig_accounts: 0,
                 bot_replies: 0,
@@ -81,7 +81,7 @@ export async function getGodModeData() {
         if (authUsers.length > 0) {
             authUsers.forEach(au => {
                 if (!userMap.has(au.id)) {
-                    userMap.set(au.id, { id: au.id, plan: 'free_trial', ig_accounts: 0, bot_replies: 0, orders_processed: 0 });
+                    userMap.set(au.id, { id: au.id, plan: 'starter', ig_accounts: 0, bot_replies: 0, orders_processed: 0 });
                 }
                 const existing = userMap.get(au.id);
                 existing.email = au.email;

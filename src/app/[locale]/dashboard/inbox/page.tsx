@@ -480,9 +480,9 @@ export default function InteractionsPage() {
                                     {activeChat.isComment && <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full border border-blue-500/20 uppercase font-bold tracking-tight">Public Comment</span>}
                                 </h2>
                                 {isMuted ? (
-                                    <span className="text-[10px] text-yellow-500 flex items-center gap-1 font-bold">
+                                    <span className="text-[10px] text-amber-500 flex items-center gap-1 font-bold">
                                         <PauseCircle className="w-3 h-3" />
-                                        MUTED (Manual)
+                                        YOU'RE IN CONTROL
                                     </span>
                                 ) : (
                                     <span className="text-[10px] text-green-400 flex items-center gap-1 font-bold">
@@ -511,11 +511,11 @@ export default function InteractionsPage() {
                                 )}
                             >
                                 {planTier === 'starter' ? (
-                                    <><PauseCircle className="w-3 h-3" /> Mute AI (Pro)</>
+                                    <><PauseCircle className="w-3 h-3" /> Take Over (Pro)</>
                                 ) : isMuted ? (
-                                    <><PlayCircle className="w-3 h-3" /> Resume AI</>
+                                    <><PlayCircle className="w-3 h-3" /> Release to AI</>
                                 ) : (
-                                    <><PauseCircle className="w-3 h-3" /> Mute AI</>
+                                    <><PauseCircle className="w-3 h-3" /> Take Over</>
                                 )}
                             </button>
 

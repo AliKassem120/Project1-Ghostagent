@@ -43,12 +43,9 @@ export default function RegisterPage() {
         }
 
         if (data?.user?.id) {
-            const trialEnd = new Date();
-            trialEnd.setDate(trialEnd.getDate() + 14);
             await supabase.from('users').upsert({
                 id: data.user.id,
-                plan_tier: 'free_trial',
-                trial_ends_at: trialEnd.toISOString(),
+                plan_tier: 'starter',
             }, { onConflict: 'id' });
         }
 

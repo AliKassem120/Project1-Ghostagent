@@ -52,7 +52,7 @@ export default function BillingPage() {
                     return;
                 }
 
-                const tier = userData.plan_tier || 'free_trial';
+                const tier = userData.plan_tier || 'starter';
                 setPlanDetails({
                     tier,
                     trial_ends_at: userData.trial_ends_at,
@@ -406,7 +406,7 @@ export default function BillingPage() {
                                 <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
                                 <div>
                                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                                        {planDetails.tier === 'free_trial' ? 'Trial Ends' : 'Next Billing'}
+                                        {planDetails.tier === 'starter' ? 'Free Forever' : 'Next Billing'}
                                     </p>
                                     <p className="text-sm font-semibold text-muted-foreground">
                                         {planDetails.period_end || planDetails.trial_ends_at

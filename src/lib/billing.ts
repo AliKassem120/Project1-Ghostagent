@@ -21,15 +21,10 @@ export async function checkUserLimit(userId: string): Promise<{ allowed: boolean
             return { allowed: false, reason: 'Failed to retrieve plan information.' };
         }
 
-        const plan = user.plan_tier || 'free_trial';
+        const plan = user.plan_tier || 'starter';
         const planLower = plan.toLowerCase();
 
-        // 2. Empire = unlimited, no checks needed
-        if (planLower === 'empire') {
-            return { allowed: true };
-        }
-
-        // 3. All plans share the same monthly usage check (count AI replies this month)
+        // 2. Count monthly usage (shared across all plans)
         const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
         const { count, error: countError } = await supabaseAdmin
             .from('activity_log')
@@ -38,14 +33,17 @@ export async function checkUserLimit(userId: string): Promise<{ allowed: boolean
             .in('event_type', ['AI_REPLY', 'COMMENT_REPLY'])
             .gte('timestamp', firstDayOfMonth);
 
-        if (countError) {
-            console.error('Error fetching usage count:', countError);
-        }
-
+        if (countError) console.error('Error fetching usage count:', countError);
         const currentUsage = count || 0;
 
-        // 4. Pro plan — 1,000 DMs/month cap
-        const isPro = planLower === 'pro' || planLower === 'pro agent' || planLower === 'starter';
+        // 3. Empire — 10,000 reply cap
+        if (planLower === 'empire') {
+            const EMPIRE_LIMIT = getReplyLimit('empire') ?? 10000;
+            if (currentUsage >= EMPIRE_LIMIT) {
+                return { allowed: false, reason: `You've used all ${EMPIRE_LIMIT.toLocaleString()} AI replies for this month. Contact us for an overage plan.` };
+            }
+            return { allowed: true };
+        }
 
         if (planLower === 'pro' || planLower === 'pro agent') {
             // Verify subscription not expired
@@ -60,10 +58,9 @@ export async function checkUserLimit(userId: string): Promise<{ allowed: boolean
             return { allowed: true };
         }
 
-        // 5. Starter paid plan (if it ever becomes paid)
         if (planLower === 'starter') {
             const periodEnd = user.current_period_end ? new Date(user.current_period_end) : new Date(Date.now() + 86400000);
-            if (periodEnd < new Date()) {
+            if (user.current_period_end && periodEnd < new Date()) {
                 return { allowed: false, reason: 'Your subscription has expired.' };
             }
             const STARTER_LIMIT = getReplyLimit('starter') ?? 50;
@@ -73,20 +70,6 @@ export async function checkUserLimit(userId: string): Promise<{ allowed: boolean
             return { allowed: true };
         }
 
-        // 6. Free Trial — time-based + 50-reply cap
-        if (plan === 'free_trial') {
-            const trialEnd = new Date(user.trial_ends_at || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000));
-            if (trialEnd < new Date()) {
-                return { allowed: false, reason: 'Your free trial has expired. Upgrade to keep your AI agent running.' };
-            }
-
-            const FREE_LIMIT = 50;
-            if (currentUsage >= FREE_LIMIT) {
-                return { allowed: false, reason: `You've used all ${FREE_LIMIT} free replies this month. Upgrade to Pro to continue without interruption.` };
-            }
-
-            return { allowed: true };
-        }
 
         return { allowed: false, reason: 'Unknown plan tier.' };
     } catch (e) {

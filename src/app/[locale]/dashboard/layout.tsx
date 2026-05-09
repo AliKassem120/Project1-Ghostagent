@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LayoutDashboard, Inbox, Package, Settings, LogOut, CreditCard, Zap, ChevronRight, BookOpen, Calendar, Clock, Briefcase, Building2, Check, Plus, Loader2 } from 'lucide-react';
+import { LayoutDashboard, Inbox, Package, Settings, LogOut, CreditCard, Zap, ChevronRight, BookOpen, Calendar, Clock, Briefcase, Building2, Check, Plus, Loader2, BarChart2 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 import { useState, useEffect } from 'react';
@@ -46,6 +46,7 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     ];
 
     const bottomItems = [
+        { icon: BarChart2, label: 'Analytics', href: '/dashboard/analytics' },
         { icon: Settings, label: 'AI Settings', href: '/dashboard/settings' },
         { icon: CreditCard, label: 'Billing', href: '/dashboard/billing' },
     ];

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Save, Bot, DollarSign, Bell, Globe, Sparkles, Upload, Building2, Loader2, Check, FileSpreadsheet, X, Instagram, Phone, Trash2, Plus, Lock, Wifi, Timer } from 'lucide-react';
+import { Save, Bot, DollarSign, Bell, Globe, Sparkles, Upload, Building2, Loader2, Check, FileSpreadsheet, X, Instagram, Phone, Trash2, Plus, Lock, Wifi, Timer, Users } from 'lucide-react';
 import { clsx } from 'clsx';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
@@ -15,7 +15,7 @@ import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { updateWorkspaceSettingsAction } from '@/app/actions/settings';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 
-export type SettingsTab = 'business' | 'personality' | 'connections' | 'advanced';
+export type SettingsTab = 'business' | 'personality' | 'connections' | 'advanced' | 'team';
 import { MessageCircle } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -24,6 +24,7 @@ export default function SettingsPage() {
     const { activeWorkspaceId, planTier, isLoading: wsLoading, removeWorkspace, workspaces } = useWorkspace();
     const isPro = planTier === 'pro' || planTier === 'empire';
     const isEmpire = planTier === 'empire';
+    const isFreePlan = planTier === 'starter';
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState(false);
@@ -32,13 +33,19 @@ export default function SettingsPage() {
     const [disconnectModal, setDisconnectModal] = useState<{ open: boolean; accountId: string | null }>({ open: false, accountId: null });
     const [deleteWsModal, setDeleteWsModal] = useState(false);
     const [deletingWs, setDeletingWs] = useState(false);
+    // Team state
+    const [teamMembers, setTeamMembers] = useState<any[]>([]);
+    const [teamLoading, setTeamLoading] = useState(false);
+    const [inviteEmail, setInviteEmail] = useState('');
+    const [inviteRole, setInviteRole] = useState<'staff' | 'manager'>('staff');
+    const [inviting, setInviting] = useState(false);
 
     // Tab Navigation
     const searchParams = useSearchParams();
     const router = useRouter();
     const pathname = usePathname();
     const rawTab = searchParams.get('tab') as string;
-    const VALID_TABS = ['business', 'personality', 'connections', 'advanced'];
+    const VALID_TABS = ['business', 'personality', 'connections', 'advanced', 'team'];
     const activeTab: SettingsTab = VALID_TABS.includes(rawTab || '') 
         ? (rawTab as SettingsTab) 
         : 'business';
@@ -219,6 +226,17 @@ export default function SettingsPage() {
         return () => { controller.abort(); clearInterval(interval); };
     }, [checkInstagramStatus]);
 
+    // Fetch team members when Empire user opens Team tab
+    useEffect(() => {
+        if (!isEmpire || !activeWorkspaceId || activeTab !== 'team') return;
+        setTeamLoading(true);
+        fetch(`/api/team?workspaceId=${activeWorkspaceId}`)
+            .then(r => r.json())
+            .then(d => setTeamMembers(d.members || []))
+            .catch(() => {})
+            .finally(() => setTeamLoading(false));
+    }, [isEmpire, activeWorkspaceId, activeTab]);
+
     const handleConnectInstagram = () => {
         setConnecting(true);
 
@@ -380,7 +398,8 @@ export default function SettingsPage() {
                     { id: 'business', label: 'Business & Sales', icon: Building2 },
                     { id: 'personality', label: 'AI Persona & Training', icon: Bot },
                     { id: 'connections', label: 'Integrations & Alerts', icon: Globe },
-                    { id: 'advanced', label: 'Advanced', icon: Trash2 }
+                    { id: 'advanced', label: 'Advanced', icon: Trash2 },
+                    ...(isEmpire ? [{ id: 'team', label: 'Team', icon: Users }] : [])
                 ].map(tab => (
                     <button
                         key={tab.id}
@@ -514,7 +533,7 @@ export default function SettingsPage() {
                         <div className="space-y-1.5 md:col-span-2">
                             <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1 flex items-center gap-1.5">
                                 <Timer className="w-3 h-3" /> Reply Delay
-                                {planTier === 'free_trial' && (
+                                {isFreePlan && (
                                     <span className="ml-1 flex items-center gap-1 text-[9px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-full px-1.5 py-0.5">
                                         <Lock className="w-2.5 h-2.5" /> Paid
                                     </span>
@@ -522,7 +541,7 @@ export default function SettingsPage() {
                             </label>
                             <div className={clsx(
                                 "p-4 bg-surface-2 rounded-xl border border-border relative",
-                                planTier === 'free_trial' && 'opacity-50 pointer-events-none'
+                                isFreePlan && 'opacity-50 pointer-events-none'
                             )}>
                                 <input
                                     type="range"
@@ -532,7 +551,7 @@ export default function SettingsPage() {
                                     value={settings.replyDelay}
                                     onChange={(e) => setSettings({ ...settings, replyDelay: parseInt(e.target.value) })}
                                     className="w-full h-2 bg-surface-3 rounded-full appearance-none cursor-pointer accent-primary border border-border"
-                                    disabled={planTier === 'free_trial'}
+                                    disabled={isFreePlan}
                                     style={{
                                         background: `linear-gradient(to right, rgb(139 92 246) 0%, rgb(139 92 246) ${(settings.replyDelay / 900) * 100}%, var(--surface-3) ${(settings.replyDelay / 900) * 100}%, var(--surface-3) 100%)`
                                     }}
@@ -601,7 +620,7 @@ export default function SettingsPage() {
                 </motion.div>
             )}
 
-            {/* WhatsApp Business (Omnichannel — Empire only) */}
+            {/* WhatsApp Business — Embedded Signup */}
             {activeTab === 'connections' && (
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.17 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6 relative overflow-x-clip">
                     <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
@@ -610,62 +629,161 @@ export default function SettingsPage() {
                         </div>
                         <div>
                             <h2 className="text-sm font-semibold text-foreground">WhatsApp Business</h2>
-                            <p className="text-[11px] text-muted-foreground">Omnichannel AI — reply to WhatsApp customers</p>
+                            <p className="text-[11px] text-muted-foreground">Connect your WhatsApp number to GhostAgent</p>
                         </div>
                         <span className={clsx(
                             'ml-auto flex items-center gap-1 text-[10px] font-bold rounded-full px-2.5 py-1 border',
-                            isEmpire
+                            isPro
                                 ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
                                 : 'text-muted-foreground bg-surface-2 border-border'
                         )}>
-                            {!isEmpire && <Lock className="w-3 h-3" />}
-                            Empire
+                            {!isPro && <Lock className="w-3 h-3" />}
+                            Pro+
                         </span>
                     </div>
 
-                    <div className={clsx("space-y-4 relative z-10", !isEmpire ? 'opacity-50 pointer-events-none' : '')}>
-                        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 mb-4">
-                            <p className="text-xs text-amber-500/90 font-medium">
-                                🛠️ Developer Mode: Paste your Meta Test Credentials here to record your App Review video.
-                            </p>
-                        </div>
+                    <div className={clsx("space-y-4 relative z-10", !isPro ? 'opacity-50 pointer-events-none' : '')}>
+                        {/* Connected State */}
+                        {settings.waPhoneNumberId ? (
+                            <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                                        <Wifi className="w-4 h-4 text-emerald-400" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-emerald-400">WhatsApp Connected</p>
+                                        <p className="text-[11px] text-muted-foreground font-mono">{settings.waPhoneNumberId}</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setSettings({ ...settings, waPhoneNumberId: '', waBusinessAccountId: '', waAccessToken: '' })}
+                                    className="px-3 py-1.5 text-[11px] font-bold bg-red-500/5 text-red-400/60 border border-red-500/10 hover:bg-red-500/10 hover:text-red-400 rounded-lg transition-colors"
+                                >
+                                    Disconnect
+                                </button>
+                            </div>
+                        ) : (
+                            /* Connect Button — Launches Embedded Signup */
+                            <div className="space-y-3">
+                                <p className="text-xs text-muted-foreground">
+                                    Connect your WhatsApp Business account in one click. You&apos;ll be guided through the Meta setup flow.
+                                </p>
+                                <button
+                                    id="wa-embedded-signup-btn"
+                                    onClick={() => {
+                                        const appId = process.env.NEXT_PUBLIC_INSTAGRAM_APP_ID;
+                                        const configId = process.env.NEXT_PUBLIC_WHATSAPP_CONFIG_ID;
 
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Phone Number ID</label>
-                            <input
-                                type="text"
-                                value={settings.waPhoneNumberId}
-                                onChange={(e) => setSettings({ ...settings, waPhoneNumberId: e.target.value })}
-                                className="input-premium w-full font-mono text-xs"
-                                placeholder="e.g. 1021626144366767"
-                                disabled={!isEmpire}
-                            />
-                        </div>
+                                        // Load Facebook SDK if not already loaded
+                                        const loadAndLaunch = () => {
+                                            (window as any).FB.login(
+                                                async (response: any) => {
+                                                    if (response.authResponse?.code) {
+                                                        toast.info('Connecting WhatsApp...');
+                                                        try {
+                                                            const res = await fetch('/api/auth/callback/whatsapp', {
+                                                                method: 'POST',
+                                                                headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify({
+                                                                    code: response.authResponse.code,
+                                                                    workspaceId: activeWorkspaceId,
+                                                                }),
+                                                            });
+                                                            const data = await res.json();
+                                                            if (!res.ok) throw new Error(data.error);
+                                                            setSettings(prev => ({
+                                                                ...prev,
+                                                                waPhoneNumberId: data.phone_number_id,
+                                                                waBusinessAccountId: data.waba_id,
+                                                                waAccessToken: '(saved)',
+                                                            }));
+                                                            toast.success(`WhatsApp connected! ${data.display_phone}`);
+                                                        } catch (e: any) {
+                                                            toast.error(e.message || 'Connection failed');
+                                                        }
+                                                    } else {
+                                                        toast.error('WhatsApp connection cancelled or failed.');
+                                                    }
+                                                },
+                                                {
+                                                    config_id: configId,
+                                                    response_type: 'code',
+                                                    override_default_response_type: true,
+                                                    extras: { setup: {}, featureName: 'whatsapp_embedded_signup', sessionInfoVersion: '3' },
+                                                }
+                                            );
+                                        };
 
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">WhatsApp Business Account ID</label>
-                            <input
-                                type="text"
-                                value={settings.waBusinessAccountId}
-                                onChange={(e) => setSettings({ ...settings, waBusinessAccountId: e.target.value })}
-                                className="input-premium w-full font-mono text-xs"
-                                placeholder="e.g. 1636770974186554"
-                                disabled={!isEmpire}
-                            />
-                        </div>
+                                        if ((window as any).FB) {
+                                            loadAndLaunch();
+                                        } else {
+                                            // Dynamically load Facebook SDK
+                                            const script = document.createElement('script');
+                                            script.src = 'https://connect.facebook.net/en_US/sdk.js';
+                                            script.async = true;
+                                            script.defer = true;
+                                            script.onload = () => {
+                                                (window as any).FB.init({
+                                                    appId,
+                                                    autoLogAppEvents: true,
+                                                    xfbml: true,
+                                                    version: 'v19.0',
+                                                });
+                                                loadAndLaunch();
+                                            };
+                                            document.body.appendChild(script);
+                                        }
+                                    }}
+                                    className="flex items-center gap-3 bg-[#25D366] hover:bg-[#1ebe5d] text-white font-bold px-5 py-3 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] shadow-[0_4px_20px_rgba(37,211,102,0.3)]"
+                                >
+                                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                                    </svg>
+                                    Connect WhatsApp Business
+                                </button>
+                                <p className="text-[10px] text-muted-foreground">You&apos;ll be redirected to Meta to select your WhatsApp Business account.</p>
+                            </div>
+                        )}
 
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Temporary Access Token</label>
-                            <input
-                                type="password"
-                                value={settings.waAccessToken}
-                                onChange={(e) => setSettings({ ...settings, waAccessToken: e.target.value })}
-                                className="input-premium w-full font-mono text-xs"
-                                placeholder="EAAI..."
-                                disabled={!isEmpire}
-                            />
-                        </div>
+                        {/* Manual Fallback — collapsed */}
+                        <details className="group">
+                            <summary className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground transition-colors flex items-center gap-1.5 select-none mt-2">
+                                <span className="group-open:rotate-90 transition-transform inline-block">▶</span>
+                                Advanced: Manual Credentials
+                            </summary>
+                            <div className="mt-4 space-y-3 pl-4 border-l border-border">
+                                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
+                                    <p className="text-xs text-amber-500/90 font-medium">🛠️ For testing only. Use the button above for production.</p>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Phone Number ID</label>
+                                    <input type="text" value={settings.waPhoneNumberId} onChange={(e) => setSettings({ ...settings, waPhoneNumberId: e.target.value })} className="input-premium w-full font-mono text-xs" placeholder="e.g. 1021626144366767" />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">WhatsApp Business Account ID</label>
+                                    <input type="text" value={settings.waBusinessAccountId} onChange={(e) => setSettings({ ...settings, waBusinessAccountId: e.target.value })} className="input-premium w-full font-mono text-xs" placeholder="e.g. 1636770974186554" />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Temporary Access Token</label>
+                                    <input type="password" value={settings.waAccessToken} onChange={(e) => setSettings({ ...settings, waAccessToken: e.target.value })} className="input-premium w-full font-mono text-xs" placeholder="EAAI..." />
+                                </div>
+                            </div>
+                        </details>
                     </div>
+
+                    {/* Paywall overlay for Starter */}
+                    {!isPro && (
+                        <div className="absolute inset-0 bg-background/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center gap-3 z-10">
+                            <div className="p-3 rounded-full bg-surface-2 border border-border">
+                                <Lock className="w-5 h-5 text-muted-foreground" />
+                            </div>
+                            <div className="text-center px-6">
+                                <p className="text-sm font-bold text-muted-foreground">Pro Feature</p>
+                                <p className="text-[11px] text-muted-foreground mt-1">Upgrade to Pro to connect WhatsApp Business and reply to customers there.</p>
+                            </div>
+                            <a href="/dashboard/billing" className="text-[11px] font-bold text-primary hover:underline">Upgrade to Pro →</a>
+                        </div>
+                    )}
                 </motion.div>
             )}
 
@@ -1114,15 +1232,15 @@ export default function SettingsPage() {
                         <div className="grid md:grid-cols-3 gap-4">
                             <div className="bg-surface-2 rounded-xl p-4">
                                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Active Plan</p>
-                                <p className="text-lg font-black text-foreground capitalize">{planTier === 'free_trial' ? 'Starter (Trial)' : planTier === 'pro' ? 'Pro Agent' : planTier === 'empire' ? 'Empire' : planTier}</p>
+                                <p className="text-lg font-black text-foreground capitalize">{planTier === 'starter' ? 'Starter' : planTier === 'pro' ? 'Pro Agent' : planTier === 'empire' ? 'Empire' : planTier}</p>
                             </div>
                             <div className="bg-surface-2 rounded-xl p-4">
                                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Reply Limit</p>
-                                <p className="text-lg font-black text-foreground">{planTier === 'empire' ? 'Unlimited' : planTier === 'pro' ? '1,000 / month' : '100 / month'}</p>
+                                <p className="text-lg font-black text-foreground">{planTier === 'empire' ? '10,000 / month' : planTier === 'pro' ? '1,000 / month' : '100 / month'}</p>
                             </div>
                             <div className="bg-surface-2 rounded-xl p-4">
                                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Workspaces</p>
-                                <p className="text-lg font-black text-foreground">{workspaces.length} / {planTier === 'empire' ? '5' : '1'}</p>
+                                <p className="text-lg font-black text-foreground">{workspaces.length} / {planTier === 'empire' ? '3' : '1'}</p>
                             </div>
                         </div>
                         <div className="mt-4 pt-4 border-t border-border">
@@ -1159,6 +1277,103 @@ export default function SettingsPage() {
                         </div>
                     </motion.div>
                 </>
+            )}
+
+            {/* Team Tab */}
+            {activeTab === 'team' && isEmpire && (
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6">
+                    <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
+                        <div className="p-2.5 rounded-xl bg-amber-500/10">
+                            <Users className="w-5 h-5 text-amber-400" />
+                        </div>
+                        <div>
+                            <h2 className="text-sm font-semibold text-foreground">Team Access</h2>
+                            <p className="text-[11px] text-muted-foreground">Invite staff members to view your inbox and manage conversations</p>
+                        </div>
+                        <span className="ml-auto px-2 py-0.5 text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full uppercase tracking-wider">Empire</span>
+                    </div>
+
+                    {/* Invite Form */}
+                    <div className="space-y-4 mb-6">
+                        <p className="text-xs text-muted-foreground">Invited members can log in and view this workspace&apos;s inbox. Managers can also take over conversations.</p>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <input
+                                type="email"
+                                placeholder="teammate@email.com"
+                                value={inviteEmail}
+                                onChange={e => setInviteEmail(e.target.value)}
+                                className="input-premium flex-1 text-sm"
+                            />
+                            <select
+                                value={inviteRole}
+                                onChange={e => setInviteRole(e.target.value as 'staff' | 'manager')}
+                                className="input-premium text-sm w-full sm:w-36"
+                            >
+                                <option value="staff">Staff (View)</option>
+                                <option value="manager">Manager (Act)</option>
+                            </select>
+                            <button
+                                onClick={async () => {
+                                    if (!inviteEmail || !activeWorkspaceId) return;
+                                    setInviting(true);
+                                    try {
+                                        const res = await fetch('/api/team', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ workspaceId: activeWorkspaceId, email: inviteEmail, role: inviteRole })
+                                        });
+                                        const data = await res.json();
+                                        if (!res.ok) throw new Error(data.error);
+                                        toast.success(`Invite sent to ${inviteEmail}`);
+                                        setInviteEmail('');
+                                        // Refresh members
+                                        const r2 = await fetch(`/api/team?workspaceId=${activeWorkspaceId}`);
+                                        const d2 = await r2.json();
+                                        setTeamMembers(d2.members || []);
+                                    } catch (e: any) {
+                                        toast.error(e.message || 'Failed to invite');
+                                    } finally {
+                                        setInviting(false);
+                                    }
+                                }}
+                                disabled={inviting || !inviteEmail}
+                                className="px-4 py-2 bg-primary text-black rounded-xl text-sm font-bold hover:scale-[1.02] transition-transform disabled:opacity-50 flex items-center gap-2 shrink-0"
+                            >
+                                {inviting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                                Invite
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Members List */}
+                    <div className="space-y-2">
+                        {teamLoading ? (
+                            <div className="h-16 bg-surface-2 rounded-xl animate-pulse" />
+                        ) : teamMembers.length === 0 ? (
+                            <div className="text-center py-8 text-muted-foreground text-sm border border-dashed border-border rounded-xl">
+                                No team members yet. Invite someone above.
+                            </div>
+                        ) : teamMembers.map((m: any) => (
+                            <div key={m.id} className="flex items-center justify-between bg-surface-2 p-4 rounded-xl border border-border">
+                                <div>
+                                    <p className="text-sm font-semibold text-foreground">{m.invite_email}</p>
+                                    <p className="text-[11px] text-muted-foreground capitalize">{m.role} · {m.status}</p>
+                                </div>
+                                <button
+                                    onClick={async () => {
+                                        if (!confirm(`Remove ${m.invite_email}?`)) return;
+                                        await fetch(`/api/team?memberId=${m.id}`, { method: 'DELETE' });
+                                        setTeamMembers(prev => prev.filter(x => x.id !== m.id));
+                                        toast.success('Member removed');
+                                    }}
+                                    className="px-3 py-1.5 text-[11px] font-bold bg-red-500/5 text-red-400/60 border border-red-500/10 hover:bg-red-500/10 hover:text-red-400 rounded-lg transition-colors"
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </motion.div>
             )}
 
             {/* Danger Zone */}
