@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Check, Crown, Zap, CreditCard, Calendar, AlertCircle, X, TrendingUp, MessageSquare, DollarSign, Shield, Sparkles, ArrowRight, RotateCcw } from 'lucide-react';
+import { Check, Crown, Zap, CreditCard, Calendar, AlertCircle, X, TrendingUp, MessageSquare, DollarSign, Shield, Sparkles, ArrowRight, RotateCcw, Loader2 } from 'lucide-react';
 import { PLANS, getPlanByTier } from '@/lib/plans';
 import { clsx } from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -586,60 +586,104 @@ export default function BillingPage() {
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             onClick={() => setShowUpgradeModal(false)}
-                            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
+                            className="fixed inset-0 bg-black/70 backdrop-blur-md z-50"
                         />
                         <div className="fixed inset-0 z-[51] flex items-center justify-center p-4">
                             <motion.div
-                                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                initial={{ opacity: 0, scale: 0.92, y: 16 }}
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                                className="relative w-full max-w-md glass-dark rounded-2xl p-8 border border-border"
+                                exit={{ opacity: 0, scale: 0.92, y: 16 }}
+                                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                                className="relative w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-[#0d0d12]"
+                                style={{ boxShadow: '0 0 0 1px rgba(139,92,246,0.15), 0 32px 80px -16px rgba(139,92,246,0.35)' }}
                             >
-                                <button
-                                    onClick={() => setShowUpgradeModal(false)}
-                                    className="absolute top-4 right-4 p-2 rounded-lg bg-surface-2 hover:bg-surface-2 transition-colors"
-                                >
-                                    <X className="w-4 h-4 text-muted-foreground" />
-                                </button>
-
-                                <div className="flex items-center gap-3 mb-6">
-                                    <div className="p-2.5 rounded-xl bg-primary/10">
-                                        <TrendingUp className="w-5 h-5 text-primary" />
+                                {/* Gradient header */}
+                                <div className="relative h-36 bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 flex items-end p-6 overflow-hidden">
+                                    {/* Background glow orbs */}
+                                    <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-white/10 blur-2xl" />
+                                    <div className="absolute -bottom-4 -left-4 w-28 h-28 rounded-full bg-fuchsia-500/30 blur-2xl" />
+                                    {/* Close */}
+                                    <button
+                                        onClick={() => setShowUpgradeModal(false)}
+                                        className="absolute top-4 right-4 p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                                    >
+                                        <X className="w-4 h-4 text-white" />
+                                    </button>
+                                    <div className="relative z-10">
+                                        <p className="text-white/70 text-xs font-semibold uppercase tracking-widest mb-1">Unlocking</p>
+                                        <h3 className="text-2xl font-black text-white">{targetPlan.name}</h3>
                                     </div>
-                                    <h3 className="text-xl font-bold text-foreground">Upgrade to {targetPlan.name}</h3>
+                                    {/* Price badge */}
+                                    <div className="relative z-10 ml-auto text-right">
+                                        <p className="text-white/60 text-xs">per month</p>
+                                        <p className="text-3xl font-black text-white">${targetPlan.price}</p>
+                                    </div>
                                 </div>
 
-                                <div className="space-y-4 mb-6">
-                                    <div className="p-4 rounded-xl bg-surface-2 border border-border flex items-center gap-4">
-                                        <Calendar className="w-5 h-5 text-muted-foreground" />
-                                        <div>
-                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">New Billing Cycle</p>
-                                            <p className="text-sm font-semibold text-foreground">
-                                                {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} 
-                                                {' '}–{' '} 
+                                {/* Body */}
+                                <div className="p-6 space-y-4">
+                                    {/* Features you're unlocking */}
+                                    <div className="space-y-2">
+                                        {(PLANS.find(p => p.name === targetPlan.name)?.features || []).slice(0, 4).map(f => (
+                                            <div key={f} className="flex items-center gap-2.5">
+                                                <div className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                                                    <Check className="w-2.5 h-2.5 text-primary" />
+                                                </div>
+                                                <span className="text-sm text-muted-foreground">{f}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Billing details */}
+                                    <div className="rounded-2xl border border-white/5 bg-white/[0.03] p-4 space-y-3">
+                                        <div className="flex justify-between items-center">
+                                            <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                                                <Calendar className="w-3.5 h-3.5" />
+                                                Billing cycle
+                                            </div>
+                                            <span className="text-xs font-semibold text-foreground">
+                                                {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                {' – '}
                                                 {new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                            </p>
+                                            </span>
+                                        </div>
+                                        <div className="border-t border-white/5 pt-3 flex justify-between items-center">
+                                            <span className="text-sm font-bold text-foreground">Total due today</span>
+                                            <span className="text-2xl font-black text-primary">${targetPlan.price}</span>
                                         </div>
                                     </div>
-                                    <div className="flex justify-between items-center p-4 rounded-xl bg-surface-2 border border-border">
-                                        <span className="text-sm font-medium text-muted-foreground">Total due today</span>
-                                        <span className="text-xl font-bold text-foreground">${targetPlan.price}</span>
-                                    </div>
-                                </div>
 
-                                <button
-                                    onClick={handleUpgradeProceed}
-                                    disabled={isUpdating}
-                                    className="w-full py-3 bg-primary text-black font-bold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
-                                >
-                                    {isUpdating ? 'Redirecting...' : 'Proceed with Whish Money'}
-                                    <ArrowRight className="w-4 h-4" />
-                                </button>
+                                    {/* CTA */}
+                                    <button
+                                        onClick={handleUpgradeProceed}
+                                        disabled={isUpdating}
+                                        className="w-full py-3.5 rounded-2xl font-black text-sm text-black flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:scale-100"
+                                        style={{ background: 'linear-gradient(135deg, #a855f7, #7c3aed, #ec4899)', boxShadow: '0 8px 24px -4px rgba(139,92,246,0.5)' }}
+                                    >
+                                        {isUpdating ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                Redirecting to payment...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <CreditCard className="w-4 h-4" />
+                                                Pay with Whish Money
+                                            </>
+                                        )}
+                                    </button>
+
+                                    {/* Trust line */}
+                                    <p className="text-center text-[11px] text-muted-foreground">
+                                        🔒 Secure payment · Cancel anytime · Instant access
+                                    </p>
+                                </div>
                             </motion.div>
                         </div>
                     </>
                 )}
             </AnimatePresence>
+
 
             {/* ═══ DOWNGRADE MODAL ═══ */}
             <AnimatePresence>
