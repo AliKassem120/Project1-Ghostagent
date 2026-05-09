@@ -20,6 +20,7 @@ import { createAppointmentV2Structured } from '../appointments/create-appointmen
 import { detectYesNo, extractNameAndPhone } from '../language';
 import { buildTimeContext, resolveDateFromMessage, resolveTimeFromMessage, formatTime12, minutesToTime, formatDateLabel } from '../time';
 import { getKnownCustomerDetails } from '../customer-history';
+import { getRecentConversationMessages, extractCustomerDetailsFromRecentMessages } from '../history/recent-messages';
 import { llmExtractAppointment } from '../llm-entity-extractor';
 import { v2log } from '../logger';
 import { SupabaseClient } from '@supabase/supabase-js';
@@ -475,8 +476,52 @@ async function handleAwaitingCustomerDetails(
 ): Promise<FSMResult> {
     // Try to extract name and phone from the message
     const { name, phone } = extractNameAndPhone(ctx.message);
-    const extractedName = name || state.customer.name;
-    const extractedPhone = phone || state.customer.phone;
+    let extractedName = name || state.customer.name;
+    let extractedPhone = phone || state.customer.phone;
+
+    // ── "Already sent it" recovery ──────────────────────────
+    const alreadySentPattern = /\b(already\s*sent|sent\s*(it|above)|check\s*above|I\s*sent\s*it|b3atton|b3attak|b3ata|same\s*info|use\s*my\s*info)\b/i;
+    if (alreadySentPattern.test(ctx.message) && !name && !phone) {
+        let currentStateCustomer = { ...state.customer };
+
+        if (!currentStateCustomer.name || !currentStateCustomer.phone) {
+            const recentMsgs = await getRecentConversationMessages(ctx.supabase, ctx.workspaceId, ctx.chatId);
+            const extracted = await extractCustomerDetailsFromRecentMessages(recentMsgs);
+            if (extracted.customerName) currentStateCustomer.name = extracted.customerName;
+            if (extracted.customerPhone) currentStateCustomer.phone = extracted.customerPhone;
+            state.customer = currentStateCustomer;
+        }
+
+        if (state.customer.name || state.customer.phone) {
+            const missing = [];
+            if (!state.customer.name) missing.push(ctx.language === 'arabizi' ? 'ismak' : 'name');
+            if (!state.customer.phone) missing.push(ctx.language === 'arabizi' ? 'ra2mak' : 'phone number');
+
+            if (missing.length > 0) {
+                return {
+                    replyText: t(`I have some of your info. I still need your ${missing.join(' and ')}.`, `3ande ba3do. Bado ${missing.join(' w ')}.`, ctx.language),
+                    nextStage: 'awaiting_customer_details',
+                    nextData: state,
+                    actions: ['already_sent_partial_recovery'],
+                    dbWriteAttempted: false,
+                    dbWriteSuccess: false,
+                    shouldReply: true,
+                };
+            }
+            extractedName = state.customer.name || extractedName;
+            extractedPhone = state.customer.phone || extractedPhone;
+        } else {
+            return {
+                replyText: t('I couldn\'t find your info above. I need your name and phone number to book.', 'Ma l2iton abel. B3atle ismak w ra2mak la 2akked el 7ajez.', ctx.language),
+                nextStage: 'awaiting_customer_details',
+                nextData: state,
+                actions: ['already_sent_no_data'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            };
+        }
+    }
 
     // If user just says "yes"/"ok" without providing info, repeat the ask
     const yesNo = detectYesNo(ctx.message);

@@ -74,6 +74,7 @@ const LLMIntentSchema = z.object({
     isTransactional: z.boolean(),
     needsClarification: z.boolean(),
     language: z.string(),
+    source: z.literal('llm').optional(),
 });
 
 // ── Model Config ────────────────────────────────────────────
@@ -252,7 +253,7 @@ export async function classifyIntentWithLLM(
             ordinal: data.ordinal as IntentOrdinal,
             entities: (data.entities || {}) as NormalizedIntent['entities'],
             isTransactional: data.isTransactional ?? isTransactionalIntent(data.intent as CanonicalIntent),
-            needsClarification: data.needsClarification ?? false,
+            needsClarification: data.confidence < 0.70 ? true : (data.needsClarification ?? false),
             language: data.language || 'unknown',
             source: 'llm',
         };

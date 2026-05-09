@@ -135,6 +135,12 @@ export interface FSMResult {
     shouldReply: boolean;
     /** Set after successful order/appointment creation */
     postContext?: PostActionContext;
+    /** Metadata for tracking multi-cancel operations */
+    cancelMeta?: {
+        requestedScope?: string;
+        requestedCount?: number;
+        cancelledCount?: number;
+    };
 }
 
 // ── DB Row ───────────────────────────────────────────────────

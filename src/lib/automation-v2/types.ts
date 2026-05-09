@@ -44,6 +44,11 @@ export interface AutomationResult {
     stateAfter: ConversationStage;
     debug: AutomationDebug;
     error?: string;
+    cancelMeta?: {
+        requestedScope?: string;
+        requestedCount?: number;
+        cancelledCount?: number;
+    };
 }
 
 export interface AutomationDebug {

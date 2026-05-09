@@ -19,6 +19,7 @@ import type { EcommerceStateData, FSMResult, PostActionContext } from './types';
 import type { WorkspaceConfig } from '../types';
 import { searchProducts, findBestProductMatch } from '../ecommerce/products';
 import { extractProductCandidate } from '../ecommerce/extract-product';
+import { getRecentConversationMessages, extractCustomerDetailsFromRecentMessages } from '../history/recent-messages';
 import { llmExtractProduct } from '../llm-entity-extractor';
 import { createOrderV2 } from '../ecommerce/orders';
 import { detectYesNo, extractNameAndPhone, extractAddress } from '../language';
@@ -322,9 +323,24 @@ async function handleAwaitingOrderDetails(
     // ── "Already sent it" recovery ──────────────────────────
     // If user says "already sent it" / "sent above" / "check above" 
     // and we have no new data but DO have state data, use it
-    const alreadySentPattern = /\b(already\s*sent|sent\s*(it|above)|check\s*above|I\s*sent\s*it|b3atton|b3attak|b3ata)\b/i;
+    const alreadySentPattern = /\b(already\s*sent|sent\s*(it|above)|check\s*above|I\s*sent\s*it|b3atton|b3attak|b3ata|same\s*info|use\s*my\s*info)\b/i;
     if (alreadySentPattern.test(ctx.message) && !name && !phone && !address) {
-        // Check if state already has partial data we can use
+        
+        let currentStateCustomer = { ...state.customer };
+
+        // Attempt recent message recovery if data is completely missing
+        if (!currentStateCustomer.name || !currentStateCustomer.phone || !currentStateCustomer.address) {
+            const recentMsgs = await getRecentConversationMessages(ctx.supabase, ctx.workspaceId, ctx.chatId);
+            const extracted = await extractCustomerDetailsFromRecentMessages(recentMsgs);
+            if (extracted.customerName) currentStateCustomer.name = extracted.customerName;
+            if (extracted.customerPhone) currentStateCustomer.phone = extracted.customerPhone;
+            if (extracted.address) currentStateCustomer.address = extracted.address;
+            
+            // Sync the local variables so the rest of the function sees the recovered data
+            state.customer = currentStateCustomer;
+        }
+
+        // Check if state now has partial data we can use
         if (state.customer.name || state.customer.phone || state.customer.address) {
             // We have partial data from previous messages — use it
             const stillMissing = [];
@@ -347,12 +363,16 @@ async function handleAwaitingOrderDetails(
                     shouldReply: true,
                 };
             }
-            // All present — fall through to confirmation below
+            // All present — we fall through to the final confirmation below!
+            // Update the extracted local constants so the final stage logic uses them
+            extractedName = state.customer.name || extractedName;
+            extractedPhone = state.customer.phone || extractedPhone;
+            extractedAddress = state.customer.address || extractedAddress;
         } else {
             return {
                 replyText: t(
-                    'I need your name, phone, and delivery address to place the order.',
-                    'B3atle ismak, ra2mak w el 3nwen la n2akked el order.',
+                    'I couldn\'t find your info above. I need your name, phone, and delivery address to place the order.',
+                    'Ma l2iton abel. B3atle ismak, ra2mak w el 3nwen la n2akked el order.',
                     ctx.language
                 ),
                 nextStage: 'awaiting_order_details',

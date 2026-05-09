@@ -230,6 +230,7 @@ export async function runAgent(
                 classifierConfidence: decision.classifierConfidence,
                 classifierResult: decision.classifierResult,
             },
+            cancelMeta: fsm.cancelMeta,
         };
     }
 

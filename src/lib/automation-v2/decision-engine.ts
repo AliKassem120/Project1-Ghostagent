@@ -149,20 +149,33 @@ function isGlobalInterrupt(intent: string | undefined): boolean {
     ].includes(intent);
 }
 
-function cancelOrderReply(result: Awaited<ReturnType<typeof cancelLatestOrder>>, lang: string): FSMResult {
-    if (result.success) {
+import type { CancelOrdersResult } from './ecommerce/cancel-orders';
+import type { CancelAppointmentsResult } from './appointments/cancel-appointments';
+
+function cancelOrderReply(result: CancelOrdersResult, lang: string): FSMResult {
+    if (result.cancelledCount > 0) {
+        const isMultiple = result.cancelledCount > 1;
         return {
-            replyText: t('Order cancelled.', 'Tamem, el order tenla8a.', lang),
+            replyText: t(
+                isMultiple ? `${result.cancelledCount} orders cancelled.` : 'Order cancelled.',
+                isMultiple ? `${result.cancelledCount} orders tenla8o.` : 'Tamem, el order tenla8a.',
+                lang
+            ),
             nextStage: 'idle',
             nextData: null,
             actions: ['order_cancelled'],
             dbWriteAttempted: true,
             dbWriteSuccess: true,
             shouldReply: true,
+            cancelMeta: {
+                requestedScope: result.requestedScope,
+                requestedCount: result.requestedCount || undefined,
+                cancelledCount: result.cancelledCount,
+            },
         };
     }
 
-    if (result.reason === 'already_cancelled') {
+    if (result.alreadyCancelledCount > 0) {
         return {
             replyText: t('Order is already cancelled.', 'El order already tenla8a.', lang),
             nextStage: 'idle',
@@ -174,9 +187,9 @@ function cancelOrderReply(result: Awaited<ReturnType<typeof cancelLatestOrder>>,
         };
     }
 
-    if (result.reason === 'not_pending_status') {
+    if (result.notCancellableCount > 0) {
         return {
-            replyText: t(`I can't cancel it because status is ${result.status}.`, `Ma fiyye el8e, status: ${result.status}.`, lang),
+            replyText: t(`I can't cancel it because of its status.`, `Ma fiyye el8e 7asab el status.`, lang),
             nextStage: 'idle',
             nextData: null,
             actions: ['order_not_cancellable'],
@@ -186,7 +199,7 @@ function cancelOrderReply(result: Awaited<ReturnType<typeof cancelLatestOrder>>,
         };
     }
 
-    if (result.reason === 'db_error') {
+    if (result.error && result.error !== 'no_orders') {
         return {
             replyText: safeErrorReply(lang),
             nextStage: 'idle',
@@ -209,20 +222,30 @@ function cancelOrderReply(result: Awaited<ReturnType<typeof cancelLatestOrder>>,
     };
 }
 
-function cancelAppointmentReply(result: Awaited<ReturnType<typeof cancelLatestAppointment>>, lang: string): FSMResult {
-    if (result.success) {
+function cancelAppointmentReply(result: CancelAppointmentsResult, lang: string): FSMResult {
+    if (result.cancelledCount > 0) {
+        const isMultiple = result.cancelledCount > 1;
         return {
-            replyText: t('Appointment cancelled.', 'Tamem, el maw3ed tenla8a.', lang),
+            replyText: t(
+                isMultiple ? `${result.cancelledCount} appointments cancelled.` : 'Appointment cancelled.',
+                isMultiple ? `${result.cancelledCount} mwa3id tenla8o.` : 'Tamem, el maw3ed tenla8a.',
+                lang
+            ),
             nextStage: 'idle',
             nextData: null,
             actions: ['appointment_cancelled'],
             dbWriteAttempted: true,
             dbWriteSuccess: true,
             shouldReply: true,
+            cancelMeta: {
+                requestedScope: result.requestedScope,
+                requestedCount: result.requestedCount || undefined,
+                cancelledCount: result.cancelledCount,
+            },
         };
     }
 
-    if (result.reason === 'already_cancelled') {
+    if (result.alreadyCancelledCount > 0) {
         return {
             replyText: t('Appointment is already cancelled.', 'El maw3ed already tenla8a.', lang),
             nextStage: 'idle',
@@ -234,9 +257,9 @@ function cancelAppointmentReply(result: Awaited<ReturnType<typeof cancelLatestAp
         };
     }
 
-    if (result.reason === 'not_cancellable_status') {
+    if (result.notCancellableCount > 0) {
         return {
-            replyText: t(`I can't cancel it because status is ${result.status}.`, `Ma fiyye el8e, status: ${result.status}.`, lang),
+            replyText: t(`I can't cancel it because of its status.`, `Ma fiyye el8e 7asab el status.`, lang),
             nextStage: 'idle',
             nextData: null,
             actions: ['appointment_not_cancellable'],
@@ -246,7 +269,7 @@ function cancelAppointmentReply(result: Awaited<ReturnType<typeof cancelLatestAp
         };
     }
 
-    if (result.reason === 'db_error') {
+    if (result.error && result.error !== 'no_appointments') {
         return {
             replyText: safeErrorReply(lang),
             nextStage: 'idle',
@@ -308,8 +331,8 @@ async function handleGlobalInterrupt(
     }
 
     if ((intent === 'cancel_order' || intent === 'cancel_appointment') && input.workspaceType === 'ecommerce') {
-        const result = await cancelLatestOrder(input.supabase, input.workspaceId, input.chatId);
-        if (!result.success && result.reason === 'no_order' && currentStage !== 'idle' && currentStage !== 'handoff') {
+        const result = await cancelOrdersForChat({ supabase: input.supabase, workspaceId: input.workspaceId, chatId: input.chatId, scope: 'latest' });
+        if (result.error === 'no_orders' && currentStage !== 'idle' && currentStage !== 'handoff') {
             return {
                 replyText: t('No problem. Let me know if you need anything.', 'Wala yhemak. Khaberne eza bdk shi.', lang),
                 nextStage: 'idle',
@@ -324,8 +347,8 @@ async function handleGlobalInterrupt(
     }
 
     if ((intent === 'cancel_appointment' || intent === 'cancel_order') && input.workspaceType === 'appointments') {
-        const result = await cancelLatestAppointment(input.supabase, input.workspaceId, input.chatId);
-        if (!result.success && result.reason === 'no_appointment' && currentStage !== 'idle' && currentStage !== 'handoff') {
+        const result = await cancelAppointmentsForChat({ supabase: input.supabase, workspaceId: input.workspaceId, chatId: input.chatId, scope: 'latest' });
+        if (result.error === 'no_appointments' && currentStage !== 'idle' && currentStage !== 'handoff') {
             return {
                 replyText: t('No problem. Let me know if you need anything.', 'Wala yhemak. Khaberne eza bdk shi.', lang),
                 nextStage: 'idle',

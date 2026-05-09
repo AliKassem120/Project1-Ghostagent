@@ -13,6 +13,7 @@ import { routeToAgent } from './router';
 import { shouldReplyToMessage } from './should-reply';
 import { v2log } from './logger';
 import { guardFinalReply } from './validation/final-reply-guard';
+import { composeNaturalReply } from './replies/reply-composer';
 
 export async function handleAutomationMessage(input: AutomationInput): Promise<AutomationResult> {
     const requestId = crypto.randomUUID();
@@ -80,8 +81,18 @@ export async function handleAutomationMessage(input: AutomationInput): Promise<A
     try {
         const result = await routeToAgent(input);
 
-        const replyBeforeGuard = result.replyText || null;
+        let replyBeforeGuard = result.replyText || null;
         if (replyBeforeGuard) {
+            // Naturalize the reply using the new Reply Composer
+            replyBeforeGuard = await composeNaturalReply({
+                baselineReply: replyBeforeGuard,
+                language: result.debug.language,
+                workspaceType: input.workspaceType,
+                actions: result.actions,
+                dbWriteAttempted: result.debug.dbWriteAttempted || false,
+                dbWriteSuccess: result.debug.dbWriteSuccess || false,
+            });
+
             const guarded = guardFinalReply({
                 replyText: replyBeforeGuard,
                 language: result.debug.language,
@@ -89,6 +100,7 @@ export async function handleAutomationMessage(input: AutomationInput): Promise<A
                 dbWriteSuccess: result.debug.dbWriteSuccess,
                 actionType: result.debug.intent,
                 sourcePath: 'automation-v2/index',
+                cancelMeta: result.cancelMeta,
             });
             result.shouldReply = result.shouldReply && guarded.shouldReply;
             result.replyText = guarded.replyText || undefined;
