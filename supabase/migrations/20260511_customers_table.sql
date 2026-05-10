@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS customers (
     id          UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
     workspace_id UUID       NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     chat_id     TEXT        NOT NULL,
-    platform    TEXT        NOT NULL DEFAULT 'instagram',
+    platform    TEXT        NOT NULL CHECK (platform IN ('instagram', 'whatsapp')),
     name        TEXT,
     phone       TEXT,
     address     TEXT,
