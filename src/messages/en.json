@@ -1,4 +1,4 @@
-{
+﻿{
   "Navbar": {
     "features": "Features",
     "howItWorks": "How It Works",
@@ -352,10 +352,10 @@
     "s4l1": "<strong>Account Information:</strong> Your email address and authentication tokens required to link your Instagram account.",
     "s4l2": "<strong>Communication Data:</strong> Logs of incoming messages and outgoing AI-generated replies for the purpose of maintaining conversation history and improving service quality.",
     "s6t": "6. Contact Us",
-    "s6c": "If you have questions about this Privacy Policy, please contact us at support@ghostagent.qzz.io.",
+    "s6c": "If you have questions about this Privacy Policy, please contact us at support@getghostagent.com.",
     "delTitle": "5. Data Deletion Instructions",
     "delDesc": "You have the right to request the complete deletion of your personal data stored on our servers at any time. To exercise this right:",
-    "del1": "Send an email to <strong className=\"text-primary\">support@ghostagent.qzz.io</strong> with the subject line \"Data Deletion Request\".",
+    "del1": "Send an email to <strong className=\"text-primary\">support@getghostagent.com</strong> with the subject line \"Data Deletion Request\".",
     "del2": "Include your registered email address and your connected Instagram handle.",
     "del3": "We will process your request within 30 days and permanently delete your account, authentication tokens, and all associated chat logs from our database."
   }

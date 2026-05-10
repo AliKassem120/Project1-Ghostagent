@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -90,7 +90,7 @@ export default function AccountPanel({
         setDeleteForm({ loading: true, success: null, error: null });
         // In a real app this would call a server action. For now show the intent.
         setTimeout(() => {
-            setDeleteForm({ loading: false, success: null, error: 'Please contact support@ghostagent.qzz.io to complete account deletion.' });
+            setDeleteForm({ loading: false, success: null, error: 'Please contact support@getghostagent.com to complete account deletion.' });
         }, 1000);
     };
 

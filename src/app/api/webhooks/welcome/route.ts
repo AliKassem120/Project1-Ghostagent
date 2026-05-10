@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
 // Required: nodemailer needs Node.js runtime (not Vercel Edge)
@@ -125,14 +125,14 @@ export async function POST(request: NextRequest) {
       </div>
 
       <div class="cta-wrapper">
-        <a href="https://ghostagent.qzz.io/dashboard" class="cta">Open My Dashboard →</a>
+        <a href="https://getghostagent.com/dashboard" class="cta">Open My Dashboard →</a>
       </div>
 
       <hr class="divider" />
 
       <div class="support">
         <p>
-          💬 <strong style="color:#e2e8f0;">Need help?</strong> Just reply to this email — we respond personally within 24 hours. You can also reach us anytime at <a href="mailto:team@ghostagent.qzz.io">team@ghostagent.qzz.io</a>.
+          💬 <strong style="color:#e2e8f0;">Need help?</strong> Just reply to this email — we respond personally within 24 hours. You can also reach us anytime at <a href="mailto:team@getghostagent.com">team@getghostagent.com</a>.
         </p>
       </div>
     </div>
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
     <!-- Footer -->
     <div class="footer">
       <p>
-        You received this email because you signed up at <a href="https://ghostagent.qzz.io">ghostagent.qzz.io</a>.<br />
+        You received this email because you signed up at <a href="https://getghostagent.com">getghostagent.com</a>.<br />
         © ${new Date().getFullYear()} Ghost Agent. All rights reserved.
       </p>
     </div>

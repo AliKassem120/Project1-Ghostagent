@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 // Use the Service Role Key here to bypass row level security for checkout requests that happen right after signup (before email verification).
@@ -39,10 +39,10 @@ export async function POST(req: Request) {
         // externalId must be a safe integer (max 9 digits for safety)
         const externalId = Math.floor(Math.random() * 999999999);
 
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.qzz.io';
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://getghostagent.com';
         const channel = process.env.WHISH_CHANNEL || '10199608';
         const secret = process.env.WHISH_SECRET || '66023dabdc584a00b26d8dd4916633f5';
-        const websiteUrl = process.env.WHISH_WEBSITE_URL || 'ghostagent.qzz.io';
+        const websiteUrl = process.env.WHISH_WEBSITE_URL || 'getghostagent.com';
         const isProduction = process.env.WHISH_ENV === 'production';
         const whishBaseUrl = isProduction
             ? 'https://api.whish.money/itel-service/api/payment/whish'

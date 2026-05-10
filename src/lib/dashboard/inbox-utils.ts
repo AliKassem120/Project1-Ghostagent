@@ -1,4 +1,4 @@
-type Message = {
+﻿type Message = {
     id: string;
     text: string;
     sender: string;
@@ -32,7 +32,7 @@ export function buildConversations(logs: any[], fetchedProfiles: Record<string, 
         const allowedEvents = ['INCOMING_DM', 'INCOMING_MESSAGE', 'AI_REPLY', 'DRAFT_REPLY', 'MANUAL_REPLY', 'COMMENT_REPLY', 'DRAFT_COMMENT_REPLY'];
         if (!allowedEvents.includes(log.event_type)) return;
 
-        if (log.event_type === 'INCOMING_DM' && log.description.includes('ghostagent.qzz.io')) return;
+        if (log.event_type === 'INCOMING_DM' && log.description.includes('getghostagent.com')) return;
 
         // Hide public-only comment replies, but keep those that sent a private DM
         if (log.event_type === 'COMMENT_REPLY' || log.event_type === 'DRAFT_COMMENT_REPLY') {

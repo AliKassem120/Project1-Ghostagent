@@ -1,4 +1,4 @@
-{
+﻿{
   "Navbar": {
     "features": "Características",
     "pricing": "Precios",
@@ -350,10 +350,10 @@
     "s4l1": "<strong>Información de Cuenta:</strong> Tu dirección de email y tokens de autenticación necesarios para vincular tu cuenta de Instagram.",
     "s4l2": "<strong>Datos de Comunicación:</strong> Registros de mensajes entrantes y respuestas IA salientes para mantener el historial de conversaciones.",
     "s6t": "6. Contáctanos",
-    "s6c": "Si tienes preguntas sobre esta Política de Privacidad, contáctanos en support@ghostagent.qzz.io.",
+    "s6c": "Si tienes preguntas sobre esta Política de Privacidad, contáctanos en support@getghostagent.com.",
     "delTitle": "5. Instrucciones de Eliminación de Datos",
     "delDesc": "Tienes derecho a solicitar la eliminación completa de tus datos personales en cualquier momento. Para ejercer este derecho:",
-    "del1": "Envía un email a <strong className=\"text-primary\">support@ghostagent.qzz.io</strong> con el asunto \"Solicitud de Eliminación de Datos\".",
+    "del1": "Envía un email a <strong className=\"text-primary\">support@getghostagent.com</strong> con el asunto \"Solicitud de Eliminación de Datos\".",
     "del2": "Incluye tu dirección de email registrada y tu cuenta de Instagram conectada.",
     "del3": "Procesaremos tu solicitud en un plazo de 30 días y eliminaremos permanentemente tu cuenta y todos los datos asociados."
   }

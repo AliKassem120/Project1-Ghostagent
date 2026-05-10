@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/utils/supabase/server";
@@ -16,7 +16,7 @@ const ADMIN_EMAILS = [
     "alikassem120@gmail.com",
     "alikm120@gmail.com",
     "ali_kassem120@hotmail.com",
-    "contact@ghostagent.qzz.io",
+    "contact@getghostagent.com",
 ];
 
 export async function checkIsAdmin() {

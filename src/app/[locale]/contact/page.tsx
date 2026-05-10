@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
@@ -182,11 +182,11 @@ export default function Contact() {
                         {/* Contact Info */}
                         <div className="mt-8 pt-6 border-t border-border space-y-3">
                             <a
-                                href="mailto:contact@ghostagent.qzz.io"
+                                href="mailto:contact@getghostagent.com"
                                 className="flex items-center gap-3 text-sm text-muted-foreground hover:text-primary transition-colors font-medium"
                             >
                                 <Mail className="w-4 h-4" />
-                                contact@ghostagent.qzz.io
+                                contact@getghostagent.com
                             </a>
                             <div className="flex items-center gap-3 text-sm text-muted-foreground font-medium">
                                 <Clock className="w-4 h-4" />
