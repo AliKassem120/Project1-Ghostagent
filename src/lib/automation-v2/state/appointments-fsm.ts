@@ -20,6 +20,7 @@ import { createAppointmentV2Structured } from '../appointments/create-appointmen
 import { detectYesNo, extractNameAndPhone } from '../language';
 import { buildTimeContext, resolveDateFromMessage, resolveTimeFromMessage, formatTime12, minutesToTime, formatDateLabel } from '../time';
 import { getKnownCustomerDetails } from '../customer-history';
+import { upsertCustomer } from '../customer-store';
 import { getRecentConversationMessages, extractCustomerDetailsFromRecentMessages } from '../history/recent-messages';
 import { llmExtractAppointment } from '../llm-entity-extractor';
 import { v2log } from '../logger';
@@ -541,6 +542,13 @@ async function handleAwaitingCustomerDetails(
         const missing = [];
         if (!extractedName) missing.push(ctx.language === 'arabizi' ? 'ismak' : 'name');
         if (!extractedPhone) missing.push(ctx.language === 'arabizi' ? 'ra2mak' : 'phone number');
+
+        // Save whatever we learned so far
+        await upsertCustomer(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, {
+            name: extractedName || undefined,
+            phone: extractedPhone || undefined,
+        });
+
         return {
             replyText: t(`I still need your ${missing.join(' and ')}.`, `Bado ${missing.join(' w ')}.`, ctx.language),
             nextStage: 'awaiting_customer_details',
@@ -566,6 +574,12 @@ async function handleAwaitingCustomerDetails(
         customer: { ...state.customer, name: extractedName, phone: extractedPhone },
         missingFields: [],
     };
+
+    // Save complete customer details immediately
+    await upsertCustomer(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, {
+        name: extractedName,
+        phone: extractedPhone,
+    });
 
     return {
         replyText: t(

@@ -24,6 +24,7 @@ import { llmExtractProduct } from '../llm-entity-extractor';
 import { createOrderV2 } from '../ecommerce/orders';
 import { detectYesNo, extractNameAndPhone, extractAddress } from '../language';
 import { getKnownCustomerDetails } from '../customer-history';
+import { upsertCustomer } from '../customer-store';
 import { v2log } from '../logger';
 import { SupabaseClient } from '@supabase/supabase-js';
 
@@ -409,6 +410,13 @@ async function handleAwaitingOrderDetails(
         if (!extractedPhone) missing.push(ctx.language === 'arabizi' ? 'ra2mak' : 'phone');
         if (!extractedAddress) missing.push(ctx.language === 'arabizi' ? 'el 3nwen' : 'delivery address');
 
+        // Save whatever we learned so far
+        await upsertCustomer(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, {
+            name: extractedName || undefined,
+            phone: extractedPhone || undefined,
+            address: extractedAddress || undefined,
+        });
+
         return {
             replyText: t(`I still need your ${missing.join(', ')}.`, `Bado ${missing.join(', ')}.`, ctx.language),
             nextStage: 'awaiting_order_details',
@@ -440,6 +448,13 @@ async function handleAwaitingOrderDetails(
         },
         missingFields: [],
     };
+
+    // Save complete customer details immediately
+    await upsertCustomer(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, {
+        name: extractedName,
+        phone: extractedPhone,
+        address: extractedAddress,
+    });
 
     return {
         replyText: t(
