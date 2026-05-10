@@ -29,7 +29,7 @@ export async function getKnownCustomerDetails(
             .from('appointments')
             .select('customer_name, customer_phone')
             .eq('workspace_id', workspaceId)
-            .eq('instagram_user_id', chatId)
+            .or(`chat_id.eq.${chatId},instagram_user_id.eq.${chatId}`)
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
@@ -39,7 +39,7 @@ export async function getKnownCustomerDetails(
             .from('orders')
             .select('customer_name, customer_phone, customer_address')
             .eq('workspace_id', workspaceId)
-            .eq('instagram_user_id', chatId)
+            .or(`chat_id.eq.${chatId},instagram_user_id.eq.${chatId}`)
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
