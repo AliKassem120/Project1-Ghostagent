@@ -170,17 +170,16 @@ export async function cancelOrdersForChat(input: CancelOrdersInput): Promise<Can
             result.cancelledIds.push(order.id);
         }
 
-        // ── Send WhatsApp notification to customer (Instagram orders only) ──
-        // WhatsApp customers already receive the reply inline.
-        // Instagram customers may have provided a phone — notify them cross-channel.
+        // ── Send WhatsApp notification to the business owner ──
         if (result.cancelledCount > 0) {
-            for (const order of targetOrders.filter(o => result.cancelledIds.includes(o.id))) {
-                const phone = (order as any).customer_phone;
-                const platform = (order as any).platform;
-                const name = (order as any).customer_name || 'Customer';
-                const item = order.item_requested || 'your order';
-                if (platform === 'instagram' && phone) {
-                    sendOrderCancelNotification(phone, name, item).catch(err =>
+            const { data: ws } = await supabase.from('ai_settings').select('emergency_whatsapp').eq('id', workspaceId).single();
+            const emergencyWhatsApp = ws?.emergency_whatsapp;
+            
+            if (emergencyWhatsApp) {
+                for (const order of targetOrders.filter(o => result.cancelledIds.includes(o.id))) {
+                    const name = (order as any).customer_name || 'Customer';
+                    const item = order.item_requested || 'an order';
+                    sendOrderCancelNotification(emergencyWhatsApp, name, item).catch(err =>
                         v2log.warn('CANCEL_ORDERS', 'WA notification failed', { error: err?.message })
                     );
                 }

@@ -164,15 +164,16 @@ export async function cancelAppointmentsForChat(input: CancelAppointmentsInput):
             result.cancelledIds.push(appt.id);
         }
 
-        // ── Send WhatsApp notification to customer (Instagram appointments only) ──
+        // ── Send WhatsApp notification to the business owner ──
         if (result.cancelledCount > 0) {
-            for (const appt of targetAppointments.filter(a => result.cancelledIds.includes(a.id))) {
-                const phone = (appt as any).customer_phone;
-                const platform = (appt as any).platform;
-                const name = (appt as any).customer_name || 'Customer';
-                const service = (appt as any).service_name || 'your appointment';
-                if (platform === 'instagram' && phone) {
-                    sendAppointmentCancelNotification(phone, name, service).catch(err =>
+            const { data: ws } = await supabase.from('ai_settings').select('emergency_whatsapp').eq('id', workspaceId).single();
+            const emergencyWhatsApp = ws?.emergency_whatsapp;
+            
+            if (emergencyWhatsApp) {
+                for (const appt of targetAppointments.filter(a => result.cancelledIds.includes(a.id))) {
+                    const name = (appt as any).customer_name || 'Customer';
+                    const service = (appt as any).service_name || 'an appointment';
+                    sendAppointmentCancelNotification(emergencyWhatsApp, name, service).catch(err =>
                         v2log.warn('CANCEL_APPOINTMENTS', 'WA notification failed', { error: err?.message })
                     );
                 }

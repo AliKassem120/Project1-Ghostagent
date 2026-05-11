@@ -88,19 +88,19 @@ export async function triggerManagerAlert(opts: ManagerAlertOptions): Promise<vo
 }
 
 /**
- * Send a WhatsApp notification to a customer when their order is cancelled via Instagram.
+ * Send a WhatsApp notification to the business owner when a customer cancels an order.
  */
-export async function sendOrderCancelNotification(phone: string, name: string, item: string): Promise<void> {
+export async function sendOrderCancelNotification(ownerWhatsApp: string, customerName: string, item: string): Promise<void> {
     const systemToken = process.env.WHATSAPP_SYSTEM_ACCESS_TOKEN;
     const fromPhoneId = process.env.WHATSAPP_FROM_PHONE_NUMBER_ID;
 
-    if (!systemToken || !fromPhoneId || !phone) return;
+    if (!systemToken || !fromPhoneId || !ownerWhatsApp) return;
 
-    let to = phone.replace(/\s+/g, '');
+    let to = ownerWhatsApp.replace(/\s+/g, '');
     if (to.startsWith('00')) to = '+' + to.slice(2);
     else if (!to.startsWith('+')) to = '+' + to;
 
-    const message = `Hi ${name}, your order for *${item}* has been successfully cancelled as requested. Let us know if you need anything else!`;
+    const message = `🚨 *Cancellation Alert*\n\nYour customer *${customerName}* has just cancelled their order for *${item}* via the AI Agent.`;
 
     try {
         await fetch(`${WA_API_BASE}/${fromPhoneId}/messages`, {
@@ -123,19 +123,19 @@ export async function sendOrderCancelNotification(phone: string, name: string, i
 }
 
 /**
- * Send a WhatsApp notification to a customer when their appointment is cancelled via Instagram.
+ * Send a WhatsApp notification to the business owner when a customer cancels an appointment.
  */
-export async function sendAppointmentCancelNotification(phone: string, name: string, service: string): Promise<void> {
+export async function sendAppointmentCancelNotification(ownerWhatsApp: string, customerName: string, service: string): Promise<void> {
     const systemToken = process.env.WHATSAPP_SYSTEM_ACCESS_TOKEN;
     const fromPhoneId = process.env.WHATSAPP_FROM_PHONE_NUMBER_ID;
 
-    if (!systemToken || !fromPhoneId || !phone) return;
+    if (!systemToken || !fromPhoneId || !ownerWhatsApp) return;
 
-    let to = phone.replace(/\s+/g, '');
+    let to = ownerWhatsApp.replace(/\s+/g, '');
     if (to.startsWith('00')) to = '+' + to.slice(2);
     else if (!to.startsWith('+')) to = '+' + to;
 
-    const message = `Hi ${name}, your appointment for *${service}* has been successfully cancelled. Feel free to book again anytime!`;
+    const message = `🚨 *Cancellation Alert*\n\nYour customer *${customerName}* has just cancelled their appointment for *${service}* via the AI Agent.`;
 
     try {
         await fetch(`${WA_API_BASE}/${fromPhoneId}/messages`, {
