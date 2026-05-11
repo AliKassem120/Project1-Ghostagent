@@ -9,6 +9,7 @@
 
 export type Intent =
     | 'greeting'
+    | 'small_talk'
     | 'faq_question'
     | 'product_question'
     | 'product_availability'
@@ -57,9 +58,9 @@ export function classifyByRegex(message: string): RegexClassification | null {
     if (wordCount <= 3 && /^(hey|hi|hello|salam|hala|ahla|kifak|yo)[\s!?.]*$/i.test(msg)) {
         return { intent: 'greeting', confidence: 0.95 };
     }
-    // Small talk / social openers — treat as greeting so LLM handles naturally
+    // Small talk / social openers — goes to LLM (not deterministic handler) so it responds naturally
     if (wordCount <= 6 && /\b(how\s*are\s*(you|u)|how('?s|s)\s*(it\s*going|everything|things)|what'?s\s*up|wsp|wsh|sup|all\s*good|you\s*good|kif\s*el\s*7al|kif\s*7alak|kif\s*7alik|shu\s*akhbarak|shu\s*akhbarik|mni7|tamam)\b/i.test(msg)) {
-        return { intent: 'greeting', confidence: 0.90 };
+        return { intent: 'small_talk', confidence: 0.90 };
     }
 
     // ── Human handoff ────────────────────────────────────────
