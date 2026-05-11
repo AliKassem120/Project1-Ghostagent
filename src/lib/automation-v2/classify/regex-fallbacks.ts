@@ -130,7 +130,7 @@ export function classifyByRegex(message: string): RegexClassification | null {
     }
 
     // ── Order status (MUST be before purchase_intent) ────────
-    if (/\b(where\s*(is)?\s*(my|el)\s*(order|package|shipment)|track\s*(my)?\s*(order|package)|wein\s*(el)?\s*(order|talbiye))\b/i.test(msg)) {
+    if (/\b(where\s*(is)?\s*(my|el|l)\s*(order|package|shipment)|track\s*(my)?\s*(order|package)|wein\s*(el|l)?\s*(order|talbiye))\b/i.test(msg)) {
         return { intent: 'order_status', confidence: 0.92 };
     }
 

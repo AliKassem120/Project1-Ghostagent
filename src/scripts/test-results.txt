@@ -1,0 +1,158 @@
+Testing: "unnamed" (ecommerce)
+
+
+--- 1. GREETINGS & SMALL TALK ---
+[PASS] English greeting
+  USER: "hey"
+  BOT:  "Hey! How can I help?"
+  ACT:  [greeting]
+[PASS] Arabic greeting
+  USER: "salam"
+  BOT:  "Hey! How can I help?"
+  ACT:  [greeting]
+[PASS] Arabizi greeting
+  USER: "hala kifak"
+  BOT:  "Hala! Kif fiyi se3dak?"
+  ACT:  [greeting]
+[PASS] Small talk - how are you
+  USER: "how are you"
+  BOT:  "Good thanks! How can I help you today? 😊"
+  ACT:  [llm_path]
+[PASS] Small talk - wsh
+  USER: "wsh"
+  BOT:  "I'm doing well, thanks! What brings you here today?"
+  ACT:  [llm_path]
+[PASS] Small talk - kif el 7al
+  USER: "kif el 7al"
+  BOT:  "I'm doing great, thanks! How can I assist you today?"
+  ACT:  [llm_path]
+
+--- 2. PRODUCT INQUIRY ---
+[PASS] What do you sell
+  USER: "what do you sell?"
+  BOT:  "Unfortunately, that item is currently out of stock."
+  ACT:  [product_search_not_found]
+[PASS] Do you have hoodies
+  USER: "do you have hoodies?"
+  BOT:  "Unfortunately, that item is currently out of stock."
+  ACT:  [product_search_not_found]
+[PASS] Arabizi - fi 3andkon
+  USER: "fi 3andkon hoodies?"
+  BOT:  "Msh mawjoud halla2."
+  ACT:  [product_search_not_found]
+[PASS] Saw product on page
+  USER: "I saw the hoodie on your page"
+  BOT:  "Unfortunately, that item is currently out of stock."
+  ACT:  [product_search_not_found]
+
+--- 3. PRICE QUESTIONS ---
+[PASS] How much
+  USER: "how much is the hoodie?"
+  BOT:  "Unfortunately, that item is currently out of stock."
+  ACT:  [product_search_not_found]
+[PASS] Arabizi addesh
+  USER: "addesh l hoodie?"
+  BOT:  "Msh mawjoud halla2."
+  ACT:  [product_search_not_found]
+
+--- 4. PURCHASE INTENT ---
+[PASS] I want to buy
+  USER: "i want to buy a hoodie"
+  BOT:  "I'm sorry, that product is currently out of stock and not available."
+  ACT:  [product_not_found]
+[PASS] Arabizi bade
+  USER: "bade eshtere hoodie"
+  BOT:  "Ma fi hal product."
+  ACT:  [product_not_found]
+[PASS] Give me one
+  USER: "give me one"
+  BOT:  "I'm sorry, that product is currently out of stock and not available."
+  ACT:  [product_not_found]
+
+--- 5. ORDER STATUS ---
+[PASS] Where is my order
+  USER: "where is my order?"
+  BOT:  "We couldn't find any recent orders for you."
+  ACT:  [order_status_empty]
+[PASS] Arabizi wein l order
+  USER: "wein l order taba3e?"
+  BOT:  "I'm sorry, that product is currently out of stock and not available."
+  ACT:  [product_not_found]
+
+--- 6. CANCEL ORDER ---
+[PASS] Cancel my order
+  USER: "cancel my order"
+  BOT:  "I can't find a recent order."
+  ACT:  [cancel_no_order]
+[PASS] Arabizi el8e
+  USER: "el8e l order"
+  BOT:  "I couldn't find a recent order for you, can you please provide more details?"
+  ACT:  [cancel_no_order]
+
+--- 7. SHIPPING & POLICY ---
+[PASS] How long shipping
+  USER: "how long does shipping take?"
+  BOT:  "I'm not sure about shipping times, could you tell me what product you're interested in ..."
+  ACT:  [llm_path]
+[PASS] Return policy
+  USER: "what is your return policy?"
+  BOT:  "Our return policy varies by product, could you please tell me what product you're inter..."
+  ACT:  [llm_path]
+[PASS] Where are you located
+  USER: "where are you located?"
+  BOT:  "We're an online store, which means we don't have a physical location you can visit."
+  ACT:  [tool_get_business_hours]
+[PASS] Business hours
+  USER: "what are your working hours?"
+  BOT:  "We're currently outside of working hours."
+  ACT:  [tool_get_business_hours]
+
+--- 8. HUMAN HANDOFF & FRUSTRATION ---
+[FAIL] Talk to human
+  USER: "i want to talk to a real person"
+  BOT:  "(no reply)"
+  ACT:  [llm_path]
+[FAIL] Speak to manager
+  USER: "let me speak to the manager"
+  BOT:  "(no reply)"
+  ACT:  [llm_path]
+[PASS] Frustration - leave alone
+  USER: "forget it, leave me alone"
+  BOT:  "No worries at all, feel free to reach out if you need anything, we're here to help"
+  ACT:  [frustration_stop]
+[PASS] Arabizi - hel 3ane
+  USER: "khalas hel 3ane"
+  BOT:  "No worries at all, feel free to reach out if you need anything, we're here to help"
+  ACT:  [frustration_stop]
+
+--- 9. CORRECTIONS & OFF-TOPIC ---
+[PASS] You misunderstood
+  USER: "you misunderstood me"
+  BOT:  "Sorry about the inconvenience, how can I assist you today?"
+  ACT:  [correction_acknowledged]
+[PASS] Arabizi ma fhemte
+  USER: "ma fhemte"
+  BOT:  "Sorry about the issue, how can I assist you today?"
+  ACT:  [correction_acknowledged]
+[PASS] Random off-topic
+  USER: "do you know what time it is?"
+  BOT:  "It's currently 01:18 on Tuesday. <function=get_business_hours></function>"
+  ACT:  [llm_path]
+[PASS] Compliment
+  USER: "your service is amazing"
+  BOT:  "Thanks so much, we're glad you're having a great experience 🙏"
+  ACT:  [llm_path]
+
+--- 10. GOODBYE ---
+[PASS] Bye
+  USER: "ok thanks bye"
+  BOT:  "You're all set, have a great day"
+  ACT:  [tool_lookup_customer]
+[PASS] Thank you
+  USER: "thank you so much!"
+  BOT:  "Is there anything else I can assist you with today?"
+  ACT:  [tool_lookup_customer, tool_lookup_customer]
+
+============================================================
+RESULTS: 31/33 tests got a reply
+============================================================
