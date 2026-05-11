@@ -12,6 +12,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { IntentScope, IntentOrdinal } from '../classify/normalized-intent';
 import { v2log } from '../logger';
+import { sendOrderCancelNotification } from '../../../utils/whatsapp-alerts';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -62,7 +63,7 @@ export async function cancelOrdersForChat(input: CancelOrdersInput): Promise<Can
         // ── Fetch orders for this chat ────────────────────────
         const { data: orders, error } = await supabase
             .from('orders')
-            .select('id, status, item_requested, created_at')
+            .select('id, status, item_requested, created_at, customer_name, customer_phone, platform')
             .eq('workspace_id', workspaceId)
             .or(`chat_id.eq.${chatId},instagram_user_id.eq.${chatId}`)
             .order('created_at', { ascending: false })
@@ -139,13 +140,13 @@ export async function cancelOrdersForChat(input: CancelOrdersInput): Promise<Can
         };
 
         for (const order of targetOrders) {
-            if (order.status === 'cancelled') {
+            if (order.status?.toLowerCase() === 'cancelled') {
                 result.alreadyCancelledCount++;
                 result.alreadyCancelledIds.push(order.id);
                 continue;
             }
 
-            if (!CANCELLABLE_STATUSES.includes(order.status)) {
+            if (!CANCELLABLE_STATUSES.includes(order.status?.toLowerCase())) {
                 result.notCancellableCount++;
                 result.notCancellableStatuses.push(order.status);
                 result.notCancellableIds.push(order.id);
@@ -167,6 +168,23 @@ export async function cancelOrdersForChat(input: CancelOrdersInput): Promise<Can
 
             result.cancelledCount++;
             result.cancelledIds.push(order.id);
+        }
+
+        // ── Send WhatsApp notification to customer (Instagram orders only) ──
+        // WhatsApp customers already receive the reply inline.
+        // Instagram customers may have provided a phone — notify them cross-channel.
+        if (result.cancelledCount > 0) {
+            for (const order of targetOrders.filter(o => result.cancelledIds.includes(o.id))) {
+                const phone = (order as any).customer_phone;
+                const platform = (order as any).platform;
+                const name = (order as any).customer_name || 'Customer';
+                const item = order.item_requested || 'your order';
+                if (platform === 'instagram' && phone) {
+                    sendOrderCancelNotification(phone, name, item).catch(err =>
+                        v2log.warn('CANCEL_ORDERS', 'WA notification failed', { error: err?.message })
+                    );
+                }
+            }
         }
 
         v2log.info('CANCEL_ORDERS', `Scoped cancel: ${scope}`, {

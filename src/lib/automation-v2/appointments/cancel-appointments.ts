@@ -12,6 +12,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { IntentScope, IntentOrdinal } from '../classify/normalized-intent';
 import { v2log } from '../logger';
+import { sendAppointmentCancelNotification } from '../../../utils/whatsapp-alerts';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -62,7 +63,7 @@ export async function cancelAppointmentsForChat(input: CancelAppointmentsInput):
         // ── Fetch appointments for this chat ─────────────────
         const { data: appointments, error } = await supabase
             .from('appointments')
-            .select('id, status, date, start_time, service_name, created_at')
+            .select('id, status, date, start_time, service_name, created_at, customer_name, customer_phone, platform')
             .eq('workspace_id', workspaceId)
             .eq('chat_id', chatId)
             .order('created_at', { ascending: false })
@@ -134,13 +135,13 @@ export async function cancelAppointmentsForChat(input: CancelAppointmentsInput):
         };
 
         for (const appt of targetAppointments) {
-            if (appt.status === 'cancelled') {
+            if (appt.status?.toLowerCase() === 'cancelled') {
                 result.alreadyCancelledCount++;
                 result.alreadyCancelledIds.push(appt.id);
                 continue;
             }
 
-            if (!CANCELLABLE_STATUSES.includes(appt.status)) {
+            if (!CANCELLABLE_STATUSES.includes(appt.status?.toLowerCase())) {
                 result.notCancellableCount++;
                 result.notCancellableStatuses.push(appt.status);
                 result.notCancellableIds.push(appt.id);
@@ -161,6 +162,21 @@ export async function cancelAppointmentsForChat(input: CancelAppointmentsInput):
 
             result.cancelledCount++;
             result.cancelledIds.push(appt.id);
+        }
+
+        // ── Send WhatsApp notification to customer (Instagram appointments only) ──
+        if (result.cancelledCount > 0) {
+            for (const appt of targetAppointments.filter(a => result.cancelledIds.includes(a.id))) {
+                const phone = (appt as any).customer_phone;
+                const platform = (appt as any).platform;
+                const name = (appt as any).customer_name || 'Customer';
+                const service = (appt as any).service_name || 'your appointment';
+                if (platform === 'instagram' && phone) {
+                    sendAppointmentCancelNotification(phone, name, service).catch(err =>
+                        v2log.warn('CANCEL_APPOINTMENTS', 'WA notification failed', { error: err?.message })
+                    );
+                }
+            }
         }
 
         v2log.info('CANCEL_APPOINTMENTS', `Scoped cancel: ${scope}`, {

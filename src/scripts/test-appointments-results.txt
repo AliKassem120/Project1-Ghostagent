@@ -1,0 +1,194 @@
+Testing: "unnamed" (appointments)
+
+
+--- 1. GREETINGS & SMALL TALK ---
+[PASS] English greeting
+  USER: "hey"
+  BOT:  "Hey! How can I help?"
+  ACT:  [greeting]
+[PASS] Arabic greeting
+  USER: "salam"
+  BOT:  "Hey! How can I help?"
+  ACT:  [greeting]
+[PASS] Arabizi greeting
+  USER: "hala kifak"
+  BOT:  "Hala! Kif fiyi se3dak?"
+  ACT:  [greeting]
+[PASS] Small talk - how are you
+  USER: "how are you"
+  BOT:  "I'm good thanks, how can I help you today? 😊"
+  ACT:  [llm_path]
+[PASS] Small talk - wsh
+  USER: "wsh"
+  BOT:  "Wshak mabghitch shi?"
+  ACT:  [llm_path]
+[PASS] Small talk - kif el 7al
+  USER: "kif el 7al"
+  BOT:  "El hamdella, how can I assist you today?"
+  ACT:  [llm_path]
+
+--- 2. SERVICE INQUIRY ---
+[PASS] What services do you offer
+  USER: "what services do you offer?"
+  BOT:  "We offer a variety of services, what kind of service are you looking for?"
+  ACT:  [llm_path]
+[PASS] What do you do
+  USER: "what do you do?"
+  BOT:  "We're currently not offering any services, sorry about that."
+  ACT:  [service_search_empty]
+[PASS] Arabizi - shu khedameto
+  USER: "shu khedameto?"
+  BOT:  "Ma fi khedamet halla2."
+  ACT:  [service_search_empty]
+[PASS] Do you do haircuts
+  USER: "do you do haircuts?"
+  BOT:  "We're currently not offering any services, sorry about that."
+  ACT:  [service_search_empty]
+[PASS] Do you do lashes
+  USER: "do you do eyelash extensions?"
+  BOT:  "No services available right now."
+  ACT:  [service_search_empty]
+
+--- 3. BOOKING INTENT ---
+[PASS] I want to book
+  USER: "i want to book an appointment"
+  BOT:  "What can I help you with today? We have a few services available, which one are you int..."
+  ACT:  [asked_service_again]
+[PASS] I want a haircut
+  USER: "i want a haircut"
+  BOT:  "Which service would you like? We offer:"
+  ACT:  [asked_service_again]
+[PASS] Arabizi bade e7joz
+  USER: "bade e7joz maw3ed"
+  BOT:  "Aya service bdk? 3anna:"
+  ACT:  [asked_service_again]
+[PASS] Book for tomorrow
+  USER: "can I book for tomorrow?"
+  BOT:  "Which service would you like? We offer:"
+  ACT:  [asked_service_again]
+[PASS] Arabizi bade ji
+  USER: "bade ji 3andkon"
+  BOT:  "Aya service bdk? 3anna:"
+  ACT:  [asked_service_again]
+
+--- 4. PRICE QUESTIONS ---
+[PASS] How much for a haircut
+  USER: "how much is a haircut?"
+  BOT:  "Which service would you like? We offer:"
+  ACT:  [asked_service_again]
+[PASS] Price of facial
+  USER: "what is the price of a facial?"
+  BOT:  "Which service would you like? We offer:"
+  ACT:  [asked_service_again]
+[PASS] Arabizi addesh
+  USER: "addesh el maw3ed?"
+  BOT:  "Aya service bdk? 3anna:"
+  ACT:  [asked_service_again]
+
+--- 5. APPOINTMENT STATUS ---
+[PASS] When is my appointment
+  USER: "when is my appointment?"
+  BOT:  "Which service would you like? We offer:"
+  ACT:  [asked_service_again]
+[PASS] Do I have a booking
+  USER: "do I have a booking?"
+  BOT:  "Which service would you like? We offer:"
+  ACT:  [asked_service_again]
+[PASS] Arabizi wein maw3ede
+  USER: "wein maw3ede?"
+  BOT:  "Aya service bdk? 3anna:"
+  ACT:  [asked_service_again]
+
+--- 6. CANCEL APPOINTMENT ---
+[PASS] Cancel my appointment
+  USER: "cancel my appointment"
+  BOT:  "Something went wrong. Please try again."
+  ACT:  [appointment_cancel_failed]
+[PASS] I can't come
+  USER: "I can't come tomorrow"
+  BOT:  "Something went wrong. Please try again."
+  ACT:  [appointment_cancel_failed]
+[PASS] Arabizi el8e maw3ed
+  USER: "bde el8e l maw3ed"
+  BOT:  "Fi 8alat. Jarreb kamen."
+  ACT:  [appointment_cancel_failed]
+[PASS] Arabizi ma fiyye eje
+  USER: "ma fiyye eje"
+  BOT:  "Something went wrong. Please try again."
+  ACT:  [appointment_cancel_failed]
+
+--- 7. RESCHEDULE APPOINTMENT ---
+[PASS] Reschedule
+  USER: "can I reschedule my appointment?"
+  BOT:  "Which service would you like? We offer:"
+  ACT:  [asked_service_again]
+[PASS] Change to different day
+  USER: "can I change to a different day?"
+  BOT:  "Which service would you like? We offer:"
+  ACT:  [asked_service_again]
+[PASS] Arabizi bade ghayyir
+  USER: "bade ghayyir maw3ede la bukra"
+  BOT:  "Wala yhemak. Khaberne eza bdk shi."
+  ACT:  [cancelled_flow]
+
+--- 8. BUSINESS HOURS & LOCATION ---
+[PASS] Working hours
+  USER: "what are your working hours?"
+  BOT:  "I'm looking for that right now, but I'm not seeing it in our current catalog. Did you m..."
+  ACT:  [agent_error]
+[PASS] Are you open on Sunday
+  USER: "are you open on Sunday?"
+  BOT:  "Let me check on that for you. I'm not finding it in our current catalog, can you tell m..."
+  ACT:  [agent_error]
+[PASS] Where are you located
+  USER: "where are you located?"
+  BOT:  "I'm looking for that right now, but I'm not seeing it in our current catalog. Did you m..."
+  ACT:  [agent_error]
+[PASS] Arabizi wen mawjudin
+  USER: "wen mawjudin?"
+  BOT:  "I'm looking for that right now, but I'm not seeing it in our current catalog. Did you m..."
+  ACT:  [agent_error]
+
+--- 9. HUMAN HANDOFF & FRUSTRATION ---
+[FAIL] Talk to human
+  USER: "i want to talk to a real person"
+  BOT:  "(no reply)"
+  ACT:  [llm_path]
+[FAIL] Speak to manager
+  USER: "let me speak to the manager"
+  BOT:  "(no reply)"
+  ACT:  [llm_path]
+[PASS] Frustration
+  USER: "forget it, leave me alone"
+  BOT:  "Sorry about that. I won't bother you. If you need anything, just message us."
+  ACT:  [frustration_stop]
+[PASS] Arabizi khalas hel 3ane
+  USER: "khalas hel 3ane"
+  BOT:  "Sorry about that. I won't bother you. If you need anything, just message us."
+  ACT:  [frustration_stop]
+
+--- 10. CORRECTIONS & OFF-TOPIC ---
+[PASS] You misunderstood
+  USER: "you misunderstood me"
+  BOT:  "Sorry about that! What did you need?"
+  ACT:  [correction_acknowledged]
+[PASS] Arabizi ma fhemte
+  USER: "ma fhemte"
+  BOT:  "Sorry about that! What did you need?"
+  ACT:  [correction_acknowledged]
+[PASS] Off-topic question
+  USER: "do you sell products too?"
+  BOT:  "I'm looking for that right now, but I'm not seeing it in our current catalog. Did you m..."
+  ACT:  [agent_error]
+[PASS] Compliment
+  USER: "your salon is amazing!"
+  BOT:  "I'm looking for that right now, but I'm not seeing it in our current catalog. Did you m..."
+  ACT:  [agent_error]
+[PASS] Goodbye
+  USER: "ok thanks bye"
+  BOT:  "I'm looking for that right now, but I'm not seeing it in our current catalog. Did you m..."
+  ACT:  [agent_error]
+
+============================================================
+RESULTS: 40/42 tests got a reply
+============================================================

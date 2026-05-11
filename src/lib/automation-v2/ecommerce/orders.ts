@@ -79,7 +79,7 @@ export async function createOrderV2(input: CreateOrderInput): Promise<CreateOrde
                 variant_label: variantLabel || null,
                 quantity: quantity,
                 unit_price: unitPrice,
-                status: 'Pending',
+                status: 'pending',
                 raw_message: rawJson,
                 created_at: new Date().toISOString()
             })
