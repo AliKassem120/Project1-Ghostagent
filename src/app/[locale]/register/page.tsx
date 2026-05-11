@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2, Lock, Mail, User, ShoppingBag, CalendarDays, CheckC
 import StarBackground from '@/components/StarBackground';
 import GhostLogo from '@/components/GhostLogo';
 import { supabase } from '@/lib/supabase';
+import GoogleSignInButton from '@/components/GoogleSignInButton';
 import { useToast } from '@/contexts/ToastContext';
 import { useTranslations } from 'next-intl';
 import { motion } from 'framer-motion';
@@ -181,6 +182,23 @@ export default function RegisterPage() {
                                     <div className="text-center mb-8">
                                         <h2 className="text-3xl font-black mb-2 text-foreground tracking-tighter">Get Started Free</h2>
                                         <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Try for free • No credit card needed</p>
+                                    </div>
+
+                                    <div className="mb-6 w-full">
+                                        <GoogleSignInButton
+                                            onSuccess={() => { window.location.href = '/dashboard'; }}
+                                            onError={(err) => { toast.error(err.message || 'Failed to sign up with Google'); }}
+                                        />
+                                    </div>
+
+                                    {/* Divider */}
+                                    <div className="relative my-6">
+                                        <div className="absolute inset-0 flex items-center">
+                                            <div className="w-full border-t border-border/60"></div>
+                                        </div>
+                                        <div className="relative flex justify-center text-xs">
+                                            <span className="bg-surface-1 px-4 text-muted-foreground/70 uppercase tracking-widest font-bold">OR</span>
+                                        </div>
                                     </div>
 
                                     <form onSubmit={handleRegister} className="space-y-5">
