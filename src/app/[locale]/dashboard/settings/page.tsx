@@ -237,6 +237,28 @@ export default function SettingsPage() {
             .finally(() => setTeamLoading(false));
     }, [isEmpire, activeWorkspaceId, activeTab]);
 
+    // Preload Facebook SDK for WhatsApp Embedded Signup to prevent popup blockers
+    useEffect(() => {
+        if (typeof window !== 'undefined' && !(window as any).FB) {
+            const script = document.createElement('script');
+            script.src = 'https://connect.facebook.net/en_US/sdk.js';
+            script.async = true;
+            script.defer = true;
+            script.onload = () => {
+                const appId = process.env.NEXT_PUBLIC_INSTAGRAM_APP_ID;
+                if ((window as any).FB && appId) {
+                    (window as any).FB.init({
+                        appId,
+                        autoLogAppEvents: true,
+                        xfbml: true,
+                        version: 'v19.0',
+                    });
+                }
+            };
+            document.body.appendChild(script);
+        }
+    }, []);
+
     const handleConnectInstagram = () => {
         setConnecting(true);
 
@@ -671,68 +693,49 @@ export default function SettingsPage() {
                                 <button
                                     id="wa-embedded-signup-btn"
                                     onClick={() => {
-                                        const appId = process.env.NEXT_PUBLIC_INSTAGRAM_APP_ID;
                                         const configId = process.env.NEXT_PUBLIC_WHATSAPP_CONFIG_ID;
-
-                                        // Load Facebook SDK if not already loaded
-                                        const loadAndLaunch = () => {
-                                            (window as any).FB.login(
-                                                async (response: any) => {
-                                                    if (response.authResponse?.code) {
-                                                        toast.info('Connecting WhatsApp...');
-                                                        try {
-                                                            const res = await fetch('/api/auth/callback/whatsapp', {
-                                                                method: 'POST',
-                                                                headers: { 'Content-Type': 'application/json' },
-                                                                body: JSON.stringify({
-                                                                    code: response.authResponse.code,
-                                                                    workspaceId: activeWorkspaceId,
-                                                                }),
-                                                            });
-                                                            const data = await res.json();
-                                                            if (!res.ok) throw new Error(data.error);
-                                                            setSettings(prev => ({
-                                                                ...prev,
-                                                                waPhoneNumberId: data.phone_number_id,
-                                                                waBusinessAccountId: data.waba_id,
-                                                                waAccessToken: '(saved)',
-                                                            }));
-                                                            toast.success(`WhatsApp connected! ${data.display_phone}`);
-                                                        } catch (e: any) {
-                                                            toast.error(e.message || 'Connection failed');
-                                                        }
-                                                    } else {
-                                                        toast.error('WhatsApp connection cancelled or failed.');
-                                                    }
-                                                },
-                                                {
-                                                    config_id: configId,
-                                                    response_type: 'code',
-                                                    override_default_response_type: true,
-                                                    extras: { setup: {}, featureName: 'whatsapp_embedded_signup', sessionInfoVersion: '3' },
-                                                }
-                                            );
-                                        };
-
-                                        if ((window as any).FB) {
-                                            loadAndLaunch();
-                                        } else {
-                                            // Dynamically load Facebook SDK
-                                            const script = document.createElement('script');
-                                            script.src = 'https://connect.facebook.net/en_US/sdk.js';
-                                            script.async = true;
-                                            script.defer = true;
-                                            script.onload = () => {
-                                                (window as any).FB.init({
-                                                    appId,
-                                                    autoLogAppEvents: true,
-                                                    xfbml: true,
-                                                    version: 'v19.0',
-                                                });
-                                                loadAndLaunch();
-                                            };
-                                            document.body.appendChild(script);
+                                        
+                                        if (!(window as any).FB) {
+                                            toast.error('Facebook SDK is still loading or was blocked by an AdBlocker. Please disable tracking protection and try again.');
+                                            return;
                                         }
+
+                                        (window as any).FB.login(
+                                            async (response: any) => {
+                                                if (response.authResponse?.code) {
+                                                    toast.info('Connecting WhatsApp...');
+                                                    try {
+                                                        const res = await fetch('/api/auth/callback/whatsapp', {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({
+                                                                code: response.authResponse.code,
+                                                                workspaceId: activeWorkspaceId,
+                                                            }),
+                                                        });
+                                                        const data = await res.json();
+                                                        if (!res.ok) throw new Error(data.error);
+                                                        setSettings(prev => ({
+                                                            ...prev,
+                                                            waPhoneNumberId: data.phone_number_id,
+                                                            waBusinessAccountId: data.waba_id,
+                                                            waAccessToken: '(saved)',
+                                                        }));
+                                                        toast.success(`WhatsApp connected! ${data.display_phone}`);
+                                                    } catch (e: any) {
+                                                        toast.error(e.message || 'Connection failed');
+                                                    }
+                                                } else {
+                                                    toast.error('WhatsApp connection cancelled or failed.');
+                                                }
+                                            },
+                                            {
+                                                config_id: configId,
+                                                response_type: 'code',
+                                                override_default_response_type: true,
+                                                extras: { setup: {}, featureName: 'whatsapp_embedded_signup', sessionInfoVersion: '3' },
+                                            }
+                                        );
                                     }}
                                     className="flex items-center gap-3 bg-[#25D366] hover:bg-[#1ebe5d] text-white font-bold px-5 py-3 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] shadow-[0_4px_20px_rgba(37,211,102,0.3)]"
                                 >
