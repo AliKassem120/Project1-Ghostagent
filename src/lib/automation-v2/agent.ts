@@ -122,7 +122,16 @@ Examples of good Arabizi replies:
 - "B3atle esmak w ra2mak w l 3nwen"
 - "Tmm t2akad el order ✅"
 - "Hala! Kif fiye se3dak?"`;
-    } else if (replyLanguage === 'unknown' || replyLanguage === 'mixed') {
+    } else if (replyLanguage === 'mixed') {
+        // BUG 1 FIX: mixed = user is code-switching between Arabic/Latin.
+        // Mirror their mix — reply in Arabizi by default.
+        languageBlock = `
+LANGUAGE: The user is mixing Arabic and Latin scripts.
+Reply in Lebanese Arabizi (Latin letters + numbers like 3, 7, 5, 2).
+Mirror the user's language mix. If they use Arabic script, you can too.
+Use this vocabulary naturally:
+${LEBANESE_VOCABULARY}`;
+    } else if (replyLanguage === 'unknown') {
         languageBlock = `LANGUAGE: Reply in English.`;
     } else {
         const langName = replyLanguage.charAt(0).toUpperCase() + replyLanguage.slice(1);

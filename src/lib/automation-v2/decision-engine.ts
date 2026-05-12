@@ -18,6 +18,8 @@
 import type { AutomationInput, WorkspaceConfig } from './types';
 import type { ConversationStage, AppointmentStateData, EcommerceStateData, FSMResult, PostActionContext } from './state/types';
 import { loadConversationState, saveConversationState, clearConversationState } from './state/store';
+import { loadSession, saveSession, updateLoopTracking, isGreeting, type SessionContext } from './session-manager';
+import { validateTransition, getLoopMenuMessage, getStateConfig } from './state-validator';
 import { processAppointmentState } from './state/appointments-fsm';
 import { processEcommerceState } from './state/ecommerce-fsm';
 import { classifyIntent } from './classify/intent-classifier';
@@ -377,23 +379,26 @@ export async function runDecisionEngine(
     // NOTE: saas_support is handled by the dedicated responder in router.ts
     // and never reaches this decision engine.
 
-    // 1. Load current conversation state
-    const loadResult = await loadConversationState(
+    // 1. Load session with timeout + loop tracking (replaces raw state load)
+    const session = await loadSession(
         input.supabase,
         input.userId,
         input.workspaceId,
         input.chatId,
-        input.workspaceType
+        input.workspaceType,
+        input.platform
     );
 
-    const { stage: currentStage, data: currentData, postContext } = loadResult;
+    const currentStage = session.state;
+    const currentData = session.data;
+    const postContext = session.postContext;
 
     // ── FAIL-SAFE: If state load failed, do NOT run transactional flows ──
-    if (loadResult.loadFailed) {
+    if (session.loadFailed) {
         v2log.error('DECISION', 'STATE_LOAD_FAILURE — blocking transactional flows', {
             chatId: input.chatId,
             workspaceId: input.workspaceId,
-            loadError: loadResult.loadError,
+            loadError: session.loadError,
         });
 
         return {
@@ -418,12 +423,46 @@ export async function runDecisionEngine(
         };
     }
 
-    v2log.info('DECISION', `State loaded: ${currentStage}`, {
+    v2log.info('DECISION', `Session loaded: ${currentStage}`, {
         chatId: input.chatId,
         stage: currentStage,
         hasData: !!currentData,
         hasPostContext: !!postContext,
+        isFreshSession: session.isFreshSession,
+        loopCount: session.loopCount,
     });
+
+    // ── BUG 3 FIX: STALE SESSION RECOVERY ────────────────────
+    // If the session timed out (>30 min) and was reset to idle,
+    // send a fresh greeting instead of continuing old state.
+    if (session.isFreshSession && isGreeting(input.message)) {
+        v2log.info('DECISION', 'Fresh session greeting (timeout recovery)', {
+            chatId: input.chatId,
+        });
+
+        // Save the session as idle to persist the reset
+        await saveSession(
+            input.supabase, input.userId, input.workspaceId,
+            input.chatId, input.workspaceType, session, input.platform
+        );
+
+        return {
+            handledByFSM: true,
+            fsmResult: {
+                replyText: t('Hey! How can I help?', 'Hala! Kif fiyi se3dak?', replyLang),
+                nextStage: 'idle',
+                nextData: null,
+                actions: ['fresh_session_greeting'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            },
+            classifiedIntent: 'greeting',
+            language: replyLang,
+            stateBefore: 'idle',
+            stateAfter: 'idle',
+        };
+    }
 
     // 2. GLOBAL INTERRUPTS - cancel/update/handoff before active FSM continuation.
     let classification = classifyIntent(input.message);
@@ -474,8 +513,56 @@ export async function runDecisionEngine(
             };
         }
 
-        // Save the new state before asking follow-up questions.
-        fsmResult = await persistFsmResult(input, fsmResult, postContext, replyLang);
+        // ── BUG 2 FIX: STATE VALIDATION + LOOP DETECTION ─────
+        // Validate the proposed transition before persisting.
+        const validation = validateTransition(
+            currentStage,
+            fsmResult.nextStage,
+            session.loopCount,
+            getStateConfig(currentStage),
+            session.stateEnteredAt
+        );
+
+        if (validation.forceMenu) {
+            // Loop limit or duration exceeded → force menu reset
+            v2log.warn('DECISION', `Loop/timeout detected: ${validation.reason}`, {
+                chatId: input.chatId,
+                loopCount: session.loopCount,
+                currentStage,
+                proposedNext: fsmResult.nextStage,
+            });
+
+            fsmResult = {
+                replyText: getLoopMenuMessage(input.workspaceType, replyLang),
+                nextStage: 'idle',
+                nextData: null,
+                actions: [...fsmResult.actions, 'loop_detected', 'force_menu'],
+                dbWriteAttempted: false,
+                dbWriteSuccess: false,
+                shouldReply: true,
+            };
+        } else if (validation.approvedStage !== fsmResult.nextStage) {
+            // Invalid transition rejected
+            v2log.warn('DECISION', `Invalid transition rejected: ${validation.reason}`, {
+                chatId: input.chatId,
+                proposed: fsmResult.nextStage,
+                approved: validation.approvedStage,
+            });
+            fsmResult = { ...fsmResult, nextStage: validation.approvedStage };
+        }
+
+        // Update loop tracking in session
+        const updatedSession = updateLoopTracking(session, fsmResult.nextStage, fsmResult.replyText);
+        updatedSession.data = fsmResult.nextData;
+        updatedSession.postContext = fsmResult.postContext || postContext;
+        updatedSession.state = validation.approvedStage;
+        updatedSession.lastBotMessage = fsmResult.replyText;
+
+        await saveSession(
+            input.supabase, input.userId, input.workspaceId,
+            input.chatId, input.workspaceType,
+            updatedSession, input.platform
+        );
 
         return {
             handledByFSM: true,

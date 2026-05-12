@@ -95,8 +95,27 @@ export function detectLanguage(message: string): DetectedLanguage {
         return normalized.includes(w);
     });
 
-    // Mixed Arabic + Latin
-    if (hasArabic && hasLatin) return 'mixed';
+    // ── BUG 1 FIX: Mixed Arabic + Latin ──────────────────────
+    // Previously returned 'mixed' → fell back to English.
+    // Now: check for Arabizi signals first. If the Latin portion
+    // contains Arabizi words, this is Franco-Arabic (arabizi).
+    // If no Arabizi signals, check if it's mostly Arabic script
+    // with some Latin sprinkled in (still reply in Arabic/Arabizi).
+    if (hasArabic && hasLatin) {
+        // Check if the Latin portion contains Arabizi signals
+        if (has(ARABIZI_SIGNALS)) return 'arabizi';
+
+        // Count Arabic vs Latin characters to determine dominant script
+        const arabicCharCount = (message.match(/[\u0600-\u06FF]/g) || []).length;
+        const latinCharCount = (message.match(/[a-zA-Z]/g) || []).length;
+
+        // If Arabic-dominant, reply in arabizi (our best approximation)
+        if (arabicCharCount > latinCharCount) return 'arabizi';
+
+        // If Latin-dominant with Arabic, still use arabizi
+        // (user is likely code-switching, mirror their mix)
+        return 'mixed';
+    }
 
     // Pure Arabic script
     if (hasArabic && !hasLatin) return 'arabic';
@@ -114,6 +133,30 @@ export function detectLanguage(message: string): DetectedLanguage {
     if (hasLatin) return 'english';
 
     return 'unknown';
+}
+
+// ── Language Script Detection ────────────────────────────────
+// Simplified version that returns just the script family.
+// Used by the response generator to set the language rule.
+
+export type LanguageScript = 'english' | 'arabic' | 'franco' | 'mixed';
+
+export function detectLanguageScript(message: string): LanguageScript {
+    const detected = detectLanguage(message);
+    switch (detected) {
+        case 'arabic':
+            return 'arabic';
+        case 'arabizi':
+            return 'franco';
+        case 'mixed':
+            return 'mixed';
+        case 'french':
+        case 'spanish':
+        case 'english':
+        case 'unknown':
+        default:
+            return 'english';
+    }
 }
 
 // ── Yes/No Detection (language-agnostic) ─────────────────────

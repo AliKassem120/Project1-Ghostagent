@@ -121,3 +121,7 @@ export async function routeToAgent(input: AutomationInput): Promise<AutomationRe
     const { runAgent } = await import('./agent');
     return await runAgent(input, config);
 }
+
+// ── Observability Administration ─────────────────────────────
+
+export { getTemplateCoverage, resetTemplateCoverage } from './templates';

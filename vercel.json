@@ -5,6 +5,18 @@
         },
         "src/app/api/webhook/whatsapp/route.ts": {
             "maxDuration": 60
+        },
+        "src/app/api/worker/process/route.ts": {
+            "maxDuration": 60
+        },
+        "src/app/api/webhook/v3/route.ts": {
+            "maxDuration": 10
         }
-    }
+    },
+    "crons": [
+        {
+            "path": "/api/cron/purge",
+            "schedule": "0 0 * * 0"
+        }
+    ]
 }
