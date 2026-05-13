@@ -1073,15 +1073,23 @@ export default function SettingsPage() {
                                 )}
 
                                 {/* Instagram Setup Helper */}
-                                <div className="p-4 rounded-xl bg-surface-2/50 border border-border/50 space-y-2 mt-4">
-                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Instagram Setup Instructions</p>
-                                    <p className="text-[11px] text-muted-foreground">
-                                        1. In Meta Developers, add <strong>Instagram Login for Business</strong> to your app.
-                                        <br />
-                                        2. Add this <strong>Valid OAuth Redirect URI</strong>:
-                                    </p>
-                                    <div className="flex items-center gap-2 p-2 bg-black/20 rounded-lg border border-white/5 font-mono text-[10px] text-pink-400/80 break-all">
-                                        {typeof window !== 'undefined' ? `${window.location.origin}/api/auth/callback/instagram` : '.../api/auth/callback/instagram'}
+                                <div className="p-5 rounded-2xl bg-pink-500/5 border border-pink-500/10 space-y-3 mt-6">
+                                    <div className="flex items-center gap-2 text-pink-400">
+                                        <Sparkles className="w-4 h-4" />
+                                        <p className="text-[10px] font-black uppercase tracking-widest">Instagram Setup Instructions</p>
+                                    </div>
+                                    <div className="space-y-2 text-[11px] text-muted-foreground leading-relaxed">
+                                        <p>1. Open <a href="https://developers.facebook.com/" target="_blank" className="text-pink-400 hover:underline">Meta Developers</a> and select your app.</p>
+                                        <p>2. Go to <strong>Instagram Login for Business</strong> &gt; <strong>Settings</strong>.</p>
+                                        <p>3. Add this exact URI to <strong>Valid OAuth Redirect URIs</strong>:</p>
+                                    </div>
+                                    <div className="relative group">
+                                        <div className="flex items-center gap-2 p-3 bg-black/40 rounded-xl border border-white/5 font-mono text-[10px] text-pink-400 break-all select-all">
+                                            {typeof window !== 'undefined' ? `${window.location.origin}/api/auth/callback/instagram` : '.../api/auth/callback/instagram'}
+                                        </div>
+                                        <p className="text-[9px] text-red-400/80 mt-2 italic">
+                                            ⚠️ Error "Invalid redirect_uri"? Ensure the URI above matches EXACTLY (check http vs https and trailing slashes) in your Meta Dashboard.
+                                        </p>
                                     </div>
                                 </div>
                             </>
@@ -1104,12 +1112,12 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-4">
-                        <div className="flex items-center justify-between p-5 bg-surface-2 rounded-2xl border border-border">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
+                        <div className="flex flex-col sm:flex-row items-center justify-between p-5 bg-surface-2 rounded-2xl border border-border gap-4">
+                            <div className="flex items-center gap-4 w-full">
+                                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 shrink-0">
                                     <MessageCircle className="w-6 h-6 text-emerald-400" />
                                 </div>
-                                <div>
+                                <div className="flex-1">
                                     <h4 className="font-bold text-foreground">
                                         {settings.waPhoneNumberId ? 'Connected' : 'Meta Embedded Signup'}
                                     </h4>
@@ -1127,24 +1135,22 @@ export default function SettingsPage() {
                         </div>
 
                         {/* WhatsApp Setup Helper */}
-                        <div className="p-4 rounded-xl bg-surface-2/50 border border-border/50 space-y-2">
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">WhatsApp Setup Instructions</p>
-                            <p className="text-[11px] text-muted-foreground">
-                                1. Ensure <strong>WhatsApp Business</strong> is added to your Meta App.
-                                <br />
-                                2. Whitelist this Redirect URI in your Facebook Login settings:
-                            </p>
-                            <div className="flex items-center gap-2 p-2 bg-black/20 rounded-lg border border-white/5 font-mono text-[10px] text-emerald-400/80 break-all">
+                        <div className="p-5 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 space-y-3">
+                            <div className="flex items-center gap-2 text-emerald-400">
+                                <Sparkles className="w-4 h-4" />
+                                <p className="text-[10px] font-black uppercase tracking-widest">WhatsApp Setup Instructions</p>
+                            </div>
+                            <div className="space-y-2 text-[11px] text-muted-foreground leading-relaxed">
+                                <p>1. Ensure <strong>WhatsApp Business</strong> is added to your Meta App.</p>
+                                <p>2. Whitelist this Redirect URI in your <strong>Facebook Login for Business</strong> settings:</p>
+                            </div>
+                            <div className="flex items-center gap-2 p-3 bg-black/40 rounded-xl border border-white/5 font-mono text-[10px] text-emerald-400 break-all select-all">
                                 {typeof window !== 'undefined' ? `${window.location.origin}/api/auth/callback/whatsapp` : '.../api/auth/callback/whatsapp'}
                             </div>
                         </div>
                     </div>
                 </motion.div>
              )}
-                        )}
-                    </div>
-                </motion.div>
-            )}
 
             {/* Language */}
             {activeTab === 'personality' && (

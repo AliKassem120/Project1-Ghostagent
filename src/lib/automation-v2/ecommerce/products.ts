@@ -60,7 +60,7 @@ export async function searchProducts(args: {
                 const queryLower = query?.toLowerCase();
 
                 const csvItems: InventoryRecord[] = csvRows
-                    .filter((row: any) => {
+                    .map((row: any, index: number) => {
                         const itemName = row.name || row.title || row.product || row.item || row['Product Name'] || row.Label || row.item_name;
                         if (!itemName) return null; // Skip invalid rows
 
@@ -83,7 +83,7 @@ export async function searchProducts(args: {
                             variants,
                         } as InventoryRecord & { colors?: string, sizes?: string };
                     })
-                    .filter(Boolean) // Remove nulls from skipped rows
+                    .filter((item): item is InventoryRecord => item !== null) // Remove nulls from skipped rows
 
                 items = [...items, ...csvItems];
                 v2log.info('V2_ECOM_PRODUCTS', `CSV Fallback added ${csvItems.length} items`, { workspaceId });
