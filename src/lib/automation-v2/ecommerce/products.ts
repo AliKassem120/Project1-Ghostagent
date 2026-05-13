@@ -59,7 +59,7 @@ export async function searchProducts(args: {
                 const csvRows = JSON.parse(knowledge.content);
                 const queryLower = query?.toLowerCase();
 
-                const csvItems: InventoryRecord[] = csvRows
+                let csvItems: InventoryRecord[] = csvRows
                     .map((row: any, index: number) => {
                         const itemName = row.name || row.title || row.product || row.item || row['Product Name'] || row.Label || row.item_name;
                         if (!itemName) return null; // Skip invalid rows
@@ -83,10 +83,22 @@ export async function searchProducts(args: {
                             variants,
                         } as InventoryRecord & { colors?: string, sizes?: string };
                     })
-                    .filter((item: any): item is InventoryRecord => item !== null) // Remove nulls from skipped rows
+                    .filter((item: any): item is InventoryRecord => item !== null); // Remove nulls from skipped rows
 
-                items = [...items, ...csvItems];
-                v2log.info('V2_ECOM_PRODUCTS', `CSV Fallback added ${csvItems.length} items`, { workspaceId });
+                if (queryLower) {
+                    csvItems = csvItems.filter(item => 
+                        item.itemName.toLowerCase().includes(queryLower) || 
+                        (item.description && item.description.toLowerCase().includes(queryLower))
+                    );
+                }
+
+                // Cap items to the requested limit to prevent memory bloat during LLM orchestration
+                const remainingLimit = limit - items.length;
+                if (remainingLimit > 0) {
+                    csvItems = csvItems.slice(0, remainingLimit);
+                    items = [...items, ...csvItems];
+                    v2log.info('V2_ECOM_PRODUCTS', `CSV Fallback added ${csvItems.length} items`, { workspaceId, query });
+                }
             }
         } catch (err) {
             v2log.warn('V2_ECOM_PRODUCTS', 'CSV search failed', { err, workspaceId });

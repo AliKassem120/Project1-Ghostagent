@@ -956,7 +956,13 @@ async function findOwner(supabaseAdmin: any, accountId: string | undefined): Pro
 
     if (legacyConn?.user_id) {
         console.log(`[findOwner] ✅ Matched via user_connections (legacy) — userId: ${legacyConn.user_id}`);
-        return { userId: legacyConn.user_id, workspaceId: null };
+        // Fetch the primary workspace ID to ensure activity logs map correctly to the dashboard workspace filter
+        const { data: defaultWs } = await supabaseAdmin.from('ai_settings')
+            .select('id')
+            .eq('user_id', legacyConn.user_id)
+            .limit(1)
+            .maybeSingle();
+        return { userId: legacyConn.user_id, workspaceId: defaultWs?.id || null };
     }
 
     // 3. LAST RESORT: Match by the recipient_id being this account's known IG page ID stored in ai_settings
@@ -997,8 +1003,6 @@ async function checkAutopilot(supabaseAdmin: any, ownerId: string, externalChatI
             .from('conversation_states')
             .select('is_muted')
             .eq('user_id', ownerId)
-            // Added workspace filter for chat state if available
-            .eq(workspaceId ? 'workspace_id' : 'user_id', workspaceId || ownerId)
             .eq('external_chat_id', externalChatId)
             .maybeSingle();
 

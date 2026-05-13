@@ -45,9 +45,7 @@ export async function loadConversationState(
             .from('conversation_states')
             .select('stage, data')
             .eq('user_id', userId)
-            .eq('workspace_id', workspaceId)
-            .eq('chat_id', chatId)
-            .eq('workspace_type', workspaceType)
+            .eq('external_chat_id', chatId)
             .maybeSingle();
 
         if (error) {
@@ -74,7 +72,7 @@ export async function loadConversationState(
 
 /**
  * Save/upsert the conversation state for a specific chat.
- * Uses the unique constraint on (user_id, workspace_id, chat_id, workspace_type).
+ * Uses the unique constraint on (user_id, external_chat_id).
  */
 export async function saveConversationState(
     supabase: SupabaseClient,
@@ -93,9 +91,7 @@ export async function saveConversationState(
             .from('conversation_states')
             .select('id')
             .eq('user_id', userId)
-            .eq('workspace_id', workspaceId)
-            .eq('chat_id', chatId)
-            .eq('workspace_type', workspaceType)
+            .eq('external_chat_id', chatId)
             .maybeSingle();
 
         if (selectError) {
@@ -109,6 +105,8 @@ export async function saveConversationState(
                 .update({
                     stage,
                     data: stateData || {},
+                    workspace_id: workspaceId,
+                    workspace_type: workspaceType,
                     updated_at: now,
                 })
                 .eq('id', existing.id);
