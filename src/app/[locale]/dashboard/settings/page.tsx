@@ -924,24 +924,16 @@ export default function SettingsPage() {
                                     </button>
                                 )}
 
-                                {/* Instagram Setup Helper */}
+                                {/* How It Works */}
                                 <div className="p-5 rounded-2xl bg-pink-500/5 border border-pink-500/10 space-y-3 mt-6">
                                     <div className="flex items-center gap-2 text-pink-400">
                                         <Sparkles className="w-4 h-4" />
-                                        <p className="text-[10px] font-black uppercase tracking-widest">Instagram Setup Instructions</p>
+                                        <p className="text-[10px] font-black uppercase tracking-widest">How It Works</p>
                                     </div>
                                     <div className="space-y-2 text-[11px] text-muted-foreground leading-relaxed">
-                                        <p>1. Open <a href="https://developers.facebook.com/" target="_blank" className="text-pink-400 hover:underline">Meta Developers</a> and select your app.</p>
-                                        <p>2. Go to <strong>Instagram Login for Business</strong> &gt; <strong>Settings</strong>.</p>
-                                        <p>3. Add this exact URI to <strong>Valid OAuth Redirect URIs</strong>:</p>
-                                    </div>
-                                    <div className="relative group">
-                                        <div className="flex items-center gap-2 p-3 bg-black/40 rounded-xl border border-white/5 font-mono text-[10px] text-pink-400 break-all select-all">
-                                            {typeof window !== 'undefined' ? `${window.location.origin}/api/auth/callback/instagram` : '.../api/auth/callback/instagram'}
-                                        </div>
-                                        <p className="text-[9px] text-red-400/80 mt-2 italic">
-                                            ⚠️ Error "Invalid redirect_uri"? Ensure the URI above matches EXACTLY (check http vs https and trailing slashes) in your Meta Dashboard.
-                                        </p>
+                                        <p>1. Click <strong>Connect Instagram</strong> above — you'll be taken to Meta to log in safely.</p>
+                                        <p>2. Select the <strong>Instagram Professional Account</strong> you want to connect.</p>
+                                        <p>3. That's it! GhostAgent will start answering DMs and comments automatically.</p>
                                     </div>
                                 </div>
                             </>

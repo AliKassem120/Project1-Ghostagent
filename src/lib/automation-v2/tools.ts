@@ -223,8 +223,12 @@ export function createEcommerceTools(ctx: ToolContext) {
             },
         },
         lookup_customer: {
-            description: 'Check if this customer has ordered before. Returns saved name/phone/address.',
-            parameters: z.object({}),
+            description: 'Check if this customer has ordered before. Returns saved name/phone/address. Call at the start of any order flow.',
+            parameters: z.object({
+                name: z.string().optional().describe('Customer name if already mentioned'),
+                phone: z.string().optional().describe('Customer phone if already mentioned'),
+                address: z.string().optional().describe('Customer address if already mentioned'),
+            }),
             execute: async () => {
                 const known = await getKnownCustomerDetails(ctx.supabase, ctx.workspaceId, ctx.chatId);
                 if (!known) return { found: false };
