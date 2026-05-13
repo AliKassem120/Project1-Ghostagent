@@ -1,10 +1,8 @@
-import { handleAutomationMessage } from '@/lib/automation-v2';
 import type { AutomationResult } from '@/lib/automation-v2/types';
 
 // ═══════════════════════════════════════════════════════════════
-// 🧠 GHOST AGENT — Core AI Brain Router
-// Single entry point. Routes every message to V2 or V3 engine.
-// V3 = opt-in per workspace via ai_settings.automation_engine_version
+// 🧠 GHOST AGENT — Core AI Brain (V3)
+// Single entry point. All messages go through the V3 LLM agent.
 // ═══════════════════════════════════════════════════════════════
 
 export async function generateGhostReply(
@@ -21,57 +19,26 @@ export async function generateGhostReply(
             return null;
         }
 
-        // Fetch business type + engine version
+        // Fetch business type from workspace settings
         const { data: settings } = await supabase
             .from('ai_settings')
-            .select('business_type, automation_engine_version')
+            .select('business_type')
             .eq('id', workspaceId)
             .maybeSingle();
 
         const businessType = settings?.business_type || 'ecommerce';
-        const engineVersion = settings?.automation_engine_version || 'v2';
 
-        // ── V3 Orchestrator (opt-in) ────────────────────────
-        if (engineVersion === 'v3') {
-            try {
-                const { runV3Orchestrator } = await import('@/lib/automation-v2/orchestrator');
-                const { loadWorkspaceConfig } = await import('@/lib/automation-v2/router');
+        // ── V3 LLM Agent ────────────────────────────────────
+        const { runV3Agent } = await import('@/lib/automation-v3/agent');
+        const { loadWorkspaceConfig } = await import('@/lib/automation-v2/router');
 
-                const config = await loadWorkspaceConfig(supabase, workspaceId, userId);
-                if (!config) {
-                    console.error('❌ [Ghost Brain] V3: Failed to load workspace config');
-                    // Fall through to v2
-                } else {
-                    const result = await runV3Orchestrator({
-                        workspaceId,
-                        workspaceType: businessType as 'appointments' | 'ecommerce' | 'saas_support',
-                        chatId,
-                        message: userMessage,
-                        platform,
-                        supabase,
-                        userId,
-                    }, config);
-
-                    if (!result.shouldReply) {
-                        return { replyText: null, skipLegacyLogging: true, automationResult: result };
-                    }
-
-                    return {
-                        replyText: result.replyText || null,
-                        skipLegacyLogging: true,
-                        automationResult: result,
-                        debug: result.debug,
-                        actions: result.actions,
-                    };
-                }
-            } catch (v3Error: any) {
-                console.error('❌ [Ghost Brain] V3 failed, falling back to V2:', v3Error.message);
-                // Fall through to v2
-            }
+        const config = await loadWorkspaceConfig(supabase, workspaceId, userId);
+        if (!config) {
+            console.error('❌ [Ghost Brain] Failed to load workspace config');
+            return null;
         }
 
-        // ── V2 Engine (default) ─────────────────────────────
-        const result = await handleAutomationMessage({
+        const result = await runV3Agent({
             workspaceId,
             workspaceType: businessType as 'appointments' | 'ecommerce' | 'saas_support',
             chatId,
@@ -79,7 +46,7 @@ export async function generateGhostReply(
             platform,
             supabase,
             userId,
-        });
+        }, config);
 
         if (!result.shouldReply) {
             return { replyText: null, skipLegacyLogging: true, automationResult: result };
@@ -92,6 +59,7 @@ export async function generateGhostReply(
             debug: result.debug,
             actions: result.actions,
         };
+
     } catch (error: any) {
         console.error('❌ [Ghost Brain] Failed:', error);
         return null;

@@ -53,7 +53,7 @@ export interface AutomationResult {
 
 export interface AutomationDebug {
     requestId: string;
-    engineVersion: 'v2';
+    engineVersion: 'v2' | 'v3' | 'v3-agent';
     workspaceId: string;
     workspaceType: 'appointments' | 'ecommerce' | 'saas_support';
     chatId: string;

@@ -748,13 +748,12 @@ export default function SettingsPage() {
                                 <button
                                     id="wa-embedded-signup-btn"
                                     onClick={() => {
-                                        const configId = process.env.NEXT_PUBLIC_WHATSAPP_CONFIG_ID || process.env.NEXT_PUBLIC_FACEBOOK_CONFIG_ID;
+                                        // NEXT_PUBLIC_* vars are baked at build time. If the dev server wasn't
+                                        // restarted after .env changes, fall back to the hardcoded production ID.
+                                        const configId = process.env.NEXT_PUBLIC_WHATSAPP_CONFIG_ID 
+                                            || process.env.NEXT_PUBLIC_FACEBOOK_CONFIG_ID
+                                            || '1287853626231294'; // hardcoded fallback from .env.local
                                         
-                                        if (!configId) {
-                                            toast.error('Missing WhatsApp Config ID in environment variables. Please check your .env file.');
-                                            return;
-                                        }
-
                                         if (!(window as any).FB) {
                                             toast.error('Facebook SDK is still loading or was blocked by an AdBlocker. Please disable tracking protection and try again.');
                                             return;

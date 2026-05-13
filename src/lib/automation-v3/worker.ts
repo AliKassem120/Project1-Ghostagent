@@ -52,9 +52,9 @@ export async function processMessageJob(job: MessageJob): Promise<void> {
             supabase, job.workspaceId, job.chatId, job.platform
         );
 
-        // 3. Run V3 Orchestrator
-        const { runV3Orchestrator } = await import('@/lib/automation-v2/orchestrator');
-        const result = await runV3Orchestrator({
+        // 3. Run V3 LLM Agent
+        const { runV3Agent } = await import('./agent');
+        const result = await runV3Agent({
             workspaceId: job.workspaceId,
             workspaceType: job.workspaceType,
             chatId: job.chatId,
@@ -62,7 +62,7 @@ export async function processMessageJob(job: MessageJob): Promise<void> {
             platform: job.platform,
             supabase,
             userId: job.userId,
-        }, config, profile);
+        }, config);
 
         // 4. Send reply via platform API
         if (result.shouldReply && result.replyText) {
