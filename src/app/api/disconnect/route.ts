@@ -25,7 +25,30 @@ export async function POST(req: Request) {
 
         if (error) throw error;
 
-        return NextResponse.json({ success: true });
+        // Check if any other Instagram accounts are connected
+        const { count: igCount } = await supabase
+            .from('instagram_integrations')
+            .select('*', { count: 'exact', head: true })
+            .eq('workspace_id', workspaceId);
+
+        // Check if WhatsApp is connected
+        const { data: settings } = await supabase
+            .from('ai_settings')
+            .select('whatsapp_phone_number_id')
+            .eq('id', workspaceId)
+            .single();
+
+        let autopilotDisabled = false;
+        if (igCount === 0 && !settings?.whatsapp_phone_number_id) {
+            // Turn off autopilot since no channels are connected
+            await supabase
+                .from('ai_settings')
+                .update({ is_autopilot_enabled: false })
+                .eq('id', workspaceId);
+            autopilotDisabled = true;
+        }
+
+        return NextResponse.json({ success: true, autopilotDisabled });
     } catch (e: any) {
         return NextResponse.json({ error: e.message }, { status: 500 });
     }

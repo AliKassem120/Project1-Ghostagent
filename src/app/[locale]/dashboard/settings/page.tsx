@@ -350,7 +350,7 @@ export default function SettingsPage() {
                 };
             });
 
-            await fetch('/api/disconnect', {
+            const res = await fetch('/api/disconnect', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ accountId, workspaceId: activeWorkspaceId })
@@ -358,6 +358,12 @@ export default function SettingsPage() {
 
             toast.success('Account Disconnected', { description: 'The integration has been removed.' });
             checkInstagramStatus(); // Refresh to be sure
+            
+            const data = await res.json();
+            if (data.autopilotDisabled && autopilot) {
+                // If backend disabled autopilot due to no channels, sync UI silently
+                setAutopilot(false);
+            }
         } catch (e) {
             toast.error('Failed to disconnect');
             checkInstagramStatus(); // Revert on error
