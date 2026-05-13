@@ -83,7 +83,7 @@ export async function searchProducts(args: {
                             variants,
                         } as InventoryRecord & { colors?: string, sizes?: string };
                     })
-                    .filter((item): item is InventoryRecord => item !== null) // Remove nulls from skipped rows
+                    .filter((item: any): item is InventoryRecord => item !== null) // Remove nulls from skipped rows
 
                 items = [...items, ...csvItems];
                 v2log.info('V2_ECOM_PRODUCTS', `CSV Fallback added ${csvItems.length} items`, { workspaceId });
