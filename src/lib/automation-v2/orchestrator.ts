@@ -56,6 +56,7 @@ export async function runV3Orchestrator(
             replyText: rateCheck.replyText || undefined,
             actions: [`rate_limited_${rateCheck.reason}`],
             stateBefore: 'idle', stateAfter: 'idle',
+            intent: 'rate_limited',
         });
     }
 
@@ -72,6 +73,7 @@ export async function runV3Orchestrator(
         return buildResult(requestId, input, lang, startTime, {
             shouldReply: true, replyText: reply,
             actions: ['state_load_failure'], stateBefore: 'idle', stateAfter: 'idle',
+            intent: 'error_session',
         });
     }
 
@@ -87,6 +89,7 @@ export async function runV3Orchestrator(
         return buildResult(requestId, input, lang, startTime, {
             shouldReply: true, replyText: reply,
             actions: ['fresh_session_greeting'], stateBefore: 'idle', stateAfter: 'idle',
+            intent: 'greeting',
         });
     }
 
@@ -101,6 +104,7 @@ export async function runV3Orchestrator(
         return buildResult(requestId, input, lang, startTime, {
             shouldReply: cancelRes.shouldReply, replyText: cancelRes.replyText,
             actions: cancelRes.actions, stateBefore: session.state, stateAfter: 'idle',
+            intent: interruptCheck.intent,
         });
     }
     if (['human_handoff', 'frustration_stop'].includes(interruptCheck.intent)) {
@@ -112,6 +116,7 @@ export async function runV3Orchestrator(
             return buildResult(requestId, input, lang, startTime, {
                 shouldReply: det.fsmResult.shouldReply, replyText: det.fsmResult.replyText,
                 actions: det.fsmResult.actions, stateBefore: session.state, stateAfter: 'idle',
+                intent: interruptCheck.intent,
             });
         }
     }
@@ -152,6 +157,7 @@ export async function runV3Orchestrator(
         return buildResult(requestId, input, lang, startTime, {
             shouldReply: fsmResult.shouldReply, replyText: fsmResult.replyText,
             actions: fsmResult.actions, stateBefore: session.state, stateAfter: fsmResult.nextStage,
+            intent: session.state, // Continuation of active state
         });
     }
 
@@ -165,6 +171,7 @@ export async function runV3Orchestrator(
             return buildResult(requestId, input, lang, startTime, {
                 shouldReply: pcResult.fsmResult.shouldReply, replyText: pcResult.fsmResult.replyText,
                 actions: pcResult.fsmResult.actions, stateBefore: 'idle', stateAfter: pcResult.fsmResult.nextStage,
+                intent: 'post_context_resolution',
             });
         }
     }
@@ -183,6 +190,7 @@ export async function runV3Orchestrator(
         return buildResult(requestId, input, lang, startTime, {
             shouldReply: det.fsmResult.shouldReply, replyText: det.fsmResult.replyText,
             actions: det.fsmResult.actions, stateBefore: 'idle', stateAfter: det.fsmResult.nextStage,
+            intent: classification.intent,
         });
     }
 
@@ -195,6 +203,7 @@ export async function runV3Orchestrator(
         return buildResult(requestId, input, lang, startTime, {
             shouldReply: fsmEntry.fsmResult.shouldReply, replyText: fsmEntry.fsmResult.replyText,
             actions: fsmEntry.fsmResult.actions, stateBefore: 'idle', stateAfter: fsmEntry.fsmResult.nextStage,
+            intent: classification.intent,
         });
     }
 
@@ -210,6 +219,7 @@ export async function runV3Orchestrator(
     return buildResult(requestId, input, lang, startTime, {
         shouldReply: true, replyText: llmReply,
         actions: ['llm_fallback'], stateBefore: 'idle', stateAfter: 'idle',
+        intent: 'general_conversation',
     });
 }
 
@@ -217,7 +227,7 @@ export async function runV3Orchestrator(
 
 function buildResult(
     requestId: string, input: AutomationInput, lang: string, startTime: number,
-    partial: { shouldReply: boolean; replyText?: string; actions: string[]; stateBefore: string; stateAfter: string }
+    partial: { shouldReply: boolean; replyText?: string; actions: string[]; stateBefore: string; stateAfter: string; intent?: string }
 ): AutomationResult {
     return {
         shouldReply: partial.shouldReply,
@@ -234,6 +244,7 @@ function buildResult(
             language: lang as any,
             dbWriteAttempted: false,
             dbWriteSuccess: false,
+            intent: partial.intent,
             durationMs: Date.now() - startTime,
         },
     };

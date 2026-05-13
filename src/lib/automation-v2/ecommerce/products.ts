@@ -35,6 +35,8 @@ export async function searchProducts(args: {
         v2log.error('V2_ECOM_PRODUCTS', 'Inventory search failed', { error, workspaceId });
     }
 
+    v2log.info('V2_ECOM_PRODUCTS', `DB Search returned ${dbItems?.length || 0} items`, { workspaceId, query });
+
     let items: InventoryRecord[] = (dbItems || []).map(i => ({
         id: i.id,
         itemName: i.item_name,
@@ -85,6 +87,7 @@ export async function searchProducts(args: {
                     });
 
                 items = [...items, ...csvItems];
+                v2log.info('V2_ECOM_PRODUCTS', `CSV Fallback added ${csvItems.length} items`, { workspaceId });
             }
         } catch (err) {
             v2log.warn('V2_ECOM_PRODUCTS', 'CSV search failed', { err, workspaceId });

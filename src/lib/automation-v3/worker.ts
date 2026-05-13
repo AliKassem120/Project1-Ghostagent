@@ -69,6 +69,60 @@ export async function processMessageJob(job: MessageJob): Promise<void> {
             await sendPlatformReply(supabase, job, result.replyText);
         }
 
+        // ── PERSIST TO ANALYTICS (Live Dashboard Overview) ──
+        try {
+            await supabase.from('activity_log').insert({
+                user_id: job.userId,
+                workspace_id: job.workspaceId,
+                event_type: 'AI_REPLY',
+                description: result.replyText 
+                    ? `Sent: "${result.replyText.slice(0, 80)}"`
+                    : `Processed message: "${job.message.slice(0, 30)}..." (No reply)`,
+                metadata: {
+                    requestId: result.debug.requestId,
+                    message: job.message,
+                    reply: result.replyText,
+                    intent: result.debug.intent,
+                    language: result.debug.language,
+                    stateBefore: result.stateBefore,
+                    stateAfter: result.stateAfter,
+                    actions: result.actions,
+                    durationMs: result.debug.durationMs,
+                    platform: job.platform,
+                    chat_id: job.chatId,
+                    engine: 'v3-worker'
+                }
+            });
+        } catch (logErr) {
+            v2log.warn('WORKER', 'Failed to persist analytics log', { error: logErr });
+        }
+
+        try {
+            await supabase.from('automation_runs').insert({
+                workspace_id: job.workspaceId,
+                user_id: job.userId,
+                platform: job.platform,
+                chat_id: job.chatId,
+                incoming_message: job.message,
+                buffered_message: job.message,
+                state_before: result.stateBefore,
+                state_after: result.stateAfter,
+                intent: result.debug.intent || null,
+                actions: result.actions || [],
+                db_write_attempted: result.debug.dbWriteAttempted,
+                db_write_success: result.debug.dbWriteSuccess,
+                source_path: 'automation-v3/worker',
+                error: result.error || null,
+                metadata: {
+                    requestId: result.debug.requestId,
+                    language: result.debug.language,
+                    durationMs: result.debug.durationMs,
+                },
+            });
+        } catch (runLogErr) {
+            v2log.warn('WORKER', 'Failed to persist automation run', { error: runLogErr });
+        }
+
         // 5. Upsert customer profile (update last_seen)
         await upsertCustomerProfile(
             supabase, job.workspaceId, job.chatId, job.platform,

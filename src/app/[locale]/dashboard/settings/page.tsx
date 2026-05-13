@@ -245,7 +245,7 @@ export default function SettingsPage() {
             script.async = true;
             script.defer = true;
             script.onload = () => {
-                const appId = process.env.NEXT_PUBLIC_INSTAGRAM_APP_ID;
+                const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID;
                 if ((window as any).FB && appId) {
                     (window as any).FB.init({
                         appId,
@@ -280,7 +280,11 @@ export default function SettingsPage() {
         const stateParam = activeWorkspaceId || '';
         const authUrl = `https://www.instagram.com/oauth/authorize?enable_fb_login=0&force_authentication=1&client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&state=${stateParam}`;
 
-        console.log("Redirecting to Meta:", authUrl);
+        console.log("Redirecting to Meta:", {
+            appId,
+            redirectUri,
+            authUrl
+        });
         window.location.href = authUrl;
     };
 
