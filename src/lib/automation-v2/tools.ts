@@ -68,16 +68,14 @@ export function createAppointmentTools(ctx: ToolContext) {
         book_appointment: {
             description: 'Create an appointment. Call ONLY after check_slot confirmed availability and customer confirmed.',
             inputSchema: z.object({
-                customer_name: z.string(),
-                customer_phone: z.string(),
-                service: z.string(),
+                name: z.string().describe('Customer full name'),
+                phone: z.string().describe('Customer phone number'),
+                service: z.string().describe('Service name'),
                 date: z.string().describe('YYYY-MM-DD'),
                 time: z.string().describe('HH:mm 24h'),
-                name: z.string().describe('Optional. Leave empty if unknown'),
-                phone: z.string().describe('Optional. Leave empty if unknown'),
                 address: z.string().describe('Optional. Leave empty if unknown'),
             }),
-            execute: async ({ customer_name, customer_phone, service, date, time }: { customer_name: string; customer_phone: string; service: string; date: string; time: string }) => {
+            execute: async ({ name, phone, service, date, time, address }: { name: string; phone: string; service: string; date: string; time: string; address?: string }) => {
                 const services = await loadActiveServices(ctx.supabase, ctx.workspaceId);
                 const match = findBestServiceMatch(services, service);
                 if (!match) return { success: false, error: 'Service not found' };
@@ -114,7 +112,7 @@ export function createAppointmentTools(ctx: ToolContext) {
                         }
                     }
                 } catch (_e) { /* fallback to 'Customer' */ }
-                const appointmentResult = await createAppointmentV2Structured({ supabase: ctx.supabase, userId: ctx.userId, workspaceId: ctx.workspaceId, chatId: ctx.chatId, platform: ctx.platform, customerName: customer_name, customerPhone: customer_phone, serviceName: match.name, date, startTime: time, endTime, durationMinutes: match.durationMinutes, instagramHandle: handle });
+                const appointmentResult = await createAppointmentV2Structured({ supabase: ctx.supabase, userId: ctx.userId, workspaceId: ctx.workspaceId, chatId: ctx.chatId, platform: ctx.platform, customerName: name, customerPhone: phone, serviceName: match.name, date, startTime: time, endTime, durationMinutes: match.durationMinutes, instagramHandle: handle });
                 return { ...appointmentResult, service: match.name, date, time: formatTime12(time), price: match.price };
             },
         },
@@ -192,19 +190,16 @@ export function createEcommerceTools(ctx: ToolContext) {
         place_order: {
             description: 'Create an order. Call ONLY after product is in stock and customer confirmed.',
             inputSchema: z.object({
-                customer_name: z.string(),
-                customer_phone: z.string(),
-                customer_address: z.string(),
-                product_name: z.string(),
-                variant: z.string().describe('Optional variant. Leave empty string if unknown'),
+                name: z.string().describe('Customer full name'),
+                phone: z.string().describe('Customer phone number'),
+                address: z.string().describe('Customer shipping address'),
+                product: z.string().describe('Product name'),
+                variant: z.string().describe('Optional variant (color/size). Leave empty if unknown'),
                 quantity: z.number().default(1),
-                name: z.string().describe('Optional. Leave empty if unknown'),
-                phone: z.string().describe('Optional. Leave empty if unknown'),
-                address: z.string().describe('Optional. Leave empty if unknown'),
             }),
-            execute: async ({ customer_name, customer_phone, customer_address, product_name, variant, quantity }: { customer_name: string; customer_phone: string; customer_address: string; product_name: string; variant?: string; quantity: number }) => {
-                const products = await searchProducts({ supabase: ctx.supabase, workspaceId: ctx.workspaceId, query: product_name });
-                const match = findBestProductMatch(products, product_name);
+            execute: async ({ name, phone, address, product, variant, quantity }: { name: string; phone: string; address: string; product: string; variant?: string; quantity: number }) => {
+                const products = await searchProducts({ supabase: ctx.supabase, workspaceId: ctx.workspaceId, query: product });
+                const match = findBestProductMatch(products, product);
                 if (!match) return { success: false, error: 'Product not found' };
                 let handle = 'Customer';
                 try { 
@@ -237,7 +232,7 @@ export function createEcommerceTools(ctx: ToolContext) {
                         }
                     }
                 } catch (_e) { /* fallback to 'Customer' */ }
-                const orderResult = await createOrderV2({ supabase: ctx.supabase, userId: ctx.userId, workspaceId: ctx.workspaceId, chatId: ctx.chatId, platform: ctx.platform, productId: match.id, customerName: customer_name, customerPhone: customer_phone, customerAddress: customer_address, itemRequested: match.itemName, variantLabel: variant, unitPrice: match.price, quantity, instagramHandle: handle });
+                const orderResult = await createOrderV2({ supabase: ctx.supabase, userId: ctx.userId, workspaceId: ctx.workspaceId, chatId: ctx.chatId, platform: ctx.platform, productId: match.id, customerName: name, customerPhone: phone, customerAddress: address, itemRequested: match.itemName, variantLabel: variant, unitPrice: match.price, quantity, instagramHandle: handle });
                 return { ...orderResult, product: match.itemName, price: match.price, quantity };
             },
         },
