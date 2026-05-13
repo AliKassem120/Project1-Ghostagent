@@ -49,12 +49,12 @@ export async function generateGhostReply(
         }, config);
 
         if (!result.shouldReply) {
-            return { replyText: null, skipLegacyLogging: true, automationResult: result };
+            return { replyText: null, skipLegacyLogging: false, automationResult: result };
         }
 
         return {
             replyText: result.replyText || null,
-            skipLegacyLogging: true,
+            skipLegacyLogging: false,
             automationResult: result,
             debug: result.debug,
             actions: result.actions,
