@@ -911,17 +911,28 @@ export default function SettingsPage() {
                                 ))}
 
                                 {instagramStatus.accounts.length === 0 && (
-                                    <button
-                                        onClick={handleConnectInstagram}
-                                        disabled={connecting}
-                                        className="w-full py-4 border border-dashed border-border hover:border-border-strong hover:bg-surface-2 rounded-xl flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground transition-all group press"
-                                    >
-                                        {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> :
-                                            <div className="w-7 h-7 rounded-full bg-surface-3 flex items-center justify-center group-hover:bg-primary/20 group-hover:text-primary transition-colors">
-                                                <Plus className="w-4 h-4" />
-                                            </div>}
-                                        <span className="text-sm font-medium">Add Account</span>
-                                    </button>
+                                    <div className="flex flex-col sm:flex-row items-center justify-between p-5 bg-surface-2 rounded-2xl border border-border gap-4">
+                                        <div className="flex items-center gap-4 w-full">
+                                            <div className="w-12 h-12 rounded-2xl bg-pink-500/10 flex items-center justify-center border border-pink-500/20 shrink-0">
+                                                <Instagram className="w-6 h-6 text-pink-400" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <h4 className="font-bold text-foreground">
+                                                    Meta Login
+                                                </h4>
+                                                <p className="text-xs text-muted-foreground mt-0.5">
+                                                    Link your account in 30 seconds.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={handleConnectInstagram}
+                                            disabled={connecting}
+                                            className="w-full sm:w-auto px-6 py-2.5 bg-pink-500 text-black font-bold rounded-xl hover:bg-pink-400 transition-all flex items-center justify-center gap-2 text-sm shadow-[0_0_20px_rgba(236,72,153,0.2)] disabled:opacity-50"
+                                        >
+                                            {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Connect Instagram'}
+                                        </button>
+                                    </div>
                                 )}
 
                                 {/* How It Works */}
