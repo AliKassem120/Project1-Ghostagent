@@ -12,6 +12,7 @@ import CustomSelect from '@/components/CustomSelect';
 import Papa from 'papaparse';
 import BusinessTypeSelector, { BusinessCategory } from '@/components/BusinessTypeSelector';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { useAutopilot } from '@/context/AutopilotContext';
 import { updateWorkspaceSettingsAction } from '@/app/actions/settings';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 
@@ -25,6 +26,7 @@ export default function SettingsPage() {
     const isPro = planTier === 'pro' || planTier === 'empire';
     const isEmpire = planTier === 'empire';
     const isFreePlan = planTier === 'starter';
+    const { autopilot, setAutopilot } = useAutopilot();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState(false);
