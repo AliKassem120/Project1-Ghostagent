@@ -49,9 +49,9 @@ export function createAppointmentTools(ctx: ToolContext) {
                 date: z.string().describe('YYYY-MM-DD'),
                 time: z.string().describe('HH:mm 24h'),
                 service_name: z.string().describe('Service name'),
-                name: z.string().optional(),
-                phone: z.string().optional(),
-                address: z.string().optional(),
+                name: z.string().describe('Optional. Leave empty if unknown'),
+                phone: z.string().describe('Optional. Leave empty if unknown'),
+                address: z.string().describe('Optional. Leave empty if unknown'),
             }),
             execute: async ({ date, time, service_name }: { date: string; time: string; service_name: string }) => {
                 const services = await loadActiveServices(ctx.supabase, ctx.workspaceId);
@@ -72,10 +72,9 @@ export function createAppointmentTools(ctx: ToolContext) {
                 customer_phone: z.string(),
                 service_name: z.string(),
                 date: z.string().describe('YYYY-MM-DD'),
-                time: z.string().describe('HH:mm 24h'),
-                name: z.string().optional(),
-                phone: z.string().optional(),
-                address: z.string().optional(),
+                name: z.string().describe('Optional. Leave empty if unknown'),
+                phone: z.string().describe('Optional. Leave empty if unknown'),
+                address: z.string().describe('Optional. Leave empty if unknown'),
             }),
             execute: async ({ customer_name, customer_phone, service_name, date, time }: { customer_name: string; customer_phone: string; service_name: string; date: string; time: string }) => {
                 const services = await loadActiveServices(ctx.supabase, ctx.workspaceId);
@@ -121,9 +120,9 @@ export function createAppointmentTools(ctx: ToolContext) {
         cancel_appointment: {
             description: 'Cancel the customer\'s most recent upcoming confirmed appointment.',
             parameters: z.object({
-                name: z.string().optional(),
-                phone: z.string().optional(),
-                address: z.string().optional(),
+                name: z.string().describe('Optional. Leave empty if unknown'),
+                phone: z.string().describe('Optional. Leave empty if unknown'),
+                address: z.string().describe('Optional. Leave empty if unknown'),
             }),
             execute: async () => {
                 return await cancelLatestAppointment(ctx.supabase, ctx.workspaceId, ctx.chatId);
@@ -132,9 +131,9 @@ export function createAppointmentTools(ctx: ToolContext) {
         lookup_customer: {
             description: 'Check if this customer has booked before. Returns saved name/phone.',
             parameters: z.object({
-                name: z.string().optional(),
-                phone: z.string().optional(),
-                address: z.string().optional(),
+                name: z.string().describe('Optional. Leave empty if unknown'),
+                phone: z.string().describe('Optional. Leave empty if unknown'),
+                address: z.string().describe('Optional. Leave empty if unknown'),
             }),
             execute: async () => {
                 const known = await getKnownCustomerDetails(ctx.supabase, ctx.workspaceId, ctx.chatId);
@@ -154,10 +153,10 @@ export function createEcommerceTools(ctx: ToolContext) {
         search_products: {
             description: 'Searches the product database for clothing items by name, category, or keyword. Use for ALL product, price, or stock questions.',
             parameters: z.object({ 
-                query: z.string().optional().describe('Product name, category, or keyword. Leave empty to list all.'),
-                name: z.string().optional(),
-                phone: z.string().optional(),
-                address: z.string().optional(),
+                query: z.string().describe('Product name, category, or keyword. Leave empty string to list all.'),
+                name: z.string().describe('Optional. Leave empty if unknown'),
+                phone: z.string().describe('Optional. Leave empty if unknown'),
+                address: z.string().describe('Optional. Leave empty if unknown'),
             }),
             execute: async ({ query }: { query?: string }) => {
                 const products = await searchProducts({ supabase: ctx.supabase, workspaceId: ctx.workspaceId, query });
@@ -178,9 +177,9 @@ export function createEcommerceTools(ctx: ToolContext) {
         get_business_hours: {
             description: 'Get store hours. Use when customer asks "when are you open?", "working hours?".',
             parameters: z.object({
-                name: z.string().optional(),
-                phone: z.string().optional(),
-                address: z.string().optional(),
+                name: z.string().describe('Optional. Leave empty if unknown'),
+                phone: z.string().describe('Optional. Leave empty if unknown'),
+                address: z.string().describe('Optional. Leave empty if unknown'),
             }),
             execute: async () => {
                 const hours = await loadBusinessHours(ctx.supabase, ctx.workspaceId);
@@ -196,11 +195,11 @@ export function createEcommerceTools(ctx: ToolContext) {
                 customer_phone: z.string(),
                 customer_address: z.string(),
                 product_name: z.string(),
-                variant: z.string().optional(),
+                variant: z.string().describe('Optional variant. Leave empty string if unknown'),
                 quantity: z.number().default(1),
-                name: z.string().optional(),
-                phone: z.string().optional(),
-                address: z.string().optional(),
+                name: z.string().describe('Optional. Leave empty if unknown'),
+                phone: z.string().describe('Optional. Leave empty if unknown'),
+                address: z.string().describe('Optional. Leave empty if unknown'),
             }),
             execute: async ({ customer_name, customer_phone, customer_address, product_name, variant, quantity }: { customer_name: string; customer_phone: string; customer_address: string; product_name: string; variant?: string; quantity: number }) => {
                 const products = await searchProducts({ supabase: ctx.supabase, workspaceId: ctx.workspaceId, query: product_name });
@@ -244,9 +243,9 @@ export function createEcommerceTools(ctx: ToolContext) {
         cancel_order: {
             description: 'Cancel the customer\'s most recent pending order.',
             parameters: z.object({
-                name: z.string().optional(),
-                phone: z.string().optional(),
-                address: z.string().optional(),
+                name: z.string().describe('Optional. Leave empty if unknown'),
+                phone: z.string().describe('Optional. Leave empty if unknown'),
+                address: z.string().describe('Optional. Leave empty if unknown'),
             }),
             execute: async () => {
                 return await cancelLatestOrder(ctx.supabase, ctx.workspaceId, ctx.chatId);
@@ -255,9 +254,9 @@ export function createEcommerceTools(ctx: ToolContext) {
         lookup_customer: {
             description: 'Check if this customer has ordered before. Returns saved name/phone/address. Call at the start of any order flow.',
             parameters: z.object({
-                name: z.string().optional().describe('Customer name if already mentioned'),
-                phone: z.string().optional().describe('Customer phone if already mentioned'),
-                address: z.string().optional().describe('Customer address if already mentioned'),
+                name: z.string().describe('Customer name if known, else empty string'),
+                phone: z.string().describe('Customer phone if known, else empty string'),
+                address: z.string().describe('Customer address if known, else empty string'),
             }),
             execute: async () => {
                 const known = await getKnownCustomerDetails(ctx.supabase, ctx.workspaceId, ctx.chatId);
@@ -279,9 +278,9 @@ export function createSaasSupportTools(ctx: ToolContext) {
             description: 'Search the GhostAgent internal knowledge base for docs, pricing, features, and capabilities. ALWAYS use this before answering technical or pricing questions.',
             parameters: z.object({ 
                 query: z.string().describe('Keywords to search for, e.g. "pricing", "whatsapp", "how it works"'),
-                name: z.string().optional(),
-                phone: z.string().optional(),
-                address: z.string().optional(),
+                name: z.string().describe('Optional. Leave empty if unknown'),
+                phone: z.string().describe('Optional. Leave empty if unknown'),
+                address: z.string().describe('Optional. Leave empty if unknown'),
             }),
             execute: async ({ query }: { query?: string }) => {
                 const results = await searchSaasKnowledge(ctx.supabase, ctx.workspaceId, query);
@@ -294,9 +293,9 @@ export function createSaasSupportTools(ctx: ToolContext) {
         lookup_account: {
             description: 'Check if this user already has an account on GhostAgent. Returns their user record if found.',
             parameters: z.object({
-                name: z.string().optional(),
-                phone: z.string().optional(),
-                address: z.string().optional(),
+                name: z.string().describe('Optional. Leave empty if unknown'),
+                phone: z.string().describe('Optional. Leave empty if unknown'),
+                address: z.string().describe('Optional. Leave empty if unknown'),
             }),
             execute: async () => {
                 // In a real system we would lookup by phone or instagram ID from `users` table
