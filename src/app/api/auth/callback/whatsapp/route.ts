@@ -31,8 +31,8 @@ export async function POST(req: NextRequest) {
 
     try {
         // Step 1: Exchange code for a user access token
-        const appId = process.env.INSTAGRAM_APP_ID;
-        const appSecret = process.env.INSTAGRAM_APP_SECRET;
+        const appId = process.env.FACEBOOK_APP_ID || process.env.NEXT_PUBLIC_FACEBOOK_APP_ID;
+        const appSecret = process.env.FACEBOOK_APP_SECRET;
         const redirectUri = `${process.env.NEXTAUTH_URL}/api/auth/callback/whatsapp`;
 
         const tokenRes = await fetch(

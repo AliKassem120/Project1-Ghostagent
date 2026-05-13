@@ -62,7 +62,7 @@ export async function processMessageJob(job: MessageJob): Promise<void> {
             platform: job.platform,
             supabase,
             userId: job.userId,
-        }, config);
+        }, config, profile);
 
         // 4. Send reply via platform API
         if (result.shouldReply && result.replyText) {

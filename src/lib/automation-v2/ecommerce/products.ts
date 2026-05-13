@@ -61,11 +61,9 @@ export async function searchProducts(args: {
 
                 const csvItems: InventoryRecord[] = csvRows
                     .filter((row: any) => {
-                        const name = (row.name || row.title || row.product || row.item || '').toLowerCase();
-                        return !queryLower || name.includes(queryLower);
-                    })
-                    .slice(0, limit - items.length)
-                    .map((row: any, index: number) => {
+                        const itemName = row.name || row.title || row.product || row.item || row['Product Name'] || row.Label || row.item_name;
+                        if (!itemName) return null; // Skip invalid rows
+
                         const colors = row.color || row.colors || row.Colour || row.colours || null;
                         const sizes = row.size || row.sizes || row.Size || null;
                         
@@ -76,15 +74,16 @@ export async function searchProducts(args: {
                         
                         return {
                             id: `csv-${index}`,
-                            itemName: row.name || row.title || row.product || row.item || `Item ${index + 1}`,
-                            price: parseFloat(String(row.price || row.cost || '0').replace(/[^0-9.]/g, '')) || 0,
-                            stockLevel: parseInt(String(row.stock || row.qty || '1').replace(/[^0-9]/g, '')) || 0,
-                            description: row.description || row.details || null,
+                            itemName,
+                            price: parseFloat(String(row.price || row.cost || row.Price || '0').replace(/[^0-9.]/g, '')) || 0,
+                            stockLevel: parseInt(String(row.stock || row.qty || row.Stock || row.Quantity || '1').replace(/[^0-9]/g, '')) || 0,
+                            description: row.description || row.details || row.Description || null,
                             colors,
                             sizes,
                             variants,
                         } as InventoryRecord & { colors?: string, sizes?: string };
-                    });
+                    })
+                    .filter(Boolean) // Remove nulls from skipped rows
 
                 items = [...items, ...csvItems];
                 v2log.info('V2_ECOM_PRODUCTS', `CSV Fallback added ${csvItems.length} items`, { workspaceId });

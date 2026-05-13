@@ -33,7 +33,8 @@ import { v2log } from './logger';
 
 export async function runV3Orchestrator(
     input: AutomationInput,
-    config: WorkspaceConfig
+    config: WorkspaceConfig,
+    profile?: any // CustomerProfile | null
 ): Promise<AutomationResult> {
     const startTime = Date.now();
     const requestId = crypto.randomUUID();
@@ -65,6 +66,11 @@ export async function runV3Orchestrator(
         input.supabase, input.userId, input.workspaceId,
         input.chatId, input.workspaceType, input.platform
     );
+
+    // Hydrate session with customer profile if available
+    if (profile) {
+        session.customerProfile = profile;
+    }
 
     if (session.loadFailed) {
         const reply = getTemplate('error_generic', lang) || "I'm having a temporary issue.";

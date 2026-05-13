@@ -287,6 +287,57 @@ export default function SettingsPage() {
         });
         window.location.href = authUrl;
     };
+    
+    const handleConnectWhatsApp = () => {
+        if (!(window as any).FB) {
+            toast.error("Facebook SDK not loaded yet. Please wait or refresh.");
+            return;
+        }
+
+        (window as any).FB.login((response: any) => {
+            if (response.authResponse) {
+                const code = response.authResponse.code;
+                if (!code) {
+                    toast.error("Meta did not return a valid auth code.");
+                    return;
+                }
+                
+                // Exchange code via our backend
+                fetch('/api/auth/callback/whatsapp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        code,
+                        workspaceId: activeWorkspaceId
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        toast.success("WhatsApp Connected!");
+                        fetchSettings(true);
+                    } else {
+                        toast.error(data.error || "Failed to link WhatsApp");
+                    }
+                })
+                .catch(err => {
+                    console.error("WA Callback error:", err);
+                    toast.error("An error occurred during WhatsApp connection.");
+                });
+            } else {
+                toast.error("WhatsApp connection cancelled or failed.");
+            }
+        }, {
+            config_id: process.env.NEXT_PUBLIC_FACEBOOK_CONFIG_ID || '1040375620950341', // Meta Embedded Signup Config ID
+            response_type: 'code',
+            override_default_response_type: true,
+            extras: {
+                setup: {
+                    // Pre-fill some info if possible
+                }
+            }
+        });
+    };
 
     const handleDisconnect = async (accountId: string) => {
         try {
@@ -1020,7 +1071,76 @@ export default function SettingsPage() {
                                         <span className="text-sm font-medium">Add Account</span>
                                     </button>
                                 )}
+
+                                {/* Instagram Setup Helper */}
+                                <div className="p-4 rounded-xl bg-surface-2/50 border border-border/50 space-y-2 mt-4">
+                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Instagram Setup Instructions</p>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        1. In Meta Developers, add <strong>Instagram Login for Business</strong> to your app.
+                                        <br />
+                                        2. Add this <strong>Valid OAuth Redirect URI</strong>:
+                                    </p>
+                                    <div className="flex items-center gap-2 p-2 bg-black/20 rounded-lg border border-white/5 font-mono text-[10px] text-pink-400/80 break-all">
+                                        {typeof window !== 'undefined' ? `${window.location.origin}/api/auth/callback/instagram` : '.../api/auth/callback/instagram'}
+                                    </div>
+                                </div>
                             </>
+                         )}
+                     </div>
+                 </motion.div>
+             )}
+
+             {/* WhatsApp Integration Section */}
+             {activeTab === 'connections' && (
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6 mt-6">
+                    <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
+                        <div className="p-2.5 rounded-xl bg-emerald-500/10">
+                            <Phone className="w-5 h-5 text-emerald-400" />
+                        </div>
+                        <div>
+                            <h2 className="text-sm font-semibold text-foreground">WhatsApp Business</h2>
+                            <p className="text-[11px] text-muted-foreground">Connect your official WhatsApp API</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between p-5 bg-surface-2 rounded-2xl border border-border">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
+                                    <MessageCircle className="w-6 h-6 text-emerald-400" />
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-foreground">
+                                        {settings.waPhoneNumberId ? 'Connected' : 'Meta Embedded Signup'}
+                                    </h4>
+                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                        {settings.waPhoneNumberId ? `ID: ${settings.waPhoneNumberId}` : 'Link your number in 30 seconds.'}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={handleConnectWhatsApp}
+                                className="w-full sm:w-auto px-6 py-2.5 bg-emerald-500 text-black font-bold rounded-xl hover:bg-emerald-400 transition-all flex items-center justify-center gap-2 text-sm shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+                            >
+                                {settings.waPhoneNumberId ? 'Re-Connect' : 'Connect WhatsApp'}
+                            </button>
+                        </div>
+
+                        {/* WhatsApp Setup Helper */}
+                        <div className="p-4 rounded-xl bg-surface-2/50 border border-border/50 space-y-2">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">WhatsApp Setup Instructions</p>
+                            <p className="text-[11px] text-muted-foreground">
+                                1. Ensure <strong>WhatsApp Business</strong> is added to your Meta App.
+                                <br />
+                                2. Whitelist this Redirect URI in your Facebook Login settings:
+                            </p>
+                            <div className="flex items-center gap-2 p-2 bg-black/20 rounded-lg border border-white/5 font-mono text-[10px] text-emerald-400/80 break-all">
+                                {typeof window !== 'undefined' ? `${window.location.origin}/api/auth/callback/whatsapp` : '.../api/auth/callback/whatsapp'}
+                            </div>
+                        </div>
+                    </div>
+                </motion.div>
+             )}
                         )}
                     </div>
                 </motion.div>
