@@ -807,30 +807,6 @@ export default function SettingsPage() {
                             </div>
                         )}
 
-                        {/* Manual Fallback — collapsed */}
-                        <details className="group">
-                            <summary className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground transition-colors flex items-center gap-1.5 select-none mt-2">
-                                <span className="group-open:rotate-90 transition-transform inline-block">▶</span>
-                                Advanced: Manual Credentials
-                            </summary>
-                            <div className="mt-4 space-y-3 pl-4 border-l border-border">
-                                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
-                                    <p className="text-xs text-amber-500/90 font-medium">🛠️ For testing only. Use the button above for production.</p>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Phone Number ID</label>
-                                    <input type="text" value={settings.waPhoneNumberId} onChange={(e) => setSettings({ ...settings, waPhoneNumberId: e.target.value })} className="input-premium w-full font-mono text-xs" placeholder="e.g. 1021626144366767" />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">WhatsApp Business Account ID</label>
-                                    <input type="text" value={settings.waBusinessAccountId} onChange={(e) => setSettings({ ...settings, waBusinessAccountId: e.target.value })} className="input-premium w-full font-mono text-xs" placeholder="e.g. 1636770974186554" />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Temporary Access Token</label>
-                                    <input type="password" value={settings.waAccessToken} onChange={(e) => setSettings({ ...settings, waAccessToken: e.target.value })} className="input-premium w-full font-mono text-xs" placeholder="EAAI..." />
-                                </div>
-                            </div>
-                        </details>
                     </div>
 
                     {/* Paywall overlay for Starter */}
@@ -1138,18 +1114,16 @@ export default function SettingsPage() {
                             </button>
                         </div>
 
-                        {/* WhatsApp Setup Helper */}
+                        {/* How it works */}
                         <div className="p-5 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 space-y-3">
                             <div className="flex items-center gap-2 text-emerald-400">
                                 <Sparkles className="w-4 h-4" />
-                                <p className="text-[10px] font-black uppercase tracking-widest">WhatsApp Setup Instructions</p>
+                                <p className="text-[10px] font-black uppercase tracking-widest">How It Works</p>
                             </div>
                             <div className="space-y-2 text-[11px] text-muted-foreground leading-relaxed">
-                                <p>1. Ensure <strong>WhatsApp Business</strong> is added to your Meta App.</p>
-                                <p>2. Whitelist this Redirect URI in your <strong>Facebook Login for Business</strong> settings:</p>
-                            </div>
-                            <div className="flex items-center gap-2 p-3 bg-black/40 rounded-xl border border-white/5 font-mono text-[10px] text-emerald-400 break-all select-all">
-                                {typeof window !== 'undefined' ? `${window.location.origin}/api/auth/callback/whatsapp` : '.../api/auth/callback/whatsapp'}
+                                <p>1. Click <strong>Connect WhatsApp</strong> above — you'll be taken to Meta to log in.</p>
+                                <p>2. Select your <strong>WhatsApp Business Account</strong> and phone number.</p>
+                                <p>3. That's it! GhostAgent will start handling your WhatsApp messages automatically.</p>
                             </div>
                         </div>
                     </div>
