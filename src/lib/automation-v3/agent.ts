@@ -175,7 +175,14 @@ export async function runV3Agent(
             : createEcommerceTools(toolCtx);
             
     const wrappedTools = Object.fromEntries(
-        Object.entries(rawTools).map(([name, def]) => [name, tool(def as any)])
+        Object.entries(rawTools).map(([name, def]: [string, any]) => {
+            // Support both 'parameters' (V2 style) and 'inputSchema' (V3/V4 style)
+            const schema = def.inputSchema || def.parameters;
+            return [name, tool({
+                ...def,
+                parameters: schema // Vercel AI SDK internally might still use 'parameters' in some contexts, but tool() helper handles it
+            } as any)];
+        })
     );
 
     const system = buildPrompt(config, timeCtx, replyLang);

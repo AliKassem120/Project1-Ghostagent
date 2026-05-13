@@ -45,17 +45,17 @@ export function createAppointmentTools(ctx: ToolContext) {
     return {
         check_slot: {
             description: 'Check if a date/time slot is available for a service. Call BEFORE confirming any appointment.',
-            parameters: z.object({
+            inputSchema: z.object({
                 date: z.string().describe('YYYY-MM-DD'),
                 time: z.string().describe('HH:mm 24h'),
-                service_name: z.string().describe('Service name'),
+                service: z.string().describe('Service name'),
                 name: z.string().describe('Optional. Leave empty if unknown'),
                 phone: z.string().describe('Optional. Leave empty if unknown'),
                 address: z.string().describe('Optional. Leave empty if unknown'),
             }),
-            execute: async ({ date, time, service_name }: { date: string; time: string; service_name: string }) => {
+            execute: async ({ date, time, service }: { date: string; time: string; service: string }) => {
                 const services = await loadActiveServices(ctx.supabase, ctx.workspaceId);
-                const match = findBestServiceMatch(services, service_name);
+                const match = findBestServiceMatch(services, service);
                 if (!match) return { available: false, reason: 'service_not_found', services_available: services.map(s => s.name) };
                 const hours = await loadBusinessHours(ctx.supabase, ctx.workspaceId);
                 const r = await checkAvailability({ supabase: ctx.supabase, workspaceId: ctx.workspaceId, date, startTime: time, durationMinutes: match.durationMinutes, businessHours: hours });
@@ -67,18 +67,19 @@ export function createAppointmentTools(ctx: ToolContext) {
         },
         book_appointment: {
             description: 'Create an appointment. Call ONLY after check_slot confirmed availability and customer confirmed.',
-            parameters: z.object({
+            inputSchema: z.object({
                 customer_name: z.string(),
                 customer_phone: z.string(),
-                service_name: z.string(),
+                service: z.string(),
                 date: z.string().describe('YYYY-MM-DD'),
+                time: z.string().describe('HH:mm 24h'),
                 name: z.string().describe('Optional. Leave empty if unknown'),
                 phone: z.string().describe('Optional. Leave empty if unknown'),
                 address: z.string().describe('Optional. Leave empty if unknown'),
             }),
-            execute: async ({ customer_name, customer_phone, service_name, date, time }: { customer_name: string; customer_phone: string; service_name: string; date: string; time: string }) => {
+            execute: async ({ customer_name, customer_phone, service, date, time }: { customer_name: string; customer_phone: string; service: string; date: string; time: string }) => {
                 const services = await loadActiveServices(ctx.supabase, ctx.workspaceId);
-                const match = findBestServiceMatch(services, service_name);
+                const match = findBestServiceMatch(services, service);
                 if (!match) return { success: false, error: 'Service not found' };
                 const [h, m] = time.split(':').map(Number);
                 const endTime = minutesToTime(h * 60 + m + match.durationMinutes);
@@ -119,7 +120,7 @@ export function createAppointmentTools(ctx: ToolContext) {
         },
         cancel_appointment: {
             description: 'Cancel the customer\'s most recent upcoming confirmed appointment.',
-            parameters: z.object({
+            inputSchema: z.object({
                 name: z.string().describe('Optional. Leave empty if unknown'),
                 phone: z.string().describe('Optional. Leave empty if unknown'),
                 address: z.string().describe('Optional. Leave empty if unknown'),
@@ -130,7 +131,7 @@ export function createAppointmentTools(ctx: ToolContext) {
         },
         lookup_customer: {
             description: 'Check if this customer has booked before. Returns saved name/phone.',
-            parameters: z.object({
+            inputSchema: z.object({
                 name: z.string().describe('Optional. Leave empty if unknown'),
                 phone: z.string().describe('Optional. Leave empty if unknown'),
                 address: z.string().describe('Optional. Leave empty if unknown'),
@@ -152,7 +153,7 @@ export function createEcommerceTools(ctx: ToolContext) {
     return {
         search_products: {
             description: 'Searches the product database for clothing items by name, category, or keyword. Use for ALL product, price, or stock questions.',
-            parameters: z.object({ 
+            inputSchema: z.object({ 
                 query: z.string().describe('Product name, category, or keyword. Leave empty string to list all.'),
                 name: z.string().describe('Optional. Leave empty if unknown'),
                 phone: z.string().describe('Optional. Leave empty if unknown'),
@@ -176,7 +177,7 @@ export function createEcommerceTools(ctx: ToolContext) {
         },
         get_business_hours: {
             description: 'Get store hours. Use when customer asks "when are you open?", "working hours?".',
-            parameters: z.object({
+            inputSchema: z.object({
                 name: z.string().describe('Optional. Leave empty if unknown'),
                 phone: z.string().describe('Optional. Leave empty if unknown'),
                 address: z.string().describe('Optional. Leave empty if unknown'),
@@ -190,7 +191,7 @@ export function createEcommerceTools(ctx: ToolContext) {
         },
         place_order: {
             description: 'Create an order. Call ONLY after product is in stock and customer confirmed.',
-            parameters: z.object({
+            inputSchema: z.object({
                 customer_name: z.string(),
                 customer_phone: z.string(),
                 customer_address: z.string(),
@@ -242,7 +243,7 @@ export function createEcommerceTools(ctx: ToolContext) {
         },
         cancel_order: {
             description: 'Cancel the customer\'s most recent pending order.',
-            parameters: z.object({
+            inputSchema: z.object({
                 name: z.string().describe('Optional. Leave empty if unknown'),
                 phone: z.string().describe('Optional. Leave empty if unknown'),
                 address: z.string().describe('Optional. Leave empty if unknown'),
@@ -253,7 +254,7 @@ export function createEcommerceTools(ctx: ToolContext) {
         },
         lookup_customer: {
             description: 'Check if this customer has ordered before. Returns saved name/phone/address. Call at the start of any order flow.',
-            parameters: z.object({
+            inputSchema: z.object({
                 name: z.string().describe('Customer name if known, else empty string'),
                 phone: z.string().describe('Customer phone if known, else empty string'),
                 address: z.string().describe('Customer address if known, else empty string'),
@@ -276,7 +277,7 @@ export function createSaasSupportTools(ctx: ToolContext) {
     return {
         search_knowledge: {
             description: 'Search the GhostAgent internal knowledge base for docs, pricing, features, and capabilities. ALWAYS use this before answering technical or pricing questions.',
-            parameters: z.object({ 
+            inputSchema: z.object({ 
                 query: z.string().describe('Keywords to search for, e.g. "pricing", "whatsapp", "how it works"'),
                 name: z.string().describe('Optional. Leave empty if unknown'),
                 phone: z.string().describe('Optional. Leave empty if unknown'),
@@ -292,7 +293,7 @@ export function createSaasSupportTools(ctx: ToolContext) {
         },
         lookup_account: {
             description: 'Check if this user already has an account on GhostAgent. Returns their user record if found.',
-            parameters: z.object({
+            inputSchema: z.object({
                 name: z.string().describe('Optional. Leave empty if unknown'),
                 phone: z.string().describe('Optional. Leave empty if unknown'),
                 address: z.string().describe('Optional. Leave empty if unknown'),
