@@ -156,6 +156,11 @@ export function createAppointmentTools(ctx: ToolContext) {
                 const match = findBestServiceMatch(services, service);
                 if (!match) return { success: false, error: 'Service not found' };
 
+                const isSimulator = ctx.chatId.startsWith('sim_') || ctx.chatId.includes('simulator');
+                if (isSimulator) {
+                    return { success: true, message: `Sent booking flow for ${match.name} (Simulated)` };
+                }
+
                 const { data: ws } = await ctx.supabase.from('ai_settings').select('whatsapp_business_account_id, whatsapp_access_token, whatsapp_phone_number_id').eq('id', ctx.workspaceId).maybeSingle();
                 if (!ws?.whatsapp_phone_number_id || !ws?.whatsapp_access_token) return { success: false, error: 'WhatsApp credentials missing' };
 
@@ -295,6 +300,11 @@ export function createEcommerceTools(ctx: ToolContext) {
                 const products = await searchProducts({ supabase: ctx.supabase, workspaceId: ctx.workspaceId, query: product });
                 const match = findBestProductMatch(products, product);
                 if (!match) return { success: false, error: 'Product not found' };
+
+                const isSimulator = ctx.chatId.startsWith('sim_') || ctx.chatId.includes('simulator');
+                if (isSimulator) {
+                    return { success: true, message: `Sent product card for ${match.itemName} (Simulated)` };
+                }
 
                 const { data: ws } = await ctx.supabase.from('ai_settings').select('whatsapp_catalog_id, whatsapp_phone_number_id, whatsapp_access_token').eq('id', ctx.workspaceId).maybeSingle();
                 if (!ws?.whatsapp_catalog_id || !ws?.whatsapp_phone_number_id || !ws?.whatsapp_access_token) {
