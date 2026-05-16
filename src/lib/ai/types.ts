@@ -33,8 +33,8 @@ export interface AutomationInput {
     mediaType?: string;
 }
 
-export type { ConversationStage } from './state/types';
-import type { ConversationStage } from './state/types';
+// Inlined from deleted state/types
+export type ConversationStage = 'idle' | 'collecting' | 'confirming' | 'complete';
 
 export interface AutomationResult {
     shouldReply: boolean;

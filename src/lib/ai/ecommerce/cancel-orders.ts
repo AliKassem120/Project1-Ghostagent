@@ -10,7 +10,9 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
-import type { IntentScope, IntentOrdinal } from '../classify/normalized-intent';
+// Inlined from deleted classify/normalized-intent
+type IntentScope = 'latest' | 'count' | 'all_pending' | 'all' | 'ordinal' | 'product_reference' | 'specific_id';
+type IntentOrdinal = 'first' | 'second' | 'third' | 'last' | 'latest';
 import { v2log } from '../logger';
 import { sendOrderCancelNotification } from '../../../utils/whatsapp-alerts';
 
