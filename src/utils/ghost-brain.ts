@@ -1,4 +1,4 @@
-import type { AutomationResult } from '@/lib/automation-v2/types';
+import type { AutomationResult } from '@/lib/ai/types';
 
 // ═══════════════════════════════════════════════════════════════
 // 🧠 GHOST AGENT — Core AI Brain (V3)
@@ -29,8 +29,8 @@ export async function generateGhostReply(
         const businessType = settings?.business_type || 'ecommerce';
 
         // ── V3 LLM Agent ────────────────────────────────────
-        const { runV3Agent } = await import('@/lib/automation-v3/agent');
-        const { loadWorkspaceConfig } = await import('@/lib/automation-v2/router');
+        const { runV3Agent } = await import('@/lib/ai/agent');
+        const { loadWorkspaceConfig } = await import('@/lib/ai/router');
 
         const config = await loadWorkspaceConfig(supabase, workspaceId, userId);
         if (!config) {
@@ -40,7 +40,7 @@ export async function generateGhostReply(
 
         const result = await runV3Agent({
             workspaceId,
-            workspaceType: businessType as 'appointments' | 'ecommerce' | 'saas_support',
+            workspaceType: businessType as 'appointments' | 'ecommerce' ,
             chatId,
             message: userMessage,
             platform,

@@ -5,7 +5,7 @@ import { generateGhostReply } from '@/utils/ghost-brain';
 import { getBotControlDecision } from '@/lib/god-mode/bot-controls';
 import { upsertDmBuffer, claimDmBuffer, clearDmBuffer, releaseDmBuffer, DEBOUNCE_SECONDS } from '@/utils/dm-debounce';
 import { checkUserLimit } from '@/lib/billing';
-import { guardFinalReply } from '@/lib/automation-v2/validation/final-reply-guard';
+import { guardFinalReply } from '@/lib/ai/validation/final-reply-guard';
 
 // ─── Admin Client ─────────────────────────────────────────────────────────────
 

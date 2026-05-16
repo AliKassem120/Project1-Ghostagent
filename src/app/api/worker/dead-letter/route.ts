@@ -12,7 +12,7 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import type { MessageJob } from '@/lib/automation-v3/queue';
+import type { MessageJob } from '@/lib/ai/queue';
 
 // ── POST Handler ─────────────────────────────────────────────
 

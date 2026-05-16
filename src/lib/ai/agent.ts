@@ -1,14 +1,14 @@
 import { generateText, stepCountIs, tool } from 'ai';
 import { createGroq } from '@ai-sdk/groq';
-import type { AutomationInput, AutomationResult, WorkspaceConfig } from '@/lib/automation-v2/types';
-import { loadConversationHistory } from '@/lib/automation-v2/history';
-import { createAppointmentTools, createEcommerceTools, createSaasSupportTools, type ToolContext } from '@/lib/automation-v2/tools';
-import { detectLanguage } from '@/lib/automation-v2/language';
-import { buildTimeContext } from '@/lib/automation-v2/time';
-import { checkRateLimit } from '@/lib/automation-v2/guardrails/rate-limiter';
-import { MetricBuilder, emitMetric } from '@/lib/automation-v2/metrics';
-import { v2log } from '@/lib/automation-v2/logger';
-import { LEBANESE_VOCABULARY } from '@/lib/automation-v2/dictionaries';
+import type { AutomationInput, AutomationResult, WorkspaceConfig } from '@/lib/ai/types';
+import { loadConversationHistory } from '@/lib/ai/history';
+import { createAppointmentTools, createEcommerceTools, type ToolContext } from '@/lib/ai/tools';
+import { detectLanguage } from '@/lib/ai/language';
+import { buildTimeContext } from '@/lib/ai/time';
+import { checkRateLimit } from '@/lib/ai/guardrails/rate-limiter';
+import { MetricBuilder, emitMetric } from '@/lib/ai/metrics';
+import { v2log } from '@/lib/ai/logger';
+import { LEBANESE_VOCABULARY } from '@/lib/ai/dictionaries';
 
 const MODEL = 'llama-3.3-70b-versatile';
 
@@ -23,9 +23,7 @@ function buildPrompt(config: WorkspaceConfig, timeCtx: any, replyLanguage: strin
 
     const businessDesc = config.businessType === 'appointments'
         ? 'a service-based business that takes appointments'
-        : config.businessType === 'saas_support'
-            ? 'an official AI representative for GhostAgent, a SaaS platform for AI customer service'
-            : 'an online store that sells products';
+        : 'an online store that sells products';
 
     const toneMap: Record<string, string> = {
         'Casual': 'Casual & friendly — like a cool employee texting a friend.',
@@ -57,12 +55,7 @@ DISCOUNTS:
 - Use lookup_customer to check if they've been here before — skip asking info you already have.
 - Use book_appointment ONLY after the customer explicitly confirms the date, time, and service.
 - NEVER say "booked" or "confirmed" unless book_appointment returned success.`
-        : config.businessType === 'saas_support'
-            ? `TOOLS:
-- Use search_knowledge for ANY question about GhostAgent pricing, features, or capabilities.
-- Use lookup_account to see if the user has an account.
-- NEVER make up features or prices. Always search the knowledge base.`
-            : `TOOLS:
+        : `TOOLS:
 - You have full access to database tools. You are the orchestrator.
 - Use search_products for ANY question about products, prices, or stock.
 - Use lookup_customer to check if they've ordered before — skip asking info you already have.
@@ -92,9 +85,7 @@ Examples of good Arabizi replies:
         languageBlock = `LANGUAGE: Reply strictly in ${langName}.`;
     }
 
-    const lengthRule = config.businessType === 'saas_support'
-        ? 'Reply in 1–3 short DM-style sentences. Be clear, concise, and do not invent facts.'
-        : 'Keep replies short and DM-style. 1–3 sentences max. No paragraphs. Be natural, not robotic.';
+    const lengthRule = 'Keep replies short and DM-style. 1–3 sentences max. No paragraphs. Be natural, not robotic.';
 
     return `You are the DM manager of "${config.businessName}", ${businessDesc}.
 You're chatting with customers on Instagram/WhatsApp DMs.
@@ -170,9 +161,7 @@ export async function runV3Agent(
     // Convert generic tool objects into AI SDK tool() wrappers
     const rawTools = config.businessType === 'appointments'
         ? createAppointmentTools(toolCtx)
-        : config.businessType === 'saas_support'
-            ? createSaasSupportTools(toolCtx)
-            : createEcommerceTools(toolCtx);
+        : createEcommerceTools(toolCtx);
             
     const wrappedTools = Object.fromEntries(
         Object.entries(rawTools).map(([name, def]: [string, any]) => {

@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireGodModeAccess } from '@/lib/god-mode/auth';
-import { handleAutomationMessage } from '@/lib/automation-v2';
-import { loadConversationState } from '@/lib/automation-v2/state/store';
-import { classifyIntent } from '@/lib/automation-v2/classify/intent-classifier';
-import { classifyPostContext } from '@/lib/automation-v2/classify/post-context-classifier';
-import { detectLanguage } from '@/lib/automation-v2/language';
-import { extractAvailabilityCandidate } from '@/lib/automation-v2/ecommerce/extract-product';
-import { extractProductCandidate } from '@/lib/automation-v2/ecommerce/extract-product';
-import { searchProducts, findBestProductMatch } from '@/lib/automation-v2/ecommerce/products';
-import { validateReply } from '@/lib/automation-v2/validation/reply-validator';
+import { handleAutomationMessage } from '@/lib/ai';
+import { loadConversationState } from '@/lib/ai/state/store';
+import { classifyIntent } from '@/lib/ai/classify/intent-classifier';
+import { classifyPostContext } from '@/lib/ai/classify/post-context-classifier';
+import { detectLanguage } from '@/lib/ai/language';
+import { extractAvailabilityCandidate } from '@/lib/ai/ecommerce/extract-product';
+import { extractProductCandidate } from '@/lib/ai/ecommerce/extract-product';
+import { searchProducts, findBestProductMatch } from '@/lib/ai/ecommerce/products';
+import { validateReply } from '@/lib/ai/validation/reply-validator';
 
 const getAdmin = () => {
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ success: false, error: 'Workspace not found' }, { status: 404 });
         }
 
-        const workspaceType = settings.business_type as 'appointments' | 'ecommerce' | 'saas_support';
+        const workspaceType = settings.business_type as 'appointments' | 'ecommerce' ;
 
         // ── Pre-flight analysis (deterministic, no side effects) ────
         const detectedLanguage = detectLanguage(message);

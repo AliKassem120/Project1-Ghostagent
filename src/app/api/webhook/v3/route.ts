@@ -13,8 +13,8 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { enqueueMessage, isDuplicate } from '@/lib/automation-v3/queue';
-import type { MessageJob } from '@/lib/automation-v3/queue';
+import { enqueueMessage, isDuplicate } from '@/lib/ai/queue';
+import type { MessageJob } from '@/lib/ai/queue';
 import crypto from 'crypto';
 
 // ── Admin Client ─────────────────────────────────────────────
@@ -127,8 +127,8 @@ export async function POST(req: Request) {
                 // Only handle V3 workspaces asynchronously via queue
                 if (workspace.engineVersion !== 'v3') {
                     console.log(`⚡ [V3 Webhook] Routing V2 workspace synchronously: ${workspace.workspaceId}`);
-                    const { handleAutomationMessage } = await import('@/lib/automation-v2');
-                    const { sendPlatformReply } = await import('@/lib/automation-v3/worker');
+                    const { handleAutomationMessage } = await import('@/lib/ai');
+                    const { sendPlatformReply } = await import('@/lib/ai/worker');
                     
                     const dummyJob: MessageJob = {
                         workspaceId: workspace.workspaceId,
@@ -199,8 +199,8 @@ export async function POST(req: Request) {
                     // Only handle V3 workspaces asynchronously via queue
                     if (workspace.engineVersion !== 'v3') {
                         console.log(`⚡ [V3 Webhook] Routing V2 workspace synchronously: ${workspace.workspaceId}`);
-                        const { handleAutomationMessage } = await import('@/lib/automation-v2');
-                        const { sendPlatformReply } = await import('@/lib/automation-v3/worker');
+                        const { handleAutomationMessage } = await import('@/lib/ai');
+                        const { sendPlatformReply } = await import('@/lib/ai/worker');
                         
                         const dummyJob: MessageJob = {
                             workspaceId: workspace.workspaceId,
@@ -273,7 +273,7 @@ export async function POST(req: Request) {
 interface WorkspaceLookup {
     workspaceId: string;
     userId: string;
-    workspaceType: 'ecommerce' | 'appointments' | 'saas_support';
+    workspaceType: 'ecommerce' | 'appointments' ;
     engineVersion: string;
 }
 

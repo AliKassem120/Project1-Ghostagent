@@ -12,7 +12,7 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
-import { v2log } from '@/lib/automation-v2/logger';
+import { v2log } from '@/lib/ai/logger';
 
 // ── Customer Profile Interface ───────────────────────────────
 

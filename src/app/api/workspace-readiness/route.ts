@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { checkWorkspaceReadiness } from '@/lib/automation-v2/readiness/workspace-readiness';
+import { checkWorkspaceReadiness } from '@/lib/ai/readiness/workspace-readiness';
 
 export async function GET(request: NextRequest) {
     const workspaceId = request.nextUrl.searchParams.get('workspaceId');

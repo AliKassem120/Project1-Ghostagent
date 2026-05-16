@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { requireGodModeAccess } from '@/lib/god-mode/auth';
-import { classifyIntent } from '@/lib/automation-v2/classify/intent-classifier';
-import { classifyPostContext } from '@/lib/automation-v2/classify/post-context-classifier';
-import { detectLanguage } from '@/lib/automation-v2/language';
-import { validateReply } from '@/lib/automation-v2/validation/reply-validator';
+import { classifyIntent } from '@/lib/ai/classify/intent-classifier';
+import { classifyPostContext } from '@/lib/ai/classify/post-context-classifier';
+import { detectLanguage } from '@/lib/ai/language';
+import { validateReply } from '@/lib/ai/validation/reply-validator';
 
 export async function POST(req: Request) {
     const denied = await requireGodModeAccess();

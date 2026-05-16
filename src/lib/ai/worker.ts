@@ -13,7 +13,7 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { MessageJob } from './queue';
-import { v2log } from '@/lib/automation-v2/logger';
+import { v2log } from '@/lib/ai/logger';
 
 // ── Process Message Job ──────────────────────────────────────
 
@@ -36,7 +36,7 @@ export async function processMessageJob(job: MessageJob): Promise<void> {
 
     try {
         // 1. Load workspace config
-        const { loadWorkspaceConfig } = await import('@/lib/automation-v2/router');
+        const { loadWorkspaceConfig } = await import('@/lib/ai/router');
         const config = await loadWorkspaceConfig(supabase, job.workspaceId, job.userId);
 
         if (!config) {
@@ -111,7 +111,7 @@ export async function processMessageJob(job: MessageJob): Promise<void> {
                 actions: result.actions || [],
                 db_write_attempted: result.debug.dbWriteAttempted,
                 db_write_success: result.debug.dbWriteSuccess,
-                source_path: 'automation-v3/worker',
+                source_path: 'ai/worker',
                 error: result.error || null,
                 metadata: {
                     requestId: result.debug.requestId,

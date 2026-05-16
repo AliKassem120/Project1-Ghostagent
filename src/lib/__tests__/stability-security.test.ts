@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { isGodModeUser } from '../god-mode/auth';
-import { createAppointmentTools } from '../automation-v2/tools';
-import { searchSaasKnowledge } from '../automation-v2/saas-support/knowledge';
+import { createAppointmentTools } from '../ai/tools';
+import { searchSaasKnowledge } from '../ai/saas-support/knowledge';
 
 describe('Security Patch — God Mode Auth', () => {
     beforeEach(() => {

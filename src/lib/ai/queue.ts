@@ -19,7 +19,7 @@ export interface MessageJob {
     userId: string;
     message: string;
     platform: 'instagram' | 'whatsapp';
-    workspaceType: 'ecommerce' | 'appointments' | 'saas_support';
+    workspaceType: 'ecommerce' | 'appointments' ;
     receivedAt: number;
     webhookPayload: any;
 }

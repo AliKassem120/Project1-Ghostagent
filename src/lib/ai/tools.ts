@@ -263,45 +263,6 @@ export function createEcommerceTools(ctx: ToolContext) {
     };
 }
 // ═══════════════════════════════════════════════════════════════
-// SAAS SUPPORT TOOLS
-// ═══════════════════════════════════════════════════════════════
-
-import { searchSaasKnowledge } from './saas-support/knowledge';
-
-export function createSaasSupportTools(ctx: ToolContext) {
-    return {
-        search_knowledge: {
-            description: 'Search the GhostAgent internal knowledge base for docs, pricing, features, and capabilities. ALWAYS use this before answering technical or pricing questions.',
-            inputSchema: z.object({ 
-                query: z.string().describe('Keywords to search for, e.g. "pricing", "whatsapp", "how it works"'),
-                name: z.string().describe('Optional. Leave empty if unknown'),
-                phone: z.string().describe('Optional. Leave empty if unknown'),
-                address: z.string().describe('Optional. Leave empty if unknown'),
-            }),
-            execute: async ({ query }: { query?: string }) => {
-                const results = await searchSaasKnowledge(ctx.supabase, ctx.workspaceId, query);
-                return { 
-                    results: results.map(r => ({ title: r.title, content: r.content })),
-                    count: results.length
-                };
-            },
-        },
-        lookup_account: {
-            description: 'Check if this user already has an account on GhostAgent. Returns their user record if found.',
-            inputSchema: z.object({
-                name: z.string().describe('Optional. Leave empty if unknown'),
-                phone: z.string().describe('Optional. Leave empty if unknown'),
-                address: z.string().describe('Optional. Leave empty if unknown'),
-            }),
-            execute: async () => {
-                // In a real system we would lookup by phone or instagram ID from `users` table
-                return { found: false, message: 'User does not appear to have a GhostAgent account yet. Offer them a signup link.' };
-            },
-        },
-    };
-}
-
-// ═══════════════════════════════════════════════════════════════
 // TRANSACTIONAL TOOL BLOCKLIST
 // ═══════════════════════════════════════════════════════════════
 

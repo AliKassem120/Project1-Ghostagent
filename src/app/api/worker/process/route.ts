@@ -9,8 +9,8 @@
  */
 
 import { NextResponse } from 'next/server';
-import { processMessageJob } from '@/lib/automation-v3/worker';
-import type { MessageJob } from '@/lib/automation-v3/queue';
+import { processMessageJob } from '@/lib/ai/worker';
+import type { MessageJob } from '@/lib/ai/queue';
 import crypto from 'crypto';
 
 // Extend Vercel function timeout for AI processing
@@ -118,7 +118,7 @@ export async function POST(req: Request) {
         await processMessageJob(job);
 
         // Flush any buffered metrics before Vercel kills the function
-        const { flushMetrics } = await import('@/lib/automation-v2/metrics');
+        const { flushMetrics } = await import('@/lib/ai/metrics');
         await flushMetrics();
 
         const durationMs = Date.now() - startTime;
@@ -136,7 +136,7 @@ export async function POST(req: Request) {
     } catch (err) {
         // Flush metrics even on failure
         try {
-            const { flushMetrics } = await import('@/lib/automation-v2/metrics');
+            const { flushMetrics } = await import('@/lib/ai/metrics');
             await flushMetrics();
         } catch { /* best effort */ }
 
