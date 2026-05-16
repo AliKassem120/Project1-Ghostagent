@@ -34,7 +34,7 @@ export interface AutomationInput {
 }
 
 // Inlined from deleted state/types
-export type ConversationStage = 'idle' | 'collecting' | 'confirming' | 'complete';
+export type ConversationStage = 'idle' | 'collecting' | 'confirming' | 'complete' | 'handoff';
 
 export interface AutomationResult {
     shouldReply: boolean;
