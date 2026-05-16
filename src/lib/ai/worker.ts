@@ -36,7 +36,7 @@ export async function processMessageJob(job: MessageJob): Promise<void> {
 
     try {
         // 1. Load workspace config
-        const { loadWorkspaceConfig } = await import('@/lib/ai/router');
+        const { loadWorkspaceConfig } = await import('@/lib/ai/config');
         const config = await loadWorkspaceConfig(supabase, job.workspaceId, job.userId);
 
         if (!config) {

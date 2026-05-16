@@ -30,7 +30,7 @@ export async function generateGhostReply(
 
         // ── V3 LLM Agent ────────────────────────────────────
         const { runV3Agent } = await import('@/lib/ai/agent');
-        const { loadWorkspaceConfig } = await import('@/lib/ai/router');
+        const { loadWorkspaceConfig } = await import('@/lib/ai/config');
 
         const config = await loadWorkspaceConfig(supabase, workspaceId, userId);
         if (!config) {
