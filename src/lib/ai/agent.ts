@@ -18,7 +18,7 @@ function getGroq() {
     return createGroq({ apiKey: key });
 }
 
-function buildPrompt(config: WorkspaceConfig, timeCtx: any, replyLanguage: string, ragExamples?: {customer_message: string, owner_reply: string}[]): string {
+function buildPrompt(config: WorkspaceConfig, timeCtx: any, replyLanguage: string, ragExamples: {customer_message: string, owner_reply: string}[] | undefined, platform: 'instagram' | 'whatsapp'): string {
     const isArabizi = replyLanguage === 'arabizi' || replyLanguage === 'lebanese franco';
 
     const businessDesc = config.businessType === 'appointments'
@@ -37,16 +37,13 @@ function buildPrompt(config: WorkspaceConfig, timeCtx: any, replyLanguage: strin
         ? 'You may use up to 1 emoji per message, only when it feels natural.'
         : 'Do NOT use any emojis. Zero. No exceptions.';
 
-    let discountRules = '';
-    if (config.maxDiscount && config.maxDiscount > 0) {
-        discountRules = `
+    const discountRules = config.maxDiscount && config.maxDiscount > 0
+        ? `
 DISCOUNTS:
 - Max discount: ${config.maxDiscount}%${config.minOrderForDiscount ? ` (only on orders above $${config.minOrderForDiscount})` : ''}
 - Only offer if they ASK. Never volunteer a discount.
-- If they want more than ${config.maxDiscount}%: "Sorry, best price."`;
-    } else {
-        discountRules = `\nDISCOUNTS: None. Prices are fixed. If they ask: "ekhir se3er" / "final price."`;
-    }
+- If they want more than ${config.maxDiscount}%: "Sorry, best price."`
+        : `\nDISCOUNTS: None. Prices are fixed. If they ask: "ekhir se3er" / "final price."`;
 
     const toolBlock = config.businessType === 'appointments'
         ? `TOOLS:
@@ -55,7 +52,7 @@ DISCOUNTS:
 - Use lookup_customer to check if they've been here before — skip asking info you already have.
 - Use book_appointment ONLY after the customer explicitly confirms the date, time, and service.
 - NEVER say "booked" or "confirmed" unless book_appointment returned success.
-- WHATSAPP ONLY: If the platform is whatsapp and the customer wants to book, ALWAYS use the send_booking_flow tool instead of asking for date/time manually.`
+- ${platform === 'whatsapp' ? 'ALWAYS use the send_booking_flow tool instead of asking for date/time manually if the customer wants to book.' : 'Ask for date/time manually.'}`
         : `TOOLS:
 - You have full access to database tools. You are the orchestrator.
 - Use search_products for ANY question about products, prices, or stock.
@@ -64,7 +61,7 @@ DISCOUNTS:
 - Use place_order ONLY after the customer explicitly confirms the product and you have their details.
 - NEVER say "ordered" or "confirmed" unless place_order returned success.
 - Use cancel_order if they want to cancel.
-- WHATSAPP ONLY: If the platform is whatsapp and the customer asks to see a product, use the send_product_card tool instead of just describing it.`;
+- ${platform === 'whatsapp' ? 'ALWAYS use the send_product_card tool instead of describing a product manually if they ask to see it.' : 'Describe products manually.'}`;
 
     let languageBlock: string;
     
@@ -101,7 +98,7 @@ When in doubt, keep sentences very short and copy the exact formatting from the 
     const lengthRule = 'Keep replies short and DM-style. 1–3 sentences max. No paragraphs. Be natural, not robotic.';
 
     return `You are the DM manager of "${config.businessName}", ${businessDesc}.
-You're chatting with customers on Instagram/WhatsApp DMs.
+You're chatting with a customer on ${platform === 'whatsapp' ? 'WhatsApp' : 'Instagram DMs'}.
 Date: ${timeCtx.dayName}, ${timeCtx.isoDate} at ${timeCtx.isoTime}.
 
 RULES:
@@ -196,7 +193,7 @@ export async function runV3Agent(
         .order('created_at', { ascending: false })
         .limit(10);
 
-    const system = buildPrompt(config, timeCtx, replyLang, ragExamples || []);
+    const system = buildPrompt(config, timeCtx, replyLang, ragExamples || [], input.platform);
     const messages: any[] = [
         ...history,
         { role: 'user', content: input.message },
