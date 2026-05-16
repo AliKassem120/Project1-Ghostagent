@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Trash2, Save, X, Package, Loader2, DollarSign, Box, TrendingUp, AlertTriangle, Edit2, Upload, FileSpreadsheet } from 'lucide-react';
+import { Plus, Search, Trash2, Save, X, Package, Loader2, DollarSign, Box, TrendingUp, AlertTriangle, Edit2, Upload, FileSpreadsheet, RefreshCw } from 'lucide-react';
 import { clsx } from 'clsx';
 import Papa from 'papaparse';
 import { createClient } from '@/utils/supabase/client';
@@ -40,6 +40,7 @@ export default function InventoryPage() {
     const userId = user?.id;
     const { activeWorkspaceId, planTier } = useWorkspace();
     const [isAdding, setIsAdding] = useState(false);
+    const [isSyncing, setIsSyncing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [newProduct, setNewProduct] = useState({ name: '', price: '', stock: '' });
     const [editingProductId, setEditingProductId] = useState<string | null>(null);
@@ -163,6 +164,21 @@ export default function InventoryPage() {
         } catch (error) {
             console.error('Error saving product:', error);
             toast.error('Failed to save product. Check console.');
+        }
+    };
+
+    const handleSyncCatalog = async () => {
+        setIsSyncing(true);
+        try {
+            const res = await fetch('/api/whatsapp/catalog-sync', { method: 'POST' });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            toast.success('Catalog Synced', { description: `Synced ${data.syncedCount} products to WhatsApp.` });
+        } catch (err: any) {
+            console.error('Sync error:', err);
+            toast.error('Failed to sync catalog', { description: err.message });
+        } finally {
+            setIsSyncing(false);
         }
     };
 
@@ -383,16 +399,29 @@ export default function InventoryPage() {
                     <h1 className="text-2xl font-bold tracking-tight text-foreground">Inventory</h1>
                     <p className="text-sm text-muted-foreground mt-1">Manage your product catalog and stock levels.</p>
                 </div>
-                <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.97 }}
-                    onClick={handleAddClick}
-                    disabled={isAdding || (planTier === 'starter' && products.filter(p => !p.isCsv).length >= 3)}
-                    className="w-full sm:w-auto px-6 py-3 bg-primary text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)] active:scale-95 text-sm"
-                >
-                    <Plus className="w-5 h-5" /> 
-                    {planTier === 'starter' && products.filter(p => !p.isCsv).length >= 3 ? 'Starter Limit Reached (3)' : 'Add Product'}
-                </motion.button>
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={handleSyncCatalog}
+                        disabled={isSyncing}
+                        className="w-full sm:w-auto px-6 py-3 bg-surface-2 border border-border text-foreground font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-surface-3 disabled:opacity-50 transition-all active:scale-95 text-sm"
+                    >
+                        {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5 text-emerald-400" />}
+                        {isSyncing ? 'Syncing...' : 'Sync to WhatsApp'}
+                    </motion.button>
+
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={handleAddClick}
+                        disabled={isAdding || (planTier === 'starter' && products.filter(p => !p.isCsv).length >= 3)}
+                        className="w-full sm:w-auto px-6 py-3 bg-primary text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)] active:scale-95 text-sm"
+                    >
+                        <Plus className="w-5 h-5" /> 
+                        {planTier === 'starter' && products.filter(p => !p.isCsv).length >= 3 ? 'Starter Limit Reached (3)' : 'Add Product'}
+                    </motion.button>
+                </div>
             </motion.div>
 
             {/* ═══ SUMMARY CARDS ═══ */}
