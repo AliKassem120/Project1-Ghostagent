@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LayoutDashboard, Inbox, Package, Settings, LogOut, CreditCard, Zap, ChevronRight, BookOpen, Calendar, Clock, Briefcase, Building2, Check, Plus, Loader2, BarChart2, Megaphone } from 'lucide-react';
+import { LayoutDashboard, Inbox, Package, Settings, LogOut, CreditCard, Zap, ChevronRight, BookOpen, Calendar, Clock, Briefcase, Building2, Check, Plus, Loader2, BarChart2, Megaphone, Phone } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 import { useState, useEffect } from 'react';
@@ -61,6 +61,7 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                 { icon: Package, label: 'Inventory', href: '/dashboard/inventory' },
                 { icon: BookOpen, label: 'Orders', href: '/dashboard/orders' },
                 { icon: Megaphone, label: 'Marketing', href: '/dashboard/marketing' },
+                { icon: Phone, label: 'Simulator', href: '/dashboard/simulator' },
                 { icon: Clock, label: 'Working Hours', href: '/dashboard/hours' },
             ];
             break;
@@ -69,6 +70,7 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                 { icon: Calendar, label: 'Calendar', href: '/dashboard/calendar' },
                 { icon: Briefcase, label: 'Services', href: '/dashboard/services' },
                 { icon: Megaphone, label: 'Marketing', href: '/dashboard/marketing' },
+                { icon: Phone, label: 'Simulator', href: '/dashboard/simulator' },
                 { icon: Clock, label: 'Working Hours', href: '/dashboard/hours' },
             ];
             break;
