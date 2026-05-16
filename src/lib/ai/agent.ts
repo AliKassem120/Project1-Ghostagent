@@ -54,7 +54,8 @@ DISCOUNTS:
 - Use check_slot BEFORE confirming any booking.
 - Use lookup_customer to check if they've been here before — skip asking info you already have.
 - Use book_appointment ONLY after the customer explicitly confirms the date, time, and service.
-- NEVER say "booked" or "confirmed" unless book_appointment returned success.`
+- NEVER say "booked" or "confirmed" unless book_appointment returned success.
+- WHATSAPP ONLY: If the platform is whatsapp and the customer wants to book, ALWAYS use the send_booking_flow tool instead of asking for date/time manually.`
         : `TOOLS:
 - You have full access to database tools. You are the orchestrator.
 - Use search_products for ANY question about products, prices, or stock.
@@ -62,7 +63,8 @@ DISCOUNTS:
 - If you need their address or phone, ask for it naturally. Once you have it, call place_order.
 - Use place_order ONLY after the customer explicitly confirms the product and you have their details.
 - NEVER say "ordered" or "confirmed" unless place_order returned success.
-- Use cancel_order if they want to cancel.`;
+- Use cancel_order if they want to cancel.
+- WHATSAPP ONLY: If the platform is whatsapp and the customer asks to see a product, use the send_product_card tool instead of just describing it.`;
 
     let languageBlock: string;
     

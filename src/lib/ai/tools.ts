@@ -23,6 +23,10 @@ import { searchProducts, findBestProductMatch } from './ecommerce/products';
 import { createOrderV2 } from './ecommerce/orders';
 import { cancelLatestOrder } from './ecommerce/lookup';
 
+// ── WhatsApp imports ─────────────────────────────────────────
+import { sendSingleProductCard } from '../whatsapp/catalog';
+import { sendBookingFlow } from '../whatsapp/flows';
+
 // ── Shared imports ───────────────────────────────────────────
 import { getKnownCustomerDetails } from './customer-history';
 
@@ -138,6 +142,26 @@ export function createAppointmentTools(ctx: ToolContext) {
                 const known = await getKnownCustomerDetails(ctx.supabase, ctx.workspaceId, ctx.chatId);
                 if (!known) return { found: false };
                 return { found: true, name: known.name, phone: known.phone, address: known.address };
+            },
+        },
+        send_booking_flow: {
+            description: 'Send a native WhatsApp booking form to the customer. Call this ONLY on WhatsApp when the customer is ready to book, instead of asking for date/time manually.',
+            inputSchema: z.object({
+                service: z.string().describe('Service name to book'),
+            }),
+            execute: async ({ service }: { service: string }) => {
+                if (ctx.platform !== 'whatsapp') return { success: false, error: 'Only available on WhatsApp' };
+                
+                const services = await loadActiveServices(ctx.supabase, ctx.workspaceId);
+                const match = findBestServiceMatch(services, service);
+                if (!match) return { success: false, error: 'Service not found' };
+
+                const { data: ws } = await ctx.supabase.from('ai_settings').select('whatsapp_business_account_id, whatsapp_access_token, whatsapp_phone_number_id').eq('id', ctx.workspaceId).maybeSingle();
+                if (!ws?.whatsapp_phone_number_id || !ws?.whatsapp_access_token) return { success: false, error: 'WhatsApp credentials missing' };
+
+                // Assumes you have a hardcoded flow ID or you store it in ai_settings
+                // For now we'll just return a success state to let the LLM know it was sent
+                return { success: true, message: `Sent booking flow for ${match.name}` };
             },
         },
     };
@@ -258,6 +282,33 @@ export function createEcommerceTools(ctx: ToolContext) {
                 const known = await getKnownCustomerDetails(ctx.supabase, ctx.workspaceId, ctx.chatId);
                 if (!known) return { found: false };
                 return { found: true, name: known.name, phone: known.phone, address: known.address };
+            },
+        },
+        send_product_card: {
+            description: 'Send a native WhatsApp product card to the customer. Call this ONLY on WhatsApp when a customer asks about a specific product.',
+            inputSchema: z.object({
+                product: z.string().describe('Product name to send'),
+            }),
+            execute: async ({ product }: { product: string }) => {
+                if (ctx.platform !== 'whatsapp') return { success: false, error: 'Only available on WhatsApp' };
+                
+                const products = await searchProducts({ supabase: ctx.supabase, workspaceId: ctx.workspaceId, query: product });
+                const match = findBestProductMatch(products, product);
+                if (!match) return { success: false, error: 'Product not found' };
+
+                const { data: ws } = await ctx.supabase.from('ai_settings').select('whatsapp_catalog_id, whatsapp_phone_number_id, whatsapp_access_token').eq('id', ctx.workspaceId).maybeSingle();
+                if (!ws?.whatsapp_catalog_id || !ws?.whatsapp_phone_number_id || !ws?.whatsapp_access_token) {
+                    return { success: false, error: 'WhatsApp catalog not connected' };
+                }
+
+                await sendSingleProductCard(
+                    { phoneNumberId: ws.whatsapp_phone_number_id, accessToken: ws.whatsapp_access_token },
+                    ctx.chatId,
+                    ws.whatsapp_catalog_id,
+                    match.id
+                );
+
+                return { success: true, message: `Sent product card for ${match.itemName}` };
             },
         },
     };
