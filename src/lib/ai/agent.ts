@@ -18,7 +18,7 @@ function getGroq() {
     return createGroq({ apiKey: key });
 }
 
-function buildPrompt(config: WorkspaceConfig, timeCtx: any, replyLanguage: string): string {
+function buildPrompt(config: WorkspaceConfig, timeCtx: any, replyLanguage: string, ragExamples?: {customer_message: string, owner_reply: string}[]): string {
     const isArabizi = replyLanguage === 'arabizi' || replyLanguage === 'lebanese franco';
 
     const businessDesc = config.businessType === 'appointments'
@@ -89,6 +89,11 @@ When in doubt, keep sentences very short and copy the exact formatting from the 
     } else {
         const langName = replyLanguage.charAt(0).toUpperCase() + replyLanguage.slice(1);
         languageBlock = `LANGUAGE: Reply strictly in ${langName}.`;
+    }
+
+    if (ragExamples && ragExamples.length > 0) {
+        const ragText = ragExamples.map(e => `Customer: "${e.customer_message}"\nYou: "${e.owner_reply}"`).join('\n\n');
+        languageBlock += `\n\nEXACT COMMUNICATION STYLE (RAG TRAINING):\nYou must mimic the exact sentence structure, spelling, and tone of these past examples from the business owner:\n${ragText}`;
     }
 
     const lengthRule = 'Keep replies short and DM-style. 1–3 sentences max. No paragraphs. Be natural, not robotic.';
@@ -180,7 +185,15 @@ export async function runV3Agent(
         })
     );
 
-    const system = buildPrompt(config, timeCtx, replyLang);
+    // 2.5 Load RAG Examples
+    const { data: ragExamples } = await input.supabase
+        .from('business_training_data')
+        .select('customer_message, owner_reply')
+        .eq('workspace_id', input.workspaceId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+    const system = buildPrompt(config, timeCtx, replyLang, ragExamples || []);
     const messages: any[] = [
         ...history,
         { role: 'user', content: input.message },

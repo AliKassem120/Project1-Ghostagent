@@ -165,9 +165,60 @@ async function processWebhookEvent(body: any) {
             if (entry.messaging) {
                 for (const event of entry.messaging) {
 
-                    // 🛑 Ignore echoes (bot's own messages)
+                    // 🛑 Process echoes (outbound messages) for Passive Listening
                     if (event.message?.is_echo) {
-                        console.log("⚠️ Ignoring Bot's own message (Echo)");
+                        const appId = event.message?.app_id;
+                        const myAppId = process.env.INSTAGRAM_APP_ID || process.env.FACEBOOK_APP_ID;
+                        const isHuman = !appId || (myAppId && String(appId) !== String(myAppId));
+                        
+                        if (isHuman && event.message?.text) {
+                            const pageId = event.sender.id;
+                            const customerId = event.recipient?.id;
+                            const humanReplyText = event.message.text.trim();
+                            
+                            console.log(`🎧 [Passive Listening] Human replied manually on IG to ${customerId}. Capturing for RAG...`);
+                            
+                            try {
+                                // Find owner/workspace
+                                const { data: wsUser } = await supabaseAdmin
+                                    .from('workspace_users')
+                                    .select('workspace_id, users(instagram_account_id)')
+                                    .eq('users.instagram_account_id', pageId)
+                                    .limit(1)
+                                    .maybeSingle();
+                                    
+                                if (wsUser && wsUser.workspace_id) {
+                                    // Find last message from customer
+                                    const { data: lastCustMsg } = await supabaseAdmin
+                                        .from('activity_log')
+                                        .select('description')
+                                        .eq('workspace_id', wsUser.workspace_id)
+                                        .eq('event_type', 'INCOMING_MESSAGE')
+                                        .like('metadata->>chat_id', customerId)
+                                        .order('timestamp', { ascending: false })
+                                        .limit(1)
+                                        .maybeSingle();
+                                        
+                                    if (lastCustMsg && lastCustMsg.description) {
+                                        // Extract just the message part (description format is 'Name: "Message"')
+                                        const match = lastCustMsg.description.match(/:\s+"(.*)"$/);
+                                        const pureCustomerMessage = match ? match[1] : lastCustMsg.description;
+                                        
+                                        await supabaseAdmin.from('business_training_data').insert({
+                                            workspace_id: wsUser.workspace_id,
+                                            source: 'passive_listening',
+                                            customer_message: pureCustomerMessage,
+                                            owner_reply: humanReplyText
+                                        });
+                                        console.log('✅ [Passive Listening] Saved IG training pair to database.');
+                                    }
+                                }
+                            } catch (e) {
+                                console.error('❌ [Passive Listening] Error capturing echo:', e);
+                            }
+                        }
+                        
+                        console.log("⚠️ Ignoring Bot's own message (Echo) for standard processing");
                         continue;
                     }
 

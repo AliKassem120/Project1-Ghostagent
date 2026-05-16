@@ -120,6 +120,31 @@ export async function POST(req: Request) {
             console.error('Activity Log Insert Error:', insertError);
         }
 
+        // 🎧 PASSIVE LISTENING: Capture manual reply
+        if (workspaceId) {
+            const { data: lastCustMsg } = await supabase
+                .from('activity_log')
+                .select('description')
+                .eq('workspace_id', workspaceId)
+                .eq('event_type', 'INCOMING_MESSAGE')
+                .like('metadata->>chat_id', chatId)
+                .order('timestamp', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (lastCustMsg?.description) {
+                const match = lastCustMsg.description.match(/:\s+"(.*)"$/);
+                const pureCustomerMessage = match ? match[1] : lastCustMsg.description;
+
+                await supabase.from('business_training_data').insert({
+                    workspace_id: workspaceId,
+                    source: 'passive_listening',
+                    customer_message: pureCustomerMessage,
+                    owner_reply: text
+                });
+            }
+        }
+
         return NextResponse.json({ success: true, data: insertedLog || msgData });
 
     } catch (e: any) {

@@ -113,6 +113,28 @@ export async function POST(request: Request) {
             console.error('Supabase Update Error:', updateError);
             return NextResponse.json({ error: 'Failed to update log' }, { status: 500 });
         }
+        
+        // 🎧 PASSIVE LISTENING: Capture this manual reply for RAG training
+        if (activity?.workspace_id) {
+            const { data: originalLog } = await supabase
+                .from('activity_log')
+                .select('description')
+                .eq('id', activityId)
+                .single();
+                
+            if (originalLog?.description) {
+                // Extract original customer message (e.g. 'User: "Hello"')
+                const match = originalLog.description.match(/:\s+"(.*)"$/);
+                const pureCustomerMessage = match ? match[1] : originalLog.description;
+                
+                await supabase.from('business_training_data').insert({
+                    workspace_id: activity.workspace_id,
+                    source: 'passive_listening',
+                    customer_message: pureCustomerMessage,
+                    owner_reply: replyText
+                });
+            }
+        }
 
         return NextResponse.json({ success: true });
 
