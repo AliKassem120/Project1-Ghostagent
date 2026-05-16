@@ -26,6 +26,7 @@ import { cancelLatestOrder } from './ecommerce/lookup';
 // ── WhatsApp imports ─────────────────────────────────────────
 import { sendSingleProductCard } from '../whatsapp/catalog';
 import { sendBookingFlow } from '../whatsapp/flows';
+import { sendButtons } from '../whatsapp/send';
 
 // ── Shared imports ───────────────────────────────────────────
 import { getKnownCustomerDetails } from './customer-history';
@@ -164,9 +165,19 @@ export function createAppointmentTools(ctx: ToolContext) {
                 const { data: ws } = await ctx.supabase.from('ai_settings').select('whatsapp_business_account_id, whatsapp_access_token, whatsapp_phone_number_id').eq('id', ctx.workspaceId).maybeSingle();
                 if (!ws?.whatsapp_phone_number_id || !ws?.whatsapp_access_token) return { success: false, error: 'WhatsApp credentials missing' };
 
-                // Assumes you have a hardcoded flow ID or you store it in ai_settings
-                // For now we'll just return a success state to let the LLM know it was sent
-                return { success: true, message: `Sent booking flow for ${match.name}` };
+                const creds = { phoneNumberId: ws.whatsapp_phone_number_id, accessToken: ws.whatsapp_access_token };
+                await sendButtons(
+                    creds,
+                    ctx.chatId,
+                    `📅 Ready to book your *${match.name}*?\n\nTap below to start choosing a date and time!`,
+                    [
+                        { id: `book_now_${match.id}`, title: '📅 Book Now' }
+                    ],
+                    ctx.config.businessName || 'Salon Booking',
+                    'Powered by GhostAgent'
+                );
+
+                return { success: true, message: `Sent booking flow button for ${match.name}` };
             },
         },
     };
