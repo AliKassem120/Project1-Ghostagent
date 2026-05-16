@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import { Upload, FileText, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
-import { useWorkspace } from '@/components/providers/WorkspaceProvider';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 export default function BrainTrainingPage() {
-    const { currentWorkspace } = useWorkspace();
+    const { activeWorkspace } = useWorkspace();
     const [file, setFile] = useState<File | null>(null);
     const [ownerName, setOwnerName] = useState('');
     const [loading, setLoading] = useState(false);
@@ -14,7 +14,7 @@ export default function BrainTrainingPage() {
 
     const handleUpload = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!file || !ownerName || !currentWorkspace) return;
+        if (!file || !ownerName || !activeWorkspace) return;
 
         setLoading(true);
         setError(null);
@@ -23,7 +23,7 @@ export default function BrainTrainingPage() {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('ownerName', ownerName);
-        formData.append('workspaceId', currentWorkspace.id);
+        formData.append('workspaceId', activeWorkspace.id);
 
         try {
             const res = await fetch('/api/brain-training/upload', {
