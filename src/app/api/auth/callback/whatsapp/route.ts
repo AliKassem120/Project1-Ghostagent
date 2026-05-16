@@ -91,6 +91,16 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Failed to save WhatsApp credentials' }, { status: 500 });
         }
 
+        // Step 5: Auto-provision WhatsApp message templates
+        try {
+            const { provisionAllTemplates } = await import('@/lib/whatsapp/templates');
+            const templateResults = await provisionAllTemplates(wabaId, userAccessToken);
+            console.log('[WA Signup] Templates provisioned:', JSON.stringify(templateResults));
+        } catch (templateErr) {
+            // Non-fatal — templates can be provisioned later
+            console.error('[WA Signup] Template provisioning failed (non-fatal):', templateErr);
+        }
+
         return NextResponse.json({
             success: true,
             waba_id: wabaId,
