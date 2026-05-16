@@ -318,8 +318,20 @@ export function createEcommerceTools(ctx: ToolContext) {
                 }
 
                 const { data: ws } = await ctx.supabase.from('ai_settings').select('whatsapp_catalog_id, whatsapp_phone_number_id, whatsapp_access_token').eq('id', ctx.workspaceId).maybeSingle();
-                if (!ws?.whatsapp_catalog_id || !ws?.whatsapp_phone_number_id || !ws?.whatsapp_access_token) {
-                    return { success: false, error: 'WhatsApp catalog not connected' };
+                if (!ws?.whatsapp_phone_number_id || !ws?.whatsapp_access_token) return { success: false, error: 'WhatsApp credentials missing' };
+
+                if (!ws.whatsapp_catalog_id) {
+                    await sendButtons(
+                        { phoneNumberId: ws.whatsapp_phone_number_id, accessToken: ws.whatsapp_access_token },
+                        ctx.chatId,
+                        `🛍️ *${match.itemName}*\n\nPrice: *$${match.price}*\nStock: ${match.stockLevel > 0 ? '✅ In Stock' : '❌ Out of Stock'}\n\nTap below if you'd like to order!`,
+                        [
+                            { id: `buy_now_${match.id}`, title: '🛍️ Order Now' }
+                        ],
+                        match.itemName,
+                        'Powered by GhostAgent'
+                    );
+                    return { success: true, message: `Sent product details button (Catalog fallback) for ${match.itemName}` };
                 }
 
                 await sendSingleProductCard(
