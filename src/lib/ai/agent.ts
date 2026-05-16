@@ -8,7 +8,7 @@ import { buildTimeContext } from '@/lib/ai/time';
 import { checkRateLimit } from '@/lib/ai/guardrails/rate-limiter';
 import { MetricBuilder, emitMetric } from '@/lib/ai/metrics';
 import { v2log } from '@/lib/ai/logger';
-import { LEBANESE_VOCABULARY } from '@/lib/ai/dictionaries';
+import { LEBANESE_VOCABULARY, ARABIZI_DICTIONARY } from '@/lib/ai/dictionaries';
 
 const MODEL = 'llama-3.3-70b-versatile';
 
@@ -65,19 +65,25 @@ DISCOUNTS:
 - Use cancel_order if they want to cancel.`;
 
     let languageBlock: string;
+    
+    const arabiziPhrases = Object.entries(ARABIZI_DICTIONARY)
+        .map(([eng, arabizi]) => `- To say "${eng}" -> say EXACTLY: "${arabizi}"`)
+        .join('\n');
+
     if (isArabizi) {
         languageBlock = `
 LANGUAGE: Reply in Lebanese Arabizi (Latin letters + numbers like 3, 7, 5, 2).
-Use this vocabulary naturally:
+
+VOCABULARY (Word by Word):
 ${LEBANESE_VOCABULARY}
 
-Examples of good Arabizi replies:
-- "Eh mawjoud, 50$"
-- "Ma fi hala2"
-- "B3atle esmak w ra2mak w l 3nwen"
-- "Tmm t2akad el order ✅"`;
+EXACT PHRASING RULES (MANDATORY):
+Do NOT translate word-by-word like a robot. You MUST use these exact sentence structures:
+${arabiziPhrases}
+
+When in doubt, keep sentences very short and copy the exact formatting from the rules above.`;
     } else if (replyLanguage === 'mixed') {
-        languageBlock = `LANGUAGE: Reply in Lebanese Arabizi. Mirror the user's language mix. Use this vocabulary naturally: ${LEBANESE_VOCABULARY}`;
+        languageBlock = `LANGUAGE: Reply in Lebanese Arabizi. Mirror the user's language mix.\nVOCABULARY:\n${LEBANESE_VOCABULARY}\n\nEXACT PHRASES (Use these exact structures):\n${arabiziPhrases}`;
     } else if (replyLanguage === 'unknown') {
         languageBlock = `LANGUAGE: Reply in English.`;
     } else {
