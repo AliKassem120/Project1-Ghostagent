@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, ShoppingBag, Instagram, Clock, CheckCircle2, PhoneCall, Loader2, RefreshCw, ChevronDown, Trash2, XCircle } from 'lucide-react';
+import { Download, ShoppingBag, Instagram, Clock, CheckCircle2, PhoneCall, Loader2, RefreshCw, ChevronDown, Trash2, XCircle, Truck, PackageCheck, MessageSquare } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useRealtime } from '@/contexts/RealtimeContext';
@@ -10,8 +10,8 @@ import CustomSelect from '@/components/CustomSelect';
 import GhostModal from '@/components/GhostModal';
 import clsx from 'clsx';
 
-type OrderStatus = 'Pending' | 'Contacted' | 'Fulfilled' | 'Cancelled';
-const ORDER_STATUSES: OrderStatus[] = ['Pending', 'Contacted', 'Fulfilled', 'Cancelled'];
+type OrderStatus = 'Pending' | 'Contacted' | 'Shipped' | 'Delivered' | 'Fulfilled' | 'Cancelled';
+const ORDER_STATUSES: OrderStatus[] = ['Pending', 'Contacted', 'Shipped', 'Delivered', 'Fulfilled', 'Cancelled'];
 
 interface OrderLead {
     id: string;
@@ -30,6 +30,8 @@ interface OrderLead {
 const STATUS_CONFIG: Record<OrderStatus, { label: string; className: string; icon: React.ElementType }> = {
     Pending: { label: 'Pending', className: 'bg-amber-500/15   text-amber-400   border border-amber-500/20', icon: Clock },
     Contacted: { label: 'Contacted', className: 'bg-blue-500/15    text-blue-400    border border-blue-500/20', icon: PhoneCall },
+    Shipped: { label: 'Shipped', className: 'bg-indigo-500/15  text-indigo-400  border border-indigo-500/20', icon: Truck },
+    Delivered: { label: 'Delivered', className: 'bg-teal-500/15    text-teal-400    border border-teal-500/20', icon: PackageCheck },
     Fulfilled: { label: 'Fulfilled', className: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20', icon: CheckCircle2 },
     Cancelled: { label: 'Cancelled', className: 'bg-red-500/15 text-red-400 border border-red-500/20', icon: XCircle },
 };
@@ -173,7 +175,24 @@ export default function OrdersPage() {
     const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
         setUpdating(orderId);
         setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
-        await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
+        try {
+            // Use the notification-enabled API for shipped/delivered
+            if (newStatus.toLowerCase() === 'shipped' || newStatus.toLowerCase() === 'delivered') {
+                const res = await fetch('/api/orders/update-status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderId, newStatus: newStatus.toLowerCase() }),
+                });
+                const data = await res.json();
+                if (data.notificationSent) {
+                    console.log(`📱 WhatsApp notification sent for order ${orderId}`);
+                }
+            } else {
+                await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
+            }
+        } catch (err) {
+            console.error('Failed to update order status:', err);
+        }
         setUpdating(null);
     };
 

@@ -200,10 +200,25 @@ export default function CalendarPage() {
 
     const updateStatus = async (id: string, newStatus: string) => {
         try {
-            const { error } = await supabase.from("appointments").update({ status: newStatus, updated_at: new Date().toISOString() }).eq("id", id);
-            if (error) throw error;
+            // Use notification API for statuses that trigger WhatsApp messages
+            if (newStatus === 'confirmed') {
+                const res = await fetch('/api/appointments/update-status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ appointmentId: id, newStatus }),
+                });
+                const data = await res.json();
+                if (data.notificationSent) {
+                    toast.success(`Status updated — WhatsApp confirmation sent! 📱`);
+                } else {
+                    toast.success(`Status updated to ${newStatus}`);
+                }
+            } else {
+                const { error } = await supabase.from("appointments").update({ status: newStatus, updated_at: new Date().toISOString() }).eq("id", id);
+                if (error) throw error;
+                toast.success(`Status updated to ${newStatus}`);
+            }
             setAppointments((prev) => prev.map((a) => (a.id === id ? { ...a, status: newStatus } : a)));
-            toast.success(`Status updated to ${newStatus}`);
         } catch (err: any) {
             toast.error("Failed to update status");
         }
