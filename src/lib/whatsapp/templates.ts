@@ -74,6 +74,27 @@ export const GHOSTAGENT_TEMPLATES = {
             },
         ],
     },
+    promotional_blast: {
+        name: 'ghostagent_promotional_blast',
+        category: 'MARKETING',
+        language: 'en',
+        components: [
+            {
+                type: 'HEADER',
+                format: 'TEXT',
+                text: 'Exclusive Offer! 🎉',
+            },
+            {
+                type: 'BODY',
+                text: 'Hey! 👋\n\n{{1}}\n\nReply to this message if you have any questions or want to claim this offer! 👻',
+                example: { body_text: [['We are running a 20% sale on all vintage jackets this weekend only!']] },
+            },
+            {
+                type: 'FOOTER',
+                text: 'Powered by GhostAgent',
+            },
+        ],
+    },
 } as const;
 
 // ── Create Template via API ──────────────────────────────────

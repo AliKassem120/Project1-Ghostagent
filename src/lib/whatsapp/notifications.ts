@@ -140,3 +140,22 @@ export async function notifyAppointmentConfirmed(
 
     return sendTemplate(creds, customerPhone, 'ghostagent_appointment_confirmed', 'en', components);
 }
+
+// ── Promotional Blast ────────────────────────────────────────
+
+export async function notifyPromotionalBlast(
+    creds: WhatsAppCredentials,
+    customerPhone: string,
+    messageBody: string
+) {
+    const components: TemplateComponent[] = [
+        {
+            type: 'body',
+            parameters: [
+                { type: 'text', text: messageBody },
+            ],
+        },
+    ];
+
+    return sendTemplate(creds, customerPhone, 'ghostagent_promotional_blast', 'en', components);
+}
