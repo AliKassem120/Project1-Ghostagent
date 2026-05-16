@@ -35,6 +35,7 @@ export default function SettingsPage() {
     const [disconnectModal, setDisconnectModal] = useState<{ open: boolean; accountId: string | null }>({ open: false, accountId: null });
     const [deleteWsModal, setDeleteWsModal] = useState(false);
     const [deletingWs, setDeletingWs] = useState(false);
+    const [showAdvancedWA, setShowAdvancedWA] = useState(false);
     // Team state
     const [teamMembers, setTeamMembers] = useState<any[]>([]);
     const [teamLoading, setTeamLoading] = useState(false);
@@ -63,7 +64,7 @@ export default function SettingsPage() {
         businessName: '',
         tone: 'Professional',
         useEmojis: true,
-        maxDiscount: 20,
+        maxDiscount: 0,
         minOrderForDiscount: 50,
         emergencyWhatsApp: '',
         language: 'Auto-Detect',
@@ -162,7 +163,7 @@ export default function SettingsPage() {
                     businessName: data.business_name || '',
                     tone: data.tone || 'Professional',
                     useEmojis: data.use_emojis ?? true,
-                    maxDiscount: data.max_discount || 20,
+                    maxDiscount: data.max_discount ?? 0,
                     minOrderForDiscount: data.min_order_for_discount || 50,
                     emergencyWhatsApp: data.emergency_whatsapp || '',
                     language: data.language || 'Auto-Detect',
@@ -996,6 +997,62 @@ export default function SettingsPage() {
                                 {settings.waPhoneNumberId ? 'Re-Connect' : 'Connect WhatsApp'}
                             </button>
                         </div>
+
+                        {/* Manual / Advanced WhatsApp Configuration */}
+                        <div className="flex justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setShowAdvancedWA(prev => !prev)}
+                                className="text-xs font-bold text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 mt-1"
+                            >
+                                {showAdvancedWA ? 'Hide Advanced Config ⚙️' : 'Configure Manually (Advanced) ⚙️'}
+                            </button>
+                        </div>
+
+                        {showAdvancedWA && (
+                            <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                className="p-5 bg-surface-2 rounded-2xl border border-border space-y-4"
+                            >
+                                <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">Manual WhatsApp Credentials</h4>
+                                <div className="space-y-3">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Phone Number ID</label>
+                                        <input
+                                            type="text"
+                                            value={settings.waPhoneNumberId}
+                                            onChange={(e) => setSettings({ ...settings, waPhoneNumberId: e.target.value })}
+                                            className="input-premium w-full"
+                                            placeholder="e.g. 109876543210987"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Access Token</label>
+                                        <input
+                                            type="password"
+                                            value={settings.waAccessToken}
+                                            onChange={(e) => setSettings({ ...settings, waAccessToken: e.target.value })}
+                                            className="input-premium w-full font-mono"
+                                            placeholder="EAABw..."
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Business Account ID</label>
+                                        <input
+                                            type="text"
+                                            value={settings.waBusinessAccountId}
+                                            onChange={(e) => setSettings({ ...settings, waBusinessAccountId: e.target.value })}
+                                            className="input-premium w-full"
+                                            placeholder="e.g. 987654321098765"
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground ml-1">
+                                        Note: These credentials will be saved when you click the <strong>Save All Settings</strong> button at the bottom of the page.
+                                    </p>
+                                </div>
+                            </motion.div>
+                        )}
 
                         {/* How it works */}
                         <div className="p-5 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 space-y-3">
