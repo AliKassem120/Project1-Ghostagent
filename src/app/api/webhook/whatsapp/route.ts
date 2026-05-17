@@ -258,11 +258,24 @@ async function processWhatsAppEvent(body: any) {
 
             // ── 2. HANDLE INCOMING MESSAGES ──
             for (const message of messages) {
-                // Only process inbound text messages
-                if (message.type !== 'text') continue;
+                // Support standard text, interactive quick-replies, and button replies
+                if (message.type !== 'text' && message.type !== 'interactive' && message.type !== 'button') continue;
 
                 const customerPhone: string = message.from;
-                const messageText: string = message.text?.body;
+                let messageText = '';
+
+                if (message.type === 'text') {
+                    messageText = message.text?.body || '';
+                } else if (message.type === 'interactive') {
+                    const interactive = message.interactive;
+                    if (interactive?.type === 'button_reply') {
+                        messageText = interactive.button_reply?.title || '';
+                    } else if (interactive?.type === 'list_reply') {
+                        messageText = interactive.list_reply?.title || '';
+                    }
+                } else if (message.type === 'button') {
+                    messageText = message.button?.text || '';
+                }
 
                 if (!messageText || !customerPhone || !phoneNumberId) continue;
 
