@@ -272,6 +272,21 @@ async function processWhatsAppEvent(body: any) {
                         messageText = `[SYSTEM NOTE: Customer clicked the "${interactive.button_reply?.title}" button. DO NOT send the button again. You MUST proceed with the next step in text format.]`;
                     } else if (interactive?.type === 'list_reply') {
                         messageText = `[SYSTEM NOTE: Customer selected "${interactive.list_reply?.title}" from the list.]`;
+                    } else if (interactive?.type === 'nfm_reply') {
+                        const nfmReply = interactive.nfm_reply;
+                        try {
+                            const data = JSON.parse(nfmReply?.response_json || '{}');
+                            const name = data.customer_name || 'Not provided';
+                            const phone = data.customer_phone || 'Not provided';
+                            const date = data.booking_date || 'Not provided';
+                            const time = data.booking_time || 'Not provided';
+                            const notes = data.notes || 'None';
+                            
+                            messageText = `[SYSTEM NOTE: Customer completed the native Booking Flow. Here is the submitted data:\n- Name: ${name}\n- Phone: ${phone}\n- Preferred Date: ${date}\n- Preferred Time: ${time}\n- Notes: ${notes}\n\nAction required: You must check availability, then immediately call the book_appointment tool with these details, and write a warm, custom confirmation message to the customer in Lebanese Arabizi/English.]`;
+                        } catch (err) {
+                            console.error('Error parsing nfm_reply JSON:', err);
+                            messageText = `[SYSTEM NOTE: Customer submitted the native Booking Flow, but there was an error parsing the data.]`;
+                        }
                     }
                 } else if (message.type === 'button') {
                     messageText = `[SYSTEM NOTE: Customer clicked the "${message.button?.text}" button. DO NOT send the button again. You MUST proceed with the next step in text format.]`;
