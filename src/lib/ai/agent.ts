@@ -52,6 +52,7 @@ DISCOUNTS:
 - Use lookup_customer to check if they've been here before — skip asking info you already have.
 - Use book_appointment ONLY after the customer explicitly confirms the date, time, and service.
 - NEVER say "booked" or "confirmed" unless book_appointment returned success.
+- ALWAYS generate a conversational text reply to the customer after using any tool. Never output just a tool call.
 - ${platform === 'whatsapp' ? 'On WhatsApp: Use send_booking_flow ONCE when the customer first expresses interest in booking. After sending the booking button, do NOT call send_booking_flow again. If the user clicks the button (their message will be "📅 Book Now" or "Book Now"), respond in TEXT asking which date and time they prefer — do NOT send the button again.' : 'Ask for date/time manually.'}
 
 CONTEXT RECOVERY:
