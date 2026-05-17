@@ -17,7 +17,9 @@ export async function createBookingFlow(
     accessToken: string,
     flowName: string = 'GhostAgent Booking'
 ) {
-    // 1. Create the flow
+    let flowId: string | null = null;
+
+    // 1. Try to create the flow
     const createRes = await fetch(`${WA_API}/${whatsappBusinessAccountId}/flows`, {
         method: 'POST',
         headers: {
@@ -32,16 +34,33 @@ export async function createBookingFlow(
 
     const createData = await createRes.json();
     if (!createRes.ok) {
-        // Flow might already exist
-        if (createData.error?.message?.includes('already exists')) {
-            console.log(`ℹ️ [Flows] Flow "${flowName}" already exists.`);
-            return { success: true, alreadyExists: true };
+        // Flow name already exists — find the existing flow ID
+        if (createData.error?.error_subcode === 4016019 || createData.error?.message?.includes('not unique') || createData.error?.message?.includes('already exists')) {
+            console.log(`ℹ️ [Flows] Flow "${flowName}" already exists. Looking up existing ID...`);
+
+            // List all flows for this WABA and find ours
+            const listRes = await fetch(`${WA_API}/${whatsappBusinessAccountId}/flows`, {
+                headers: { 'Authorization': `Bearer ${accessToken}` },
+            });
+            const listData = await listRes.json();
+            const existingFlow = (listData.data || []).find((f: any) => f.name === flowName);
+
+            if (existingFlow?.id) {
+                flowId = existingFlow.id;
+                console.log(`ℹ️ [Flows] Found existing flow ID: ${flowId}`);
+            } else {
+                console.log(`ℹ️ [Flows] Flow exists but could not locate ID. Skipping JSON upload.`);
+                return { success: true, alreadyExists: true };
+            }
+        } else {
+            console.error('❌ [Flows] Failed to create flow:', createData.error);
+            return { success: false, error: createData.error?.message };
         }
-        console.error('❌ [Flows] Failed to create flow:', createData.error);
-        return { success: false, error: createData.error?.message };
+    } else {
+        flowId = createData.id;
     }
 
-    const flowId = createData.id;
+    if (!flowId) return { success: false, error: 'No flow ID available' };
 
     // 2. Upload the flow JSON definition
     const flowJson = buildBookingFlowJSON();
@@ -57,7 +76,6 @@ export async function createBookingFlow(
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${accessToken}`,
-            // Fetch automatically sets the correct multipart/form-data boundary
         },
         body: formData,
     });
@@ -68,7 +86,7 @@ export async function createBookingFlow(
         return { success: false, flowId, error: updateData.error?.message };
     }
 
-    console.log(`✅ [Flows] Created booking flow (ID: ${flowId})`);
+    console.log(`✅ [Flows] Booking flow ready (ID: ${flowId})`);
     return { success: true, flowId };
 }
 

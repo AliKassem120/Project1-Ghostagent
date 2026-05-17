@@ -127,7 +127,7 @@ export async function createTemplate(
 
     if (!res.ok) {
         // Template might already exist — that's fine
-        if (data.error?.code === 2388023 || data.error?.message?.includes('already exists')) {
+        if (data.error?.code === 2388023 || data.error?.error_subcode === 2388024 || data.error?.message?.includes('already exists')) {
             console.log(`ℹ️ [Templates] Template "${template.name}" already exists. Skipping.`);
             return { success: true, alreadyExists: true };
         }
