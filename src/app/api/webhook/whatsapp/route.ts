@@ -178,8 +178,31 @@ async function processWhatsAppBuffer({
             }).catch(e => console.error('Failed to mark read:', e));
         }
 
-        // AI_REPLY activity log is already inserted by the V2 automation engine (index.ts).
-        // Do not insert a second one here.
+        // ── 3. LOG OUTGOING AI REPLY ───────────────────────────────
+        try {
+            const autoResult = brainRes?.automationResult;
+            await supabase.from('activity_log').insert({
+                user_id: ownerId,
+                workspace_id: effectiveWorkspaceId,
+                event_type: 'AI_REPLY',
+                description: `Sent: "${aiResponse.slice(0, 80)}"`,
+                timestamp: new Date().toISOString(),
+                metadata: {
+                    chat_id: customerPhone,
+                    platform: 'whatsapp',
+                    username: customerPhone,
+                    message: claimed.text,
+                    reply: aiResponse,
+                    intent: autoResult?.debug?.intent || null,
+                    actions: autoResult?.actions || [],
+                    stateBefore: autoResult?.stateBefore || null,
+                    stateAfter: autoResult?.stateAfter || null,
+                    engine: 'v3-webhook'
+                },
+            });
+        } catch (logErr) {
+            console.error('Failed to log AI_REPLY to activity_log:', logErr);
+        }
 
         await clearDmBuffer(supabase, ownerId, customerPhone, 'whatsapp', effectiveWorkspaceId);
         console.log(`WhatsApp reply sent to ${customerPhone}`);
@@ -364,6 +387,30 @@ async function processWhatsAppEvent(body: any) {
                             console.error(`❌ [Fallback] WhatsApp send failed (${sendResult.status}):`, sendBody);
                         } else {
                             console.log(`✅ [Fallback] WhatsApp reply sent to ${customerPhone}:`, sendBody);
+                            try {
+                                const autoResult = brainRes?.automationResult;
+                                await supabase.from('activity_log').insert({
+                                    user_id: anyWorkspace.user_id,
+                                    workspace_id: anyWorkspace.id,
+                                    event_type: 'AI_REPLY',
+                                    description: `Sent: "${aiResponse.slice(0, 80)}"`,
+                                    timestamp: new Date().toISOString(),
+                                    metadata: {
+                                        chat_id: customerPhone,
+                                        platform: 'whatsapp',
+                                        username: customerPhone,
+                                        message: messageText,
+                                        reply: aiResponse,
+                                        intent: autoResult?.debug?.intent || null,
+                                        actions: autoResult?.actions || [],
+                                        stateBefore: autoResult?.stateBefore || null,
+                                        stateAfter: autoResult?.stateAfter || null,
+                                        engine: 'v3-fallback'
+                                    },
+                                });
+                            } catch (logErr) {
+                                console.error('Failed to log Fallback AI_REPLY:', logErr);
+                            }
                         }
                     } else {
                         console.warn(`⚠️ Phone ID ${phoneNumberId} does not match system ID ${process.env.WHATSAPP_FROM_PHONE_NUMBER_ID}. No handler found.`);
