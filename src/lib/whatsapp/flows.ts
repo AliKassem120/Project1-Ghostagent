@@ -15,7 +15,7 @@ const WA_API = 'https://graph.facebook.com/v21.0';
 export async function createBookingFlow(
     whatsappBusinessAccountId: string,
     accessToken: string,
-    flowName: string = 'GhostAgent Booking V2'
+    flowName: string = 'GhostAgent Booking V3'
 ) {
     let flowId: string | null = null;
 
@@ -28,7 +28,7 @@ export async function createBookingFlow(
         },
         body: JSON.stringify({
             name: flowName,
-            categories: ['APPOINTMENT_BOOKING'],
+            categories: ['OTHER'],
         }),
     });
 
