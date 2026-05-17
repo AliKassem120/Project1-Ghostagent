@@ -52,7 +52,11 @@ DISCOUNTS:
 - Use lookup_customer to check if they've been here before — skip asking info you already have.
 - Use book_appointment ONLY after the customer explicitly confirms the date, time, and service.
 - NEVER say "booked" or "confirmed" unless book_appointment returned success.
-- ${platform === 'whatsapp' ? 'ALWAYS use the send_booking_flow tool instead of asking for date/time manually if the customer wants to book.' : 'Ask for date/time manually.'}`
+- ${platform === 'whatsapp' ? 'On WhatsApp: Use send_booking_flow ONCE when the customer first expresses interest in booking. After sending the booking button, do NOT call send_booking_flow again. If the user clicks the button (their message will be "📅 Book Now" or "Book Now"), respond in TEXT asking which date and time they prefer — do NOT send the button again.' : 'Ask for date/time manually.'}
+
+CONTEXT RECOVERY:
+- If you previously suggested a date/time (e.g. "How about tomorrow?" or "What about 3 PM?") and the customer replies with a confirmation like "yeah", "sure", "ok", "yep", "that works", "sounds good", "perfect" — treat their answer as confirming the date/time YOU proposed. Extract it from YOUR previous message and proceed with the booking.
+- Do NOT re-ask for information you already proposed and they confirmed.`
         : `TOOLS:
 - You have full access to database tools. You are the orchestrator.
 - Use search_products for ANY question about products, prices, or stock.
@@ -61,7 +65,11 @@ DISCOUNTS:
 - Use place_order ONLY after the customer explicitly confirms the product and you have their details.
 - NEVER say "ordered" or "confirmed" unless place_order returned success.
 - Use cancel_order if they want to cancel.
-- ${platform === 'whatsapp' ? 'ALWAYS use the send_product_card tool instead of describing a product manually if they ask to see it.' : 'Describe products manually.'}`;
+- ${platform === 'whatsapp' ? 'On WhatsApp: Use send_product_card ONCE when the customer asks about a specific product. After sending the product card, do NOT call send_product_card again for the same product. If the user clicks "🛍️ Order Now" or "Order Now", proceed with the order flow in TEXT — ask for their details naturally.' : 'Describe products manually.'}
+
+CONTEXT RECOVERY:
+- If you previously suggested something (e.g. a product variant, a delivery option) and the customer replies with a confirmation like "yeah", "sure", "ok", "yep", "that works", "sounds good", "perfect" — treat their answer as confirming what YOU proposed. Extract it from YOUR previous message and proceed.
+- Do NOT re-ask for information you already proposed and they confirmed.`;
 
     let languageBlock: string;
     

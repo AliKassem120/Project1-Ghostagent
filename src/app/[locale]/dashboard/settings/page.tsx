@@ -36,6 +36,13 @@ export default function SettingsPage() {
     const [deleteWsModal, setDeleteWsModal] = useState(false);
     const [deletingWs, setDeletingWs] = useState(false);
     const [showAdvancedWA, setShowAdvancedWA] = useState(false);
+    // WhatsApp Sync state
+    const [syncingWA, setSyncingWA] = useState(false);
+    const [syncResult, setSyncResult] = useState<any>(null);
+    const [waTemplates, setWaTemplates] = useState<any[]>([]);
+    const [waFlowId, setWaFlowId] = useState<string | null>(null);
+    const [loadingTemplates, setLoadingTemplates] = useState(false);
+
     // Team state
     const [teamMembers, setTeamMembers] = useState<any[]>([]);
     const [teamLoading, setTeamLoading] = useState(false);
@@ -57,6 +64,48 @@ export default function SettingsPage() {
         const params = new URLSearchParams(searchParams.toString());
         params.set('tab', tab);
         router.push(`${pathname}?${params.toString()}`);
+    };
+
+    // Fetch WA template statuses when connections tab is active
+    useEffect(() => {
+        if (activeTab !== 'connections' || !activeWorkspaceId) return;
+        setLoadingTemplates(true);
+        fetch(`/api/whatsapp/sync?workspaceId=${activeWorkspaceId}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+                if (data) {
+                    setWaTemplates(data.templates || []);
+                    setWaFlowId(data.flowId || null);
+                }
+            })
+            .catch(() => {})
+            .finally(() => setLoadingTemplates(false));
+    }, [activeTab, activeWorkspaceId]);
+
+    const handleSyncWhatsApp = async () => {
+        if (!activeWorkspaceId) return;
+        setSyncingWA(true);
+        setSyncResult(null);
+        try {
+            const res = await fetch('/api/whatsapp/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ workspaceId: activeWorkspaceId }),
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setSyncResult(data);
+                setWaTemplates(data.templates?.current || []);
+                if (data.flow?.flowId) setWaFlowId(data.flow.flowId);
+                toast.success('WhatsApp templates & flows synced successfully!');
+            } else {
+                toast.error(data.error || 'Sync failed');
+            }
+        } catch (e: any) {
+            toast.error(e.message || 'Sync failed');
+        } finally {
+            setSyncingWA(false);
+        }
     };
 
     // Initial state
@@ -1054,6 +1103,72 @@ export default function SettingsPage() {
                             </motion.div>
                         )}
 
+                        {/* ── Sync Templates & Flows ── */}
+                        <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-500/5 via-surface-2 to-blue-500/5 border border-purple-500/15 space-y-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <div className="p-2 rounded-xl bg-purple-500/10">
+                                        <Sparkles className="w-4 h-4 text-purple-400" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-xs font-bold text-foreground">Sync Templates & Flows</h4>
+                                        <p className="text-[10px] text-muted-foreground">One-click setup for marketing blasts & native booking forms</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={handleSyncWhatsApp}
+                                    disabled={syncingWA}
+                                    className="px-4 py-2 bg-purple-500 text-white font-bold rounded-xl hover:bg-purple-400 transition-all flex items-center gap-2 text-xs shadow-[0_0_20px_rgba(168,85,247,0.2)] disabled:opacity-50"
+                                >
+                                    {syncingWA ? (
+                                        <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Syncing...</>
+                                    ) : (
+                                        <><Wifi className="w-3.5 h-3.5" /> Sync to Meta</>
+                                    )}
+                                </button>
+                            </div>
+
+                            {/* Template Status Grid */}
+                            {waTemplates.length > 0 && (
+                                <div className="space-y-2">
+                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Registered Templates</p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {waTemplates.map((t: any) => (
+                                            <div key={t.name} className="flex items-center justify-between p-2.5 rounded-xl bg-surface-1 border border-border">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${t.status === 'APPROVED' ? 'bg-emerald-400' : t.status === 'REJECTED' ? 'bg-red-400' : 'bg-amber-400'}`} />
+                                                    <span className="text-[10px] font-medium text-foreground truncate">{t.name.replace('ghostagent_', '').replace(/_/g, ' ')}</span>
+                                                </div>
+                                                <span className={`text-[9px] font-bold uppercase tracking-wider flex-shrink-0 ml-2 ${t.status === 'APPROVED' ? 'text-emerald-400' : t.status === 'REJECTED' ? 'text-red-400' : 'text-amber-400'}`}>
+                                                    {t.status || 'PENDING'}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {loadingTemplates && waTemplates.length === 0 && (
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    <span className="text-[10px]">Loading template statuses...</span>
+                                </div>
+                            )}
+
+                            {/* Flow Status */}
+                            <div className="flex items-center gap-2 p-3 rounded-xl bg-surface-1 border border-border">
+                                <div className={`w-2 h-2 rounded-full ${waFlowId ? 'bg-emerald-400' : 'bg-zinc-500'}`} />
+                                <span className="text-[10px] font-medium text-foreground">Native Booking Flow</span>
+                                <span className={`text-[9px] font-bold uppercase tracking-wider ml-auto ${waFlowId ? 'text-emerald-400' : 'text-muted-foreground'}`}>
+                                    {waFlowId ? 'ACTIVE' : 'NOT CREATED'}
+                                </span>
+                            </div>
+
+                            <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                Click <strong>Sync to Meta</strong> to register all message templates (for marketing blasts & notifications) and create the native booking flow under your WhatsApp Business Account.
+                            </p>
+                        </div>
+
                         {/* How it works */}
                         <div className="p-5 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 space-y-3">
                             <div className="flex items-center gap-2 text-emerald-400">
@@ -1063,7 +1178,8 @@ export default function SettingsPage() {
                             <div className="space-y-2 text-[11px] text-muted-foreground leading-relaxed">
                                 <p>1. Click <strong>Connect WhatsApp</strong> above — you'll be taken to Meta to log in.</p>
                                 <p>2. Select your <strong>WhatsApp Business Account</strong> and phone number.</p>
-                                <p>3. That's it! GhostAgent will start handling your WhatsApp messages automatically.</p>
+                                <p>3. Click <strong>Sync to Meta</strong> to activate message templates and booking flows.</p>
+                                <p>4. That's it! GhostAgent will handle your WhatsApp messages automatically.</p>
                             </div>
                         </div>
                     </div>
