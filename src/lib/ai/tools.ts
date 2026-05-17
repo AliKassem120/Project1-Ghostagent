@@ -26,7 +26,7 @@ import { cancelLatestOrder } from './ecommerce/lookup';
 // ── WhatsApp imports ─────────────────────────────────────────
 import { sendSingleProductCard } from '../whatsapp/catalog';
 import { sendBookingFlow } from '../whatsapp/flows';
-import { sendButtons } from '../whatsapp/send';
+import { sendButtons, sendFlow } from '../whatsapp/send';
 
 // ── Shared imports ───────────────────────────────────────────
 import { getKnownCustomerDetails } from './customer-history';
@@ -162,22 +162,38 @@ export function createAppointmentTools(ctx: ToolContext) {
                     return { success: true, message: `Sent booking flow for ${match.name} (Simulated)` };
                 }
 
-                const { data: ws } = await ctx.supabase.from('ai_settings').select('whatsapp_business_account_id, whatsapp_access_token, whatsapp_phone_number_id').eq('id', ctx.workspaceId).maybeSingle();
+                const { data: ws } = await ctx.supabase.from('ai_settings').select('whatsapp_business_account_id, whatsapp_access_token, whatsapp_phone_number_id, whatsapp_booking_flow_id').eq('id', ctx.workspaceId).maybeSingle();
                 if (!ws?.whatsapp_phone_number_id || !ws?.whatsapp_access_token) return { success: false, error: 'WhatsApp credentials missing' };
 
                 const creds = { phoneNumberId: ws.whatsapp_phone_number_id, accessToken: ws.whatsapp_access_token };
-                await sendButtons(
-                    creds,
-                    ctx.chatId,
-                    `📅 Ready to book your *${match.name}*?\n\nTap below to start choosing a date and time!`,
-                    [
-                        { id: `book_now_${match.id}`, title: '📅 Book Now' }
-                    ],
-                    ctx.config.businessName || 'Salon Booking',
-                    'Powered by GhostAgent'
-                );
-
-                return { success: true, message: `Sent booking flow button for ${match.name}` };
+                
+                if (ws.whatsapp_booking_flow_id) {
+                    await sendFlow(
+                        creds,
+                        ctx.chatId,
+                        ws.whatsapp_booking_flow_id,
+                        `book_${match.id}_${Date.now()}`,
+                        `📅 Ready to book your *${match.name}*?\n\nTap below to open the booking form and select a time!`,
+                        'Book Appointment',
+                        'BOOKING_DETAILS',
+                        { service_id: match.id, service_name: match.name },
+                        ctx.config.businessName || 'Booking',
+                        'Powered by GhostAgent'
+                    );
+                    return { success: true, message: `Sent native booking flow for ${match.name}` };
+                } else {
+                    await sendButtons(
+                        creds,
+                        ctx.chatId,
+                        `📅 Ready to book your *${match.name}*?\n\nTap below to start choosing a date and time!`,
+                        [
+                            { id: `book_now_${match.id}`, title: '📅 Book Now' }
+                        ],
+                        ctx.config.businessName || 'Salon Booking',
+                        'Powered by GhostAgent'
+                    );
+                    return { success: true, message: `Sent booking flow button for ${match.name}` };
+                }
             },
         },
     };

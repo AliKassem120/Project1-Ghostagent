@@ -269,12 +269,12 @@ async function processWhatsAppEvent(body: any) {
                 } else if (message.type === 'interactive') {
                     const interactive = message.interactive;
                     if (interactive?.type === 'button_reply') {
-                        messageText = interactive.button_reply?.title || '';
+                        messageText = `[SYSTEM NOTE: Customer clicked the "${interactive.button_reply?.title}" button. DO NOT send the button again. You MUST proceed with the next step in text format.]`;
                     } else if (interactive?.type === 'list_reply') {
-                        messageText = interactive.list_reply?.title || '';
+                        messageText = `[SYSTEM NOTE: Customer selected "${interactive.list_reply?.title}" from the list.]`;
                     }
                 } else if (message.type === 'button') {
-                    messageText = message.button?.text || '';
+                    messageText = `[SYSTEM NOTE: Customer clicked the "${message.button?.text}" button. DO NOT send the button again. You MUST proceed with the next step in text format.]`;
                 }
 
                 if (!messageText || !customerPhone || !phoneNumberId) continue;
