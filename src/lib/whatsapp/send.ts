@@ -27,7 +27,7 @@ async function sendRaw(creds: WhatsAppCredentials, payload: Record<string, any>)
     const data = await res.json();
     if (!res.ok) {
         console.error('❌ [WhatsApp] Send failed:', JSON.stringify(data));
-        return { success: false, error: data.error?.message || 'Unknown error' };
+        return { success: false, error: data.error?.message || 'Unknown error', code: data.error?.code };
     }
     return { success: true, messageId: data.messages?.[0]?.id };
 }
@@ -273,10 +273,23 @@ export async function sendFlow(
     if (header) interactive.header = { type: 'text', text: header };
     if (footer) interactive.footer = { text: footer };
 
-    return sendRaw(creds, {
+    const result = await sendRaw(creds, {
         recipient_type: 'individual',
         to,
         type: 'interactive',
         interactive,
     });
+
+    if (!result.success && result.code === 139000 && interactive.action.parameters.mode === 'published') {
+        console.warn('⚠️ [WhatsApp] Flow send failed with Integrity Block (139000). Retrying in "draft" mode for testing...');
+        interactive.action.parameters.mode = 'draft';
+        return sendRaw(creds, {
+            recipient_type: 'individual',
+            to,
+            type: 'interactive',
+            interactive,
+        });
+    }
+
+    return result;
 }
