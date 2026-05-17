@@ -94,7 +94,7 @@ export async function createBookingFlow(
 
 function buildBookingFlowJSON() {
     return {
-        version: '5.0',
+        version: '3.1',
         screens: [
             {
                 id: 'BOOKING_DETAILS',
