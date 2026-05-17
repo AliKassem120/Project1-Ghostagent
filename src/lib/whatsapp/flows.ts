@@ -15,7 +15,7 @@ const WA_API = 'https://graph.facebook.com/v21.0';
 export async function createBookingFlow(
     whatsappBusinessAccountId: string,
     accessToken: string,
-    flowName: string = 'GhostAgent Booking'
+    flowName: string = 'GhostAgent Booking V2'
 ) {
     let flowId: string | null = null;
 
@@ -94,75 +94,80 @@ export async function createBookingFlow(
 
 function buildBookingFlowJSON() {
     return {
-        version: '3.1',
+        version: '6.2',
         screens: [
             {
                 id: 'BOOKING_DETAILS',
                 title: 'Book Appointment',
                 terminal: true,
-                data: {},
                 layout: {
                     type: 'SingleColumnLayout',
                     children: [
                         {
-                            type: 'TextHeading',
-                            text: 'Book Your Appointment',
-                        },
-                        {
-                            type: 'TextInput',
-                            'input-type': 'text',
-                            required: true,
-                            name: 'customer_name',
-                            label: 'Your Name',
-                            'helper-text': 'Enter your full name',
-                        },
-                        {
-                            type: 'TextInput',
-                            'input-type': 'phone',
-                            required: true,
-                            name: 'customer_phone',
-                            label: 'Phone Number',
-                            'helper-text': 'We\'ll send you a confirmation',
-                        },
-                        {
-                            type: 'DatePicker',
-                            name: 'booking_date',
-                            label: 'Preferred Date',
-                            required: true,
-                            'min-date': new Date().toISOString().split('T')[0],
-                            'max-date': new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                        },
-                        {
-                            type: 'Dropdown',
-                            name: 'booking_time',
-                            label: 'Preferred Time',
-                            required: true,
-                            'data-source': [
-                                { id: '09:00', title: '9:00 AM' },
-                                { id: '10:00', title: '10:00 AM' },
-                                { id: '11:00', title: '11:00 AM' },
-                                { id: '12:00', title: '12:00 PM' },
-                                { id: '13:00', title: '1:00 PM' },
-                                { id: '14:00', title: '2:00 PM' },
-                                { id: '15:00', title: '3:00 PM' },
-                                { id: '16:00', title: '4:00 PM' },
-                                { id: '17:00', title: '5:00 PM' },
-                                { id: '18:00', title: '6:00 PM' },
+                            type: 'Form',
+                            name: 'booking_form',
+                            children: [
+                                {
+                                    type: 'TextInput',
+                                    'input-type': 'text',
+                                    required: true,
+                                    name: 'customer_name',
+                                    label: 'Your Name',
+                                    'helper-text': 'Enter your full name',
+                                },
+                                {
+                                    type: 'TextInput',
+                                    'input-type': 'phone',
+                                    required: true,
+                                    name: 'customer_phone',
+                                    label: 'Phone Number',
+                                    'helper-text': 'We will send you a confirmation',
+                                },
+                                {
+                                    type: 'DatePicker',
+                                    name: 'booking_date',
+                                    label: 'Preferred Date',
+                                    required: true,
+                                },
+                                {
+                                    type: 'Dropdown',
+                                    name: 'booking_time',
+                                    label: 'Preferred Time',
+                                    required: true,
+                                    'data-source': [
+                                        { id: '09:00', title: '9:00 AM' },
+                                        { id: '10:00', title: '10:00 AM' },
+                                        { id: '11:00', title: '11:00 AM' },
+                                        { id: '12:00', title: '12:00 PM' },
+                                        { id: '13:00', title: '1:00 PM' },
+                                        { id: '14:00', title: '2:00 PM' },
+                                        { id: '15:00', title: '3:00 PM' },
+                                        { id: '16:00', title: '4:00 PM' },
+                                        { id: '17:00', title: '5:00 PM' },
+                                        { id: '18:00', title: '6:00 PM' },
+                                    ],
+                                },
+                                {
+                                    type: 'TextArea',
+                                    name: 'notes',
+                                    label: 'Special Requests (Optional)',
+                                    required: false,
+                                },
+                                {
+                                    type: 'Footer',
+                                    label: 'Book Now',
+                                    'on-click-action': {
+                                        name: 'complete',
+                                        payload: {
+                                            customer_name: '${form.customer_name}',
+                                            customer_phone: '${form.customer_phone}',
+                                            booking_date: '${form.booking_date}',
+                                            booking_time: '${form.booking_time}',
+                                            notes: '${form.notes}',
+                                        },
+                                    },
+                                },
                             ],
-                        },
-                        {
-                            type: 'TextArea',
-                            name: 'notes',
-                            label: 'Special Requests (Optional)',
-                            required: false,
-                        },
-                        {
-                            type: 'Footer',
-                            label: 'Book Now',
-                            'on-click-action': {
-                                name: 'complete',
-                                payload: {},
-                            },
                         },
                     ],
                 },
