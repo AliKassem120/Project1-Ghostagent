@@ -82,7 +82,7 @@ export const GHOSTAGENT_TEMPLATES = {
             {
                 type: 'HEADER',
                 format: 'TEXT',
-                text: 'Exclusive Offer! 🎉',
+                text: 'Exclusive Offer',
             },
             {
                 type: 'BODY',

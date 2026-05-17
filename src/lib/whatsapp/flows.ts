@@ -46,17 +46,20 @@ export async function createBookingFlow(
     // 2. Upload the flow JSON definition
     const flowJson = buildBookingFlowJSON();
 
+    const formData = new FormData();
+    formData.append('name', 'flow.json');
+    formData.append('asset_type', 'FLOW_JSON');
+    
+    const jsonBlob = new Blob([JSON.stringify(flowJson)], { type: 'application/json' });
+    formData.append('file', jsonBlob, 'flow.json');
+
     const updateRes = await fetch(`${WA_API}/${flowId}/assets`, {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
+            // Fetch automatically sets the correct multipart/form-data boundary
         },
-        body: JSON.stringify({
-            name: 'flow.json',
-            asset_type: 'FLOW_JSON',
-            file: JSON.stringify(flowJson),
-        }),
+        body: formData,
     });
 
     const updateData = await updateRes.json();
