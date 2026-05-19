@@ -237,6 +237,32 @@ export async function runV3Agent(
                 updated_at: new Date().toISOString()
             }, { onConflict: 'user_id,external_chat_id' });
 
+            try {
+                const { createHandoff, determineHandoffPriority } = await import('@/lib/ai/guardrails/handoff-manager');
+                const { getKnownCustomerDetails } = await import('@/lib/ai/customer-history');
+                const known = await getKnownCustomerDetails(input.supabase, input.workspaceId, input.chatId);
+                const recent = history.slice(-5).map(m => ({
+                    role: m.role,
+                    content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
+                }));
+                const priority = determineHandoffPriority('human_handoff', 0, false);
+                await createHandoff(input.supabase, {
+                    workspaceId: input.workspaceId,
+                    chatId: input.chatId,
+                    platform: input.platform,
+                    priority,
+                    reason: 'human_handoff',
+                    conversationSummary: 'Customer requested human agent.',
+                    customerName: known?.name || undefined,
+                    customerPhone: known?.phone || undefined,
+                    recentMessages: recent,
+                    currentState: 'idle',
+                    actionsTaken: actions
+                });
+            } catch (e) {
+                v2log.warn('AGENT', 'Failed to auto-create handoff queue entry', { error: e });
+            }
+
             return {
                 shouldReply: false,
                 actions: ['handoff'],

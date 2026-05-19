@@ -1,6 +1,7 @@
 {
   "Navbar": {
     "features": "Fonctionnalités",
+    "howItWorks": "Comment ça marche",
     "pricing": "Tarifs",
     "about": "À propos",
     "contact": "Contact",
@@ -160,6 +161,7 @@
     "tagline": "Automatisation des ventes par IA pour Instagram",
     "product": "Produit",
     "features": "Fonctionnalités",
+    "howItWorks": "Comment ça marche",
     "pricing": "Tarifs",
     "howToConnect": "Comment se connecter",
     "company": "Entreprise",

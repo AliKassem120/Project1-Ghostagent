@@ -30,6 +30,8 @@ import { sendButtons, sendFlow } from '../whatsapp/send';
 
 // ── Shared imports ───────────────────────────────────────────
 import { getKnownCustomerDetails } from './customer-history';
+import { upsertCustomer } from './customer-store';
+import { upsertCustomerProfile } from './customer-profile';
 
 // ═══════════════════════════════════════════════════════════════
 
@@ -118,6 +120,10 @@ export function createAppointmentTools(ctx: ToolContext) {
                     }
                 } catch (_e) { /* fallback to 'Customer' */ }
                 const appointmentResult = await createAppointmentV2Structured({ supabase: ctx.supabase, userId: ctx.userId, workspaceId: ctx.workspaceId, chatId: ctx.chatId, platform: ctx.platform, customerName: name, customerPhone: phone, serviceName: match.name, date, startTime: time, endTime, durationMinutes: match.durationMinutes, instagramHandle: handle });
+                if (appointmentResult.success) {
+                    await upsertCustomer(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, address: address || null }).catch(() => {});
+                    await upsertCustomerProfile(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, totalAppointments: 1 }).catch(() => {});
+                }
                 return { ...appointmentResult, service: match.name, date, time: formatTime12(time), price: match.price };
             },
         },
@@ -289,6 +295,10 @@ export function createEcommerceTools(ctx: ToolContext) {
                     }
                 } catch (_e) { /* fallback to 'Customer' */ }
                 const orderResult = await createOrderV2({ supabase: ctx.supabase, userId: ctx.userId, workspaceId: ctx.workspaceId, chatId: ctx.chatId, platform: ctx.platform, productId: match.id, customerName: name, customerPhone: phone, customerAddress: address, itemRequested: match.itemName, variantLabel: variant, unitPrice: match.price, quantity, instagramHandle: handle });
+                if (orderResult.success) {
+                    await upsertCustomer(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, address }).catch(() => {});
+                    await upsertCustomerProfile(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, totalOrders: 1 }).catch(() => {});
+                }
                 return { ...orderResult, product: match.itemName, price: match.price, quantity };
             },
         },

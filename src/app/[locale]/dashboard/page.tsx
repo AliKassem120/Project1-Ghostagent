@@ -462,7 +462,7 @@ export default function DashboardPage() {
                         {isRefreshing && <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />}
                     </h1>
                     <p className="text-sm text-muted-foreground mt-1">
-                        Here&apos;s what&apos;s happening with your Instagram today.
+                        Here&apos;s what&apos;s happening with your channels today.
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -740,7 +740,7 @@ export default function DashboardPage() {
                             ) : m.totalInteractions > 0 ? (
                                 <>Your agent has started processing interactions. Keep going — the data will get richer as more conversations come in!</>
                             ) : (
-                                <span className="text-muted-foreground italic">Collecting data for your first summary. Once customers message you on Instagram, stats will appear here.</span>
+                                <span className="text-muted-foreground italic">Collecting data for your first summary. Once customers message you on Instagram or WhatsApp, stats will appear here.</span>
                             )}
                         </p>
                     </motion.div>
@@ -790,7 +790,7 @@ export default function DashboardPage() {
                                 <Sparkles className="w-6 h-6 text-muted-foreground" />
                             </div>
                             <p className="text-sm font-medium text-muted-foreground mb-1">No activity yet</p>
-                            <p className="text-[12px] text-muted-foreground leading-relaxed max-w-xs">Activity will appear here as your Ghost Agent processes Instagram messages and comments.</p>
+                            <p className="text-[12px] text-muted-foreground leading-relaxed max-w-xs">Activity will appear here as your Ghost Agent processes Instagram and WhatsApp messages.</p>
                         </div>
                     ) : (
                         <div className="divide-y divide-border/30">

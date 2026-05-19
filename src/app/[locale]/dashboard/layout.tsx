@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LayoutDashboard, Inbox, Package, Settings, LogOut, CreditCard, Zap, ChevronRight, BookOpen, Calendar, Clock, Briefcase, Building2, Check, Plus, Loader2, BarChart2, Megaphone, Phone } from 'lucide-react';
+import { LayoutDashboard, Inbox, Package, Settings, LogOut, CreditCard, Zap, ChevronRight, BookOpen, Calendar, Clock, Briefcase, Building2, Check, Plus, Loader2, BarChart2, Megaphone, Phone, Instagram, MessageCircle as MessageCircleIcon } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 import { useState, useEffect } from 'react';
@@ -39,45 +39,40 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
 
     useEffect(() => setMounted(true), []);
 
-    // Base menu items that all users see
-    const topItems = [
+    // Dynamic items based on ACTIVE WORKSPACE business type (not the users table)
+    const businessType = activeWorkspace?.business_type ?? null;
+
+    // ── GROUP 1: DAILY OPERATIONS ──
+    const dailyOps: { icon: any, label: string, href: string }[] = [
         { icon: LayoutDashboard, label: 'Overview', href: '/dashboard' },
         { icon: Inbox, label: 'Inbox', href: '/dashboard/inbox' },
+        ...(businessType === 'appointments' ? [{ icon: Calendar, label: 'Calendar', href: '/dashboard/calendar' }] : []),
+        ...(businessType === 'ecommerce' ? [{ icon: BookOpen, label: 'Orders', href: '/dashboard/orders' }] : []),
     ];
 
-    const bottomItems = [
-        { icon: BarChart2, label: 'Analytics', href: '/dashboard/analytics' },
+    // ── GROUP 2: CHANNELS & PLUGINS ──
+    const channels: { icon: any, label: string, href: string }[] = [
+        { icon: MessageCircleIcon, label: 'WhatsApp', href: '/dashboard/channels/whatsapp' },
+        { icon: Instagram, label: 'Instagram', href: '/dashboard/channels/instagram' },
+    ];
+
+    // ── GROUP 3: BUSINESS CONFIG ──
+    const businessConfig: { icon: any, label: string, href: string }[] = [
+        ...(businessType === 'appointments' ? [{ icon: Briefcase, label: 'Services', href: '/dashboard/services' }] : []),
+        ...(businessType === 'ecommerce' ? [{ icon: Package, label: 'Inventory', href: '/dashboard/inventory' }] : []),
+        { icon: Clock, label: 'Working Hours', href: '/dashboard/hours' },
+        { icon: Megaphone, label: 'Marketing', href: '/dashboard/marketing' },
+        { icon: Phone, label: 'Simulator', href: '/dashboard/simulator' },
         { icon: Settings, label: 'AI Settings', href: '/dashboard/settings' },
+        { icon: BarChart2, label: 'Analytics', href: '/dashboard/analytics' },
         { icon: CreditCard, label: 'Billing', href: '/dashboard/billing' },
     ];
 
-    // Dynamic items based on ACTIVE WORKSPACE business type (not the users table)
-    const businessType = activeWorkspace?.business_type ?? null;
-    let dynamicItems: { icon: any, label: string, href: string }[] = [];
-
-    switch (businessType) {
-        case 'ecommerce':
-            dynamicItems = [
-                { icon: Package, label: 'Inventory', href: '/dashboard/inventory' },
-                { icon: BookOpen, label: 'Orders', href: '/dashboard/orders' },
-                { icon: Megaphone, label: 'Marketing', href: '/dashboard/marketing' },
-                { icon: Phone, label: 'Simulator', href: '/dashboard/simulator' },
-                { icon: Clock, label: 'Working Hours', href: '/dashboard/hours' },
-            ];
-            break;
-        case 'appointments':
-            dynamicItems = [
-                { icon: Calendar, label: 'Calendar', href: '/dashboard/calendar' },
-                { icon: Briefcase, label: 'Services', href: '/dashboard/services' },
-                { icon: Megaphone, label: 'Marketing', href: '/dashboard/marketing' },
-                { icon: Phone, label: 'Simulator', href: '/dashboard/simulator' },
-                { icon: Clock, label: 'Working Hours', href: '/dashboard/hours' },
-            ];
-            break;
-
-    }
-
-    const navItems = [...topItems, ...dynamicItems, ...bottomItems];
+    const navGroups = [
+        { label: 'Daily Operations', items: dailyOps },
+        { label: 'Channels', items: channels },
+        { label: 'Business Config', items: businessConfig },
+    ];
 
     const handleLogout = async () => {
         const { createClient } = await import('@/utils/supabase/client');
@@ -231,39 +226,45 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 overflow-y-auto px-3 mt-2 space-y-0.5 pb-2">
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 pt-3 pb-2">
-                        Menu
-                    </p>
-                    {navItems.map((item) => {
-                        const isActive = pathname === item.href;
-                        return (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                onClick={() => { if (window.innerWidth < 1024) onClose(); }}
-                                className={clsx(
-                                    "flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all text-sm font-medium relative group",
-                                    isActive
-                                        ? "bg-primary/10 text-primary"
-                                        : "text-muted-foreground hover:text-foreground hover:bg-surface-1"
-                                )}
-                            >
-                                {isActive && (
-                                    <motion.div
-                                        layoutId="sidebar-active"
-                                        className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-primary"
-                                        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                                    />
-                                )}
-                                <item.icon className="w-[18px] h-[18px]" />
-                                {item.label}
-                                {isActive && (
-                                    <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-50" />
-                                )}
-                            </Link>
-                        );
-                    })}
+                <nav className="flex-1 overflow-y-auto px-3 mt-2 pb-2">
+                    {navGroups.map((group) => (
+                        <div key={group.label} className="mb-1">
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 pt-3 pb-2">
+                                {group.label}
+                            </p>
+                            <div className="space-y-0.5">
+                                {group.items.map((item) => {
+                                    const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname?.startsWith(item.href));
+                                    return (
+                                        <Link
+                                            key={item.href}
+                                            href={item.href}
+                                            onClick={() => { if (window.innerWidth < 1024) onClose(); }}
+                                            className={clsx(
+                                                "flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all text-sm font-medium relative group",
+                                                isActive
+                                                    ? "bg-primary/10 text-primary"
+                                                    : "text-muted-foreground hover:text-foreground hover:bg-surface-1"
+                                            )}
+                                        >
+                                            {isActive && (
+                                                <motion.div
+                                                    layoutId="sidebar-active"
+                                                    className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-primary"
+                                                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                                                />
+                                            )}
+                                            <item.icon className="w-[18px] h-[18px]" />
+                                            {item.label}
+                                            {isActive && (
+                                                <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-50" />
+                                            )}
+                                        </Link>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))}
                 </nav>
 
                 {/* User Profile — click to open Account Security */}

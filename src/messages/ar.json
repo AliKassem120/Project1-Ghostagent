@@ -1,6 +1,7 @@
 {
   "Navbar": {
     "features": "المزايا",
+    "howItWorks": "كيف يعمل",
     "pricing": "الأسعار",
     "about": "من نحن",
     "contact": "تواصل معنا",
@@ -160,6 +161,7 @@
     "tagline": "أتمتة المبيعات بالذكاء الاصطناعي لإنستغرام",
     "product": "المنتج",
     "features": "المزايا",
+    "howItWorks": "كيف يعمل",
     "pricing": "الأسعار",
     "howToConnect": "كيفية الربط",
     "company": "الشركة",

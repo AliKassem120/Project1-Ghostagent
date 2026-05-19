@@ -39,9 +39,18 @@ export function checkProductStock(
         };
     }
 
-    const queryLower = variantQuery.toLowerCase();
+    const queryLower = variantQuery.toLowerCase().trim();
     const match = product.variants.find(v => {
-        const label = (v.label || v.name || v.variant || '').toLowerCase();
+        const label = (typeof v === 'string' ? v : (v.label || v.name || v.variant || '')).toLowerCase().trim();
+        if (!label) return false;
+        if (label === queryLower) return true;
+
+        // If it's a short string (like L, M, S, XL), use word boundaries
+        if (label.length <= 2) {
+            const regex = new RegExp(`\\b${label}\\b`, 'i');
+            return regex.test(queryLower);
+        }
+
         return label.includes(queryLower) || queryLower.includes(label);
     });
 

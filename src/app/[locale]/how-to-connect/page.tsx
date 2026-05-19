@@ -3,13 +3,15 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, Image as ImageIcon, ArrowRight, Instagram, Facebook, Link as LinkIcon, Bot } from 'lucide-react';
+import { ChevronDown, Image as ImageIcon, ArrowRight, Instagram, Facebook, Link as LinkIcon, Bot, MessageCircle, Shield, Smartphone, RefreshCw } from 'lucide-react';
 import GhostLogo from '@/components/GhostLogo';
 import Navbar from '@/components/Navbar';
 
 export default function HowToConnectPage() {
     const [openFaq, setOpenFaq] = useState<number | null>(null);
-    const steps = [
+    const [activeTab, setActiveTab] = useState<'instagram' | 'whatsapp'>('instagram');
+
+    const instagramSteps = [
         {
             title: "Switch to Professional Account",
             description: "To use the Instagram API, your account must be a Professional (Business or Creator) account. You can change this in your Instagram settings under 'Account type and tools'.",
@@ -40,10 +42,51 @@ export default function HowToConnectPage() {
         }
     ];
 
+    const whatsappSteps = [
+        {
+            title: "Verify Your Business",
+            description: "Make sure you have a verified Meta Business Suite account. Go to business.facebook.com, create or verify your business, and ensure your business details are up to date.",
+            icon: Shield,
+            color: "from-emerald-500 to-green-400",
+            image: "/step_1_ig.png"
+        },
+        {
+            title: "Register a Phone Number",
+            description: "You'll need a clean, unused phone number for WhatsApp Business API. This number cannot already be registered with WhatsApp or WhatsApp Business app.",
+            icon: Smartphone,
+            color: "from-green-500 to-emerald-400",
+            image: "/step_2_fb.png"
+        },
+        {
+            title: "Connect via Embedded Signup",
+            description: "In the GhostAgent dashboard, click 'Connect WhatsApp'. Our one-click Embedded Signup flow handles the entire Meta integration — just log in and approve.",
+            icon: LinkIcon,
+            color: "from-teal-500 to-green-500",
+            image: "/step_3_link.png"
+        },
+        {
+            title: "Sync Templates & Flows",
+            description: "Once connected, activate your marketing broadcast templates and booking flows. GhostAgent automatically syncs your approved WhatsApp templates and enables native V3 flows.",
+            icon: RefreshCw,
+            color: "from-emerald-600 to-teal-500",
+            image: "/step_4_connect.png"
+        }
+    ];
+
+    const steps = activeTab === 'instagram' ? instagramSteps : whatsappSteps;
+
     const faqs = [
         {
             question: "Why do I need a Facebook Page for an Instagram bot?",
             answer: "Meta's security infrastructure requires all automated Instagram inbox access to be routed through a connected Facebook Business Page. Think of the Facebook Page as the 'control center' that grants us secure access to your Instagram DMs."
+        },
+        {
+            question: "Can I use my existing WhatsApp number?",
+            answer: "No — the WhatsApp Business API requires a phone number that is NOT already registered with WhatsApp or WhatsApp Business. You'll need a clean, unused number. This is a Meta requirement, not a GhostAgent limitation."
+        },
+        {
+            question: "Do Instagram and WhatsApp share the same setup?",
+            answer: "They share the same AI brain, products, services, and business rules — but each platform has its own connection flow. You can connect one or both from the GhostAgent dashboard."
         }
     ];
 
@@ -86,69 +129,115 @@ export default function HowToConnectPage() {
                         transition={{ duration: 0.5, delay: 0.2 }}
                         className="text-lg text-white/60 leading-relaxed font-medium"
                     >
-                        Master the setup process. Learn exactly how to configure your Instagram and Facebook accounts to grant access to your AI agent.
+                        Master the setup process. Learn exactly how to connect your Instagram or WhatsApp account to your GhostAgent AI assistant.
                     </motion.p>
+                </section>
+
+                {/* Platform Tab Switcher */}
+                <section className="flex justify-center">
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: 0.3 }}
+                        className="relative grid grid-cols-2 bg-white/[0.03] p-1.5 rounded-full border border-white/[0.08] w-full max-w-[380px] shadow-lg"
+                    >
+                        <button
+                            onClick={() => setActiveTab('instagram')}
+                            className={`relative z-10 py-3 px-4 rounded-full text-sm font-bold transition-colors flex items-center justify-center gap-2 ${
+                                activeTab === 'instagram' ? 'text-white' : 'text-white/50 hover:text-white/80'
+                            }`}
+                        >
+                            <Instagram className="w-4 h-4" />
+                            Instagram
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('whatsapp')}
+                            className={`relative z-10 py-3 px-4 rounded-full text-sm font-bold transition-colors flex items-center justify-center gap-2 ${
+                                activeTab === 'whatsapp' ? 'text-white' : 'text-white/50 hover:text-white/80'
+                            }`}
+                        >
+                            <MessageCircle className="w-4 h-4" />
+                            WhatsApp
+                        </button>
+                        {/* Active Indicator Slider */}
+                        <div
+                            className={`absolute top-1.5 bottom-1.5 left-1.5 w-[calc(50%-0.375rem)] rounded-full shadow-md transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${
+                                activeTab === 'instagram'
+                                    ? 'translate-x-0 bg-gradient-to-r from-pink-500 to-orange-400'
+                                    : 'translate-x-full bg-gradient-to-r from-emerald-500 to-green-400'
+                            }`}
+                        />
+                    </motion.div>
                 </section>
 
                 {/* Vertical Timeline / Steps Section */}
                 <section className="relative">
                     {/* Connecting Line (Desktop Only) */}
-                    <div className="absolute left-[27px] top-6 bottom-6 w-px bg-gradient-to-b from-primary/5 via-primary/20 to-primary/5 hidden md:block" />
+                    <div className={`absolute left-[27px] top-6 bottom-6 w-px bg-gradient-to-b ${activeTab === 'instagram' ? 'from-primary/5 via-primary/20 to-primary/5' : 'from-emerald-500/5 via-emerald-500/20 to-emerald-500/5'} hidden md:block`} />
 
-                    <div className="space-y-12 md:space-y-20 relative">
-                        {steps.map((step, index) => (
-                            <motion.div
-                                key={index}
-                                initial={{ opacity: 0, x: -20 }}
-                                whileInView={{ opacity: 1, x: 0 }}
-                                viewport={{ once: true, margin: "-100px" }}
-                                transition={{ duration: 0.5, delay: index * 0.1 }}
-                                className="relative flex flex-col md:flex-row gap-6 md:gap-12"
-                            >
-                                {/* Timeline Node (Desktop) */}
-                                <div className="hidden md:flex flex-col items-center z-10">
-                                    <div className="w-14 h-14 rounded-2xl bg-[#0B0C10] border-2 border-primary/30 flex items-center justify-center shadow-[0_0_20px_rgba(139,92,246,0.15)] overflow-x-clip relative group">
-                                        <div className={`absolute inset-0 opacity-20 bg-gradient-to-br ${step.color}`} />
-                                        <span className="text-primary font-bold text-xl relative z-10">{index + 1}</span>
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={activeTab}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            transition={{ duration: 0.3 }}
+                            className="space-y-12 md:space-y-20 relative"
+                        >
+                            {steps.map((step, index) => (
+                                <motion.div
+                                    key={`${activeTab}-${index}`}
+                                    initial={{ opacity: 0, x: -20 }}
+                                    whileInView={{ opacity: 1, x: 0 }}
+                                    viewport={{ once: true, margin: "-100px" }}
+                                    transition={{ duration: 0.5, delay: index * 0.1 }}
+                                    className="relative flex flex-col md:flex-row gap-6 md:gap-12"
+                                >
+                                    {/* Timeline Node (Desktop) */}
+                                    <div className="hidden md:flex flex-col items-center z-10">
+                                        <div className={`w-14 h-14 rounded-2xl bg-[#0B0C10] border-2 ${activeTab === 'instagram' ? 'border-primary/30 shadow-[0_0_20px_rgba(139,92,246,0.15)]' : 'border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.15)]'} flex items-center justify-center overflow-x-clip relative group`}>
+                                            <div className={`absolute inset-0 opacity-20 bg-gradient-to-br ${step.color}`} />
+                                            <span className={`${activeTab === 'instagram' ? 'text-primary' : 'text-emerald-500'} font-bold text-xl relative z-10`}>{index + 1}</span>
+                                        </div>
                                     </div>
-                                </div>
 
-                                {/* Content Card */}
-                                <div className="flex-1 bg-white/[0.02] border border-white/[0.05] rounded-[24px] p-6 sm:p-8 hover:bg-white/[0.03] hover:border-white/[0.1] transition-all duration-300 group shadow-lg shadow-black/20">
-                                    <div className="flex flex-col xl:flex-row gap-8 items-start">
+                                    {/* Content Card */}
+                                    <div className="flex-1 bg-white/[0.02] border border-white/[0.05] rounded-[24px] p-6 sm:p-8 hover:bg-white/[0.03] hover:border-white/[0.1] transition-all duration-300 group shadow-lg shadow-black/20">
+                                        <div className="flex flex-col xl:flex-row gap-8 items-start">
 
-                                        <div className="flex-1 space-y-4">
-                                            <div className="flex items-center gap-3 mb-2">
-                                                {/* Mobile Node */}
-                                                <div className="md:hidden flex-shrink-0 w-8 h-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center">
-                                                    <span className="text-primary font-bold text-sm">{index + 1}</span>
+                                            <div className="flex-1 space-y-4">
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    {/* Mobile Node */}
+                                                    <div className={`md:hidden flex-shrink-0 w-8 h-8 rounded-lg ${activeTab === 'instagram' ? 'bg-primary/20 border-primary/30' : 'bg-emerald-500/20 border-emerald-500/30'} border flex items-center justify-center`}>
+                                                        <span className={`${activeTab === 'instagram' ? 'text-primary' : 'text-emerald-500'} font-bold text-sm`}>{index + 1}</span>
+                                                    </div>
+                                                    <div className={`p-2 rounded-xl bg-gradient-to-br ${step.color} bg-opacity-10 shadow-inner`}>
+                                                        <step.icon className="w-5 h-5 text-white drop-shadow-md" />
+                                                    </div>
+                                                    <h3 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">{step.title}</h3>
                                                 </div>
-                                                <div className={`p-2 rounded-xl bg-gradient-to-br ${step.color} bg-opacity-10 shadow-inner`}>
-                                                    <step.icon className="w-5 h-5 text-white drop-shadow-md" />
-                                                </div>
-                                                <h3 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">{step.title}</h3>
+                                                <p className="text-white/60 leading-relaxed text-base sm:text-lg">
+                                                    {step.description}
+                                                </p>
                                             </div>
-                                            <p className="text-white/60 leading-relaxed text-base sm:text-lg">
-                                                {step.description}
-                                            </p>
-                                        </div>
 
-                                        {/* Mockup Image Box */}
-                                        <div className="w-full xl:w-[400px] aspect-[16/9] sm:aspect-video rounded-xl bg-[#1A1C23] border border-white/[0.08] flex flex-col items-center justify-center text-white/20 group-hover:border-primary/20 transition-colors overflow-x-clip relative shadow-inner">
-                                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:16px_16px] opacity-50 z-0" />
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img
-                                                src={step.image}
-                                                alt={step.title}
-                                                className="w-full h-full object-cover relative z-10 opacity-90 group-hover:opacity-100 transition-opacity duration-500"
-                                            />
-                                        </div>
+                                            {/* Mockup Image Box */}
+                                            <div className={`w-full xl:w-[400px] aspect-[16/9] sm:aspect-video rounded-xl bg-[#1A1C23] border border-white/[0.08] flex flex-col items-center justify-center text-white/20 ${activeTab === 'instagram' ? 'group-hover:border-primary/20' : 'group-hover:border-emerald-500/20'} transition-colors overflow-x-clip relative shadow-inner`}>
+                                                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:16px_16px] opacity-50 z-0" />
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img
+                                                    src={step.image}
+                                                    alt={step.title}
+                                                    className="w-full h-full object-cover relative z-10 opacity-90 group-hover:opacity-100 transition-opacity duration-500"
+                                                />
+                                            </div>
 
+                                        </div>
                                     </div>
-                                </div>
-                            </motion.div>
-                        ))}
-                    </div>
+                                </motion.div>
+                            ))}
+                        </motion.div>
+                    </AnimatePresence>
                 </section>
 
                 {/* FAQ / Troubleshooting Section */}

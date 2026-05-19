@@ -17,7 +17,11 @@ import {
   Shield,
   Code2,
   BrainCircuit,
-  Bot
+  Bot,
+  Smartphone,
+  Megaphone,
+  RefreshCw,
+  Instagram
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -348,6 +352,83 @@ export default function HowItWorksPage() {
               </div>
             </div>
           </section>
+
+          {/* WHATSAPP PREMIUM FEATURES */}
+          <section className="space-y-12 pt-12">
+            <div className="text-center">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-500 text-xs font-bold tracking-wide mb-6 shadow-sm uppercase">
+                <MessageCircle className="w-3.5 h-3.5" />
+                WhatsApp Features
+              </div>
+              <h2 className="text-3xl md:text-5xl font-black mb-6">WhatsApp Premium Features</h2>
+              <p className="text-muted-foreground font-medium max-w-2xl mx-auto text-lg">
+                Go beyond basic messaging. GhostAgent brings native flows, marketing broadcasts, and smart fallback logic to WhatsApp.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-6">
+              {/* WhatsApp Native Booking Flows */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+                className="bg-surface-1 border border-border rounded-[2rem] p-8 flex flex-col gap-4 hover:border-emerald-500/30 transition-colors group relative overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="relative z-10 flex flex-col gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center group-hover:bg-emerald-500/20 transition-colors">
+                    <Smartphone className="w-7 h-7 text-emerald-500" />
+                  </div>
+                  <h4 className="font-bold text-lg">Native Booking Flows</h4>
+                  <p className="text-sm text-muted-foreground font-medium">Collect appointments and orders with native popup forms inside WhatsApp — no links, no redirects. Customers fill structured forms without leaving the chat.</p>
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    {['V3 Flows', 'In-Chat Forms', 'Zero Friction'].map((tag) => (
+                      <span key={tag} className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black text-emerald-500 uppercase tracking-wider">{tag}</span>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Marketing Broadcasts */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }}
+                className="bg-surface-1 border border-border rounded-[2rem] p-8 flex flex-col gap-4 hover:border-violet-500/30 transition-colors group relative overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="relative z-10 flex flex-col gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-violet-500/10 flex items-center justify-center group-hover:bg-violet-500/20 transition-colors">
+                    <Megaphone className="w-7 h-7 text-violet-500" />
+                  </div>
+                  <h4 className="font-bold text-lg">Marketing Broadcasts</h4>
+                  <p className="text-sm text-muted-foreground font-medium">Send targeted promotional blasts to your WhatsApp customer base. Launch campaigns, announce sales, and re-engage past buyers with approved templates.</p>
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    {['Promo Blasts', 'Approved Templates', 'Re-engage'].map((tag) => (
+                      <span key={tag} className="px-2.5 py-1 rounded-lg bg-violet-500/10 border border-violet-500/20 text-[10px] font-black text-violet-500 uppercase tracking-wider">{tag}</span>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Smart Fallback Logic */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 }}
+                className="bg-surface-1 border border-border rounded-[2rem] p-8 flex flex-col gap-4 hover:border-orange-500/30 transition-colors group relative overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="relative z-10 flex flex-col gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-orange-500/10 flex items-center justify-center group-hover:bg-orange-500/20 transition-colors">
+                    <RefreshCw className="w-7 h-7 text-orange-500" />
+                  </div>
+                  <h4 className="font-bold text-lg">Smart Fallback Logic</h4>
+                  <p className="text-sm text-muted-foreground font-medium">If WhatsApp delivery fails, GhostAgent auto-retries with draft mode and alerts the manager. No message is ever silently lost — your business stays responsive.</p>
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    {['Auto-Retry', 'Draft Mode', 'Manager Alerts'].map((tag) => (
+                      <span key={tag} className="px-2.5 py-1 rounded-lg bg-orange-500/10 border border-orange-500/20 text-[10px] font-black text-orange-500 uppercase tracking-wider">{tag}</span>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </section>
+
           {/* RELIABILITY / TRUST */}
           <section className="space-y-12 pt-12">
             <div className="text-center max-w-2xl mx-auto">
@@ -361,7 +442,7 @@ export default function HowItWorksPage() {
               {[
                 { title: "Verified Confirmations", desc: "Never tells a customer an order is placed unless the database confirms it.", icon: Shield },
                 { title: "Smart Conversation Memory", desc: "Remembers what the customer said 5 messages ago.", icon: BrainCircuit },
-                { title: "Cross-Platform Sync", desc: "Your Instagram and WhatsApp use the exact same shared brain.", icon: Database }
+                { title: "Cross-Platform Sync", desc: "Instagram and WhatsApp share the exact same AI brain, inventory, services, and business rules — configure once, deploy everywhere.", icon: Database }
               ].map((item, i) => (
                 <div key={i} className="bg-surface-1 border border-border rounded-[2rem] p-8 text-center flex flex-col items-center gap-4 hover:border-primary/30 transition-colors">
                   <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">

@@ -16,7 +16,7 @@ import { useAutopilot } from '@/context/AutopilotContext';
 import { updateWorkspaceSettingsAction } from '@/app/actions/settings';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 
-export type SettingsTab = 'business' | 'personality' | 'connections' | 'advanced' | 'team';
+export type SettingsTab = 'business' | 'personality' | 'advanced' | 'team';
 import { MessageCircle } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -55,7 +55,7 @@ export default function SettingsPage() {
     const router = useRouter();
     const pathname = usePathname();
     const rawTab = searchParams.get('tab') as string;
-    const VALID_TABS = ['business', 'personality', 'connections', 'advanced', 'team'];
+    const VALID_TABS = ['business', 'personality', 'advanced', 'team'];
     const activeTab: SettingsTab = VALID_TABS.includes(rawTab || '') 
         ? (rawTab as SettingsTab) 
         : 'business';
@@ -66,21 +66,7 @@ export default function SettingsPage() {
         router.push(`${pathname}?${params.toString()}`);
     };
 
-    // Fetch WA template statuses when connections tab is active
-    useEffect(() => {
-        if (activeTab !== 'connections' || !activeWorkspaceId) return;
-        setLoadingTemplates(true);
-        fetch(`/api/whatsapp/sync?workspaceId=${activeWorkspaceId}`)
-            .then(r => r.ok ? r.json() : null)
-            .then(data => {
-                if (data) {
-                    setWaTemplates(data.templates || []);
-                    setWaFlowId(data.flowId || null);
-                }
-            })
-            .catch(() => {})
-            .finally(() => setLoadingTemplates(false));
-    }, [activeTab, activeWorkspaceId]);
+    // Note: WA template fetching moved to /dashboard/channels/whatsapp
 
     const handleSyncWhatsApp = async () => {
         if (!activeWorkspaceId) return;
@@ -532,7 +518,6 @@ export default function SettingsPage() {
                 {[
                     { id: 'business', label: 'Business & Sales', icon: Building2 },
                     { id: 'personality', label: 'AI Persona & Training', icon: Bot },
-                    { id: 'connections', label: 'Integrations & Alerts', icon: Globe },
                     { id: 'advanced', label: 'Advanced', icon: Trash2 },
                     ...(isEmpire ? [{ id: 'team', label: 'Team', icon: Users }] : [])
                 ].map(tab => (
@@ -551,6 +536,45 @@ export default function SettingsPage() {
                     </button>
                 ))}
             </div>
+
+            {/* Channel Shortcuts — quick links to dedicated pages */}
+            {activeTab === 'business' && (
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.02 }}
+                    className="bg-gradient-to-r from-emerald-500/5 via-surface-1 to-pink-500/5 border border-border shadow-sm rounded-2xl p-5"
+                >
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 rounded-xl bg-primary/10">
+                            <Globe className="w-4 h-4 text-primary" />
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-semibold text-foreground">Channel Settings</h3>
+                            <p className="text-[10px] text-muted-foreground">Manage your connected social accounts and integrations</p>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <a href="/dashboard/channels/whatsapp" className="flex items-center gap-3 p-4 bg-surface-2 hover:bg-surface-3 border border-border rounded-xl transition-all group">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 shrink-0">
+                                <MessageCircle className="w-5 h-5 text-emerald-400" />
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">WhatsApp</p>
+                                <p className="text-[10px] text-muted-foreground">Connect, templates, flows & alerts</p>
+                            </div>
+                            <span className="text-muted-foreground group-hover:text-primary text-xs">→</span>
+                        </a>
+                        <a href="/dashboard/channels/instagram" className="flex items-center gap-3 p-4 bg-surface-2 hover:bg-surface-3 border border-border rounded-xl transition-all group">
+                            <div className="w-10 h-10 rounded-xl bg-pink-500/10 flex items-center justify-center border border-pink-500/20 shrink-0">
+                                <Instagram className="w-5 h-5 text-pink-400" />
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">Instagram</p>
+                                <p className="text-[10px] text-muted-foreground">Connect account & comment replies</p>
+                            </div>
+                            <span className="text-muted-foreground group-hover:text-primary text-xs">→</span>
+                        </a>
+                    </div>
+                </motion.div>
+            )}
 
             {/* Business Identity */}
             {activeTab === 'business' && (
@@ -705,171 +729,6 @@ export default function SettingsPage() {
                 </motion.div>
             )}
 
-            {/* Manager Alerts */}
-            {activeTab === 'connections' && (
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6 relative overflow-x-clip">
-                    <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
-                        <div className="p-2.5 rounded-xl bg-amber-500/10">
-                            <Bell className="w-5 h-5 text-amber-400" />
-                        </div>
-                        <div>
-                            <h2 className="text-sm font-semibold text-foreground">Manager Alerts</h2>
-                            <p className="text-[11px] text-muted-foreground">Human escalation via WhatsApp</p>
-                        </div>
-                        {!isPro && (
-                            <span className="ml-auto flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-full px-2.5 py-1">
-                                <Lock className="w-3 h-3" /> Pro+
-                            </span>
-                        )}
-                    </div>
-
-                    <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Owner WhatsApp Number</label>
-                        <div className="relative">
-                            <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                            <input
-                                type="tel"
-                                value={settings.emergencyWhatsApp}
-                                onChange={(e) => setSettings({ ...settings, emergencyWhatsApp: e.target.value })}
-                                className="input-premium w-full !pl-10"
-                                placeholder="+1 234 567 8900"
-                                disabled={!isPro}
-                            />
-                        </div>
-                        <p className="text-[10px] text-muted-foreground ml-1">Ghost Agent texts this number if a customer says &quot;Manager&quot;, &quot;Scam&quot;, or &quot;Bot&quot;.</p>
-                    </div>
-
-                    {/* Paywall overlay for Starter */}
-                    {!isPro && (
-                        <div className="absolute inset-0 bg-background/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center gap-3 z-10">
-                            <div className="p-3 rounded-full bg-surface-2 border border-border">
-                                <Lock className="w-5 h-5 text-muted-foreground" />
-                            </div>
-                            <div className="text-center px-6">
-                                <p className="text-sm font-bold text-muted-foreground">Pro Feature</p>
-                                <p className="text-[11px] text-muted-foreground mt-1">Upgrade to Pro to receive WhatsApp alerts when customers need help.</p>
-                            </div>
-                            <a href="/dashboard/billing" className="text-[11px] font-bold text-primary hover:underline">Upgrade to Pro →</a>
-                        </div>
-                    )}
-                </motion.div>
-            )}
-
-            {/* ═══ AUTO COMMENT SECTION ═══ */}
-            {activeTab === 'connections' && (
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6 relative overflow-x-clip">
-                    <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
-                        <div className="p-2.5 rounded-xl bg-blue-500/10">
-                            <MessageCircle className="w-5 h-5 text-blue-400" />
-                        </div>
-                        <div>
-                            <h2 className="text-sm font-semibold text-foreground">Auto Comment Reply</h2>
-                            <p className="text-[11px] text-muted-foreground">Control how the AI handles public comments</p>
-                        </div>
-                        <span className="ml-auto flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 rounded-full px-2.5 py-1">
-                            {!isPro && <Lock className="w-3 h-3" />}
-                            Pro+
-                        </span>
-                    </div>
-
-                    <div className="space-y-6">
-                        {/* Master Toggle */}
-                        <div
-                            className={clsx("flex items-center justify-between p-4 bg-surface-2 rounded-xl border border-border hover:bg-surface-3 transition-all", isPro ? "cursor-pointer" : "opacity-50 pointer-events-none")}
-                            onClick={() => isPro && setSettings({ ...settings, commentAutoReply: !settings.commentAutoReply })}
-                        >
-                            <div>
-                                <p className="text-sm font-semibold text-foreground">Reply to Comments</p>
-                                <p className="text-[11px] text-muted-foreground mt-0.5">Ghost AI will automatically reply to public comments on your posts</p>
-                            </div>
-                            <div className={clsx("relative w-11 rounded-full transition-colors duration-300 shrink-0", settings.commentAutoReply && isPro ? "bg-primary" : "bg-surface-3 border border-border")} style={{ height: '24px' }}>
-                                <motion.div
-                                    className="absolute top-[2px] w-[20px] h-[20px] rounded-full bg-white shadow-sm"
-                                    animate={{ x: settings.commentAutoReply && isPro ? 22 : 2 }}
-                                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                                />
-                            </div>
-                        </div>
-
-                        {/* Reply Style */}
-                        <div className={clsx("space-y-2", !isPro || !settings.commentAutoReply ? "opacity-40 pointer-events-none" : "")}>
-                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Reply Style</label>
-                            <div className="grid grid-cols-3 gap-2">
-                                {([['public', '💬 Public Reply', 'Reply visibly under the comment'], ['dm', '📩 Send to DM', 'Slide into their DMs instead'], ['both', '⚡ Both', 'Reply publicly & continue in DMs']] as const).map(([val, label, desc]) => (
-                                    <button
-                                        key={val}
-                                        onClick={() => setSettings({ ...settings, commentReplyStyle: val })}
-                                        className={clsx(
-                                            "p-3 rounded-xl border text-left transition-all",
-                                            settings.commentReplyStyle === val
-                                                ? "bg-primary/10 border-primary/30 text-primary"
-                                                : "bg-surface-2 border-border text-muted-foreground hover:bg-surface-3"
-                                        )}
-                                    >
-                                        <p className="text-xs font-bold">{label}</p>
-                                        <p className="text-[10px] mt-0.5 opacity-70">{desc}</p>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Keyword Filter */}
-                        <div className={clsx("space-y-1.5", !isPro || !settings.commentAutoReply ? "opacity-40 pointer-events-none" : "")}>
-                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Keyword Filter <span className="normal-case font-normal">(optional)</span></label>
-                            <input
-                                type="text"
-                                value={settings.commentKeywords}
-                                onChange={(e) => setSettings({ ...settings, commentKeywords: e.target.value })}
-                                className="input-premium w-full"
-                                placeholder="price, stock, available, how much ..."
-                                disabled={!isPro || !settings.commentAutoReply}
-                            />
-                            <p className="text-[10px] text-muted-foreground ml-1">Comma-separated. AI only replies to comments containing these words. Leave empty to reply to all comments.</p>
-                        </div>
-
-                        {/* Max Replies per Post */}
-                        <div className={clsx("space-y-3", !isPro || !settings.commentAutoReply ? "opacity-40 pointer-events-none" : "")}>
-                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Max Replies per Post</label>
-                            <input
-                                type="range"
-                                min="0"
-                                max="50"
-                                step="5"
-                                value={settings.commentMaxPerPost}
-                                onChange={(e) => setSettings({ ...settings, commentMaxPerPost: parseInt(e.target.value) })}
-                                className="w-full h-2 rounded-full appearance-none cursor-pointer accent-primary border border-border"
-                                disabled={!isPro || !settings.commentAutoReply}
-                                style={{
-                                    background: `linear-gradient(to right, rgb(139 92 246) 0%, rgb(139 92 246) ${(settings.commentMaxPerPost / 50) * 100}%, var(--surface-3) ${(settings.commentMaxPerPost / 50) * 100}%, var(--surface-3) 100%)`
-                                }}
-                            />
-                            <div className="flex justify-between items-center">
-                                <span className="text-[10px] text-muted-foreground">Unlimited</span>
-                                <span className="text-primary font-bold text-xl font-mono">
-                                    {settings.commentMaxPerPost === 0 ? '∞' : settings.commentMaxPerPost}
-                                </span>
-                                <span className="text-[10px] text-muted-foreground">50</span>
-                            </div>
-                            <p className="text-[10px] text-muted-foreground ml-1">Stops the AI from spamming replies if a post goes viral. 0 = no limit.</p>
-                        </div>
-                    </div>
-
-                    {/* Paywall overlay for Starter */}
-                    {!isPro && (
-                        <div className="absolute inset-0 bg-background/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center gap-3 z-10">
-                            <div className="p-3 rounded-full bg-surface-2 border border-border">
-                                <Lock className="w-5 h-5 text-muted-foreground" />
-                            </div>
-                            <div className="text-center px-6">
-                                <p className="text-sm font-bold text-muted-foreground">Pro Feature</p>
-                                <p className="text-[11px] text-muted-foreground mt-1">Upgrade to Pro to enable automatic replies to public comments on your posts.</p>
-                            </div>
-                            <a href="/dashboard/billing" className="text-[11px] font-bold text-primary hover:underline">Upgrade to Pro →</a>
-                        </div>
-                    )}
-                </motion.div>
-            )}
-
             {/* Sales Rules */}
             {activeTab === 'business' && (
 
@@ -923,268 +782,6 @@ export default function SettingsPage() {
                 </motion.div>
             )}
 
-            {/* Integrations */}
-            {activeTab === 'connections' && (
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6">
-                    <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
-                        <div className="p-2.5 rounded-xl bg-pink-500/10">
-                            <Instagram className="w-5 h-5 text-pink-400" />
-                        </div>
-                        <div>
-                            <h2 className="text-sm font-semibold text-foreground">Integrations</h2>
-                            <p className="text-[11px] text-muted-foreground">Connected social accounts</p>
-                        </div>
-                    </div>
-
-                    <div className="space-y-3">
-                        {instagramStatus === null ? (
-                            <div className="flex justify-center items-center h-20 bg-surface-2 border border-border rounded-xl">
-                                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                            </div>
-                        ) : (
-                            <>
-                                {instagramStatus.accounts.length > 0 && instagramStatus.accounts.map((acc: any) => (
-                                    <div key={acc.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-surface-2 p-4 rounded-xl border border-border gap-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 rounded-xl flex items-center justify-center shrink-0">
-                                                <Instagram className="w-5 h-5 text-foreground" />
-                                            </div>
-                                            <div>
-                                                <div className="flex items-center gap-2">
-                                                    <h3 className="font-semibold text-sm text-foreground truncate max-w-[150px]">{acc.username || 'Insta User'}</h3>
-                                                    <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[9px] font-bold rounded-full flex items-center gap-1">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Running
-                                                    </span>
-                                                </div>
-                                                <p className="text-muted-foreground text-[10px] font-mono">{acc.id}</p>
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => setDisconnectModal({ open: true, accountId: acc.id })}
-                                            className="px-3 py-1.5 bg-red-500/5 text-red-400/60 border border-red-500/10 hover:bg-red-500/10 hover:text-red-400 rounded-lg text-[10px] font-bold flex items-center gap-1.5 transition-colors w-full sm:w-auto justify-center"
-                                        >
-                                            <Trash2 className="w-3 h-3" /> Disconnect
-                                        </button>
-                                    </div>
-                                ))}
-
-                                {instagramStatus.accounts.length === 0 && (
-                                    <div className="flex flex-col sm:flex-row items-center justify-between p-5 bg-surface-2 rounded-2xl border border-border gap-4">
-                                        <div className="flex items-center gap-4 w-full">
-                                            <div className="w-12 h-12 rounded-2xl bg-pink-500/10 flex items-center justify-center border border-pink-500/20 shrink-0">
-                                                <Instagram className="w-6 h-6 text-pink-400" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <h4 className="font-bold text-foreground">
-                                                    Meta Login
-                                                </h4>
-                                                <p className="text-xs text-muted-foreground mt-0.5">
-                                                    Link your account in 30 seconds.
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={handleConnectInstagram}
-                                            disabled={connecting}
-                                            className="w-full sm:w-auto px-6 py-2.5 bg-pink-500 text-black font-bold rounded-xl hover:bg-pink-400 transition-all flex items-center justify-center gap-2 text-sm shadow-[0_0_20px_rgba(236,72,153,0.2)] disabled:opacity-50"
-                                        >
-                                            {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Connect Instagram'}
-                                        </button>
-                                    </div>
-                                )}
-
-                                {/* How It Works */}
-                                <div className="p-5 rounded-2xl bg-pink-500/5 border border-pink-500/10 space-y-3 mt-6">
-                                    <div className="flex items-center gap-2 text-pink-400">
-                                        <Sparkles className="w-4 h-4" />
-                                        <p className="text-[10px] font-black uppercase tracking-widest">How It Works</p>
-                                    </div>
-                                    <div className="space-y-2 text-[11px] text-muted-foreground leading-relaxed">
-                                        <p>1. Click <strong>Connect Instagram</strong> above — you'll be taken to Meta to log in safely.</p>
-                                        <p>2. Select the <strong>Instagram Professional Account</strong> you want to connect.</p>
-                                        <p>3. That's it! GhostAgent will start answering DMs and comments automatically.</p>
-                                    </div>
-                                </div>
-                            </>
-                         )}
-                     </div>
-                 </motion.div>
-             )}
-
-             {/* WhatsApp Integration Section */}
-             {activeTab === 'connections' && (
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6 mt-6">
-                    <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
-                        <div className="p-2.5 rounded-xl bg-emerald-500/10">
-                            <Phone className="w-5 h-5 text-emerald-400" />
-                        </div>
-                        <div>
-                            <h2 className="text-sm font-semibold text-foreground">WhatsApp Business</h2>
-                            <p className="text-[11px] text-muted-foreground">Connect your official WhatsApp API</p>
-                        </div>
-                    </div>
-
-                    <div className="space-y-4">
-                        <div className="flex flex-col sm:flex-row items-center justify-between p-5 bg-surface-2 rounded-2xl border border-border gap-4">
-                            <div className="flex items-center gap-4 w-full">
-                                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 shrink-0">
-                                    <MessageCircle className="w-6 h-6 text-emerald-400" />
-                                </div>
-                                <div className="flex-1">
-                                    <h4 className="font-bold text-foreground">
-                                        {settings.waPhoneNumberId ? 'Connected' : 'Meta Embedded Signup'}
-                                    </h4>
-                                    <p className="text-xs text-muted-foreground mt-0.5">
-                                        {settings.waPhoneNumberId ? `ID: ${settings.waPhoneNumberId}` : 'Link your number in 30 seconds.'}
-                                    </p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={handleConnectWhatsApp}
-                                className="w-full sm:w-auto px-6 py-2.5 bg-emerald-500 text-black font-bold rounded-xl hover:bg-emerald-400 transition-all flex items-center justify-center gap-2 text-sm shadow-[0_0_20px_rgba(16,185,129,0.2)]"
-                            >
-                                {settings.waPhoneNumberId ? 'Re-Connect' : 'Connect WhatsApp'}
-                            </button>
-                        </div>
-
-                        {/* Manual / Advanced WhatsApp Configuration */}
-                        <div className="flex justify-end">
-                            <button
-                                type="button"
-                                onClick={() => setShowAdvancedWA(prev => !prev)}
-                                className="text-xs font-bold text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 mt-1"
-                            >
-                                {showAdvancedWA ? 'Hide Advanced Config ⚙️' : 'Configure Manually (Advanced) ⚙️'}
-                            </button>
-                        </div>
-
-                        {showAdvancedWA && (
-                            <motion.div
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: 'auto' }}
-                                className="p-5 bg-surface-2 rounded-2xl border border-border space-y-4"
-                            >
-                                <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">Manual WhatsApp Credentials</h4>
-                                <div className="space-y-3">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Phone Number ID</label>
-                                        <input
-                                            type="text"
-                                            value={settings.waPhoneNumberId}
-                                            onChange={(e) => setSettings({ ...settings, waPhoneNumberId: e.target.value })}
-                                            className="input-premium w-full"
-                                            placeholder="e.g. 109876543210987"
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Access Token</label>
-                                        <input
-                                            type="password"
-                                            value={settings.waAccessToken}
-                                            onChange={(e) => setSettings({ ...settings, waAccessToken: e.target.value })}
-                                            className="input-premium w-full font-mono"
-                                            placeholder="EAABw..."
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Business Account ID</label>
-                                        <input
-                                            type="text"
-                                            value={settings.waBusinessAccountId}
-                                            onChange={(e) => setSettings({ ...settings, waBusinessAccountId: e.target.value })}
-                                            className="input-premium w-full"
-                                            placeholder="e.g. 987654321098765"
-                                        />
-                                    </div>
-                                    <p className="text-[10px] text-muted-foreground ml-1">
-                                        Note: These credentials will be saved when you click the <strong>Save All Settings</strong> button at the bottom of the page.
-                                    </p>
-                                </div>
-                            </motion.div>
-                        )}
-
-                        {/* ── Sync Templates & Flows ── */}
-                        <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-500/5 via-surface-2 to-blue-500/5 border border-purple-500/15 space-y-4">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <div className="p-2 rounded-xl bg-purple-500/10">
-                                        <Sparkles className="w-4 h-4 text-purple-400" />
-                                    </div>
-                                    <div>
-                                        <h4 className="text-xs font-bold text-foreground">Sync Templates & Flows</h4>
-                                        <p className="text-[10px] text-muted-foreground">One-click setup for marketing blasts & native booking forms</p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={handleSyncWhatsApp}
-                                    disabled={syncingWA}
-                                    className="px-4 py-2 bg-purple-500 text-white font-bold rounded-xl hover:bg-purple-400 transition-all flex items-center gap-2 text-xs shadow-[0_0_20px_rgba(168,85,247,0.2)] disabled:opacity-50"
-                                >
-                                    {syncingWA ? (
-                                        <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Syncing...</>
-                                    ) : (
-                                        <><Wifi className="w-3.5 h-3.5" /> Sync to Meta</>
-                                    )}
-                                </button>
-                            </div>
-
-                            {/* Template Status Grid */}
-                            {waTemplates.length > 0 && (
-                                <div className="space-y-2">
-                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Registered Templates</p>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                        {waTemplates.map((t: any) => (
-                                            <div key={t.name} className="flex items-center justify-between p-2.5 rounded-xl bg-surface-1 border border-border">
-                                                <div className="flex items-center gap-2 min-w-0">
-                                                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${t.status === 'APPROVED' ? 'bg-emerald-400' : t.status === 'REJECTED' ? 'bg-red-400' : 'bg-amber-400'}`} />
-                                                    <span className="text-[10px] font-medium text-foreground truncate">{t.name.replace('ghostagent_', '').replace(/_/g, ' ')}</span>
-                                                </div>
-                                                <span className={`text-[9px] font-bold uppercase tracking-wider flex-shrink-0 ml-2 ${t.status === 'APPROVED' ? 'text-emerald-400' : t.status === 'REJECTED' ? 'text-red-400' : 'text-amber-400'}`}>
-                                                    {t.status || 'PENDING'}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {loadingTemplates && waTemplates.length === 0 && (
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                    <span className="text-[10px]">Loading template statuses...</span>
-                                </div>
-                            )}
-
-                            {/* Flow Status */}
-                            <div className="flex items-center gap-2 p-3 rounded-xl bg-surface-1 border border-border">
-                                <div className={`w-2 h-2 rounded-full ${waFlowId ? 'bg-emerald-400' : 'bg-zinc-500'}`} />
-                                <span className="text-[10px] font-medium text-foreground">Native Booking Flow</span>
-                                <span className={`text-[9px] font-bold uppercase tracking-wider ml-auto ${waFlowId ? 'text-emerald-400' : 'text-muted-foreground'}`}>
-                                    {waFlowId ? 'ACTIVE' : 'NOT CREATED'}
-                                </span>
-                            </div>
-
-                            <p className="text-[10px] text-muted-foreground leading-relaxed">
-                                Click <strong>Sync to Meta</strong> to register all message templates (for marketing blasts & notifications) and create the native booking flow under your WhatsApp Business Account.
-                            </p>
-                        </div>
-
-                        {/* How it works */}
-                        <div className="p-5 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 space-y-3">
-                            <div className="flex items-center gap-2 text-emerald-400">
-                                <Sparkles className="w-4 h-4" />
-                                <p className="text-[10px] font-black uppercase tracking-widest">How It Works</p>
-                            </div>
-                            <div className="space-y-2 text-[11px] text-muted-foreground leading-relaxed">
-                                <p>1. Click <strong>Connect WhatsApp</strong> above — you'll be taken to Meta to log in.</p>
-                                <p>2. Select your <strong>WhatsApp Business Account</strong> and phone number.</p>
-                                <p>3. Click <strong>Sync to Meta</strong> to activate message templates and booking flows.</p>
-                                <p>4. That's it! GhostAgent will handle your WhatsApp messages automatically.</p>
-                            </div>
-                        </div>
-                    </div>
-                </motion.div>
-             )}
 
             {/* Language */}
             {activeTab === 'personality' && (

@@ -104,7 +104,7 @@ export async function createOrderV2(input: CreateOrderInput): Promise<CreateOrde
         v2log.ecommerce.orderSuccess({ orderId: inserted.id });
 
         // 3. Decrement inventory stock
-        if (productId) {
+        if (productId && !productId.startsWith('csv-')) {
             const { error: stockError } = await supabase.rpc('decrement_stock', {
                 p_product_id: productId,
                 p_quantity: quantity,

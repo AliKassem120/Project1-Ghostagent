@@ -187,7 +187,7 @@ export async function cancelLatestOrder(
         } else if (order.rawMessage?.product_id) {
             productId = order.rawMessage.product_id;
         }
-        if (productId) {
+        if (productId && !productId.startsWith('csv-')) {
             await supabase.rpc('restore_stock', { p_product_id: productId, p_quantity: order.quantity || 1 });
         }
     } catch (e) {
