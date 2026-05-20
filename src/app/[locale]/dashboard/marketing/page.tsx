@@ -39,22 +39,34 @@ export default function MarketingPage() {
                 .not('customer_phone', 'is', null);
 
             const map = new Map<string, { phone: string, name: string, source: string }>();
-            const normalizePhone = (p: string) => p.replace(/\D/g, '');
+            const getDeduplicationKey = (p: string) => {
+                let norm = p.replace(/\D/g, '');
+                if (norm.startsWith('00961')) norm = norm.slice(5);
+                else if (norm.startsWith('961')) norm = norm.slice(3);
+                if (norm.startsWith('0')) norm = norm.slice(1);
+                return norm;
+            };
 
             orders?.forEach(o => {
                 if (o.customer_phone && o.customer_phone.length > 5) {
-                    const norm = normalizePhone(o.customer_phone);
-                    if (norm.length > 5) {
-                        map.set(norm, { phone: o.customer_phone, name: o.customer_name || 'Customer', source: 'Order' });
+                    const key = getDeduplicationKey(o.customer_phone);
+                    if (key.length > 5) {
+                        const existing = map.get(key);
+                        if (!existing || o.customer_phone.length > existing.phone.length) {
+                            map.set(key, { phone: o.customer_phone, name: o.customer_name || 'Customer', source: 'Order' });
+                        }
                     }
                 }
             });
 
             appts?.forEach(a => {
                 if (a.customer_phone && a.customer_phone.length > 5) {
-                    const norm = normalizePhone(a.customer_phone);
-                    if (norm.length > 5 && !map.has(norm)) {
-                        map.set(norm, { phone: a.customer_phone, name: a.customer_name || 'Customer', source: 'Appointment' });
+                    const key = getDeduplicationKey(a.customer_phone);
+                    if (key.length > 5) {
+                        const existing = map.get(key);
+                        if (!existing || a.customer_phone.length > existing.phone.length) {
+                            map.set(key, { phone: a.customer_phone, name: a.customer_name || 'Customer', source: 'Appointment' });
+                        }
                     }
                 }
             });
@@ -162,6 +174,7 @@ export default function MarketingPage() {
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
                                 className="input-premium w-full pl-9 h-9 text-sm relative z-0"
+                                style={{ paddingLeft: '2.25rem' }}
                             />
                         </div>
                     </div>

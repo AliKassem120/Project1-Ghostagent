@@ -73,6 +73,7 @@ export async function getCustomerFromStore(
     chatId: string
 ): Promise<CustomerRecord | null> {
     try {
+        // 1. Try exact lookup by chat_id
         const { data, error } = await supabase
             .from('customers')
             .select('name, phone, address')
@@ -80,14 +81,46 @@ export async function getCustomerFromStore(
             .eq('chat_id', chatId)
             .maybeSingle();
 
-        if (error || !data) return null;
-        if (!data.name && !data.phone && !data.address) return null;
+        if (!error && data && (data.name || data.phone || data.address)) {
+            return {
+                name: data.name || null,
+                phone: data.phone || null,
+                address: data.address || null,
+            };
+        }
 
-        return {
-            name: data.name || null,
-            phone: data.phone || null,
-            address: data.address || null,
-        };
+        // 2. Cross-channel lookup by phone number if chatId looks like a WhatsApp number/JID
+        const looksLikePhone = chatId.includes('@') || /^\d{7,15}$/.test(chatId.replace(/\D/g, ''));
+        if (looksLikePhone) {
+            const rawPhone = chatId.split('@')[0].replace(/\D/g, '');
+            if (rawPhone.length > 5) {
+                const { data: allCustomers } = await supabase
+                    .from('customers')
+                    .select('name, phone, address')
+                    .eq('workspace_id', workspaceId)
+                    .not('phone', 'is', null);
+
+                const getDeduplicationKey = (p: string) => {
+                    let norm = p.replace(/\D/g, '');
+                    if (norm.startsWith('00961')) norm = norm.slice(5);
+                    else if (norm.startsWith('961')) norm = norm.slice(3);
+                    if (norm.startsWith('0')) norm = norm.slice(1);
+                    return norm;
+                };
+
+                const targetKey = getDeduplicationKey(rawPhone);
+                const matched = allCustomers?.find(c => c.phone && getDeduplicationKey(c.phone) === targetKey);
+                if (matched) {
+                    return {
+                        name: matched.name || null,
+                        phone: matched.phone || null,
+                        address: matched.address || null,
+                    };
+                }
+            }
+        }
+
+        return null;
     } catch {
         return null;
     }
