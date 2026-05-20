@@ -74,16 +74,46 @@ CONTEXT RECOVERY:
 
     let languageBlock: string;
     
-    const arabiziPhrases = Object.entries(ARABIZI_DICTIONARY)
+    // Dynamic dictionary filtering based on business type to save context tokens (Phase 1 Optimization)
+    const filteredPhrases = Object.entries(ARABIZI_DICTIONARY).filter(([eng]) => {
+        const keyLower = eng.toLowerCase();
+        if (config.businessType === 'appointments') {
+            // Exclude e-commerce specific keys
+            if (keyLower.includes('order') || keyLower.includes('product') || keyLower.includes('variant') || keyLower.includes('shipping') || keyLower.includes('sold out') || keyLower.includes('looking for')) {
+                return false;
+            }
+        } else if (config.businessType === 'ecommerce') {
+            // Exclude appointment specific keys
+            if (keyLower.includes('book') || keyLower.includes('appointment') || keyLower.includes('service') || keyLower.includes('slot') || keyLower.includes('working hours') || keyLower.includes('closed on') || keyLower.includes('hourssummary') || keyLower.includes('opentime') || keyLower.includes('closetime') || keyLower.includes('daylabel')) {
+                return false;
+            }
+        }
+        return true;
+    });
+
+    const arabiziPhrases = filteredPhrases
         .map(([eng, arabizi]) => `- To say "${eng}" -> say EXACTLY: "${arabizi}"`)
         .join('\n');
+
+    // Dynamic Lebanese vocabulary filtering based on business type (Phase 1 Optimization)
+    const vocabLines = LEBANESE_VOCABULARY.trim().split('\n');
+    const vocabHeader = vocabLines[0];
+    const vocabData = vocabLines.slice(1).filter(line => {
+        const parts = line.split(',');
+        if (parts.length === 0) return true;
+        const cat = parts[0].trim().toLowerCase();
+        if (config.businessType === 'appointments' && cat === 'shopping') return false;
+        if (config.businessType === 'ecommerce' && cat === 'appointments') return false;
+        return true;
+    });
+    const lebaneseVocab = [vocabHeader, ...vocabData].join('\n');
 
     if (isArabizi) {
         languageBlock = `
 LANGUAGE: Reply in Lebanese Arabizi (Latin letters + numbers like 3, 7, 5, 2).
 
 VOCABULARY (Word by Word):
-${LEBANESE_VOCABULARY}
+${lebaneseVocab}
 
 EXACT PHRASING RULES (MANDATORY):
 Do NOT translate word-by-word like a robot. You MUST use these exact sentence structures:
@@ -91,7 +121,7 @@ ${arabiziPhrases}
 
 When in doubt, keep sentences very short and copy the exact formatting from the rules above.`;
     } else if (replyLanguage === 'mixed') {
-        languageBlock = `LANGUAGE: Reply in Lebanese Arabizi. Mirror the user's language mix.\nVOCABULARY:\n${LEBANESE_VOCABULARY}\n\nEXACT PHRASES (Use these exact structures):\n${arabiziPhrases}`;
+        languageBlock = `LANGUAGE: Reply in Lebanese Arabizi. Mirror the user's language mix.\nVOCABULARY:\n${lebaneseVocab}\n\nEXACT PHRASES (Use these exact structures):\n${arabiziPhrases}`;
     } else if (replyLanguage === 'unknown') {
         languageBlock = `LANGUAGE: Reply in English.`;
     } else {
@@ -193,18 +223,34 @@ export async function runV3Agent(
         })
     );
 
-    // 2.5 Load RAG Examples & Customer details
-    const { data: ragExamples } = await input.supabase
+    // 2.5 Load RAG Examples & Customer details (Phase 1 Dynamic RAG Optimization)
+    const { data: rawExamples } = await input.supabase
         .from('business_training_data')
         .select('customer_message, owner_reply')
         .eq('workspace_id', input.workspaceId)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(50);
+
+    // Compute simple word overlap similarity to select the most relevant examples
+    const computeOverlap = (s1: string, s2: string): number => {
+        const w1 = new Set(s1.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(Boolean));
+        const w2 = new Set(s2.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(Boolean));
+        let match = 0;
+        w1.forEach(w => { if (w2.has(w)) match++; });
+        return match;
+    };
+
+    const scoredExamples = (rawExamples || []).map((ex: any) => ({
+        ex,
+        score: computeOverlap(ex.customer_message || '', input.message || '')
+    })).sort((a: any, b: any) => b.score - a.score);
+
+    const ragExamples = scoredExamples.slice(0, 4).map((se: any) => se.ex);
 
     const { getCustomerFromStore } = await import('@/lib/ai/customer-store');
     const customer = await getCustomerFromStore(input.supabase, input.workspaceId, input.chatId);
 
-    const system = buildPrompt(config, replyLang, ragExamples || [], input.platform);
+    const system = buildPrompt(config, replyLang, ragExamples, input.platform);
 
     const customerBlock = customer && (customer.name || customer.phone || customer.address)
         ? `\nKNOWN CUSTOMER DETAILS:\n- Name: ${customer.name || 'Unknown'}\n- Phone: ${customer.phone || 'Unknown'}\n- Address: ${customer.address || 'Unknown'}\n(Do NOT ask the customer for their name, phone, or address if you already know it. Skip asking and proceed with checkout/booking directly.)`
