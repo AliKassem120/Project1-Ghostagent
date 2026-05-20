@@ -56,9 +56,6 @@ export function createAppointmentTools(ctx: ToolContext) {
                 date: z.string().describe('YYYY-MM-DD'),
                 time: z.string().describe('HH:mm 24h'),
                 service: z.string().describe('Service name'),
-                name: z.string().describe('Optional. Leave empty if unknown'),
-                phone: z.string().describe('Optional. Leave empty if unknown'),
-                address: z.string().describe('Optional. Leave empty if unknown'),
             }),
             execute: async ({ date, time, service }: { date: string; time: string; service: string }) => {
                 const services = await loadActiveServices(ctx.supabase, ctx.workspaceId);
@@ -129,22 +126,14 @@ export function createAppointmentTools(ctx: ToolContext) {
         },
         cancel_appointment: {
             description: 'Cancel the customer\'s most recent upcoming confirmed appointment.',
-            inputSchema: z.object({
-                name: z.string().describe('Optional. Leave empty if unknown'),
-                phone: z.string().describe('Optional. Leave empty if unknown'),
-                address: z.string().describe('Optional. Leave empty if unknown'),
-            }),
+            inputSchema: z.object({}),
             execute: async () => {
                 return await cancelLatestAppointment(ctx.supabase, ctx.workspaceId, ctx.chatId);
             },
         },
         lookup_customer: {
             description: 'Check if this customer has booked before. Returns saved name/phone.',
-            inputSchema: z.object({
-                name: z.string().describe('Optional. Leave empty if unknown'),
-                phone: z.string().describe('Optional. Leave empty if unknown'),
-                address: z.string().describe('Optional. Leave empty if unknown'),
-            }),
+            inputSchema: z.object({}),
             execute: async () => {
                 const known = await getKnownCustomerDetails(ctx.supabase, ctx.workspaceId, ctx.chatId);
                 if (!known) return { found: false };
@@ -215,9 +204,6 @@ export function createEcommerceTools(ctx: ToolContext) {
             description: 'Searches the product database for clothing items by name, category, or keyword. Use for ALL product, price, or stock questions.',
             inputSchema: z.object({ 
                 query: z.string().describe('Product name, category, or keyword. Leave empty string to list all.'),
-                name: z.string().describe('Optional. Leave empty if unknown'),
-                phone: z.string().describe('Optional. Leave empty if unknown'),
-                address: z.string().describe('Optional. Leave empty if unknown'),
             }),
             execute: async ({ query }: { query?: string }) => {
                 const products = await searchProducts({ supabase: ctx.supabase, workspaceId: ctx.workspaceId, query });
@@ -237,11 +223,7 @@ export function createEcommerceTools(ctx: ToolContext) {
         },
         get_business_hours: {
             description: 'Get store hours. Use when customer asks "when are you open?", "working hours?".',
-            inputSchema: z.object({
-                name: z.string().describe('Optional. Leave empty if unknown'),
-                phone: z.string().describe('Optional. Leave empty if unknown'),
-                address: z.string().describe('Optional. Leave empty if unknown'),
-            }),
+            inputSchema: z.object({}),
             execute: async () => {
                 const hours = await loadBusinessHours(ctx.supabase, ctx.workspaceId);
                 if (hours.length === 0) return { message: 'Hours not configured.' };
@@ -304,22 +286,14 @@ export function createEcommerceTools(ctx: ToolContext) {
         },
         cancel_order: {
             description: 'Cancel the customer\'s most recent pending order.',
-            inputSchema: z.object({
-                name: z.string().describe('Optional. Leave empty if unknown'),
-                phone: z.string().describe('Optional. Leave empty if unknown'),
-                address: z.string().describe('Optional. Leave empty if unknown'),
-            }),
+            inputSchema: z.object({}),
             execute: async () => {
                 return await cancelLatestOrder(ctx.supabase, ctx.workspaceId, ctx.chatId);
             },
         },
         lookup_customer: {
             description: 'Check if this customer has ordered before. Returns saved name/phone/address. Call at the start of any order flow.',
-            inputSchema: z.object({
-                name: z.string().describe('Customer name if known, else empty string'),
-                phone: z.string().describe('Customer phone if known, else empty string'),
-                address: z.string().describe('Customer address if known, else empty string'),
-            }),
+            inputSchema: z.object({}),
             execute: async () => {
                 const known = await getKnownCustomerDetails(ctx.supabase, ctx.workspaceId, ctx.chatId);
                 if (!known) return { found: false };

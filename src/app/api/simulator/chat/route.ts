@@ -43,7 +43,7 @@ export async function POST(req: Request) {
         // If so, mock it in the simulator UI.
         if (brainRes?.actions) {
             brainRes.actions.forEach((action: string) => {
-                if (action.startsWith('send_product_card')) {
+                if (action.includes('ProductStock') || action.includes('searchProducts')) {
                     responses.push({
                         type: 'interactive',
                         interactive: {
@@ -52,13 +52,22 @@ export async function POST(req: Request) {
                             action: { buttons: [{ reply: { title: 'View Item' } }] }
                         }
                     });
-                } else if (action.startsWith('send_booking_flow')) {
+                } else if (action.includes('book_appointment') || action.includes('checkAvailability') || action.includes('Availability')) {
                     responses.push({
                         type: 'interactive',
                         interactive: {
                             header: { text: 'Book Appointment' },
                             body: { text: 'Click below to choose a time.' },
                             action: { buttons: [{ reply: { title: 'Book Now' } }] }
+                        }
+                    });
+                } else if (action.includes('place_order')) {
+                    responses.push({
+                        type: 'interactive',
+                        interactive: {
+                            header: { text: 'Checkout' },
+                            body: { text: 'Click below to complete your order.' },
+                            action: { buttons: [{ reply: { title: 'Pay Now' } }] }
                         }
                     });
                 }

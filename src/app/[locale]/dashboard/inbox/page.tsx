@@ -384,7 +384,7 @@ export default function InteractionsPage() {
 
             {/* Sidebar (Responsive) */}
             <div className={clsx(
-                "w-full md:w-80 flex flex-col gap-3 h-full absolute md:relative z-20 bg-background md:bg-transparent transition-transform duration-300",
+                "w-full md:w-80 flex flex-col gap-3 h-full absolute inset-0 md:inset-auto md:relative z-20 bg-background md:bg-transparent transition-transform duration-300 left-0 top-0",
                 selectedChatId ? "-translate-x-full md:translate-x-0" : "translate-x-0"
             )}>
                 {/* ... Header & Search (Keep Same) ... */}
@@ -407,7 +407,7 @@ export default function InteractionsPage() {
                     />
                 </div>
 
-                <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar pb-6 md:pb-0">
+                <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar pb-6 md:pb-0 flex flex-col">
                     {conversations.map((conv) => (
                         <button
                             key={conv.chat_id}
@@ -449,6 +449,29 @@ export default function InteractionsPage() {
                             </div>
                         </button>
                     ))}
+                    {conversations.length === 0 && (
+                        <div className="md:hidden flex flex-col items-center justify-center my-auto text-center px-4 py-8 opacity-70">
+                            <motion.div
+                                animate={{ y: [0, -10, 0] }}
+                                transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+                                className="mb-4"
+                            >
+                                <Ghost className="w-14 h-14 text-primary/40 drop-shadow-[0_0_10px_rgba(139,92,246,0.2)]" />
+                            </motion.div>
+                            <h2 className="text-base font-bold mb-1 text-foreground">Inbox Empty</h2>
+                            <p className="text-xs text-muted-foreground mb-4 max-w-[240px]">
+                                When customers message your Instagram or WhatsApp, GhostAgent manages them here.
+                            </p>
+                            {!activeWorkspace?.instagram_account_id && (
+                                <a
+                                    href="/dashboard/settings?tab=connections"
+                                    className="bg-primary hover:opacity-90 text-black text-xs font-bold py-2.5 px-4 rounded-xl transition-all"
+                                >
+                                    Connect Instagram
+                                </a>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
 

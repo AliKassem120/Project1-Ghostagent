@@ -18,6 +18,7 @@ export interface Workspace {
     business_type: BusinessCategory;
     instagram_account_id?: string | null;
     instagram_username?: string | null;
+    whatsapp_phone_number_id?: string | null;
     created_at?: string;
 }
 
@@ -92,7 +93,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             supabase.from('users').select('plan_tier, business_type').eq('id', user.id).single(),
             supabase
                 .from('ai_settings')
-                .select('id, user_id, name, business_type, created_at')
+                .select('id, user_id, name, business_type, created_at, whatsapp_phone_number_id')
                 .eq('user_id', user.id)
                 .is('is_internal', false)
                 .order('created_at', { ascending: true }),
@@ -122,6 +123,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
                 business_type: (r.business_type || 'ecommerce') as BusinessCategory,
                 instagram_account_id: igMatch?.instagram_account_id || null,
                 instagram_username: igMatch?.account_username || null,
+                whatsapp_phone_number_id: r.whatsapp_phone_number_id || null,
                 created_at: r.created_at,
             }
         });
@@ -185,7 +187,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         if (isLoading || planTier === null) return 'loading';
         if (!activeWorkspace) return 'needs_setup';
         const hasInstagram = !!(activeWorkspace.instagram_username && activeWorkspace.instagram_account_id);
-        if (!hasInstagram) return 'needs_setup';
+        const hasWhatsApp = !!activeWorkspace.whatsapp_phone_number_id;
+        if (!hasInstagram && !hasWhatsApp) return 'needs_setup';
         return 'connected'; // Dashboard combines with autopilot for 'live' display
     })();
 

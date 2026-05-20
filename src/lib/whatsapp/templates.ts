@@ -18,6 +18,7 @@ export const GHOSTAGENT_TEMPLATES = {
         name: 'ghostagent_order_shipped',
         category: 'UTILITY',
         language: 'en',
+        businessType: 'ecommerce',
         components: [
             {
                 type: 'BODY',
@@ -30,6 +31,7 @@ export const GHOSTAGENT_TEMPLATES = {
         name: 'ghostagent_order_delivered',
         category: 'UTILITY',
         language: 'en',
+        businessType: 'ecommerce',
         components: [
             {
                 type: 'BODY',
@@ -42,6 +44,7 @@ export const GHOSTAGENT_TEMPLATES = {
         name: 'ghostagent_review_request',
         category: 'MARKETING',
         language: 'en',
+        businessType: 'ecommerce',
         components: [
             {
                 type: 'BODY',
@@ -54,6 +57,7 @@ export const GHOSTAGENT_TEMPLATES = {
         name: 'ghostagent_appointment_reminder',
         category: 'UTILITY',
         language: 'en',
+        businessType: 'appointments',
         components: [
             {
                 type: 'BODY',
@@ -66,6 +70,7 @@ export const GHOSTAGENT_TEMPLATES = {
         name: 'ghostagent_appointment_confirmed',
         category: 'UTILITY',
         language: 'en',
+        businessType: 'appointments',
         components: [
             {
                 type: 'BODY',
@@ -78,6 +83,7 @@ export const GHOSTAGENT_TEMPLATES = {
         name: 'ghostagent_promotional_blast',
         category: 'MARKETING',
         language: 'en',
+        businessType: 'all',
         components: [
             {
                 type: 'HEADER',
@@ -143,11 +149,18 @@ export async function createTemplate(
 
 export async function provisionAllTemplates(
     whatsappBusinessAccountId: string,
-    accessToken: string
+    accessToken: string,
+    businessType?: 'appointments' | 'ecommerce'
 ) {
     const results: Record<string, any> = {};
 
     for (const [key, template] of Object.entries(GHOSTAGENT_TEMPLATES)) {
+        // Skip template if it does not match the workspace business type
+        if (businessType && template.businessType !== 'all' && template.businessType !== businessType) {
+            console.log(`ℹ️ [Templates] Skipping template "${template.name}" because it does not match business type "${businessType}"`);
+            continue;
+        }
+
         results[key] = await createTemplate(whatsappBusinessAccountId, accessToken, { ...template, components: [...template.components] });
         // Small delay to avoid rate limiting
         await new Promise(r => setTimeout(r, 500));

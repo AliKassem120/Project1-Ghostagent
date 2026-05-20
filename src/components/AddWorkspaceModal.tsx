@@ -53,6 +53,7 @@ export default function AddWorkspaceModal({ isOpen, onClose }: AddWorkspaceModal
                 user_id: user.id,
                 name: name.trim(),
                 business_type: businessType,
+                is_autopilot_enabled: false,
             })
             .select('id, user_id, name, business_type, created_at')
             .single();

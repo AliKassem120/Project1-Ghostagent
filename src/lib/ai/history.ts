@@ -63,6 +63,12 @@ export async function loadConversationHistory(
                 return [];
             }
 
+            // Session check (12h)
+            if (Date.now() - new Date(fallbackData[0].timestamp).getTime() > 12 * 60 * 60 * 1000) {
+                v2log.info('HISTORY', 'Conversation idle for >12h. Cleared history.', { chatId });
+                return [];
+            }
+
             // Use fallback data
             return processHistoryRows(fallbackData, limit, chatId);
         }
@@ -82,8 +88,19 @@ export async function loadConversationHistory(
                 .limit(limit * 3);
 
             if (fallbackData && fallbackData.length > 0) {
+                // Session check (12h)
+                if (Date.now() - new Date(fallbackData[0].timestamp).getTime() > 12 * 60 * 60 * 1000) {
+                    v2log.info('HISTORY', 'Conversation idle for >12h. Cleared history.', { chatId });
+                    return [];
+                }
                 return processHistoryRows(fallbackData, limit, chatId);
             }
+            return [];
+        }
+
+        // Session check (12h)
+        if (Date.now() - new Date(data[0].timestamp).getTime() > 12 * 60 * 60 * 1000) {
+            v2log.info('HISTORY', 'Conversation idle for >12h. Cleared history.', { chatId });
             return [];
         }
 

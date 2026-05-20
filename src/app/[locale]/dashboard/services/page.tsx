@@ -239,9 +239,9 @@ export default function ServicesPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.05 + i * 0.05 }}
-                        className="bg-surface-1 border border-border shadow-sm rounded-2xl p-5"
+                        className="bg-surface-1 border border-border shadow-sm rounded-2xl p-5 hover:border-primary/30 hover:shadow-[0_0_25px_rgba(139,92,246,0.08)] transition-all duration-300 hover:-translate-y-0.5 cursor-default"
                     >
-                        <div className={clsx("p-2 rounded-xl w-fit mb-3", stat.bg)}>
+                        <div className={clsx("p-2 rounded-xl w-fit mb-3 transition-colors duration-300 group-hover:scale-110", stat.bg)}>
                             <stat.icon className={clsx("w-4 h-4", stat.color)} />
                         </div>
                         <div className="text-xl font-bold text-foreground tracking-tight">{stat.value}</div>
@@ -294,7 +294,7 @@ export default function ServicesPage() {
                                             value={form.name}
                                             onChange={(e) => setForm({ ...form, name: e.target.value })}
                                             placeholder="e.g. Acrylic Nails"
-                                            className="input-premium w-full"
+                                            className="input-premium w-full focus:shadow-[0_0_15px_rgba(139,92,246,0.15)] focus:border-primary/45 transition-all duration-200"
                                         />
                                     </div>
                                     <div className="space-y-1.5">
@@ -304,7 +304,7 @@ export default function ServicesPage() {
                                             value={form.description}
                                             onChange={(e) => setForm({ ...form, description: e.target.value })}
                                             placeholder="Optional short description"
-                                            className="input-premium w-full"
+                                            className="input-premium w-full focus:shadow-[0_0_15px_rgba(139,92,246,0.15)] focus:border-primary/45 transition-all duration-200"
                                         />
                                     </div>
                                 </div>
@@ -321,7 +321,7 @@ export default function ServicesPage() {
                                                 value={form.price}
                                                 onChange={(e) => setForm({ ...form, price: e.target.value })}
                                                 placeholder="0.00"
-                                                className="input-premium w-full !pl-8 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                className="input-premium w-full !pl-8 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:shadow-[0_0_15px_rgba(139,92,246,0.15)] focus:border-primary/45 transition-all duration-200"
                                             />
                                         </div>
                                     </div>
@@ -335,7 +335,7 @@ export default function ServicesPage() {
                                                 value={form.duration_minutes}
                                                 onChange={(e) => setForm({ ...form, duration_minutes: e.target.value })}
                                                 placeholder="30"
-                                                className="input-premium w-full !pl-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                className="input-premium w-full !pl-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:shadow-[0_0_15px_rgba(139,92,246,0.15)] focus:border-primary/45 transition-all duration-200"
                                             />
                                         </div>
                                     </div>
@@ -354,7 +354,7 @@ export default function ServicesPage() {
                                     </div>
                                     <input type="text" value={form.aliasInput} onChange={(e) => setForm({ ...form, aliasInput: e.target.value })}
                                         onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ',') && form.aliasInput.trim()) { e.preventDefault(); setForm({ ...form, aliases: [...form.aliases, form.aliasInput.trim()], aliasInput: "" }); } }}
-                                        placeholder="Type alias and press Enter (e.g. haircut, قص شعر, 7ale2)" className="input-premium w-full" />
+                                        placeholder="Type alias and press Enter (e.g. haircut, قص شعر, 7ale2)" className="input-premium w-full focus:shadow-[0_0_15px_rgba(139,92,246,0.15)] focus:border-primary/45 transition-all duration-200" />
                                 </div>
 
                                 {/* Category + Buffer + Active */}
@@ -513,7 +513,7 @@ export default function ServicesPage() {
                             {filtered.map((service) => {
                                 const isEditing = editingId === service.id;
                                 return (
-                                    <tr key={service.id} className={clsx("hover:bg-surface-2 transition-colors group", !service.is_active && "opacity-60")}>
+                                    <tr key={service.id} className={clsx("hover:bg-surface-2 transition-all duration-200 group border-l-2 border-transparent hover:border-primary", !service.is_active && "opacity-60")}>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
                                                 <div className={clsx("w-9 h-9 rounded-lg flex items-center justify-center shrink-0", service.is_active ? "bg-primary/10" : "bg-surface-2")}>

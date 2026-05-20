@@ -292,8 +292,9 @@ export default function HoursPage() {
                             h.isOpen ? "border-border" : "border-border/50 opacity-60"
                         )}
                     >
-                        <div className="flex items-center gap-4">
-                            {/* Day Name */}
+                        <div className="flex flex-col md:flex-row md:items-center gap-4">
+                            <div className="flex items-center justify-between md:justify-start w-full md:w-auto gap-4">
+                                {/* Day Name */}
                             <div className="w-24 md:w-32 shrink-0">
                                 <span className="text-sm font-bold text-foreground">{h.label}</span>
                             </div>
@@ -332,10 +333,10 @@ export default function HoursPage() {
                             <AnimatePresence>
                                 {h.isOpen && (
                                     <motion.div
-                                        initial={{ opacity: 0, width: 0 }}
-                                        animate={{ opacity: 1, width: "auto" }}
-                                        exit={{ opacity: 0, width: 0 }}
-                                        className="flex items-center gap-2 md:gap-3 overflow-hidden"
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: "auto" }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="flex flex-col sm:flex-row items-start sm:items-center gap-2 md:gap-3 overflow-hidden mt-1 md:mt-0"
                                     >
                                         <div className="flex items-center gap-1.5">
                                             <Sun className="w-3.5 h-3.5 text-amber-400 shrink-0" />
@@ -382,6 +383,7 @@ export default function HoursPage() {
                                     </div>
                                 </div>
                             )}
+                            </div>
                         </div>
                     </motion.div>
                 ))}

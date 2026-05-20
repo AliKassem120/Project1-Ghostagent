@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart2, TrendingUp, MessageSquare, DollarSign, Users, ArrowUpRight, ArrowDownRight, Zap, Lock, Crown } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
+import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useToast } from '@/contexts/ToastContext';
 import clsx from 'clsx';
@@ -73,7 +74,7 @@ function StatCard({
 }
 
 export default function AnalyticsPage() {
-    const { activeWorkspaceId, planTier } = useWorkspace();
+    const { activeWorkspaceId, activeWorkspace, planTier } = useWorkspace();
     const supabase = createClient();
     const toast = useToast();
     const [loading, setLoading] = useState(true);
@@ -84,7 +85,7 @@ export default function AnalyticsPage() {
     useEffect(() => {
         if (!activeWorkspaceId) return;
         fetchAnalytics();
-    }, [activeWorkspaceId]);
+    }, [activeWorkspaceId, activeWorkspace]);
 
     const fetchAnalytics = async () => {
         setLoading(true);
@@ -95,7 +96,6 @@ export default function AnalyticsPage() {
             const now = new Date();
             const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
             const firstOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
-            const firstOfThisMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
 
             // ── Replies this month
             const { count: repliesThis } = await supabase
@@ -144,51 +144,125 @@ export default function AnalyticsPage() {
                 (allConvLogs || []).map((r: any) => r.metadata?.chat_id || r.metadata?.sender_id).filter(Boolean)
             ).size;
 
-            // ── Revenue this month
-            const { data: ordersThis } = await supabase
-                .from('orders')
-                .select('quantity, unit_price, item_name')
-                .eq('workspace_id', activeWorkspaceId)
-                .neq('status', 'cancelled')
-                .gte('created_at', firstOfThisMonth);
+            // ── Branch metrics computation based on business type ──
+            let revenueThis = 0;
+            let ordersThisCount = 0;
+            let revenueLast = 0;
+            let revenueTotal = 0;
+            let totalOrdersCount = 0;
+            let topProducts: { name: string; orders: number; revenue: number }[] = [];
 
-            const revenueThis = (ordersThis || []).reduce((s: number, o: any) => s + ((o.quantity || 1) * (o.unit_price || 0)), 0);
-            const ordersThisCount = ordersThis?.length || 0;
+            if (activeWorkspace?.business_type === 'appointments') {
+                // Retrieve service prices to map appointment revenue potential
+                const { data: servicesData } = await supabase
+                    .from('services')
+                    .select('name, price')
+                    .eq('workspace_id', activeWorkspaceId);
 
-            // ── Revenue last month
-            const { data: ordersLast } = await supabase
-                .from('orders')
-                .select('quantity, unit_price')
-                .eq('workspace_id', activeWorkspaceId)
-                .neq('status', 'cancelled')
-                .gte('created_at', firstOfLastMonth)
-                .lt('created_at', firstOfThisMonth);
+                const servicePrices: Record<string, number> = {};
+                (servicesData || []).forEach((s: any) => {
+                    servicePrices[s.name.trim().toLowerCase()] = Number(s.price) || 0;
+                });
 
-            const revenueLast = (ordersLast || []).reduce((s: number, o: any) => s + ((o.quantity || 1) * (o.unit_price || 0)), 0);
+                // Appointments this month (excluding cancelled or no-shows)
+                const { data: apptsThis } = await supabase
+                    .from('appointments')
+                    .select('service, created_at, status')
+                    .eq('workspace_id', activeWorkspaceId)
+                    .not('status', 'in', '("cancelled","no_show")')
+                    .gte('created_at', firstOfThisMonth);
 
-            // ── Total revenue
-            const { data: allOrders } = await supabase
-                .from('orders')
-                .select('quantity, unit_price')
-                .eq('workspace_id', activeWorkspaceId)
-                .neq('status', 'cancelled');
+                ordersThisCount = apptsThis?.length || 0;
+                revenueThis = (apptsThis || []).reduce((s: number, a: any) => {
+                    const price = servicePrices[a.service?.trim().toLowerCase()] || 0;
+                    return s + price;
+                }, 0);
 
-            const revenueTotal = (allOrders || []).reduce((s: number, o: any) => s + ((o.quantity || 1) * (o.unit_price || 0)), 0);
+                // Appointments last month
+                const { data: apptsLast } = await supabase
+                    .from('appointments')
+                    .select('service, created_at, status')
+                    .eq('workspace_id', activeWorkspaceId)
+                    .not('status', 'in', '("cancelled","no_show")')
+                    .gte('created_at', firstOfLastMonth)
+                    .lt('created_at', firstOfThisMonth);
 
-            // ── Top products this month
-            const productMap: Record<string, { orders: number; revenue: number }> = {};
-            (ordersThis || []).forEach((o: any) => {
-                const name = o.item_name || 'Unknown';
-                if (!productMap[name]) productMap[name] = { orders: 0, revenue: 0 };
-                productMap[name].orders += 1;
-                productMap[name].revenue += (o.quantity || 1) * (o.unit_price || 0);
-            });
-            const topProducts = Object.entries(productMap)
-                .map(([name, v]) => ({ name, ...v }))
-                .sort((a, b) => b.revenue - a.revenue)
-                .slice(0, 5);
+                revenueLast = (apptsLast || []).reduce((s: number, a: any) => {
+                    const price = servicePrices[a.service?.trim().toLowerCase()] || 0;
+                    return s + price;
+                }, 0);
 
-            // ── Daily replies for the last 14 days (simple bar chart)
+                // Total appointments
+                const { data: allAppts } = await supabase
+                    .from('appointments')
+                    .select('service, status')
+                    .eq('workspace_id', activeWorkspaceId)
+                    .not('status', 'in', '("cancelled","no_show")');
+
+                totalOrdersCount = allAppts?.length || 0;
+                revenueTotal = (allAppts || []).reduce((s: number, a: any) => {
+                    const price = servicePrices[a.service?.trim().toLowerCase()] || 0;
+                    return s + price;
+                }, 0);
+
+                // Top services list
+                const serviceMap: Record<string, { orders: number; revenue: number }> = {};
+                (apptsThis || []).forEach((a: any) => {
+                    const name = a.service || 'Unknown';
+                    if (!serviceMap[name]) serviceMap[name] = { orders: 0, revenue: 0 };
+                    serviceMap[name].orders += 1;
+                    serviceMap[name].revenue += servicePrices[name.trim().toLowerCase()] || 0;
+                });
+                topProducts = Object.entries(serviceMap)
+                    .map(([name, v]) => ({ name, ...v }))
+                    .sort((a, b) => b.revenue - a.revenue)
+                    .slice(0, 5);
+
+            } else {
+                // Standard Ecommerce Orders
+                const { data: ordersThis } = await supabase
+                    .from('orders')
+                    .select('quantity, unit_price, item_name')
+                    .eq('workspace_id', activeWorkspaceId)
+                    .neq('status', 'cancelled')
+                    .gte('created_at', firstOfThisMonth);
+
+                revenueThis = (ordersThis || []).reduce((s: number, o: any) => s + ((o.quantity || 1) * (o.unit_price || 0)), 0);
+                ordersThisCount = ordersThis?.length || 0;
+
+                const { data: ordersLast } = await supabase
+                    .from('orders')
+                    .select('quantity, unit_price')
+                    .eq('workspace_id', activeWorkspaceId)
+                    .neq('status', 'cancelled')
+                    .gte('created_at', firstOfLastMonth)
+                    .lt('created_at', firstOfThisMonth);
+
+                revenueLast = (ordersLast || []).reduce((s: number, o: any) => s + ((o.quantity || 1) * (o.unit_price || 0)), 0);
+
+                const { data: allOrders } = await supabase
+                    .from('orders')
+                    .select('quantity, unit_price')
+                    .eq('workspace_id', activeWorkspaceId)
+                    .neq('status', 'cancelled');
+
+                totalOrdersCount = allOrders?.length || 0;
+                revenueTotal = (allOrders || []).reduce((s: number, o: any) => s + ((o.quantity || 1) * (o.unit_price || 0)), 0);
+
+                const productMap: Record<string, { orders: number; revenue: number }> = {};
+                (ordersThis || []).forEach((o: any) => {
+                    const name = o.item_name || 'Unknown';
+                    if (!productMap[name]) productMap[name] = { orders: 0, revenue: 0 };
+                    productMap[name].orders += 1;
+                    productMap[name].revenue += (o.quantity || 1) * (o.unit_price || 0);
+                });
+                topProducts = Object.entries(productMap)
+                    .map(([name, v]) => ({ name, ...v }))
+                    .sort((a, b) => b.revenue - a.revenue)
+                    .slice(0, 5);
+            }
+
+            // ── Daily replies for the last 14 days
             const last14 = Array.from({ length: 14 }, (_, i) => {
                 const d = new Date();
                 d.setDate(d.getDate() - (13 - i));
@@ -218,7 +292,7 @@ export default function AnalyticsPage() {
                 totalReplies: repliesTotal || 0,
                 totalConversations: uniqueChatsTotal,
                 totalRevenue: revenueTotal,
-                totalOrders: allOrders?.length || 0,
+                totalOrders: totalOrdersCount,
                 repliesThisMonth: repliesThis || 0,
                 conversationsThisMonth: uniqueChatsThis,
                 revenueThisMonth: revenueThis,
@@ -314,7 +388,7 @@ export default function AnalyticsPage() {
                                 change={pct(data.revenueThisMonth, data.revenueLastMonth)}
                             />
                             <StatCard
-                                label="Orders" value={data.ordersThisMonth}
+                                label={activeWorkspace?.business_type === 'appointments' ? "Bookings" : "Orders"} value={data.ordersThisMonth}
                                 icon={TrendingUp} color="text-amber-400" bg="bg-amber-500/10"
                             />
                         </div>
@@ -327,7 +401,7 @@ export default function AnalyticsPage() {
                             <StatCard label="Total Replies" value={data.totalReplies.toLocaleString()} icon={MessageSquare} color="text-primary/60" bg="bg-primary/5" />
                             <StatCard label="Total Conversations" value={data.totalConversations.toLocaleString()} icon={Users} color="text-blue-400/60" bg="bg-blue-500/5" />
                             <StatCard label="Total Revenue" value={`$${data.totalRevenue.toLocaleString()}`} icon={DollarSign} color="text-emerald-400/60" bg="bg-emerald-500/5" />
-                            <StatCard label="Total Orders" value={data.totalOrders} icon={TrendingUp} color="text-amber-400/60" bg="bg-amber-500/5" />
+                            <StatCard label={activeWorkspace?.business_type === 'appointments' ? "Total Bookings" : "Total Orders"} value={data.totalOrders} icon={TrendingUp} color="text-amber-400/60" bg="bg-amber-500/5" />
                         </div>
                     </div>
 
@@ -357,42 +431,62 @@ export default function AnalyticsPage() {
                     )}
 
                     {/* Daily Replies Chart */}
-                    <div className="bg-surface-1 border border-border rounded-2xl p-5">
-                        <p className="text-sm font-bold text-foreground mb-4">Daily AI Replies — Last 14 Days</p>
-                        <div className="flex items-end gap-1 h-28">
-                            {data.dailyReplies.map((d, i) => (
-                                <div key={d.date} className="flex-1 flex flex-col items-center gap-1 group relative">
-                                    <div
-                                        className="w-full rounded-t-sm bg-primary/30 group-hover:bg-primary transition-colors relative"
-                                        style={{ height: `${Math.max((d.count / maxBar) * 100, d.count > 0 ? 4 : 0)}%` }}
-                                    >
-                                        {d.count > 0 && (
-                                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-bold text-primary opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                                                {d.count}
-                                            </div>
-                                        )}
-                                    </div>
-                                    {i % 7 === 0 && (
-                                        <span className="text-[8px] text-muted-foreground/60 absolute -bottom-5 whitespace-nowrap">
-                                            {new Date(d.date).toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                                        </span>
-                                    )}
-                                </div>
-                            ))}
+                    <div className="bg-surface-1 border border-border rounded-2xl p-5 md:p-6 shadow-sm">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <p className="text-sm font-bold text-foreground">Daily AI Replies</p>
+                                <p className="text-xs text-muted-foreground">Last 14 Days</p>
+                            </div>
+                        </div>
+                        <div className="h-[250px] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={data.dailyReplies.map(d => ({ ...d, formattedDate: new Date(d.date).toLocaleDateString([], { month: 'short', day: 'numeric' }) }))} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.3}/>
+                                            <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0}/>
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                                    <XAxis 
+                                        dataKey="formattedDate" 
+                                        axisLine={false} 
+                                        tickLine={false} 
+                                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                                        dy={10}
+                                    />
+                                    <YAxis 
+                                        axisLine={false} 
+                                        tickLine={false} 
+                                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                                        allowDecimals={false}
+                                    />
+                                    <RechartsTooltip 
+                                        contentStyle={{ backgroundColor: 'hsl(var(--surface-2))', borderColor: 'hsl(var(--border))', borderRadius: '12px', color: 'hsl(var(--foreground))', fontSize: '12px', fontWeight: 'bold' }}
+                                        itemStyle={{ color: 'var(--color-primary)' }}
+                                        cursor={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
+                                    />
+                                    <Area type="monotone" dataKey="count" stroke="var(--color-primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorCount)" />
+                                </AreaChart>
+                            </ResponsiveContainer>
                         </div>
                     </div>
 
-                    {/* Top Products */}
+                    {/* Top Products / Services */}
                     {data.topProducts.length > 0 && (
                         <div className="bg-surface-1 border border-border rounded-2xl p-5">
-                            <p className="text-sm font-bold text-foreground mb-4">Top Products This Month</p>
+                            <p className="text-sm font-bold text-foreground mb-4">
+                                {activeWorkspace?.business_type === 'appointments' ? "Top Services This Month" : "Top Products This Month"}
+                            </p>
                             <div className="space-y-3">
                                 {data.topProducts.map((p, i) => (
                                     <div key={p.name} className="flex items-center gap-3">
                                         <span className="text-[11px] font-bold text-muted-foreground w-4 shrink-0">#{i + 1}</span>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-semibold text-foreground truncate">{p.name}</p>
-                                            <p className="text-[11px] text-muted-foreground">{p.orders} orders</p>
+                                            <p className="text-[11px] text-muted-foreground">
+                                                {p.orders} {activeWorkspace?.business_type === 'appointments' ? "bookings" : "orders"}
+                                            </p>
                                         </div>
                                         <span className="text-sm font-black text-emerald-400">${p.revenue.toLocaleString()}</span>
                                     </div>

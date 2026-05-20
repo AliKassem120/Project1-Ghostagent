@@ -79,27 +79,36 @@ const DAY_ALIASES: Record<string, number> = {
 
 const TODAY_WORDS = ['today', 'lyom', 'elyoum', 'اليوم', "aujourd'hui", 'hoy'];
 const TOMORROW_WORDS = ['tomorrow', 'bukra', 'bokra', 'بكرا', 'غدا', 'demain', 'manana', 'mañana'];
-const DAY_AFTER_TOMORROW = ['ba3d bukra', 'ba3d bokra', 'ba3ed bukra', 'day after tomorrow', 'بعد بكرا', 'بعد غد', 'après-demain', 'pasado manana'];
+const DAY_AFTER_TOMORROW = ['ba3d bukra', 'ba3d bokra', 'ba3ed bukra', 'day after tomorrow', 'after tomorrow', 'بعد بكرا', 'بعد غد', 'après-demain', 'pasado manana'];
+
+function preNormalize(message: string): string {
+    let str = message.toLowerCase();
+    // Convert Arabic and Persian numerals to Western numerals
+    str = str.replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 1632));
+    str = str.replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 1776));
+    return str;
+}
 
 /**
  * Resolves a day reference from a message into an ISO date string (YYYY-MM-DD).
  * Returns null if no date reference is found.
  */
 export function resolveDateFromMessage(message: string, timeCtx: TimeContext): string | null {
-    const normalized = message.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+    const normalized = preNormalize(message).replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+    const normalizeWord = (w: string) => preNormalize(w).replace(/[^\p{L}\p{N}\s]/gu, ' ').trim();
 
     // Today
-    if (TODAY_WORDS.some(w => normalized.includes(w))) {
+    if (TODAY_WORDS.some(w => normalized.includes(normalizeWord(w)))) {
         return timeCtx.isoDate;
     }
 
     // Tomorrow
-    if (TOMORROW_WORDS.some(w => normalized.includes(w)) && !DAY_AFTER_TOMORROW.some(w => normalized.includes(w))) {
+    if (TOMORROW_WORDS.some(w => normalized.includes(normalizeWord(w))) && !DAY_AFTER_TOMORROW.some(w => normalized.includes(normalizeWord(w)))) {
         return timeCtx.tomorrowDate;
     }
 
     // Day after tomorrow (ba3d bukra)
-    if (DAY_AFTER_TOMORROW.some(w => normalized.includes(w))) {
+    if (DAY_AFTER_TOMORROW.some(w => normalized.includes(normalizeWord(w)))) {
         const dayAfter = new Date(timeCtx.now.getTime() + 2 * 24 * 60 * 60 * 1000);
         const formatter = new Intl.DateTimeFormat('en-CA', {
             timeZone: timeCtx.timezone,
@@ -136,7 +145,7 @@ export function resolveDateFromMessage(message: string, timeCtx: TimeContext): s
  * Returns null if no time reference is found.
  */
 export function resolveTimeFromMessage(message: string): string | null {
-    const normalized = message.toLowerCase().replace(/[^\p{L}\p{N}\s:]/gu, ' ').replace(/\s+/g, ' ').trim();
+    const normalized = preNormalize(message).replace(/[^\p{L}\p{N}\s:]/gu, ' ').replace(/\s+/g, ' ').trim();
 
     // Time-of-day references (Arabizi)
     if (/\b(ba3d\s*l?\s*doher|ba3d\s*l?\s*duher|ba3d\s*el?\s*dohor)\b/.test(normalized)) {

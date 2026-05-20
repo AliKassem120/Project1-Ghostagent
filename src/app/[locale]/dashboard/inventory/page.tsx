@@ -437,9 +437,9 @@ export default function InventoryPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.05 + i * 0.05 }}
-                        className="bg-surface-1 border border-border shadow-sm rounded-2xl p-5"
+                        className="bg-surface-1 border border-border shadow-sm rounded-2xl p-5 hover:border-primary/30 hover:shadow-[0_0_25px_rgba(139,92,246,0.08)] transition-all duration-300 hover:-translate-y-0.5 cursor-default group"
                     >
-                        <div className={clsx("p-2 rounded-xl w-fit mb-3", stat.bg)}>
+                        <div className={clsx("p-2 rounded-xl w-fit mb-3 transition-colors duration-300 group-hover:scale-110", stat.bg)}>
                             <stat.icon className={clsx("w-4 h-4", stat.color)} />
                         </div>
                         <div className="text-xl font-bold text-foreground tracking-tight">{stat.value}</div>
@@ -536,7 +536,7 @@ export default function InventoryPage() {
                                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Product Name</label>
                                     <input
                                         autoFocus
-                                        className="input-premium w-full"
+                                        className="input-premium w-full focus:shadow-[0_0_15px_rgba(139,92,246,0.15)] focus:border-primary/45 transition-all duration-200"
                                         placeholder="e.g. Vintage T-Shirt"
                                         value={newProduct.name}
                                         onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
@@ -549,7 +549,7 @@ export default function InventoryPage() {
                                         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-semibold">$</span>
                                         <input
                                             type="number"
-                                            className="input-premium w-full pl-8 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0"
+                                            className="input-premium w-full pl-8 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0 focus:shadow-[0_0_15px_rgba(139,92,246,0.15)] focus:border-primary/45 transition-all duration-200"
                                             placeholder="0.00"
                                             value={newProduct.price}
                                             onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
@@ -560,7 +560,7 @@ export default function InventoryPage() {
                                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Stock Qty</label>
                                     <input
                                         type="number"
-                                        className="input-premium w-full appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0"
+                                        className="input-premium w-full appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0 focus:shadow-[0_0_15px_rgba(139,92,246,0.15)] focus:border-primary/45 transition-all duration-200"
                                         placeholder="0"
                                         value={newProduct.stock}
                                         onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
@@ -707,7 +707,7 @@ export default function InventoryPage() {
                             {filteredProducts.map((item) => {
                                 const isEditing = editingProductId === item.id;
                                 return (
-                                    <tr key={item.id} className="hover:bg-surface-2 transition-colors group">
+                                    <tr key={item.id} className="hover:bg-surface-2 transition-all duration-200 group border-l-2 border-transparent hover:border-primary">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">

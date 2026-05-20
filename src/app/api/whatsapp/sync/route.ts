@@ -27,6 +27,12 @@ export async function POST(req: Request) {
             .eq('id', workspaceId)
             .maybeSingle();
 
+        const { data: workspace } = await supabase
+            .from('workspaces')
+            .select('business_type')
+            .eq('id', workspaceId)
+            .maybeSingle();
+
         const wabaId = ws?.whatsapp_business_account_id || process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
         const token = ws?.whatsapp_access_token || process.env.WHATSAPP_SYSTEM_ACCESS_TOKEN;
 
@@ -36,11 +42,13 @@ export async function POST(req: Request) {
 
         // ── 1. Provision Message Templates ──
         const existingTemplates = await listExistingTemplates(wabaId, token);
-        const templateResults = await provisionAllTemplates(wabaId, token);
+        const templateResults = await provisionAllTemplates(wabaId, token, workspace?.business_type as any);
 
-        // ── 2. Create Booking Flow ──
+        // ── 2. Create Booking Flow (Appointments Only) ──
         let flowResult: any = { skipped: true, reason: 'No WABA ID' };
-        if (wabaId) {
+        const isAppointmentBiz = workspace?.business_type === 'appointments';
+
+        if (wabaId && isAppointmentBiz) {
             flowResult = await createBookingFlow(wabaId, token);
 
             // Save the flow_id to DB if created successfully
@@ -50,6 +58,8 @@ export async function POST(req: Request) {
                     .update({ whatsapp_booking_flow_id: flowResult.flowId })
                     .eq('id', workspaceId);
             }
+        } else if (wabaId) {
+            flowResult = { skipped: true, reason: 'Flows are only supported/needed for Appointments workspaces. E-Commerce uses native WhatsApp Catalogs/Carts.' };
         }
 
         // ── 3. Re-fetch template statuses ──

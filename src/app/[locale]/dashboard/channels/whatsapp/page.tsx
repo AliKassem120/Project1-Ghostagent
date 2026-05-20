@@ -9,10 +9,55 @@ import { useToast } from '@/contexts/ToastContext';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { updateWorkspaceSettingsAction } from '@/app/actions/settings';
 
+const TEMPLATE_INFO: Record<string, { title: string; category: string; trigger: string; preview: string; businessType: 'appointments' | 'ecommerce' | 'all' }> = {
+    ghostagent_order_shipped: {
+        title: 'Order Shipped',
+        category: 'Utility',
+        trigger: 'Triggers automatically when you change an order\'s status to "Shipped" in the Orders page.',
+        preview: '📦 Your order *[Item Name]* has been shipped! You can expect delivery soon.\n\nTracking: [Link]\n\nThank you for shopping with us! 🙏',
+        businessType: 'ecommerce'
+    },
+    ghostagent_order_delivered: {
+        title: 'Order Delivered',
+        category: 'Utility',
+        trigger: 'Triggers automatically when you change an order\'s status to "Delivered" in the Orders page.',
+        preview: '✅ Your order *[Item Name]* has been delivered!\n\nWe hope you love it. If you have any questions, just reply to this message.\n\nThank you! 💜',
+        businessType: 'ecommerce'
+    },
+    ghostagent_review_request: {
+        title: 'Review Request',
+        category: 'Marketing',
+        trigger: 'Triggers automatically 3 days after an order is marked as "Delivered" to request feedback.',
+        preview: 'Hey [Customer Name]! 👋\n\nHow was your experience with *[Item Name]*? We\'d love to hear your feedback!\n\nJust reply with a quick review — it really helps us improve. ⭐',
+        businessType: 'ecommerce'
+    },
+    ghostagent_appointment_reminder: {
+        title: 'Appointment Reminder',
+        category: 'Utility',
+        trigger: 'Triggers automatically when you update an appointment\'s status to "Reminder" to notify the client.',
+        preview: '📅 Reminder: You have a *[Service]* appointment tomorrow at *[Time]*.\n\nNeed to reschedule? Just reply to this message.\n\nSee you soon! 😊',
+        businessType: 'appointments'
+    },
+    ghostagent_appointment_confirmed: {
+        title: 'Appointment Confirmed',
+        category: 'Utility',
+        trigger: 'Triggers automatically when you mark an appointment as "Confirmed" in the Calendar or bookings list.',
+        preview: '✅ Your *[Service]* appointment is confirmed!\n\n📅 Date: [Date]\n🕐 Time: [Time]\n💰 Price: $[Price]\n\nSee you there! 🙌',
+        businessType: 'appointments'
+    },
+    ghostagent_promotional_blast: {
+        title: 'Promotional Broadcast',
+        category: 'Marketing',
+        trigger: 'Triggered manually when you launch a campaign blast from the Marketing page.',
+        preview: 'Exclusive Offer\n\nHey! 👋\n\n[Your Custom Campaign Message Body]\n\nReply to this message if you have any questions or want to claim this offer! 👻\n\nPowered by GhostAgent',
+        businessType: 'all'
+    }
+};
+
 export default function WhatsAppChannelPage() {
     const supabase = createClient();
     const toast = useToast();
-    const { activeWorkspaceId, planTier, isLoading: wsLoading } = useWorkspace();
+    const { activeWorkspaceId, activeWorkspace, planTier, isLoading: wsLoading } = useWorkspace();
     const isPro = planTier === 'pro' || planTier === 'empire';
     const isEmpire = planTier === 'empire';
 
@@ -31,6 +76,7 @@ export default function WhatsAppChannelPage() {
     const [waTemplates, setWaTemplates] = useState<any[]>([]);
     const [waFlowId, setWaFlowId] = useState<string | null>(null);
     const [loadingTemplates, setLoadingTemplates] = useState(false);
+    const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
 
     // Fetch settings
     const fetchSettings = useCallback(async (signal?: AbortSignal) => {
@@ -329,24 +375,89 @@ export default function WhatsAppChannelPage() {
                     </div>
 
                     {/* Template Status Grid */}
-                    {waTemplates.length > 0 && (
-                        <div className="space-y-2">
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Registered Templates</p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                {waTemplates.map((t: any) => (
-                                    <div key={t.name} className="flex items-center justify-between p-2.5 rounded-xl bg-surface-1 border border-border">
-                                        <div className="flex items-center gap-2 min-w-0">
-                                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${t.status === 'APPROVED' ? 'bg-emerald-400' : t.status === 'REJECTED' ? 'bg-red-400' : 'bg-amber-400'}`} />
-                                            <span className="text-[10px] font-medium text-foreground truncate">{t.name.replace('ghostagent_', '').replace(/_/g, ' ')}</span>
-                                        </div>
-                                        <span className={`text-[9px] font-bold uppercase tracking-wider flex-shrink-0 ml-2 ${t.status === 'APPROVED' ? 'text-emerald-400' : t.status === 'REJECTED' ? 'text-red-400' : 'text-amber-400'}`}>
-                                            {t.status || 'PENDING'}
-                                        </span>
-                                    </div>
-                                ))}
+                    {(() => {
+                        const bizType = activeWorkspace?.business_type || 'ecommerce';
+                        const visibleTemplates = Object.entries(TEMPLATE_INFO).filter(([_, info]) => {
+                            return info.businessType === 'all' || info.businessType === bizType;
+                        });
+
+                        return (
+                            <div className="space-y-2.5">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                                    Message Templates ({bizType === 'appointments' ? 'Services & Booking' : 'E-Commerce Orders'})
+                                </p>
+                                <div className="flex flex-col gap-2">
+                                    {visibleTemplates.map(([key, info]) => {
+                                        const synced = waTemplates.find(wa => wa.name === key);
+                                        const status = synced ? synced.status : 'NOT SYNCED';
+                                        const isExpanded = expandedTemplate === key;
+
+                                        return (
+                                            <div key={key} className="rounded-xl border border-border bg-surface-1 overflow-hidden transition-all duration-300">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setExpandedTemplate(isExpanded ? null : key)}
+                                                    className="w-full flex items-center justify-between p-3.5 hover:bg-surface-2 transition-colors text-left"
+                                                >
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${status === 'APPROVED' ? 'bg-emerald-400' : status === 'NOT SYNCED' ? 'bg-zinc-500' : 'bg-amber-400'}`} />
+                                                        <div>
+                                                            <span className="text-xs font-bold text-foreground block">{info.title}</span>
+                                                            <span className="text-[9px] text-muted-foreground uppercase tracking-wider">{info.category}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded ${status === 'APPROVED' ? 'bg-emerald-500/10 text-emerald-400' : status === 'NOT SYNCED' ? 'bg-zinc-500/10 text-zinc-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                                                            {status}
+                                                        </span>
+                                                        <ChevronDown className={clsx("w-4 h-4 text-muted-foreground transition-transform duration-200", isExpanded && "rotate-180")} />
+                                                    </div>
+                                                </button>
+
+                                                {isExpanded && (
+                                                    <motion.div
+                                                        initial={{ opacity: 0, height: 0 }}
+                                                        animate={{ opacity: 1, height: 'auto' }}
+                                                        className="border-t border-border p-4 bg-surface-2/40 space-y-4"
+                                                    >
+                                                        <div className="space-y-1">
+                                                            <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Trigger Event</p>
+                                                            <p className="text-xs text-foreground font-medium leading-relaxed">{info.trigger}</p>
+                                                        </div>
+
+                                                        <div className="space-y-2.5">
+                                                            <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">WhatsApp Preview</p>
+                                                            
+                                                            {/* Mock WhatsApp Chat Bubble */}
+                                                            <div className="p-4 rounded-xl bg-[#0b141a] border border-[#202c33] max-w-sm relative">
+                                                                {/* Speech Bubble Header */}
+                                                                {info.title === 'Promotional Broadcast' && (
+                                                                    <div className="pb-1.5 border-b border-[#202c33] mb-2">
+                                                                        <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Exclusive Offer</span>
+                                                                    </div>
+                                                                )}
+                                                                {/* Speech Bubble Body */}
+                                                                <div className="text-[11px] text-[#e9edef] whitespace-pre-wrap leading-relaxed font-sans">
+                                                                    {info.preview}
+                                                                </div>
+                                                                {/* Double checkmark & Timestamp */}
+                                                                <div className="flex items-center justify-end gap-1 mt-2 text-[9px] text-[#8696a0]">
+                                                                    <span>12:00 PM</span>
+                                                                    <svg className="w-3.5 h-3.5 text-sky-400 fill-current" viewBox="0 0 24 24">
+                                                                        <path d="M0 12.116l2.053-1.897 5.713 5.56 12.044-12.219 2.19 1.737-14.234 14.703z" />
+                                                                    </svg>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
 
                     {loadingTemplates && waTemplates.length === 0 && (
                         <div className="flex items-center gap-2 text-muted-foreground">

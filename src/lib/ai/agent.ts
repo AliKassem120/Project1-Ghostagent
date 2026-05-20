@@ -18,7 +18,7 @@ function getGroq() {
     return createGroq({ apiKey: key });
 }
 
-function buildPrompt(config: WorkspaceConfig, timeCtx: any, replyLanguage: string, ragExamples: {customer_message: string, owner_reply: string}[] | undefined, platform: 'instagram' | 'whatsapp'): string {
+function buildPrompt(config: WorkspaceConfig, replyLanguage: string, ragExamples: {customer_message: string, owner_reply: string}[] | undefined, platform: 'instagram' | 'whatsapp'): string {
     const isArabizi = replyLanguage === 'arabizi' || replyLanguage === 'lebanese franco';
 
     const businessDesc = config.businessType === 'appointments'
@@ -108,7 +108,6 @@ When in doubt, keep sentences very short and copy the exact formatting from the 
 
     return `You are the DM manager of "${config.businessName}", ${businessDesc}.
 You're chatting with a customer on ${platform === 'whatsapp' ? 'WhatsApp' : 'Instagram DMs'}.
-Date: ${timeCtx.dayName}, ${timeCtx.isoDate} at ${timeCtx.isoTime}.
 
 RULES:
 1. ${lengthRule}
@@ -194,7 +193,7 @@ export async function runV3Agent(
         })
     );
 
-    // 2.5 Load RAG Examples
+    // 2.5 Load RAG Examples & Customer details
     const { data: ragExamples } = await input.supabase
         .from('business_training_data')
         .select('customer_message, owner_reply')
@@ -202,8 +201,20 @@ export async function runV3Agent(
         .order('created_at', { ascending: false })
         .limit(10);
 
-    const system = buildPrompt(config, timeCtx, replyLang, ragExamples || [], input.platform);
+    const { getCustomerFromStore } = await import('@/lib/ai/customer-store');
+    const customer = await getCustomerFromStore(input.supabase, input.workspaceId, input.chatId);
+
+    const system = buildPrompt(config, replyLang, ragExamples || [], input.platform);
+
+    const customerBlock = customer && (customer.name || customer.phone || customer.address)
+        ? `\nKNOWN CUSTOMER DETAILS:\n- Name: ${customer.name || 'Unknown'}\n- Phone: ${customer.phone || 'Unknown'}\n- Address: ${customer.address || 'Unknown'}\n(Do NOT ask the customer for their name, phone, or address if you already know it. Skip asking and proceed with checkout/booking directly.)`
+        : '';
+
     const messages: any[] = [
+        {
+            role: 'system',
+            content: `Current context:\nDate: ${timeCtx.dayName}, ${timeCtx.isoDate} at ${timeCtx.isoTime}.${customerBlock}`
+        },
         ...history,
         { role: 'user', content: input.message },
     ];
@@ -212,14 +223,27 @@ export async function runV3Agent(
     if (!groq) throw new Error('GROQ_API_KEY is missing');
 
     try {
-        const result = await generateText({
-            model: groq(MODEL),
-            system,
-            messages,
-            tools: wrappedTools,
-            stopWhen: stepCountIs(5),
-            temperature: 0.3,
-        });
+        let result;
+        try {
+            result = await generateText({
+                model: groq(MODEL),
+                system,
+                messages,
+                tools: wrappedTools,
+                stopWhen: stepCountIs(5),
+                temperature: 0.3,
+            });
+        } catch (primaryErr: any) {
+            v2log.warn('V3_AGENT', `Primary model ${MODEL} failed, attempting fallback to llama-3.1-70b-versatile`, { error: primaryErr.message });
+            result = await generateText({
+                model: groq('llama-3.1-70b-versatile'),
+                system,
+                messages,
+                tools: wrappedTools,
+                stopWhen: stepCountIs(5),
+                temperature: 0.3,
+            });
+        }
 
         let reply = result.text?.trim() || '';
         const actions: string[] = [];

@@ -39,17 +39,22 @@ export default function MarketingPage() {
                 .not('customer_phone', 'is', null);
 
             const map = new Map<string, { phone: string, name: string, source: string }>();
+            const normalizePhone = (p: string) => p.replace(/\D/g, '');
 
             orders?.forEach(o => {
                 if (o.customer_phone && o.customer_phone.length > 5) {
-                    map.set(o.customer_phone, { phone: o.customer_phone, name: o.customer_name || 'Customer', source: 'Order' });
+                    const norm = normalizePhone(o.customer_phone);
+                    if (norm.length > 5) {
+                        map.set(norm, { phone: o.customer_phone, name: o.customer_name || 'Customer', source: 'Order' });
+                    }
                 }
             });
 
             appts?.forEach(a => {
                 if (a.customer_phone && a.customer_phone.length > 5) {
-                    if (!map.has(a.customer_phone)) {
-                        map.set(a.customer_phone, { phone: a.customer_phone, name: a.customer_name || 'Customer', source: 'Appointment' });
+                    const norm = normalizePhone(a.customer_phone);
+                    if (norm.length > 5 && !map.has(norm)) {
+                        map.set(norm, { phone: a.customer_phone, name: a.customer_name || 'Customer', source: 'Appointment' });
                     }
                 }
             });
@@ -150,13 +155,13 @@ export default function MarketingPage() {
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="font-bold text-foreground">Audience ({customers.length})</h3>
                         <div className="relative w-64">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10 pointer-events-none" />
                             <input
                                 type="text"
                                 placeholder="Search customers..."
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
-                                className="input-premium w-full pl-9 h-9 text-sm"
+                                className="input-premium w-full pl-9 h-9 text-sm relative z-0"
                             />
                         </div>
                     </div>
