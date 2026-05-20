@@ -18,7 +18,13 @@ function getGroq() {
     return createGroq({ apiKey: key });
 }
 
-function buildPrompt(config: WorkspaceConfig, replyLanguage: string, ragExamples: {customer_message: string, owner_reply: string}[] | undefined, platform: 'instagram' | 'whatsapp'): string {
+function buildPrompt(
+    config: WorkspaceConfig,
+    replyLanguage: string,
+    ragExamples: {customer_message: string, owner_reply: string}[] | undefined,
+    platform: 'instagram' | 'whatsapp',
+    skipTools = false
+): string {
     const isArabizi = replyLanguage === 'arabizi' || replyLanguage === 'lebanese franco';
 
     const businessDesc = config.businessType === 'appointments'
@@ -45,8 +51,10 @@ DISCOUNTS:
 - If they want more than ${config.maxDiscount}%: "Sorry, best price."`
         : `\nDISCOUNTS: None. Prices are fixed. If they ask: "ekhir se3er" / "final price."`;
 
-    const toolBlock = config.businessType === 'appointments'
-        ? `TOOLS:
+    const toolBlock = skipTools
+        ? `TOOLS: None available for this message. Reply with static information only.`
+        : (config.businessType === 'appointments'
+            ? `TOOLS:
 - You have full access to database tools. Use them to help the customer.
 - Use check_slot BEFORE confirming any booking.
 - Use lookup_customer to check if they've been here before — skip asking info you already have.
@@ -58,7 +66,7 @@ DISCOUNTS:
 CONTEXT RECOVERY:
 - If you previously suggested a date/time (e.g. "How about tomorrow?" or "What about 3 PM?") and the customer replies with a confirmation like "yeah", "sure", "ok", "yep", "that works", "sounds good", "perfect" — treat their answer as confirming the date/time YOU proposed. Extract it from YOUR previous message and proceed with the booking.
 - Do NOT re-ask for information you already proposed and they confirmed.`
-        : `TOOLS:
+            : `TOOLS:
 - You have full access to database tools. You are the orchestrator.
 - Use search_products for ANY question about products, prices, or stock.
 - Use lookup_customer to check if they've ordered before — skip asking info you already have.
@@ -70,7 +78,7 @@ CONTEXT RECOVERY:
 
 CONTEXT RECOVERY:
 - If you previously suggested something (e.g. a product variant, a delivery option) and the customer replies with a confirmation like "yeah", "sure", "ok", "yep", "that works", "sounds good", "perfect" — treat their answer as confirming what YOU proposed. Extract it from YOUR previous message and proceed.
-- Do NOT re-ask for information you already proposed and they confirmed.`;
+- Do NOT re-ask for information you already proposed and they confirmed.`);
 
     let languageBlock: string;
     
@@ -247,10 +255,33 @@ export async function runV3Agent(
 
     const ragExamples = scoredExamples.slice(0, 4).map((se: any) => se.ex);
 
+    const groq = getGroq();
+    if (!groq) throw new Error('GROQ_API_KEY is missing');
+
+    // Phase 2 Optimization: Frontline Classifier Routing
+    let route: 'simple' | 'transaction' = 'transaction';
+    try {
+        const classification = await generateText({
+            model: groq('llama-3.1-8b-instant'),
+            system: `You are an AI router. Categorize if the customer message requires querying or modifying live database tables.
+Categories:
+- "transaction": Customer wants to book an appointment, check slot availability, search products, check stock/availability of products, ask about prices, order products, cancel an order, or check order status.
+- "simple": Greeting, thanks, hello, working hours, location details, or basic casual talk.
+Reply with exactly one word: "simple" or "transaction".`,
+            prompt: `Customer message: "${input.message}"`,
+            temperature: 0,
+        });
+
+        const ans = classification.text?.trim().toLowerCase() || '';
+        if (ans.includes('simple')) {
+            route = 'simple';
+        }
+    } catch (classifyErr) {
+        v2log.warn('CLASSIFIER', 'Classifier routing failed, defaulting to transaction', { error: classifyErr });
+    }
+
     const { getCustomerFromStore } = await import('@/lib/ai/customer-store');
     const customer = await getCustomerFromStore(input.supabase, input.workspaceId, input.chatId);
-
-    const system = buildPrompt(config, replyLang, ragExamples, input.platform);
 
     const customerBlock = customer && (customer.name || customer.phone || customer.address)
         ? `\nKNOWN CUSTOMER DETAILS:\n- Name: ${customer.name || 'Unknown'}\n- Phone: ${customer.phone || 'Unknown'}\n- Address: ${customer.address || 'Unknown'}\n(Do NOT ask the customer for their name, phone, or address if you already know it. Skip asking and proceed with checkout/booking directly.)`
@@ -265,30 +296,46 @@ export async function runV3Agent(
         { role: 'user', content: input.message },
     ];
 
-    const groq = getGroq();
-    if (!groq) throw new Error('GROQ_API_KEY is missing');
-
     try {
-        let result;
-        try {
-            result = await generateText({
-                model: groq(MODEL),
-                system,
-                messages,
-                tools: wrappedTools,
-                stopWhen: stepCountIs(5),
-                temperature: 0.3,
-            });
-        } catch (primaryErr: any) {
-            v2log.warn('V3_AGENT', `Primary model ${MODEL} failed, attempting fallback to llama-3.1-70b-versatile`, { error: primaryErr.message });
-            result = await generateText({
-                model: groq('llama-3.1-70b-versatile'),
-                system,
-                messages,
-                tools: wrappedTools,
-                stopWhen: stepCountIs(5),
-                temperature: 0.3,
-            });
+        let result: any;
+        if (route === 'simple') {
+            const system = buildPrompt(config, replyLang, ragExamples, input.platform, true);
+            try {
+                v2log.info('V3_AGENT', 'Routing simple message to fast model llama-3.1-8b-instant', { message: input.message });
+                result = await generateText({
+                    model: groq('llama-3.1-8b-instant'),
+                    system,
+                    messages,
+                    temperature: 0.3,
+                });
+            } catch (simpleModelErr) {
+                v2log.warn('V3_AGENT', 'Fast model failed, escalating to primary model', { error: simpleModelErr });
+                route = 'transaction';
+            }
+        }
+
+        if (route === 'transaction') {
+            const system = buildPrompt(config, replyLang, ragExamples, input.platform, false);
+            try {
+                result = await generateText({
+                    model: groq(MODEL),
+                    system,
+                    messages,
+                    tools: wrappedTools,
+                    stopWhen: stepCountIs(5),
+                    temperature: 0.3,
+                });
+            } catch (primaryErr: any) {
+                v2log.warn('V3_AGENT', `Primary model ${MODEL} failed, attempting fallback to llama-3.1-70b-versatile`, { error: primaryErr.message });
+                result = await generateText({
+                    model: groq('llama-3.1-70b-versatile'),
+                    system,
+                    messages,
+                    tools: wrappedTools,
+                    stopWhen: stepCountIs(5),
+                    temperature: 0.3,
+                });
+            }
         }
 
         let reply = result.text?.trim() || '';
