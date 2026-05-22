@@ -15,85 +15,143 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Missing Data' }, { status: 400 });
     }
 
-    // 1. Fetch activity log to get workspace_id
+    // 1. Fetch activity log to get workspace_id and check platform
     const { data: activity } = await supabase
         .from('activity_log')
-        .select('workspace_id')
+        .select('workspace_id, metadata')
         .eq('id', activityId)
         .maybeSingle();
 
-    // 2. Resolve final token
-    let token = '';
-    let isNewAPI = false;
-
-    if (activity?.workspace_id) {
-        const { data: integration } = await supabase
-            .from('instagram_integrations')
-            .select('access_token')
-            .eq('workspace_id', activity.workspace_id)
-            .maybeSingle();
-
-        if (integration?.access_token) {
-            token = integration.access_token;
-            isNewAPI = true;
-        }
-    }
-
-    if (!token) {
-        // Fallback to legacy or ENV
-        const { data: connection } = await supabase
-            .from('user_connections')
-            .select('access_token, metadata')
-            .eq('user_id', user.id)
-            .in('provider', ['INSTAGRAM', 'instagram_api_login'])
-            .limit(1).maybeSingle();
-
-        if (connection?.access_token) {
-            token = connection.access_token;
-        } else if ((connection as any)?.metadata?.access_token) {
-            token = (connection as any).metadata.access_token;
-        }
-    }
-
-    if (!token) {
-        token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN || '';
-    }
-
-    if (!token) {
-        return NextResponse.json({ error: 'Missing Instagram Access Token' }, { status: 500 });
-    }
-
-    // Sanitize Token
-    token = token.trim();
-    if (token.startsWith('"') && token.endsWith('"')) token = token.slice(1, -1);
-    if (token.startsWith('{')) {
-        try {
-            const parsed = JSON.parse(token);
-            token = parsed.access_token || token;
-        } catch (e) { /* ignore */ }
-    }
-
-    const baseUrl = isNewAPI ? 'https://graph.instagram.com' : 'https://graph.facebook.com';
-    const url = `${baseUrl}/v21.0/me/messages?access_token=${token}`;
+    const platform = activity?.metadata?.platform === 'whatsapp' ? 'whatsapp' : 'instagram';
+    let msgData: any;
 
     try {
-        const response = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                recipient: { id: recipientId },
-                message: { text: replyText },
-            }),
-        });
+        if (platform === 'whatsapp') {
+            // ─── SEND VIA WHATSAPP ───
+            if (!activity?.workspace_id) {
+                return NextResponse.json({ error: 'Workspace ID required to send WhatsApp messages.' }, { status: 400 });
+            }
 
-        const data = await response.json();
+            const { data: wsSettings } = await supabase
+                .from('ai_settings')
+                .select('whatsapp_phone_number_id, whatsapp_access_token')
+                .eq('id', activity.workspace_id)
+                .maybeSingle();
 
-        if (data.error) {
-            console.error('Instagram Error:', data.error);
-            return NextResponse.json({ error: data.error.message }, { status: 500 });
+            let waToken = wsSettings?.whatsapp_access_token;
+            const waPhoneId = wsSettings?.whatsapp_phone_number_id;
+            const systemToken = process.env.WHATSAPP_SYSTEM_ACCESS_TOKEN;
+            const systemPhoneId = process.env.WHATSAPP_FROM_PHONE_NUMBER_ID;
+
+            if (!waToken && waPhoneId === systemPhoneId) {
+                waToken = systemToken;
+            }
+
+            if (!waToken || !waPhoneId) {
+                return NextResponse.json({ error: 'WhatsApp is not configured for this workspace.' }, { status: 401 });
+            }
+
+            const formattedRecipient = `+${recipientId.replace(/\D/g, '')}`;
+            const url = `https://graph.facebook.com/v18.0/${waPhoneId}/messages`;
+
+            const sendRes = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${waToken.trim()}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    messaging_product: 'whatsapp',
+                    recipient_type: 'individual',
+                    to: formattedRecipient,
+                    type: 'text',
+                    text: { body: replyText },
+                }),
+            });
+
+            msgData = await sendRes.json();
+
+            if (msgData.error) {
+                console.error('WhatsApp Send Error:', msgData.error);
+                return NextResponse.json({ error: msgData.error.message }, { status: 500 });
+            }
+        } else {
+            // ─── SEND VIA INSTAGRAM ───
+            let token = '';
+            let isNewAPI = false;
+
+            if (activity?.workspace_id) {
+                const { data: integration } = await supabase
+                    .from('instagram_integrations')
+                    .select('access_token')
+                    .eq('workspace_id', activity.workspace_id)
+                    .maybeSingle();
+
+                if (integration?.access_token) {
+                    token = integration.access_token;
+                    isNewAPI = true;
+                }
+            }
+
+            if (!token) {
+                // Fallback to legacy or ENV
+                const { data: connection } = await supabase
+                    .from('user_connections')
+                    .select('access_token, metadata')
+                    .eq('user_id', user.id)
+                    .in('provider', ['INSTAGRAM', 'instagram_api_login'])
+                    .limit(1).maybeSingle();
+
+                if (connection?.access_token) {
+                    token = connection.access_token;
+                } else if ((connection as any)?.metadata?.access_token) {
+                    token = (connection as any).metadata.access_token;
+                }
+            }
+
+            if (!token) {
+                token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN || '';
+            }
+
+            if (!token) {
+                return NextResponse.json({ error: 'Missing Instagram Access Token' }, { status: 500 });
+            }
+
+            // Sanitize Token
+            token = token.trim();
+            if (token.startsWith('"') && token.endsWith('"')) token = token.slice(1, -1);
+            if (token.startsWith('{')) {
+                try {
+                    const parsed = JSON.parse(token);
+                    token = parsed.access_token || token;
+                } catch (e) { /* ignore */ }
+            }
+
+            const baseUrl = isNewAPI ? 'https://graph.instagram.com' : 'https://graph.facebook.com';
+            const url = `${baseUrl}/v21.0/me/messages?access_token=${token}`;
+
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    recipient: { id: recipientId },
+                    message: { text: replyText },
+                }),
+            });
+
+            msgData = await response.json();
+
+            if (msgData.error) {
+                console.error('Instagram Error:', msgData.error);
+                return NextResponse.json({ error: msgData.error.message }, { status: 500 });
+            }
         }
 
         // Update Activity Log
+        const messageId = platform === 'whatsapp' 
+            ? (msgData.messages?.[0]?.id || msgData.id)
+            : (msgData.message_id || msgData.id);
+
         const { error: updateError } = await supabase
             .from('activity_log')
             .update({
@@ -101,9 +159,10 @@ export async function POST(request: Request) {
                 description: `Sent (Manual): "${replyText}"`,
                 metadata: {
                     chat_id: recipientId,
-                    platform: 'instagram',
+                    platform: platform,
                     status: 'sent',
-                    reply_text: replyText
+                    reply_text: replyText,
+                    message_id: messageId
                 }
             })
             .eq('id', activityId)

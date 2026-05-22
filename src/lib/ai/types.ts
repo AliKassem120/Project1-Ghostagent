@@ -34,7 +34,22 @@ export interface AutomationInput {
 }
 
 // Inlined from deleted state/types
-export type ConversationStage = 'idle' | 'collecting' | 'confirming' | 'complete' | 'handoff';
+export type ConversationStage =
+    | 'idle'
+    | 'collecting'
+    | 'confirming'
+    | 'complete'
+    | 'handoff'
+    | 'awaiting_product'
+    | 'awaiting_variant'
+    | 'awaiting_order_details'
+    | 'awaiting_checkout_confirmation'
+    | 'awaiting_service'
+    | 'awaiting_date_time'
+    | 'awaiting_customer_details'
+    | 'awaiting_booking_confirmation'
+    | 'post_order_modify'
+    | 'post_appointment_modify';
 
 export interface AutomationResult {
     shouldReply: boolean;

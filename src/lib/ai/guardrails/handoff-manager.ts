@@ -113,23 +113,30 @@ export async function resolveHandoff(
 export function determineHandoffPriority(
     reason: string,
     loopCount: number = 0,
-    hasActiveOrder: boolean = false
+    hasActiveOrder: boolean = false,
+    emotionSentiment?: 'positive' | 'neutral' | 'frustrated' | 'confused' | 'urgent'
 ): 'low' | 'medium' | 'high' | 'urgent' {
-    // Urgent: frustration or explicit request with active transaction
-    if (hasActiveOrder && (reason === 'frustration_stop' || reason === 'human_handoff')) {
+    // Urgent: frustrated customer with active transaction
+    if (hasActiveOrder && (reason === 'frustration_stop' || reason === 'human_handoff' || emotionSentiment === 'frustrated')) {
         return 'urgent';
     }
 
-    // High: frustration or loop detection with high count
-    if (reason === 'frustration_stop' || loopCount >= 5) {
+    // Urgent: emotion-detected urgency
+    if (emotionSentiment === 'urgent') {
+        return 'urgent';
+    }
+
+    // High: frustration detected (by emotion or reason) or excessive loops
+    if (reason === 'frustration_stop' || emotionSentiment === 'frustrated' || loopCount >= 5) {
         return 'high';
     }
 
-    // Medium: explicit handoff request or loop detected
-    if (reason === 'human_handoff' || reason === 'loop_detected') {
+    // Medium: confusion detected, explicit handoff request, or loop detected
+    if (emotionSentiment === 'confused' || reason === 'human_handoff' || reason === 'loop_detected') {
         return 'medium';
     }
 
     // Low: everything else
     return 'low';
 }
+

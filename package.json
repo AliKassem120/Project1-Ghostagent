@@ -34,6 +34,7 @@
     "nodemailer": "^8.0.1",
     "openai": "^6.16.0",
     "papaparse": "^5.5.3",
+    "pg": "^8.21.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-markdown": "^10.1.0",
