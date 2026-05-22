@@ -207,7 +207,7 @@ export function detectEmotion(
     // Confidence: normalize score to 0-1 range (cap at 10 points = 1.0)
     const confidence = Math.min(maxScore / 10, 1.0);
 
-    if (sentiment !== 'neutral' && sentiment !== 'positive') {
+    if (sentiment !== 'positive') {
         v2log.info('EMOTION', `Detected ${sentiment} (confidence: ${confidence.toFixed(2)})`, { triggers });
     }
 
