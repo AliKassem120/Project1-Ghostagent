@@ -176,7 +176,7 @@ export async function saveSession(
 
         const { error } = await supabase
             .from('conversation_states')
-            .upsert(payload, { onConflict: 'user_id,workspace_id,chat_id,workspace_type' });
+            .upsert(payload, { onConflict: 'user_id,workspace_id,chat_id,workspace_type,platform' });
 
         if (error) {
             v2log.error('SESSION_MANAGER', 'Failed to upsert conversation state', { error, payload });

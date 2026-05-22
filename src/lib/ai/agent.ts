@@ -500,7 +500,7 @@ Reply with exactly one word: "simple" or "transaction".`,
                 emotionTriggers: emotionSignal.triggers,
             },
             updated_at: new Date().toISOString()
-        }, { onConflict: 'user_id,workspace_id,chat_id,workspace_type' });
+        }, { onConflict: 'user_id,workspace_id,chat_id,workspace_type,platform' });
 
         try {
             const { createHandoff, determineHandoffPriority } = await import('@/lib/ai/guardrails/handoff-manager');
@@ -729,7 +729,7 @@ Reply with exactly one word: "simple" or "transaction".`,
                     postContext: session.postContext
                 },
                 updated_at: new Date().toISOString()
-            }, { onConflict: 'user_id,workspace_id,chat_id,workspace_type' });
+            }, { onConflict: 'user_id,workspace_id,chat_id,workspace_type,platform' });
 
             try {
                 const { createHandoff, determineHandoffPriority } = await import('@/lib/ai/guardrails/handoff-manager');
