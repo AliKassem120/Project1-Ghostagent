@@ -1,6 +1,6 @@
 import { generateText, stepCountIs, tool } from 'ai';
 import { createGroq } from '@ai-sdk/groq';
-import type { AutomationInput, AutomationResult, WorkspaceConfig } from '@/lib/ai/types';
+import type { AutomationInput, AutomationResult, WorkspaceConfig, ServiceRecord } from '@/lib/ai/types';
 import { loadConversationHistory } from '@/lib/ai/history';
 import { createAppointmentTools, createEcommerceTools, type ToolContext } from '@/lib/ai/tools';
 import { detectLanguage } from '@/lib/ai/language';
@@ -9,6 +9,7 @@ import { checkRateLimit } from '@/lib/ai/guardrails/rate-limiter';
 import { MetricBuilder, emitMetric } from '@/lib/ai/metrics';
 import { v2log } from '@/lib/ai/logger';
 import { LEBANESE_VOCABULARY, ARABIZI_DICTIONARY } from '@/lib/ai/dictionaries';
+import { loadActiveServices } from '@/lib/ai/appointments/services';
 
 const MODEL = 'llama-3.3-70b-versatile';
 
@@ -23,7 +24,8 @@ function buildPrompt(
     replyLanguage: string,
     ragExamples: {customer_message: string, owner_reply: string}[] | undefined,
     platform: 'instagram' | 'whatsapp',
-    skipTools = false
+    skipTools = false,
+    services?: ServiceRecord[]
 ): string {
     const isArabizi = replyLanguage === 'arabizi' || replyLanguage === 'lebanese franco';
 
@@ -51,18 +53,28 @@ DISCOUNTS:
 - If they want more than ${config.maxDiscount}%: "Sorry, best price."`
         : `\nDISCOUNTS: None. Prices are fixed. If they ask: "ekhir se3er" / "final price."`;
 
+    // Build a service catalog block for appointment workspaces
+    let serviceCatalogBlock = '';
+    if (config.businessType === 'appointments' && services && services.length > 0) {
+        const serviceLines = services.map(s =>
+            `- ${s.name}: $${s.price}, ${s.durationMinutes} min${s.description ? ` — ${s.description}` : ''}`
+        ).join('\n');
+        serviceCatalogBlock = `\nSERVICES MENU (from database — use these EXACT prices, never make up prices):\n${serviceLines}\n`;
+    }
+
     const toolBlock = skipTools
-        ? `TOOLS: None available for this message. Reply with static information only.`
+        ? `TOOLS: None available for this message. Reply with static information only.${serviceCatalogBlock ? '\n' + serviceCatalogBlock : ''}`
         : (config.businessType === 'appointments'
             ? `TOOLS:
 - You have full access to database tools. Use them to help the customer.
+- Use get_services to look up service names, prices, and durations if not listed below.
 - Use check_slot BEFORE confirming any booking.
 - Use lookup_customer to check if they've been here before — skip asking info you already have.
 - Use book_appointment ONLY after the customer explicitly confirms the date, time, and service.
 - NEVER say "booked" or "confirmed" unless book_appointment returned success.
 - ALWAYS generate a conversational text reply to the customer after using any tool. Never output just a tool call.
 - ${platform === 'whatsapp' ? 'On WhatsApp: Use send_booking_flow ONCE when the customer first expresses interest in booking. After sending the booking button, do NOT call send_booking_flow again. If the user clicks the button (their message will be "📅 Book Now" or "Book Now"), respond in TEXT asking which date and time they prefer — do NOT send the button again.' : 'Ask for date/time manually.'}
-
+${serviceCatalogBlock}
 CONTEXT RECOVERY:
 - If you previously suggested a date/time (e.g. "How about tomorrow?" or "What about 3 PM?") and the customer replies with a confirmation like "yeah", "sure", "ok", "yep", "that works", "sounds good", "perfect" — treat their answer as confirming the date/time YOU proposed. Extract it from YOUR previous message and proceed with the booking.
 - Do NOT re-ask for information you already proposed and they confirmed.`
@@ -265,8 +277,9 @@ export async function runV3Agent(
             model: groq('llama-3.1-8b-instant'),
             system: `You are an AI router. Categorize if the customer message requires querying or modifying live database tables.
 Categories:
-- "transaction": Customer wants to book an appointment, check slot availability, search products, check stock/availability of products, ask about prices, order products, cancel an order, or check order status.
-- "simple": Greeting, thanks, hello, working hours, location details, or basic casual talk.
+- "transaction": Customer wants to book an appointment, check slot availability, search products, check stock/availability of products, ask about prices, ask how much something costs, ask how long a service takes, ask about duration, order products, cancel an order, check order status, mentions a specific date or time (e.g. "today", "tomorrow", "3pm", "next week"), or says they want to book/reserve/schedule.
+- "simple": ONLY pure greetings (hi, hello, hey), pure thanks (thanks, thank you, merci, shukran), or basic casual chat that has NOTHING to do with services, products, booking, or prices.
+When in doubt, always choose "transaction".
 Reply with exactly one word: "simple" or "transaction".`,
             prompt: `Customer message: "${input.message}"`,
             temperature: 0,
@@ -280,8 +293,8 @@ Reply with exactly one word: "simple" or "transaction".`,
         v2log.warn('CLASSIFIER', 'Classifier routing failed, defaulting to transaction', { error: classifyErr });
     }
 
-    const { getCustomerFromStore } = await import('@/lib/ai/customer-store');
-    const customer = await getCustomerFromStore(input.supabase, input.workspaceId, input.chatId);
+    const { getKnownCustomerDetails } = await import('@/lib/ai/customer-history');
+    const customer = await getKnownCustomerDetails(input.supabase, input.workspaceId, input.chatId);
 
     const customerBlock = customer && (customer.name || customer.phone || customer.address)
         ? `\nKNOWN CUSTOMER DETAILS:\n- Name: ${customer.name || 'Unknown'}\n- Phone: ${customer.phone || 'Unknown'}\n- Address: ${customer.address || 'Unknown'}\n(Do NOT ask the customer for their name, phone, or address if you already know it. Skip asking and proceed with checkout/booking directly.)`
@@ -296,10 +309,20 @@ Reply with exactly one word: "simple" or "transaction".`,
         { role: 'user', content: input.message },
     ];
 
+    // Pre-load services for appointment workspaces (used by both routes)
+    let activeServices: ServiceRecord[] | undefined;
+    if (config.businessType === 'appointments') {
+        try {
+            activeServices = await loadActiveServices(input.supabase, input.workspaceId);
+        } catch (e) {
+            v2log.warn('V3_AGENT', 'Failed to pre-load services', { error: e });
+        }
+    }
+
     try {
         let result: any;
         if (route === 'simple') {
-            const system = buildPrompt(config, replyLang, ragExamples, input.platform, true);
+            const system = buildPrompt(config, replyLang, ragExamples, input.platform, true, activeServices);
             try {
                 v2log.info('V3_AGENT', 'Routing simple message to fast model llama-3.1-8b-instant', { message: input.message });
                 result = await generateText({
@@ -315,7 +338,7 @@ Reply with exactly one word: "simple" or "transaction".`,
         }
 
         if (route === 'transaction') {
-            const system = buildPrompt(config, replyLang, ragExamples, input.platform, false);
+            const system = buildPrompt(config, replyLang, ragExamples, input.platform, false, activeServices);
             try {
                 result = await generateText({
                     model: groq(MODEL),
@@ -349,10 +372,12 @@ Reply with exactly one word: "simple" or "transaction".`,
                 workspace_id: input.workspaceId,
                 workspace_type: input.workspaceType,
                 external_chat_id: input.chatId,
+                chat_id: input.chatId,
                 is_muted: true,
                 stage: 'handoff',
+                platform: input.platform.toUpperCase(),
                 updated_at: new Date().toISOString()
-            }, { onConflict: 'user_id,external_chat_id' });
+            }, { onConflict: 'user_id,workspace_id,chat_id,workspace_type' });
 
             try {
                 const { createHandoff, determineHandoffPriority } = await import('@/lib/ai/guardrails/handoff-manager');

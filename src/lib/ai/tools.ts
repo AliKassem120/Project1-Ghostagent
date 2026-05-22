@@ -124,6 +124,23 @@ export function createAppointmentTools(ctx: ToolContext) {
                 return { ...appointmentResult, service: match.name, date, time: formatTime12(time), price: match.price };
             },
         },
+        get_services: {
+            description: 'List all available services with their prices and durations. Use when the customer asks about services, prices, or what you offer.',
+            inputSchema: z.object({}),
+            execute: async () => {
+                const services = await loadActiveServices(ctx.supabase, ctx.workspaceId);
+                if (services.length === 0) return { services: [], message: 'No services configured.' };
+                return {
+                    services: services.map(s => ({
+                        name: s.name,
+                        price: s.price,
+                        duration: s.durationMinutes,
+                        description: s.description || null,
+                    })),
+                    count: services.length,
+                };
+            },
+        },
         cancel_appointment: {
             description: 'Cancel the customer\'s most recent upcoming confirmed appointment.',
             inputSchema: z.object({}),
