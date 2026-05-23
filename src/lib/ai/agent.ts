@@ -640,14 +640,28 @@ Reply with exactly one word: "simple" or "transaction".`,
                     temperature: 0.3,
                 });
             } catch (primaryErr: any) {
-                v2log.warn('V3_AGENT', `Primary model ${MODEL} failed, attempting fallback to openrouter/free`, { error: primaryErr.message });
-                const fallbackSystem = buildPrompt(config, replyLang, ragExamples, input.platform, true, activeServices, recentSummaries, session, customerNotes, emotionBlock, proactiveBlock, crossChannelNote);
-                result = await generateText({
-                    model: openrouterInstance('openrouter/free'),
-                    system: fallbackSystem,
-                    messages,
-                    temperature: 0.3,
-                });
+                v2log.warn('V3_AGENT', `Primary model ${MODEL} failed, retrying with tools...`, { error: primaryErr.message });
+                try {
+                    // Retry #1: same model WITH tools (handles transient JSON errors)
+                    result = await generateText({
+                        model: openrouterInstance(MODEL),
+                        system,
+                        messages,
+                        tools: wrappedTools,
+                        stopWhen: stepCountIs(5),
+                        temperature: 0.3,
+                    });
+                } catch (retryErr: any) {
+                    v2log.warn('V3_AGENT', `Retry with tools also failed, falling back to tool-less mode`, { error: retryErr.message });
+                    // Retry #2: tool-less mode as last resort (can only generate text, no DB actions)
+                    const fallbackSystem = buildPrompt(config, replyLang, ragExamples, input.platform, true, activeServices, recentSummaries, session, customerNotes, emotionBlock, proactiveBlock, crossChannelNote);
+                    result = await generateText({
+                        model: openrouterInstance('openrouter/free'),
+                        system: fallbackSystem,
+                        messages,
+                        temperature: 0.3,
+                    });
+                }
             }
         }
 
