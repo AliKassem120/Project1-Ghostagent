@@ -40,6 +40,7 @@ export default function InventoryPage() {
     const userId = user?.id;
     const { activeWorkspaceId, planTier } = useWorkspace();
     const [isAdding, setIsAdding] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [newProduct, setNewProduct] = useState({ name: '', price: '', stock: '' });
@@ -128,7 +129,8 @@ export default function InventoryPage() {
     };
 
     const handleSaveProduct = async () => {
-        if (!newProduct.name || !userId) return;
+        if (!newProduct.name || !userId || isSaving) return;
+        setIsSaving(true);
 
         try {
             const stock = Number(newProduct.stock) || 0;
@@ -164,6 +166,8 @@ export default function InventoryPage() {
         } catch (error) {
             console.error('Error saving product:', error);
             toast.error('Failed to save product. Check console.');
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -549,7 +553,7 @@ export default function InventoryPage() {
                                         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-semibold">$</span>
                                         <input
                                             type="number"
-                                            className="input-premium w-full pl-8 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0 focus:shadow-[0_0_15px_rgba(139,92,246,0.15)] focus:border-primary/45 transition-all duration-200"
+                                            className="input-premium w-full !pl-8 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0 focus:shadow-[0_0_15px_rgba(139,92,246,0.15)] focus:border-primary/45 transition-all duration-200"
                                             placeholder="0.00"
                                             value={newProduct.price}
                                             onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
@@ -571,10 +575,10 @@ export default function InventoryPage() {
                             <div className="flex gap-3 pt-2">
                                 <button
                                     onClick={handleSaveProduct}
-                                    disabled={!newProduct.name.trim()}
+                                    disabled={!newProduct.name.trim() || isSaving}
                                     className="flex-1 sm:flex-none px-8 py-3 bg-primary text-black font-bold rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 disabled:opacity-40"
                                 >
-                                    <Save className="w-4 h-4" /> Save Product
+                                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {isSaving ? 'Saving...' : 'Save Product'}
                                 </button>
                                 <button
                                     onClick={handleCancelAdd}
