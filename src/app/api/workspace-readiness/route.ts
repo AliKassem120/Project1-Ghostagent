@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     // ── Check 1: Workspace exists in ai_settings ─────────────
     const { data: ws, error: wsErr } = await supabase
         .from('ai_settings')
-        .select('id, user_id, name, business_type, custom_instructions')
+        .select('id, user_id, name, business_type, system_instructions')
         .eq('id', workspaceId)
         .maybeSingle();
 
