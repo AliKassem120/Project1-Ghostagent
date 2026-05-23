@@ -23,7 +23,7 @@ export interface SessionContext {
     customerProfile: CustomerProfile | null;
 }
 
-const SESSION_TIMEOUT_MINUTES = 30;
+const SESSION_TIMEOUT_MINUTES = 15;
 
 /**
  * Basic greeting detector. If user says a greeting, we can use it

@@ -62,7 +62,7 @@ describe('FSM Guardrails & Session/Loop Management', () => {
             // maxDurationMinutes for awaiting_date_time is 15 minutes
             const res = validateTransition('awaiting_date_time', 'awaiting_customer_details', 0, enteredAt);
             expect(res.approvedStage).toBe('idle');
-            expect(res.forceMenu).toBe(true);
+            expect(res.forceMenu).toBe(false);
             expect(res.reason).toContain('State timeout exceeded');
         });
     });

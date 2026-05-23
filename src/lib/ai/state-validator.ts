@@ -145,7 +145,7 @@ export function validateTransition(
             return {
                 approvedStage: config.fallbackState,
                 resetLoop: true,
-                forceMenu: true,
+                forceMenu: false,
                 reason: 'State timeout exceeded',
             };
         }
