@@ -1,5 +1,6 @@
 import { generateText, stepCountIs, tool } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
+import { createGroq } from '@ai-sdk/groq';
 import type { AutomationInput, AutomationResult, WorkspaceConfig, ServiceRecord } from '@/lib/ai/types';
 import { loadConversationHistory } from '@/lib/ai/history';
 import { createAppointmentTools, createEcommerceTools, type ToolContext } from '@/lib/ai/tools';
@@ -25,11 +26,72 @@ const MODEL = process.env.AGENT_MODEL || 'openrouter/free';
 
 function getOpenRouter() {
     const key = process.env.OPENROUTER_API_KEY;
-    if (!key) return null;
-    return createOpenAI({
+    const groqKey = process.env.GROQ_API_KEY;
+
+    const openrouter = key ? createOpenAI({
         baseURL: 'https://openrouter.ai/api/v1',
         apiKey: key,
-    });
+    }) : null;
+
+    const groq = groqKey ? createGroq({
+        apiKey: groqKey,
+    }) : null;
+
+    return (modelId: string) => {
+        if (!openrouter) {
+            if (groq) {
+                return groq('llama-3.3-70b-versatile');
+            }
+            throw new Error('No LLM providers available (OPENROUTER_API_KEY and GROQ_API_KEY are missing)');
+        }
+
+        const openrouterModel = openrouter(modelId);
+
+        if (groq) {
+            const groqModel = groq('llama-3.3-70b-versatile');
+            return {
+                modelId: openrouterModel.modelId,
+                specificationVersion: openrouterModel.specificationVersion,
+                provider: openrouterModel.provider,
+                doGenerate: async (options: any) => {
+                    try {
+                        return await openrouterModel.doGenerate(options);
+                    } catch (err: any) {
+                        const errMessage = err?.message || '';
+                        const statusCode = err?.statusCode || err?.status || 0;
+                        const isRateLimit = errMessage.toLowerCase().includes('rate limit') || 
+                                            errMessage.toLowerCase().includes('quota') ||
+                                            errMessage.toLowerCase().includes('json') ||
+                                            statusCode === 429;
+                        if (isRateLimit) {
+                            v2log.warn('LLM_FALLBACK', 'Primary OpenRouter model failed/rate-limited. Failing over to Groq llama-3.3-70b-versatile...', { error: errMessage });
+                            return await groqModel.doGenerate(options);
+                        }
+                        throw err;
+                    }
+                },
+                doStream: async (options: any) => {
+                    try {
+                        return await openrouterModel.doStream(options);
+                    } catch (err: any) {
+                        const errMessage = err?.message || '';
+                        const statusCode = err?.statusCode || err?.status || 0;
+                        const isRateLimit = errMessage.toLowerCase().includes('rate limit') || 
+                                            errMessage.toLowerCase().includes('quota') ||
+                                            errMessage.toLowerCase().includes('json') ||
+                                            statusCode === 429;
+                        if (isRateLimit) {
+                            v2log.warn('LLM_FALLBACK', 'Primary OpenRouter model failed/rate-limited during stream. Failing over to Groq llama-3.3-70b-versatile...', { error: errMessage });
+                            return await groqModel.doStream(options);
+                        }
+                        throw err;
+                    }
+                }
+            } as any;
+        }
+
+        return openrouterModel;
+    };
 }
 
 function buildPrompt(

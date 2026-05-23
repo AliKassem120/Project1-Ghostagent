@@ -1,4 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai';
+import { createGroq } from '@ai-sdk/groq';
 import { streamText, convertToModelMessages, tool, stepCountIs } from "ai";
 import { z } from "zod";
 import dns from "node:dns";
@@ -23,10 +24,60 @@ export async function POST(req: Request) {
             throw new Error("OPENROUTER_API_KEY is missing!");
         }
 
-        const openrouterInstance = createOpenAI({
+        const rawOpenRouter = createOpenAI({
             baseURL: 'https://openrouter.ai/api/v1',
             apiKey,
         });
+
+        const groqKey = process.env.GROQ_API_KEY;
+        const groq = groqKey ? createGroq({ apiKey: groqKey }) : null;
+
+        const openrouterInstance = (modelId: string) => {
+            const openrouterModel = rawOpenRouter(modelId);
+            if (groq) {
+                const groqModel = groq('llama-3.3-70b-versatile');
+                return {
+                    modelId: openrouterModel.modelId,
+                    specificationVersion: openrouterModel.specificationVersion,
+                    provider: openrouterModel.provider,
+                    doGenerate: async (options: any) => {
+                        try {
+                            return await openrouterModel.doGenerate(options);
+                        } catch (err: any) {
+                            const errMessage = err?.message || '';
+                            const statusCode = err?.statusCode || err?.status || 0;
+                            const isRateLimit = errMessage.toLowerCase().includes('rate limit') || 
+                                                errMessage.toLowerCase().includes('quota') ||
+                                                errMessage.toLowerCase().includes('json') ||
+                                                statusCode === 429;
+                            if (isRateLimit) {
+                                console.warn('[Fallback Model] Chat API: Primary OpenRouter model failed/rate-limited. Failing over to Groq...');
+                                return await groqModel.doGenerate(options);
+                            }
+                            throw err;
+                        }
+                    },
+                    doStream: async (options: any) => {
+                        try {
+                            return await openrouterModel.doStream(options);
+                        } catch (err: any) {
+                            const errMessage = err?.message || '';
+                            const statusCode = err?.statusCode || err?.status || 0;
+                            const isRateLimit = errMessage.toLowerCase().includes('rate limit') || 
+                                                errMessage.toLowerCase().includes('quota') ||
+                                                errMessage.toLowerCase().includes('json') ||
+                                                statusCode === 429;
+                            if (isRateLimit) {
+                                console.warn('[Fallback Model] Chat API: Primary OpenRouter model failed/rate-limited during stream. Failing over to Groq...');
+                                return await groqModel.doStream(options);
+                            }
+                            throw err;
+                        }
+                    }
+                } as any;
+            }
+            return openrouterModel;
+        };
 
         // 3. IDENTIFY THE USER (BOT OWNER)
         const supabase = await createClient();

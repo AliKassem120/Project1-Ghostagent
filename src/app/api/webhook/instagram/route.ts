@@ -1211,12 +1211,63 @@ async function generateCommentReplyPlan(
         }
 
         const { createOpenAI } = await import('@ai-sdk/openai');
+        const { createGroq } = await import('@ai-sdk/groq');
         const { generateText } = await import('ai');
 
-        const openrouterInstance = createOpenAI({
+        const rawOpenRouter = createOpenAI({
             baseURL: 'https://openrouter.ai/api/v1',
             apiKey: process.env.OPENROUTER_API_KEY,
         });
+
+        const groqKey = process.env.GROQ_API_KEY;
+        const groq = groqKey ? createGroq({ apiKey: groqKey }) : null;
+
+        const openrouterInstance = (modelId: string) => {
+            const openrouterModel = rawOpenRouter(modelId);
+            if (groq) {
+                const groqModel = groq('llama-3.3-70b-versatile');
+                return {
+                    modelId: openrouterModel.modelId,
+                    specificationVersion: openrouterModel.specificationVersion,
+                    provider: openrouterModel.provider,
+                    doGenerate: async (options: any) => {
+                        try {
+                            return await openrouterModel.doGenerate(options);
+                        } catch (err: any) {
+                            const errMessage = err?.message || '';
+                            const statusCode = err?.statusCode || err?.status || 0;
+                            const isRateLimit = errMessage.toLowerCase().includes('rate limit') || 
+                                                errMessage.toLowerCase().includes('quota') ||
+                                                errMessage.toLowerCase().includes('json') ||
+                                                statusCode === 429;
+                            if (isRateLimit) {
+                                console.warn('[Fallback Model] Comments API: Primary OpenRouter model failed/rate-limited. Failing over to Groq...');
+                                return await groqModel.doGenerate(options);
+                            }
+                            throw err;
+                        }
+                    },
+                    doStream: async (options: any) => {
+                        try {
+                            return await openrouterModel.doStream(options);
+                        } catch (err: any) {
+                            const errMessage = err?.message || '';
+                            const statusCode = err?.statusCode || err?.status || 0;
+                            const isRateLimit = errMessage.toLowerCase().includes('rate limit') || 
+                                                errMessage.toLowerCase().includes('quota') ||
+                                                errMessage.toLowerCase().includes('json') ||
+                                                statusCode === 429;
+                            if (isRateLimit) {
+                                console.warn('[Fallback Model] Comments API: Primary OpenRouter model failed/rate-limited during stream. Failing over to Groq...');
+                                return await groqModel.doStream(options);
+                            }
+                            throw err;
+                        }
+                    }
+                } as any;
+            }
+            return openrouterModel;
+        };
 
         // Dynamic comment prompt based on business type
         let businessTypeDirective = 'This is a product-based business. Focus on products and orders.';
