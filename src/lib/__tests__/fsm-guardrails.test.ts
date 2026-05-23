@@ -15,6 +15,29 @@ describe('FSM Guardrails & Session/Loop Management', () => {
             // awaiting_service to awaiting_date_time
             const res2 = validateTransition('awaiting_service', 'awaiting_date_time', 0);
             expect(res2.approvedStage).toBe('awaiting_date_time');
+
+            // awaiting_date_time to awaiting_booking_confirmation
+            const res3 = validateTransition('awaiting_date_time', 'awaiting_booking_confirmation', 0);
+            expect(res3.approvedStage).toBe('awaiting_booking_confirmation');
+
+            // awaiting_product to awaiting_checkout_confirmation
+            const res4 = validateTransition('awaiting_product', 'awaiting_checkout_confirmation', 0);
+            expect(res4.approvedStage).toBe('awaiting_checkout_confirmation');
+
+            // awaiting_variant to awaiting_checkout_confirmation
+            const res5 = validateTransition('awaiting_variant', 'awaiting_checkout_confirmation', 0);
+            expect(res5.approvedStage).toBe('awaiting_checkout_confirmation');
+        });
+
+        it('allows global transitions to post_appointment_modify and post_order_modify from any state', () => {
+            const res1 = validateTransition('idle', 'post_appointment_modify', 0);
+            expect(res1.approvedStage).toBe('post_appointment_modify');
+
+            const res2 = validateTransition('awaiting_customer_details', 'post_appointment_modify', 0);
+            expect(res2.approvedStage).toBe('post_appointment_modify');
+
+            const res3 = validateTransition('awaiting_service', 'post_order_modify', 0);
+            expect(res3.approvedStage).toBe('post_order_modify');
         });
 
         it('rejects invalid state transitions and keeps current state', () => {
@@ -61,6 +84,20 @@ describe('FSM Guardrails & Session/Loop Management', () => {
         it('accepts order claims if order tool was successfully run', () => {
             const reply = 'Your order has been placed successfully!';
             const result = verifyAgentReply(reply, ['place_order_success'], productCatalog, 'ecommerce');
+            expect(result.verified).toBe(true);
+            expect(result.correctedReply).toBe(reply);
+        });
+
+        it('accepts order claims if order tool was not run in this step but hasActiveOrder is true', () => {
+            const reply = 'Your order has been placed successfully!';
+            const result = verifyAgentReply(reply, [], productCatalog, 'ecommerce', false, true);
+            expect(result.verified).toBe(true);
+            expect(result.correctedReply).toBe(reply);
+        });
+
+        it('accepts booking claims if booking tool was not run in this step but hasActiveBooking is true', () => {
+            const reply = 'Your booking is confirmed for Monday!';
+            const result = verifyAgentReply(reply, [], [], 'appointments', true, false);
             expect(result.verified).toBe(true);
             expect(result.correctedReply).toBe(reply);
         });

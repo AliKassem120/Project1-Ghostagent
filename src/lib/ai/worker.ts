@@ -76,7 +76,7 @@ export async function processMessageJob(job: MessageJob): Promise<void> {
                 workspace_id: job.workspaceId,
                 event_type: 'AI_REPLY',
                 description: result.replyText 
-                    ? `Sent: "${result.replyText.slice(0, 80)}"`
+                    ? `Sent: "${result.replyText}"`
                     : `Processed message: "${job.message.slice(0, 30)}..." (No reply)`,
                 metadata: {
                     requestId: result.debug.requestId,

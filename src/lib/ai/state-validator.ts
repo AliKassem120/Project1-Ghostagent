@@ -57,13 +57,13 @@ export const STATE_CONFIGS: Record<string, StateConfig> = {
     },
     // Detailed enterprise refactor stages
     awaiting_product: {
-        validNext: ['awaiting_variant', 'awaiting_order_details', 'idle', 'handoff'],
+        validNext: ['awaiting_variant', 'awaiting_order_details', 'awaiting_checkout_confirmation', 'idle', 'handoff'],
         maxLoops: 3,
         maxDurationMinutes: 15,
         fallbackState: 'idle',
     },
     awaiting_variant: {
-        validNext: ['awaiting_order_details', 'idle', 'handoff'],
+        validNext: ['awaiting_order_details', 'awaiting_checkout_confirmation', 'idle', 'handoff'],
         maxLoops: 2,
         maxDurationMinutes: 10,
         fallbackState: 'idle',
@@ -87,7 +87,7 @@ export const STATE_CONFIGS: Record<string, StateConfig> = {
         fallbackState: 'idle',
     },
     awaiting_date_time: {
-        validNext: ['awaiting_customer_details', 'idle', 'handoff'],
+        validNext: ['awaiting_customer_details', 'awaiting_booking_confirmation', 'idle', 'handoff'],
         maxLoops: 3,
         maxDurationMinutes: 15,
         fallbackState: 'idle',
@@ -151,8 +151,8 @@ export function validateTransition(
         }
     }
 
-    // 2. Global Escape States (allow transitioning to idle or handoff at any time)
-    if (proposedNext === 'idle' || proposedNext === 'handoff') {
+    // 2. Global Escape States (allow transitioning to escape/utility stages at any time)
+    if (['idle', 'handoff', 'post_appointment_modify', 'post_order_modify'].includes(proposedNext)) {
         return {
             approvedStage: proposedNext as ConversationStage,
             resetLoop: true,

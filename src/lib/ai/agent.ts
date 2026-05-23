@@ -261,7 +261,10 @@ Reply with exactly the stage key name and nothing else.`;
             temperature: 0,
         });
 
-        const proposed = classification.text?.trim().toLowerCase();
+        let proposed = classification.text?.trim().toLowerCase();
+        if (proposed) {
+            proposed = proposed.replace(/^['"`\s]+|['"`\s]+$/g, '');
+        }
         const validStages = [
             'idle', 'collecting', 'confirming', 'complete', 'handoff',
             'awaiting_product', 'awaiting_variant', 'awaiting_order_details', 'awaiting_checkout_confirmation',
@@ -648,6 +651,44 @@ Reply with exactly one word: "simple" or "transaction".`,
             }
         }
 
+        // Check for active/upcoming bookings or pending/confirmed orders in DB to prevent false positives in verifier
+        let hasActiveBooking = false;
+        let hasActiveOrder = false;
+
+        if (config.businessType === 'appointments') {
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const { data } = await input.supabase
+                    .from('appointments')
+                    .select('id')
+                    .eq('workspace_id', input.workspaceId)
+                    .or(`chat_id.eq.${input.chatId},instagram_user_id.eq.${input.chatId}`)
+                    .in('status', ['confirmed', 'pending', 'Confirmed', 'Pending'])
+                    .gte('appointment_date', today)
+                    .limit(1);
+                if (data && data.length > 0) {
+                    hasActiveBooking = true;
+                }
+            } catch (e) {
+                v2log.warn('V3_AGENT', 'Failed to check active bookings', { error: e });
+            }
+        } else if (config.businessType === 'ecommerce') {
+            try {
+                const { data } = await input.supabase
+                    .from('orders')
+                    .select('id')
+                    .eq('workspace_id', input.workspaceId)
+                    .or(`chat_id.eq.${input.chatId},instagram_user_id.eq.${input.chatId}`)
+                    .in('status', ['pending', 'confirmed', 'processing', 'Pending', 'Confirmed', 'Processing'])
+                    .limit(1);
+                if (data && data.length > 0) {
+                    hasActiveOrder = true;
+                }
+            } catch (e) {
+                v2log.warn('V3_AGENT', 'Failed to check active orders', { error: e });
+            }
+        }
+
         // Post-Generation Safety Reply Verification (Phase 2)
         if (config.businessType === 'appointments') {
             const serviceInfoList = (activeServices || []).map(s => ({
@@ -655,7 +696,7 @@ Reply with exactly one word: "simple" or "transaction".`,
                 price: s.price,
                 durationMinutes: s.durationMinutes
             }));
-            const verifyResult = verifyAgentReply(reply, actions, serviceInfoList, 'appointments');
+            const verifyResult = verifyAgentReply(reply, actions, serviceInfoList, 'appointments', hasActiveBooking, false);
             if (!verifyResult.verified) {
                 reply = verifyResult.correctedReply;
                 for (const violation of verifyResult.violations) {
@@ -669,7 +710,7 @@ Reply with exactly one word: "simple" or "transaction".`,
                 price: p.price,
                 stockLevel: p.stockLevel
             }));
-            const verifyResult = verifyAgentReply(reply, actions, productInfoList, 'ecommerce');
+            const verifyResult = verifyAgentReply(reply, actions, productInfoList, 'ecommerce', false, hasActiveOrder);
             if (!verifyResult.verified) {
                 reply = verifyResult.correctedReply;
                 for (const violation of verifyResult.violations) {

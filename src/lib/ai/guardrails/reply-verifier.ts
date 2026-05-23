@@ -119,7 +119,9 @@ export function verifyAgentReply(
     reply: string,
     actions: string[],
     items: (ServiceInfo | ProductInfo)[],
-    businessType: 'appointments' | 'ecommerce' = 'appointments'
+    businessType: 'appointments' | 'ecommerce' = 'appointments',
+    hasActiveBooking = false,
+    hasActiveOrder = false
 ): VerifyResult {
     const violations: string[] = [];
     let corrected = reply;
@@ -127,7 +129,7 @@ export function verifyAgentReply(
     if (businessType === 'appointments') {
         // ── 1. Booking claim verification ────────────────────────
         const hasBookingClaim = BOOKING_CLAIM_PATTERNS.some(p => p.test(reply));
-        const hasBookingSuccess = actions.includes('book_appointment_success');
+        const hasBookingSuccess = actions.includes('book_appointment_success') || hasActiveBooking;
 
         if (hasBookingClaim && !hasBookingSuccess) {
             violations.push(
@@ -136,6 +138,7 @@ export function verifyAgentReply(
             v2log.warn('REPLY_VERIFIER', 'Booking claim without tool success detected', {
                 replySnippet: reply.slice(0, 120),
                 actions,
+                hasActiveBooking,
             });
 
             // Rewrite: strip the false confirmation and ask to confirm details
@@ -165,7 +168,7 @@ export function verifyAgentReply(
         
         // ── 1. Order claim verification ──────────────────────────
         const hasOrderClaim = ORDER_CLAIM_PATTERNS.some(p => p.test(reply));
-        const hasOrderSuccess = actions.includes('place_order_success');
+        const hasOrderSuccess = actions.includes('place_order_success') || hasActiveOrder;
 
         if (hasOrderClaim && !hasOrderSuccess) {
             violations.push(
@@ -174,6 +177,7 @@ export function verifyAgentReply(
             v2log.warn('REPLY_VERIFIER', 'Order claim without tool success detected', {
                 replySnippet: reply.slice(0, 120),
                 actions,
+                hasActiveOrder,
             });
 
             corrected =

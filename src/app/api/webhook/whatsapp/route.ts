@@ -185,7 +185,7 @@ async function processWhatsAppBuffer({
                 user_id: ownerId,
                 workspace_id: effectiveWorkspaceId,
                 event_type: 'AI_REPLY',
-                description: `Sent: "${aiResponse.slice(0, 80)}"`,
+                description: `Sent: "${aiResponse}"`,
                 timestamp: new Date().toISOString(),
                 metadata: {
                     chat_id: customerPhone,
@@ -393,7 +393,7 @@ async function processWhatsAppEvent(body: any) {
                                     user_id: anyWorkspace.user_id,
                                     workspace_id: anyWorkspace.id,
                                     event_type: 'AI_REPLY',
-                                    description: `Sent: "${aiResponse.slice(0, 80)}"`,
+                                    description: `Sent: "${aiResponse}"`,
                                     timestamp: new Date().toISOString(),
                                     metadata: {
                                         chat_id: customerPhone,
