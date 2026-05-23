@@ -58,6 +58,18 @@ export async function checkUserLimit(userId: string): Promise<{ allowed: boolean
             return { allowed: true };
         }
 
+        if (planLower === 'free_trial') {
+            const trialEnd = user.trial_ends_at ? new Date(user.trial_ends_at) : new Date(Date.now() + 86400000);
+            if (trialEnd < new Date()) {
+                return { allowed: false, reason: 'Your free trial has expired. Please upgrade your plan to continue.' };
+            }
+            const TRIAL_LIMIT = getReplyLimit('starter') ?? 100;
+            if (currentUsage >= TRIAL_LIMIT) {
+                return { allowed: false, reason: `You've reached the free trial limit of ${TRIAL_LIMIT} AI replies. Upgrade to a paid plan for more replies.` };
+            }
+            return { allowed: true };
+        }
+
         if (planLower === 'starter') {
             const periodEnd = user.current_period_end ? new Date(user.current_period_end) : new Date(Date.now() + 86400000);
             if (user.current_period_end && periodEnd < new Date()) {
