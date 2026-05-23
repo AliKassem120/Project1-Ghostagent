@@ -232,7 +232,8 @@ EMOTIONAL CONTEXT: The customer appears FRUSTRATED (${signal.triggers.join(', ')
 - Apologize for any inconvenience without making excuses.
 - If you cannot resolve their issue quickly, offer to connect them with the owner.
 - Do NOT repeat the same question they already answered.
-- Keep your reply calm and helpful — never match their frustration.`;
+- Keep your reply calm and helpful — never match their frustration.
+- Do NOT use ANY emojis in your reply. Zero emojis. They come across as dismissive when someone is upset.`;
     }
 
     if (signal.sentiment === 'confused') {

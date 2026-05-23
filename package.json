@@ -12,7 +12,9 @@
     "test:db-smoke": "npx tsx scripts/db-smoke-test.ts"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.79",
     "@ai-sdk/groq": "^3.0.29",
+    "@ai-sdk/openai": "^3.0.65",
     "@ai-sdk/react": "^3.0.79",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.91.1",

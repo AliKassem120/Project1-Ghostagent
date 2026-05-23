@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { checkProductStock } from '../ai/ecommerce/inventory';
 import { createOrderV2 } from '../ai/ecommerce/orders';
 import { cancelLatestOrder } from '../ai/ecommerce/lookup';
-import type { InventoryRecord } from '../types';
+import type { InventoryRecord } from '../ai/types';
 
 describe('Audit Fixes — checkProductStock Variant Matching', () => {
     it('correctly matches short size string variants and avoids false substring matches (e.g. xl matching l)', () => {

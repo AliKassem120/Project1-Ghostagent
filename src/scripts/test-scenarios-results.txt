@@ -1,0 +1,34 @@
+=== SCENARIO BACKTEST RESULTS ===
+
+
+Scenario: Scenario 1: Happy Path Appointment Booking
+  Turn 1: PASS | User: "hi kifak, do you offer haircuts?" | Bot: "Yes, we do offer haircuts at Ali Salon in Hamra. It's a popular service, takes about 30 minutes, and costs $15. Would you like to book an appointment?" | State: [idle] -> [awaiting_service]
+  Turn 2: PASS | User: "great, I want to book a haircut appointment please" | Bot: "I've sent you a booking form for a haircut appointment. Please select your preferred date and time." | State: [awaiting_service] -> [awaiting_date_time]
+  Turn 3: PASS | User: "Monday at 11 am works best" | Bot: "<lookup_customer></lookup_customer> is not a valid function call. 
+
+Let's try again. Since the customer has selected a date and time, we can proceed with booking the appointment. We will need the customer's name and phone number to complete the booking. 
+
+Can you please provide your name and phone number?" | State: [awaiting_date_time] -> [awaiting_customer_details]
+  Turn 4: PASS | User: "My name is Ali, phone is 71262815" | Bot: "<lookup_customer></lookup_customer>" | State: [awaiting_customer_details] -> [awaiting_booking_confirmation]
+  Turn 5: FAIL | User: "yes please confirm it" | Error: State mismatch: Expected stage to be "idle", but got "awaiting_booking_confirmation"
+Result: FAILED
+
+Scenario: Scenario 2: Cancellation & State Reschedule Escape
+  Turn 1: FAIL | User: "Hi, I need to cancel my haircut appointment for Monday" | Error: Bot did not trigger cancel_appointment tool
+Result: FAILED
+
+Scenario: Scenario 3: Session Inactivity Reset to Idle (No Silent Crash)
+  Turn 1: PASS | User: "hi, can I book a haircut?" | Bot: "I've sent you a booking form for a haircut. Please let me know when you're ready to book." | State: [idle] -> [awaiting_service]
+  Turn 2: FAIL | User: "Hey how r u" | Error: State mismatch: Expected stage to be "idle", but got "awaiting_service"
+Result: FAILED
+
+Scenario: Scenario 4: E-Commerce Happy Path Purchase
+  Turn 1: FAIL | User: "hello, do you have leather jackets?" | Error: State mismatch: Expected stage to be "idle", but got "awaiting_product"
+Result: FAILED
+
+Scenario: Scenario 5: Excessive Loop Handoff Safety Escalation
+  Turn 1: PASS | User: "what services do you offer?" | Bot: "We offer various services such as Haircut for $15, 30 min. Would you like to book an appointment? 📅" | State: [idle] -> [awaiting_service]
+  Turn 2: FAIL | User: "what services do you offer?" | Error: State mismatch: Expected stage to be "awaiting_service", but got "awaiting_date_time"
+Result: FAILED
+
+Summary: Passed 0/5 scenarios.

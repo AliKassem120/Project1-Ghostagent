@@ -65,7 +65,7 @@ export async function cancelAppointmentsForChat(input: CancelAppointmentsInput):
         // ── Fetch appointments for this chat ─────────────────
         const { data: appointments, error } = await supabase
             .from('appointments')
-            .select('id, status, date, start_time, service_name, created_at, customer_name, customer_phone, platform')
+            .select('id, status, appointment_date, start_time, service, created_at, customer_name, customer_phone')
             .eq('workspace_id', workspaceId)
             .eq('chat_id', chatId)
             .order('created_at', { ascending: false })
@@ -121,7 +121,7 @@ export async function cancelAppointmentsForChat(input: CancelAppointmentsInput):
             default:
                 // Date-based: "cancel tomorrow's appointment"
                 if (input.date) {
-                    targetAppointments = appointments.filter(a => a.date === input.date);
+                    targetAppointments = appointments.filter(a => a.appointment_date === input.date);
                     if (targetAppointments.length === 0) {
                         return { ...emptyResult, error: 'no_appointments_on_date' };
                     }
@@ -174,7 +174,7 @@ export async function cancelAppointmentsForChat(input: CancelAppointmentsInput):
             if (emergencyWhatsApp) {
                 for (const appt of targetAppointments.filter(a => result.cancelledIds.includes(a.id))) {
                     const name = (appt as any).customer_name || 'Customer';
-                    const service = (appt as any).service_name || 'an appointment';
+                    const service = (appt as any).service || 'an appointment';
                     sendAppointmentCancelNotification(emergencyWhatsApp, name, service).catch(err =>
                         v2log.warn('CANCEL_APPOINTMENTS', 'WA notification failed', { error: err?.message })
                     );

@@ -1,5 +1,5 @@
 import { generateText, stepCountIs, tool } from 'ai';
-import { createGroq } from '@ai-sdk/groq';
+import { createOpenAI } from '@ai-sdk/openai';
 import type { AutomationInput, AutomationResult, WorkspaceConfig, ServiceRecord } from '@/lib/ai/types';
 import { loadConversationHistory } from '@/lib/ai/history';
 import { createAppointmentTools, createEcommerceTools, type ToolContext } from '@/lib/ai/tools';
@@ -21,12 +21,15 @@ import { buildProactiveSuggestions, getNextAvailableSlotSuggestions } from '@/li
 import { loadCustomerProfile } from '@/lib/ai/customer-profile';
 import type { ConversationStage } from '@/lib/ai/types';
 
-const MODEL = 'llama-3.3-70b-versatile';
+const MODEL = process.env.AGENT_MODEL || 'openrouter/free';
 
-function getGroq() {
-    const key = process.env.GROQ_API_KEY;
+function getOpenRouter() {
+    const key = process.env.OPENROUTER_API_KEY;
     if (!key) return null;
-    return createGroq({ apiKey: key });
+    return createOpenAI({
+        baseURL: 'https://openrouter.ai/api/v1',
+        apiKey: key,
+    });
 }
 
 function buildPrompt(
@@ -58,7 +61,7 @@ function buildPrompt(
     const tone = toneMap[config.tone] || toneMap['Professional'];
 
     const emojiRule = config.useEmojis
-        ? 'You may use up to 1 emoji per message, only when it feels natural.'
+        ? 'You may use up to 1 emoji per message, only when it feels natural. EXCEPTION: If the customer is frustrated, angry, or using ALL CAPS, do NOT use any emojis at all — they come across as dismissive and insincere.'
         : 'Do NOT use any emojis. Zero. No exceptions.';
 
     const discountRules = config.maxDiscount && config.maxDiscount > 0
@@ -79,7 +82,12 @@ DISCOUNTS:
     }
 
     const toolBlock = skipTools
-        ? `TOOLS: None available for this message. Reply with static information only.${serviceCatalogBlock ? '\n' + serviceCatalogBlock : ''}`
+        ? `TOOLS: None available for this message.
+- You CANNOT book appointments, cancel bookings, place orders, or check slot availability right now.
+- Do NOT tell the customer their appointment/order is booked, confirmed, or cancelled.
+- Do NOT mention any system issues, database, offline status, or technical errors/reasons to the customer.
+- Instead, politely ask for any missing details (such as name, phone, date/time, or shipping address) that have not been provided yet in the conversation history, and tell them a staff member will contact them shortly to confirm and finalize it.
+- If they ask for location, business hours, or static prices, you may answer them directly using the info below.${serviceCatalogBlock ? '\n' + serviceCatalogBlock : ''}`
         : (config.businessType === 'appointments'
             ? `TOOLS:
 - You have full access to database tools. Use them to help the customer.
@@ -89,6 +97,7 @@ DISCOUNTS:
 - Use book_appointment ONLY after the customer explicitly confirms the date, time, and service.
 - NEVER say "booked" or "confirmed" unless book_appointment returned success.
 - ALWAYS generate a conversational text reply to the customer after using any tool. Never output just a tool call.
+- IMPORTANT: Once you have the customer's name, phone, service type, date, and time — call the book_appointment tool immediately. Do NOT hand off to a human agent. Do NOT say "a staff member will contact you." Complete the booking yourself.
 - ${platform === 'whatsapp' ? 'On WhatsApp: Use send_booking_flow ONCE when the customer first expresses interest in booking. After sending the booking button, do NOT call send_booking_flow again. If the user clicks the button (their message will be "📅 Book Now" or "Book Now"), respond in TEXT asking which date and time they prefer — do NOT send the button again.' : 'Ask for date/time manually.'}
 ${serviceCatalogBlock}
 CONTEXT RECOVERY:
@@ -110,42 +119,52 @@ CONTEXT RECOVERY:
 
     let languageBlock: string;
     
-    // Dynamic dictionary filtering based on business type to save context tokens (Phase 1 Optimization)
-    const filteredPhrases = Object.entries(ARABIZI_DICTIONARY).filter(([eng]) => {
-        const keyLower = eng.toLowerCase();
-        if (config.businessType === 'appointments') {
-            // Exclude e-commerce specific keys
-            if (keyLower.includes('order') || keyLower.includes('product') || keyLower.includes('variant') || keyLower.includes('shipping') || keyLower.includes('sold out') || keyLower.includes('looking for')) {
-                return false;
-            }
-        } else if (config.businessType === 'ecommerce') {
-            // Exclude appointment specific keys
-            if (keyLower.includes('book') || keyLower.includes('appointment') || keyLower.includes('service') || keyLower.includes('slot') || keyLower.includes('working hours') || keyLower.includes('closed on') || keyLower.includes('hourssummary') || keyLower.includes('opentime') || keyLower.includes('closetime') || keyLower.includes('daylabel')) {
-                return false;
-            }
+    if (skipTools) {
+        if (isArabizi || replyLanguage === 'mixed') {
+            languageBlock = `LANGUAGE: Reply in Lebanese Arabizi (Latin letters + numbers like 3, 7, 5, 2). Keep sentences very short, brief and friendly. Do NOT write in Arabic script.`;
+        } else if (replyLanguage === 'unknown') {
+            languageBlock = `LANGUAGE: Reply in English.`;
+        } else {
+            const langName = replyLanguage.charAt(0).toUpperCase() + replyLanguage.slice(1);
+            languageBlock = `LANGUAGE: Reply strictly in ${langName}.`;
         }
-        return true;
-    });
+    } else {
+        // Dynamic dictionary filtering based on business type to save context tokens (Phase 1 Optimization)
+        const filteredPhrases = Object.entries(ARABIZI_DICTIONARY).filter(([eng]) => {
+            const keyLower = eng.toLowerCase();
+            if (config.businessType === 'appointments') {
+                // Exclude e-commerce specific keys
+                if (keyLower.includes('order') || keyLower.includes('product') || keyLower.includes('variant') || keyLower.includes('shipping') || keyLower.includes('sold out') || keyLower.includes('looking for')) {
+                    return false;
+                }
+            } else if (config.businessType === 'ecommerce') {
+                // Exclude appointment specific keys
+                if (keyLower.includes('book') || keyLower.includes('appointment') || keyLower.includes('service') || keyLower.includes('slot') || keyLower.includes('working hours') || keyLower.includes('closed on') || keyLower.includes('hourssummary') || keyLower.includes('opentime') || keyLower.includes('closetime') || keyLower.includes('daylabel')) {
+                    return false;
+                }
+            }
+            return true;
+        });
 
-    const arabiziPhrases = filteredPhrases
-        .map(([eng, arabizi]) => `- To say "${eng}" -> say EXACTLY: "${arabizi}"`)
-        .join('\n');
+        const arabiziPhrases = filteredPhrases
+            .map(([eng, arabizi]) => `- To say "${eng}" -> say EXACTLY: "${arabizi}"`)
+            .join('\n');
 
-    // Dynamic Lebanese vocabulary filtering based on business type (Phase 1 Optimization)
-    const vocabLines = LEBANESE_VOCABULARY.trim().split('\n');
-    const vocabHeader = vocabLines[0];
-    const vocabData = vocabLines.slice(1).filter(line => {
-        const parts = line.split(',');
-        if (parts.length === 0) return true;
-        const cat = parts[0].trim().toLowerCase();
-        if (config.businessType === 'appointments' && cat === 'shopping') return false;
-        if (config.businessType === 'ecommerce' && cat === 'appointments') return false;
-        return true;
-    });
-    const lebaneseVocab = [vocabHeader, ...vocabData].join('\n');
+        // Dynamic Lebanese vocabulary filtering based on business type (Phase 1 Optimization)
+        const vocabLines = LEBANESE_VOCABULARY.trim().split('\n');
+        const vocabHeader = vocabLines[0];
+        const vocabData = vocabLines.slice(1).filter(line => {
+            const parts = line.split(',');
+            if (parts.length === 0) return true;
+            const cat = parts[0].trim().toLowerCase();
+            if (config.businessType === 'appointments' && cat === 'shopping') return false;
+            if (config.businessType === 'ecommerce' && cat === 'appointments') return false;
+            return true;
+        });
+        const lebaneseVocab = [vocabHeader, ...vocabData].join('\n');
 
-    if (isArabizi) {
-        languageBlock = `
+        if (isArabizi) {
+            languageBlock = `
 LANGUAGE: Reply in Lebanese Arabizi (Latin letters + numbers like 3, 7, 5, 2).
 
 VOCABULARY (Word by Word):
@@ -156,13 +175,14 @@ Do NOT translate word-by-word like a robot. You MUST use these exact sentence st
 ${arabiziPhrases}
 
 When in doubt, keep sentences very short and copy the exact formatting from the rules above.`;
-    } else if (replyLanguage === 'mixed') {
-        languageBlock = `LANGUAGE: Reply in Lebanese Arabizi. Mirror the user's language mix.\nVOCABULARY:\n${lebaneseVocab}\n\nEXACT PHRASES (Use these exact structures):\n${arabiziPhrases}`;
-    } else if (replyLanguage === 'unknown') {
-        languageBlock = `LANGUAGE: Reply in English.`;
-    } else {
-        const langName = replyLanguage.charAt(0).toUpperCase() + replyLanguage.slice(1);
-        languageBlock = `LANGUAGE: Reply strictly in ${langName}.`;
+        } else if (replyLanguage === 'mixed') {
+            languageBlock = `LANGUAGE: Reply in Lebanese Arabizi. Mirror the user's language mix.\nVOCABULARY:\n${lebaneseVocab}\n\nEXACT PHRASES (Use these exact structures):\n${arabiziPhrases}`;
+        } else if (replyLanguage === 'unknown') {
+            languageBlock = `LANGUAGE: Reply in English.`;
+        } else {
+            const langName = replyLanguage.charAt(0).toUpperCase() + replyLanguage.slice(1);
+            languageBlock = `LANGUAGE: Reply strictly in ${langName}.`;
+        }
     }
 
     if (ragExamples && ragExamples.length > 0) {
@@ -194,6 +214,9 @@ When in doubt, keep sentences very short and copy the exact formatting from the 
 
     return `You are the DM manager of "${config.businessName}", ${businessDesc}.
 You're chatting with a customer on ${platform === 'whatsapp' ? 'WhatsApp' : 'Instagram DMs'}.
+
+UNDERSTANDING ARABIZI/FRANCO-ARABIC INPUT:
+Customers may write in Lebanese Arabizi (Franco-Arabic) where numbers replace Arabic letters. Common mappings: 3=ع (ain), 7=ح (ha), 2=ء/ق (hamza/qaf), 5=خ (kha), 8=غ (ghain), 6=ط (ta). Examples: "e7joz" = "I want to book", "3ndkn" = "do you have", "nhar l a7ad" = "Sunday", "mar7aba" = "hello", "addesh" = "how much", "se3r" = "price", "maw3ed" = "appointment". If you receive a message mixing numbers and Latin letters, try to interpret it as Arabizi before asking the customer to repeat.
 ${memoryBlock}${notesBlock}${identityNote}${sessionBlock}${emotionBlock || ''}${proactiveBlock || ''}
 RULES:
 1. ${lengthRule}
@@ -217,7 +240,7 @@ ${config.businessType === 'ecommerce' && config.shippingRules ? `SHIPPING: ${con
 }
 
 async function classifyProposedNextStage(
-    groq: any,
+    openrouterInstance: any,
     currentStage: string,
     businessType: 'appointments' | 'ecommerce',
     message: string,
@@ -239,8 +262,8 @@ For 'appointments' business type:
 - 'awaiting_date_time': Service is known, but we are waiting for date/time preference or availability check.
 - 'awaiting_customer_details': Service and date/time are known, but we need customer name, phone, or details.
 - 'awaiting_booking_confirmation': We have service, date/time, and customer details, and we are asking them to confirm the booking or confirming it.
-- 'post_appointment_modify': Customer wants to reschedule, cancel, or modify an existing booking.
-- 'handoff': User explicitly asked to talk to a human, or we cannot help them.
+- 'post_appointment_modify': Customer wants to reschedule, cancel, or modify an existing booking. Keep using this state for the entire cancellation/modification flow; do NOT choose 'awaiting_customer_details', 'awaiting_service', or 'awaiting_date_time' even if collecting details or discussing dates for the cancellation.
+- 'handoff': User explicitly asked to talk to a human, the bot cannot help them, or the bot states that a staff member or human will contact or help them shortly.
 
 For 'ecommerce' business type:
 - 'idle': Conversation is completed, cancelled, or reset to start.
@@ -248,14 +271,14 @@ For 'ecommerce' business type:
 - 'awaiting_variant': Product is known, but we are waiting for size, color, or variant choice.
 - 'awaiting_order_details': Product/variant is known, but we need customer shipping details (name, phone, address).
 - 'awaiting_checkout_confirmation': We have product and shipping details, and we are asking them to confirm the order or confirming it.
-- 'post_order_modify': Customer wants to cancel, track, or modify an existing order.
-- 'handoff': User explicitly asked to talk to a human, or we cannot help them.
+- 'post_order_modify': Customer wants to cancel, track, or modify an existing order. Keep using this state for the entire order modification/tracking flow; do NOT choose 'awaiting_order_details', 'awaiting_product', or 'awaiting_variant' even if collecting details for the modification.
+- 'handoff': User explicitly asked to talk to a human, the bot cannot help them, or the bot states that a staff member or human will contact or help them shortly.
 
 Choose strictly one of the stage keys listed above (must be a valid string literal like 'awaiting_date_time' or 'awaiting_order_details').
 Reply with exactly the stage key name and nothing else.`;
 
         const classification = await generateText({
-            model: groq('llama-3.1-8b-instant'),
+            model: openrouterInstance('openrouter/free'),
             system,
             prompt: `Determine next stage. Current stage is ${currentStage}.`,
             temperature: 0,
@@ -330,13 +353,13 @@ export async function runV3Agent(
         input.supabase, input.userId, input.workspaceId, input.chatId
     );
 
-    const groq = getGroq();
-    if (!groq) throw new Error('GROQ_API_KEY is missing');
+    const openrouterInstance = getOpenRouter();
+    if (!openrouterInstance) throw new Error('OPENROUTER_API_KEY is missing');
 
     // 2.2 Process and load persistent session summaries (Phase 2 Memory)
     await checkAndProcessSessionSummary(
         input.supabase,
-        groq,
+        openrouterInstance,
         input.workspaceId,
         input.chatId,
         input.userId,
@@ -402,25 +425,27 @@ export async function runV3Agent(
 
     // Phase 2 Optimization: Frontline Classifier Routing
     let route: 'simple' | 'transaction' = 'transaction';
-    try {
-        const classification = await generateText({
-            model: groq('llama-3.1-8b-instant'),
-            system: `You are an AI router. Categorize if the customer message requires querying or modifying live database tables.
+    if (session.state === 'idle') {
+        try {
+            const classification = await generateText({
+                model: openrouterInstance('openrouter/free'),
+                system: `You are an AI router. Categorize if the customer message requires querying or modifying live database tables.
 Categories:
 - "transaction": Customer wants to book an appointment, check slot availability, search products, check stock/availability of products, ask about prices, ask how much something costs, ask how long a service takes, ask about duration, order products, cancel an order, check order status, mentions a specific date or time (e.g. "today", "tomorrow", "3pm", "next week"), or says they want to book/reserve/schedule.
 - "simple": ONLY pure greetings (hi, hello, hey), pure thanks (thanks, thank you, merci, shukran), or basic casual chat that has NOTHING to do with services, products, booking, or prices.
 When in doubt, always choose "transaction".
 Reply with exactly one word: "simple" or "transaction".`,
-            prompt: `Customer message: "${input.message}"`,
-            temperature: 0,
-        });
+                prompt: `Customer message: "${input.message}"`,
+                temperature: 0,
+            });
 
-        const ans = classification.text?.trim().toLowerCase() || '';
-        if (ans.includes('simple')) {
-            route = 'simple';
+            const ans = classification.text?.trim().toLowerCase() || '';
+            if (ans.includes('simple')) {
+                route = 'simple';
+            }
+        } catch (classifyErr) {
+            v2log.warn('CLASSIFIER', 'Classifier routing failed, defaulting to transaction', { error: classifyErr });
         }
-    } catch (classifyErr) {
-        v2log.warn('CLASSIFIER', 'Classifier routing failed, defaulting to transaction', { error: classifyErr });
     }
 
     const { getKnownCustomerDetails } = await import('@/lib/ai/customer-history');
@@ -531,8 +556,13 @@ Reply with exactly one word: "simple" or "transaction".`,
             v2log.warn('AGENT', 'Failed to create emotion-escalated handoff', { error: e });
         }
 
+        const handoffReply = replyLang === 'arabizi'
+            ? 'L7aza, 3am nwaslak ma3 7ada mn l team.'
+            : 'Connecting you to a human agent shortly...';
+
         return {
-            shouldReply: false,
+            shouldReply: true,
+            replyText: handoffReply,
             actions: ['handoff', 'emotion_frustration_escalation'],
             stateBefore,
             stateAfter: 'handoff',
@@ -585,9 +615,9 @@ Reply with exactly one word: "simple" or "transaction".`,
         if (route === 'simple') {
             const system = buildPrompt(config, replyLang, ragExamples, input.platform, true, activeServices, recentSummaries, session, customerNotes, emotionBlock, proactiveBlock, crossChannelNote);
             try {
-                v2log.info('V3_AGENT', 'Routing simple message to fast model llama-3.1-8b-instant', { message: input.message });
+                v2log.info('V3_AGENT', 'Routing simple message to fast model openrouter/free', { message: input.message });
                 result = await generateText({
-                    model: groq('llama-3.1-8b-instant'),
+                    model: openrouterInstance('openrouter/free'),
                     system,
                     messages,
                     temperature: 0.3,
@@ -602,7 +632,7 @@ Reply with exactly one word: "simple" or "transaction".`,
             const system = buildPrompt(config, replyLang, ragExamples, input.platform, false, activeServices, recentSummaries, session, customerNotes, emotionBlock, proactiveBlock, crossChannelNote);
             try {
                 result = await generateText({
-                    model: groq(MODEL),
+                    model: openrouterInstance(MODEL),
                     system,
                     messages,
                     tools: wrappedTools,
@@ -610,13 +640,12 @@ Reply with exactly one word: "simple" or "transaction".`,
                     temperature: 0.3,
                 });
             } catch (primaryErr: any) {
-                v2log.warn('V3_AGENT', `Primary model ${MODEL} failed, attempting fallback to llama-3.1-70b-versatile`, { error: primaryErr.message });
+                v2log.warn('V3_AGENT', `Primary model ${MODEL} failed, attempting fallback to openrouter/free`, { error: primaryErr.message });
+                const fallbackSystem = buildPrompt(config, replyLang, ragExamples, input.platform, true, activeServices, recentSummaries, session, customerNotes, emotionBlock, proactiveBlock, crossChannelNote);
                 result = await generateText({
-                    model: groq('llama-3.1-70b-versatile'),
-                    system,
+                    model: openrouterInstance('openrouter/free'),
+                    system: fallbackSystem,
                     messages,
-                    tools: wrappedTools,
-                    stopWhen: stepCountIs(5),
                     temperature: 0.3,
                 });
             }
@@ -722,7 +751,7 @@ Reply with exactly one word: "simple" or "transaction".`,
 
         // FSM Stage Classification & Transition Validation (Phase 2)
         const proposedStage = await classifyProposedNextStage(
-            groq,
+            openrouterInstance,
             session.state,
             config.businessType as 'appointments' | 'ecommerce',
             input.message,
@@ -798,8 +827,13 @@ Reply with exactly one word: "simple" or "transaction".`,
                 v2log.warn('AGENT', 'Failed to auto-create handoff queue entry', { error: e });
             }
 
+            const handoffReply = replyLang === 'arabizi'
+                ? 'L7aza, 3am nwaslak ma3 7ada mn l team.'
+                : 'Connecting you to a human agent shortly...';
+
             return {
-                shouldReply: false,
+                shouldReply: true,
+                replyText: handoffReply,
                 actions: ['handoff'],
                 stateBefore,
                 stateAfter: 'handoff',
@@ -836,7 +870,7 @@ Reply with exactly one word: "simple" or "transaction".`,
                 { role: 'user' as const, content: input.message },
                 { role: 'assistant' as const, content: reply },
             ];
-            extractNoteworthyFacts(groq, conversationForNotes, customerNotes).then(notes => {
+            extractNoteworthyFacts(openrouterInstance, conversationForNotes, customerNotes).then(notes => {
                 if (notes.length > 0) {
                     saveCustomerNotes(input.supabase, input.workspaceId, input.chatId, input.platform, notes).catch(() => {});
                 }

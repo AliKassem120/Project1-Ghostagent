@@ -19,6 +19,9 @@ describe('AI Agent Offline Backtesting Suite', () => {
         
         // Re-stub the Groq API key before each test to ensure it's always set
         vi.stubEnv('GROQ_API_KEY', 'mock-groq-api-key');
+        vi.stubEnv('GOOGLE_GENERATIVE_AI_API_KEY', 'mock-google-api-key');
+        vi.stubEnv('OPENAI_API_KEY', 'mock-openai-key');
+        vi.stubEnv('OPENROUTER_API_KEY', 'mock-openrouter-key');
         
         // Setup mock Supabase client that implements a complete chainable API
         const chain: any = {};
@@ -153,7 +156,8 @@ describe('AI Agent Offline Backtesting Suite', () => {
             platform: 'instagram'
         }, config as any);
 
-        expect(result.shouldReply).toBe(false);
+        expect(result.shouldReply).toBe(true);
+        expect(result.replyText).toContain('Connecting you to a human agent shortly');
         expect(result.actions).toContain('handoff');
         expect(result.stateAfter).toBe('handoff');
         expect(mockSupabase.from).toHaveBeenCalledWith('conversation_states');

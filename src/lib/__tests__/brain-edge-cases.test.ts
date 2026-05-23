@@ -3,7 +3,7 @@ import { buildTimeContext, resolveDateFromMessage, resolveTimeFromMessage, timeT
 import { checkProductStock } from '../ai/ecommerce/inventory';
 import { checkAvailability } from '../ai/appointments/availability';
 import { getHoursForDay, isWithinHours } from '../ai/appointments/hours';
-import type { BusinessHoursRecord, InventoryRecord } from '../types';
+import type { BusinessHoursRecord, InventoryRecord } from '../ai/types';
 
 describe('Brain Edge Cases — Time Parsing & Resolution', () => {
     it('correctly builds time context for a specific timezone', () => {

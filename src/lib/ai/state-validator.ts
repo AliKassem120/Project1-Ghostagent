@@ -69,13 +69,13 @@ export const STATE_CONFIGS: Record<string, StateConfig> = {
         fallbackState: 'idle',
     },
     awaiting_order_details: {
-        validNext: ['awaiting_checkout_confirmation', 'idle', 'handoff'],
+        validNext: ['awaiting_checkout_confirmation', 'awaiting_variant', 'awaiting_product', 'idle', 'handoff'],
         maxLoops: 3,
         maxDurationMinutes: 20,
         fallbackState: 'idle',
     },
     awaiting_checkout_confirmation: {
-        validNext: ['idle', 'post_order_modify', 'handoff'],
+        validNext: ['awaiting_order_details', 'awaiting_variant', 'awaiting_product', 'idle', 'post_order_modify', 'handoff'],
         maxLoops: 2,
         maxDurationMinutes: 10,
         fallbackState: 'idle',
@@ -93,13 +93,13 @@ export const STATE_CONFIGS: Record<string, StateConfig> = {
         fallbackState: 'idle',
     },
     awaiting_customer_details: {
-        validNext: ['awaiting_booking_confirmation', 'idle', 'handoff'],
+        validNext: ['awaiting_booking_confirmation', 'awaiting_date_time', 'awaiting_service', 'idle', 'handoff'],
         maxLoops: 3,
         maxDurationMinutes: 20,
         fallbackState: 'idle',
     },
     awaiting_booking_confirmation: {
-        validNext: ['idle', 'post_appointment_modify', 'handoff'],
+        validNext: ['awaiting_customer_details', 'awaiting_date_time', 'awaiting_service', 'idle', 'post_appointment_modify', 'handoff'],
         maxLoops: 2,
         maxDurationMinutes: 10,
         fallbackState: 'idle',
@@ -108,13 +108,13 @@ export const STATE_CONFIGS: Record<string, StateConfig> = {
         validNext: ['idle', 'handoff'],
         maxLoops: 2,
         maxDurationMinutes: 30,
-        fallbackState: 'idle',
+        fallbackState: 'handoff',
     },
     post_appointment_modify: {
         validNext: ['idle', 'handoff'],
         maxLoops: 2,
         maxDurationMinutes: 30,
-        fallbackState: 'idle',
+        fallbackState: 'handoff',
     },
 };
 

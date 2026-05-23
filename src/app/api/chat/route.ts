@@ -1,5 +1,4 @@
-// import { google } from "@ai-sdk/google";
-import { createGroq } from '@ai-sdk/groq';
+import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, convertToModelMessages, tool, stepCountIs } from "ai";
 import { z } from "zod";
 import dns from "node:dns";
@@ -18,16 +17,15 @@ export async function POST(req: Request) {
         console.log('Message received on server:', messages);
         console.log('Stream started');
 
-        /*
-        const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GOOGLE_API_KEY;
+        const apiKey = process.env.OPENROUTER_API_KEY;
 
         if (!apiKey) {
-            throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is missing!");
+            throw new Error("OPENROUTER_API_KEY is missing!");
         }
-        */
 
-        const groq = createGroq({
-            apiKey: process.env.GROQ_API_KEY,
+        const openrouterInstance = createOpenAI({
+            baseURL: 'https://openrouter.ai/api/v1',
+            apiKey,
         });
 
         // 3. IDENTIFY THE USER (BOT OWNER)
@@ -450,7 +448,7 @@ CATALOG-INVENTORY SYNC RULES:
         // 5. STREAM WITH TOOLS (Groq)
         // Note: AI SDK automatically converts tools to OpenAI format compatible with Groq
         const result = streamText({
-            model: groq("llama-3.3-70b-versatile"),
+            model: openrouterInstance("openrouter/free"),
             messages: await convertToModelMessages(messages),
             system: systemPrompt,
             stopWhen: stepCountIs(5),

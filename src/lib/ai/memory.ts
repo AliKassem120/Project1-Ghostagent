@@ -24,7 +24,7 @@ const SESSION_GAP_MS = 30 * 60 * 1000; // 30 minutes
  * using the cheap Groq model.
  */
 export async function generateConversationSummary(
-    groqInstance: any,
+    openrouterInstance: any,
     messages: { role: string; content: string }[]
 ): Promise<string> {
     if (!messages || messages.length === 0) {
@@ -37,7 +37,7 @@ export async function generateConversationSummary(
 
     try {
         const result = await generateText({
-            model: groqInstance('llama-3.1-8b-instant'),
+            model: openrouterInstance('openrouter/free'),
             system:
                 'Summarize this customer service conversation in 1-2 sentences. ' +
                 'Focus on: what the customer wanted, what was discussed, and the outcome. Be concise.',
@@ -172,7 +172,7 @@ export function shouldGenerateSummary(
  */
 export async function checkAndProcessSessionSummary(
     supabase: SupabaseClient,
-    groqInstance: any,
+    openrouterInstance: any,
     workspaceId: string,
     chatId: string,
     userId: string,
@@ -243,7 +243,7 @@ export async function checkAndProcessSessionSummary(
 
             if (messages.length === 0) return;
 
-            const summary = await generateConversationSummary(groqInstance, messages);
+            const summary = await generateConversationSummary(openrouterInstance, messages);
             if (summary) {
                 await saveConversationSummary(
                     supabase,

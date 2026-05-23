@@ -1210,10 +1210,13 @@ async function generateCommentReplyPlan(
                 .join('\n');
         }
 
-        const { createGroq } = await import('@ai-sdk/groq');
+        const { createOpenAI } = await import('@ai-sdk/openai');
         const { generateText } = await import('ai');
 
-        const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
+        const openrouterInstance = createOpenAI({
+            baseURL: 'https://openrouter.ai/api/v1',
+            apiKey: process.env.OPENROUTER_API_KEY,
+        });
 
         // Dynamic comment prompt based on business type
         let businessTypeDirective = 'This is a product-based business. Focus on products and orders.';
@@ -1311,7 +1314,7 @@ ${inventoryContext}
 ${businessInstructions}`;
 
             const publicResult = await generateText({
-                model: groq("llama-3.3-70b-versatile"),
+                model: openrouterInstance("openrouter/free"),
                 system: publicPrompt,
                 messages: [{ role: 'user', content: `Instagram comment from @${commenterName}: "${commentText}"` }],
             });
@@ -1346,7 +1349,7 @@ ${inventoryContext}
 ${businessInstructions}`;
 
             const dmResult = await generateText({
-                model: groq("llama-3.3-70b-versatile"),
+                model: openrouterInstance("openrouter/free"),
                 system: dmPrompt,
                 messages: [{ role: 'user', content: `Instagram comment from @${commenterName}: "${commentText}"` }],
             });
