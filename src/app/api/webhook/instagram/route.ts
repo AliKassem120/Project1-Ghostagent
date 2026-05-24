@@ -972,16 +972,32 @@ async function checkAutopilot(supabaseAdmin: any, ownerId: string, externalChatI
 
     // 2. Chat-specific mute check
     if (externalChatId) {
-        const { data: chatState } = await supabaseAdmin
+        const query = supabaseAdmin
             .from('conversation_states')
-            .select('is_muted')
+            .select('id, is_muted, muted_until')
             .eq('user_id', ownerId)
-            .eq('external_chat_id', externalChatId)
-            .maybeSingle();
+            .eq('external_chat_id', externalChatId);
+
+        if (workspaceId) {
+            query.eq('workspace_id', workspaceId);
+        }
+
+        const { data: chatState } = await query.maybeSingle();
 
         if (chatState?.is_muted) {
-            console.log(`🛑 AI is Muted manually for chat ${externalChatId}`);
-            return false;
+            const now = new Date();
+            const until = chatState.muted_until ? new Date(chatState.muted_until) : null;
+            if (until && now > until) {
+                // Mute has expired! Automatically unmute in DB
+                await supabaseAdmin
+                    .from('conversation_states')
+                    .update({ is_muted: false, muted_until: null })
+                    .eq('id', chatState.id);
+                console.log(`🔓 Mute expired for chat ${externalChatId}, unmuting and allowing autopilot.`);
+            } else {
+                console.log(`🛑 AI is Muted manually for chat ${externalChatId}`);
+                return false;
+            }
         }
     }
 

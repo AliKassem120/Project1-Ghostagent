@@ -148,6 +148,26 @@ async function processWhatsAppBuffer({
             return;
         }
 
+        const isAutopilot = await checkAutopilot(supabase, ownerId, customerPhone, effectiveWorkspaceId);
+        if (!isAutopilot) {
+            console.log('🛑 AUTOPILOT OFF: Saving draft WhatsApp reply.');
+            await supabase.from('activity_log').insert({
+                user_id: ownerId,
+                workspace_id: effectiveWorkspaceId || null,
+                event_type: 'DRAFT_REPLY',
+                description: `Draft: "${aiResponse}"`,
+                timestamp: new Date().toISOString(),
+                metadata: {
+                    chat_id: customerPhone,
+                    platform: 'whatsapp',
+                    status: 'pending_approval',
+                    reply_text: aiResponse
+                }
+            });
+            await clearDmBuffer(supabase, ownerId, customerPhone, 'whatsapp', effectiveWorkspaceId);
+            return;
+        }
+
         const controls = await getBotControlDecision(supabase, { workspaceId: effectiveWorkspaceId, chatId: customerPhone, channel: 'whatsapp', type: 'dm' });
         if (controls.paused || controls.disableExternalSends || controls.forceDraft) {
             console.warn(`WhatsApp send blocked by controls. Reason: ${controls.reason}`);
@@ -473,4 +493,54 @@ async function processWhatsAppEvent(body: any) {
             }
         }
     }
+}
+
+async function checkAutopilot(supabaseAdmin: any, ownerId: string, externalChatId?: string, workspaceId?: string): Promise<boolean> {
+    // 1. Global/Workspace autopilot check
+    const { data: settings } = await supabaseAdmin
+        .from('ai_settings')
+        .select('is_autopilot_enabled')
+        .eq(workspaceId ? 'id' : 'user_id', workspaceId || ownerId)
+        .maybeSingle();
+
+    const globalAutopilot = settings?.is_autopilot_enabled ?? false;
+
+    if (!globalAutopilot) {
+        console.log(`🤖 Global Autopilot for ${workspaceId || ownerId}: OFF`);
+        return false;
+    }
+
+    // 2. Chat-specific mute check
+    if (externalChatId) {
+        const query = supabaseAdmin
+            .from('conversation_states')
+            .select('id, is_muted, muted_until')
+            .eq('user_id', ownerId)
+            .eq('external_chat_id', externalChatId);
+
+        if (workspaceId) {
+            query.eq('workspace_id', workspaceId);
+        }
+
+        const { data: chatState } = await query.maybeSingle();
+
+        if (chatState?.is_muted) {
+            const now = new Date();
+            const until = chatState.muted_until ? new Date(chatState.muted_until) : null;
+            if (until && now > until) {
+                // Mute has expired! Automatically unmute in DB
+                await supabaseAdmin
+                    .from('conversation_states')
+                    .update({ is_muted: false, muted_until: null })
+                    .eq('id', chatState.id);
+                console.log(`🔓 Mute expired for chat ${externalChatId}, unmuting and allowing autopilot.`);
+            } else {
+                console.log(`🛑 AI is Muted manually for chat ${externalChatId}`);
+                return false;
+            }
+        }
+    }
+
+    console.log(`🤖 Autopilot System for ${workspaceId || ownerId}: ON`);
+    return true;
 }

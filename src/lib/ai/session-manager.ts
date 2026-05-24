@@ -102,6 +102,18 @@ export async function loadSession(
                 previousStage: row.stage
             });
 
+            if (row.is_muted && row.muted_until === null) {
+                try {
+                    await supabase
+                        .from('conversation_states')
+                        .update({ is_muted: false })
+                        .eq('id', row.id);
+                    v2log.info('SESSION_MANAGER', 'Cleared auto-mute on session timeout', { chatId });
+                } catch (dbErr) {
+                    v2log.warn('SESSION_MANAGER', 'Failed to clear auto-mute on session timeout', { error: dbErr });
+                }
+            }
+
             return {
                 state: 'idle',
                 data: null,
