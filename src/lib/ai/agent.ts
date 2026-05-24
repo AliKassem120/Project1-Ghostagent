@@ -1,5 +1,4 @@
 import { generateText, stepCountIs, tool } from 'ai';
-import { createOpenAI } from '@ai-sdk/openai';
 import { createGroq } from '@ai-sdk/groq';
 import type { AutomationInput, AutomationResult, WorkspaceConfig, ServiceRecord } from '@/lib/ai/types';
 import { loadConversationHistory } from '@/lib/ai/history';
@@ -22,96 +21,19 @@ import { buildProactiveSuggestions, getNextAvailableSlotSuggestions } from '@/li
 import { loadCustomerProfile } from '@/lib/ai/customer-profile';
 import type { ConversationStage } from '@/lib/ai/types';
 
-const MODEL = process.env.AGENT_MODEL || 'openrouter/free';
+// Groq model IDs
+const SMART_MODEL = 'llama-3.3-70b-versatile';  // Complex tasks: transactions, tool calls, full agent replies
+const SMALL_MODEL = 'llama-3.1-8b-instant';     // Simple tasks: greetings, summaries, classification
 
-const promiseTimeout = <T>(promise: Promise<T> | PromiseLike<T>, ms: number, errorMsg: string): Promise<T> => {
-    return new Promise<T>((resolve, reject) => {
-        const timer = setTimeout(() => {
-            reject(new Error(errorMsg));
-        }, ms);
-
-        Promise.resolve(promise)
-            .then(res => {
-                clearTimeout(timer);
-                resolve(res);
-            })
-            .catch(err => {
-                clearTimeout(timer);
-                reject(err);
-            });
-    });
-};
-
-function getOpenRouter() {
-    const key = process.env.OPENROUTER_API_KEY;
+function getGroqProvider() {
     const groqKey = process.env.GROQ_API_KEY;
+    if (!groqKey) {
+        throw new Error('GROQ_API_KEY is missing');
+    }
 
-    const openrouter = key ? createOpenAI({
-        baseURL: 'https://openrouter.ai/api/v1',
-        apiKey: key,
-    }) : null;
+    const groq = createGroq({ apiKey: groqKey });
 
-    const groq = groqKey ? createGroq({
-        apiKey: groqKey,
-    }) : null;
-
-    return (modelId: string) => {
-        if (!openrouter) {
-            if (groq) {
-                return groq('llama-3.3-70b-versatile');
-            }
-            throw new Error('No LLM providers available (OPENROUTER_API_KEY and GROQ_API_KEY are missing)');
-        }
-
-        const openrouterModel = openrouter.chat(modelId);
-
-        if (groq) {
-            const groqModel = groq('llama-3.3-70b-versatile');
-            return {
-                modelId: openrouterModel.modelId,
-                specificationVersion: openrouterModel.specificationVersion,
-                provider: openrouterModel.provider,
-                doGenerate: async (options: any) => {
-                    try {
-                        return await promiseTimeout(openrouterModel.doGenerate(options), 12000, 'OpenRouter request timed out after 12s');
-                    } catch (err: any) {
-                        const errMessage = err?.message || '';
-                        const statusCode = err?.statusCode || err?.status || 0;
-                        const isRateLimit = errMessage.toLowerCase().includes('rate limit') || 
-                                            errMessage.toLowerCase().includes('quota') ||
-                                            errMessage.toLowerCase().includes('json') ||
-                                            errMessage.toLowerCase().includes('timeout') ||
-                                            statusCode === 429;
-                        if (isRateLimit) {
-                            v2log.warn('LLM_FALLBACK', 'Primary OpenRouter model failed/rate-limited/timed-out. Failing over to Groq llama-3.3-70b-versatile...', { error: errMessage });
-                            return await groqModel.doGenerate(options);
-                        }
-                        throw err;
-                    }
-                },
-                doStream: async (options: any) => {
-                    try {
-                        return await promiseTimeout(openrouterModel.doStream(options), 12000, 'OpenRouter stream request timed out after 12s');
-                    } catch (err: any) {
-                        const errMessage = err?.message || '';
-                        const statusCode = err?.statusCode || err?.status || 0;
-                        const isRateLimit = errMessage.toLowerCase().includes('rate limit') || 
-                                            errMessage.toLowerCase().includes('quota') ||
-                                            errMessage.toLowerCase().includes('json') ||
-                                            errMessage.toLowerCase().includes('timeout') ||
-                                            statusCode === 429;
-                        if (isRateLimit) {
-                            v2log.warn('LLM_FALLBACK', 'Primary OpenRouter model failed/rate-limited/timed-out during stream. Failing over to Groq llama-3.3-70b-versatile...', { error: errMessage });
-                            return await groqModel.doStream(options);
-                        }
-                        throw err;
-                    }
-                }
-            } as any;
-        }
-
-        return openrouterModel;
-    };
+    return (modelId: string) => groq(modelId);
 }
 
 function buildPrompt(
@@ -322,7 +244,7 @@ ${config.businessType === 'ecommerce' && config.shippingRules ? `SHIPPING: ${con
 }
 
 async function classifyProposedNextStage(
-    openrouterInstance: any,
+    groqInstance: any,
     currentStage: string,
     businessType: 'appointments' | 'ecommerce',
     message: string,
@@ -360,7 +282,7 @@ Choose strictly one of the stage keys listed above (must be a valid string liter
 Reply with exactly the stage key name and nothing else.`;
 
         const classification = await generateText({
-            model: openrouterInstance('openrouter/free'),
+            model: groqInstance(SMALL_MODEL),
             system,
             prompt: `Determine next stage. Current stage is ${currentStage}.`,
             temperature: 0,
@@ -435,13 +357,12 @@ export async function runV3Agent(
         input.supabase, input.userId, input.workspaceId, input.chatId
     );
 
-    const openrouterInstance = getOpenRouter();
-    if (!openrouterInstance) throw new Error('OPENROUTER_API_KEY is missing');
+    const groqInstance = getGroqProvider();
 
     // 2.2 Process and load persistent session summaries (Phase 2 Memory)
     await checkAndProcessSessionSummary(
         input.supabase,
-        openrouterInstance,
+        groqInstance,
         input.workspaceId,
         input.chatId,
         input.userId,
@@ -510,7 +431,7 @@ export async function runV3Agent(
     if (session.state === 'idle') {
         try {
             const classification = await generateText({
-                model: openrouterInstance('openrouter/free'),
+                model: groqInstance(SMALL_MODEL),
                 system: `You are an AI router. Categorize if the customer message requires querying or modifying live database tables.
 Categories:
 - "transaction": Customer wants to book an appointment, check slot availability, search products, check stock/availability of products, ask about prices, ask how much something costs, ask how long a service takes, ask about duration, order products, cancel an order, check order status, mentions a specific date or time (e.g. "today", "tomorrow", "3pm", "next week"), or says they want to book/reserve/schedule.
@@ -697,15 +618,15 @@ Reply with exactly one word: "simple" or "transaction".`,
         if (route === 'simple') {
             const system = buildPrompt(config, replyLang, ragExamples, input.platform, true, activeServices, recentSummaries, session, customerNotes, emotionBlock, proactiveBlock, crossChannelNote);
             try {
-                v2log.info('V3_AGENT', 'Routing simple message to fast model openrouter/free', { message: input.message });
+                v2log.info('V3_AGENT', `Routing simple message to fast model ${SMALL_MODEL}`, { message: input.message });
                 result = await generateText({
-                    model: openrouterInstance('openrouter/free'),
+                    model: groqInstance(SMALL_MODEL),
                     system,
                     messages,
                     temperature: 0.3,
                 });
             } catch (simpleModelErr) {
-                v2log.warn('V3_AGENT', 'Fast model failed, escalating to primary model', { error: simpleModelErr });
+                v2log.warn('V3_AGENT', 'Fast model failed, escalating to smart model', { error: simpleModelErr });
                 route = 'transaction';
             }
         }
@@ -714,7 +635,7 @@ Reply with exactly one word: "simple" or "transaction".`,
             const system = buildPrompt(config, replyLang, ragExamples, input.platform, false, activeServices, recentSummaries, session, customerNotes, emotionBlock, proactiveBlock, crossChannelNote);
             try {
                 result = await generateText({
-                    model: openrouterInstance(MODEL),
+                    model: groqInstance(SMART_MODEL),
                     system,
                     messages,
                     tools: wrappedTools,
@@ -722,11 +643,11 @@ Reply with exactly one word: "simple" or "transaction".`,
                     temperature: 0.3,
                 });
             } catch (primaryErr: any) {
-                v2log.warn('V3_AGENT', `Primary model ${MODEL} failed, retrying with tools...`, { error: primaryErr.message });
+                v2log.warn('V3_AGENT', `Smart model ${SMART_MODEL} failed, retrying...`, { error: primaryErr.message });
                 try {
-                    // Retry #1: same model WITH tools (handles transient JSON errors)
+                    // Retry #1: same smart model WITH tools (handles transient errors)
                     result = await generateText({
-                        model: openrouterInstance(MODEL),
+                        model: groqInstance(SMART_MODEL),
                         system,
                         messages,
                         tools: wrappedTools,
@@ -734,11 +655,11 @@ Reply with exactly one word: "simple" or "transaction".`,
                         temperature: 0.3,
                     });
                 } catch (retryErr: any) {
-                    v2log.warn('V3_AGENT', `Retry with tools also failed, falling back to tool-less mode`, { error: retryErr.message });
-                    // Retry #2: tool-less mode as last resort (can only generate text, no DB actions)
+                    v2log.warn('V3_AGENT', `Retry with tools also failed, falling back to tool-less mode with small model`, { error: retryErr.message });
+                    // Retry #2: tool-less mode with small model as last resort
                     const fallbackSystem = buildPrompt(config, replyLang, ragExamples, input.platform, true, activeServices, recentSummaries, session, customerNotes, emotionBlock, proactiveBlock, crossChannelNote);
                     result = await generateText({
-                        model: openrouterInstance('openrouter/free'),
+                        model: groqInstance(SMALL_MODEL),
                         system: fallbackSystem,
                         messages,
                         temperature: 0.3,
@@ -847,7 +768,7 @@ Reply with exactly one word: "simple" or "transaction".`,
 
         // FSM Stage Classification & Transition Validation (Phase 2)
         const proposedStage = await classifyProposedNextStage(
-            openrouterInstance,
+            groqInstance,
             session.state,
             config.businessType as 'appointments' | 'ecommerce',
             input.message,
@@ -966,7 +887,7 @@ Reply with exactly one word: "simple" or "transaction".`,
                 { role: 'user' as const, content: input.message },
                 { role: 'assistant' as const, content: reply },
             ];
-            extractNoteworthyFacts(openrouterInstance, conversationForNotes, customerNotes).then(notes => {
+            extractNoteworthyFacts(groqInstance, conversationForNotes, customerNotes).then(notes => {
                 if (notes.length > 0) {
                     saveCustomerNotes(input.supabase, input.workspaceId, input.chatId, input.platform, notes).catch(() => {});
                 }

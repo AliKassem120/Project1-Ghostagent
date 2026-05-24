@@ -21,7 +21,6 @@ describe('AI Agent Offline Backtesting Suite', () => {
         vi.stubEnv('GROQ_API_KEY', 'mock-groq-api-key');
         vi.stubEnv('GOOGLE_GENERATIVE_AI_API_KEY', 'mock-google-api-key');
         vi.stubEnv('OPENAI_API_KEY', 'mock-openai-key');
-        vi.stubEnv('OPENROUTER_API_KEY', 'mock-openrouter-key');
         
         // Setup mock Supabase client that implements a complete chainable API
         const chain: any = {};

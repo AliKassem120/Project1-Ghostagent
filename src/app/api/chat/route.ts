@@ -1,4 +1,3 @@
-import { createOpenAI } from '@ai-sdk/openai';
 import { createGroq } from '@ai-sdk/groq';
 import { streamText, convertToModelMessages, tool, stepCountIs } from "ai";
 import { z } from "zod";
@@ -18,85 +17,14 @@ export async function POST(req: Request) {
         console.log('Message received on server:', messages);
         console.log('Stream started');
 
-        const apiKey = process.env.OPENROUTER_API_KEY;
-
-        if (!apiKey) {
-            throw new Error("OPENROUTER_API_KEY is missing!");
+        const groqKey = process.env.GROQ_API_KEY;
+        if (!groqKey) {
+            throw new Error("GROQ_API_KEY is missing!");
         }
 
-        const rawOpenRouter = createOpenAI({
-            baseURL: 'https://openrouter.ai/api/v1',
-            apiKey,
-        });
+        const groq = createGroq({ apiKey: groqKey });
+        const chatModel = groq('llama-3.3-70b-versatile');
 
-        const groqKey = process.env.GROQ_API_KEY;
-        const groq = groqKey ? createGroq({ apiKey: groqKey }) : null;
-        const promiseTimeout = <T>(promise: Promise<T> | PromiseLike<T>, ms: number, errorMsg: string): Promise<T> => {
-            return new Promise<T>((resolve, reject) => {
-                const timer = setTimeout(() => {
-                    reject(new Error(errorMsg));
-                }, ms);
-
-                Promise.resolve(promise)
-                    .then(res => {
-                        clearTimeout(timer);
-                        resolve(res);
-                    })
-                    .catch(err => {
-                        clearTimeout(timer);
-                        reject(err);
-                    });
-            });
-        };
-
-        const openrouterInstance = (modelId: string) => {
-            const openrouterModel = rawOpenRouter.chat(modelId);
-            if (groq) {
-                const groqModel = groq('llama-3.3-70b-versatile');
-                return {
-                    modelId: openrouterModel.modelId,
-                    specificationVersion: openrouterModel.specificationVersion,
-                    provider: openrouterModel.provider,
-                    doGenerate: async (options: any) => {
-                        try {
-                            return await promiseTimeout(openrouterModel.doGenerate(options), 12000, 'OpenRouter request timed out after 12s');
-                        } catch (err: any) {
-                            const errMessage = err?.message || '';
-                            const statusCode = err?.statusCode || err?.status || 0;
-                            const isRateLimit = errMessage.toLowerCase().includes('rate limit') || 
-                                                errMessage.toLowerCase().includes('quota') ||
-                                                errMessage.toLowerCase().includes('json') ||
-                                                errMessage.toLowerCase().includes('timeout') ||
-                                                statusCode === 429;
-                            if (isRateLimit) {
-                                console.warn('[Fallback Model] Chat API: Primary OpenRouter model failed/rate-limited/timed-out. Failing over to Groq...');
-                                return await groqModel.doGenerate(options);
-                            }
-                            throw err;
-                        }
-                    },
-                    doStream: async (options: any) => {
-                        try {
-                            return await promiseTimeout(openrouterModel.doStream(options), 12000, 'OpenRouter stream request timed out after 12s');
-                        } catch (err: any) {
-                            const errMessage = err?.message || '';
-                            const statusCode = err?.statusCode || err?.status || 0;
-                            const isRateLimit = errMessage.toLowerCase().includes('rate limit') || 
-                                                errMessage.toLowerCase().includes('quota') ||
-                                                errMessage.toLowerCase().includes('json') ||
-                                                errMessage.toLowerCase().includes('timeout') ||
-                                                statusCode === 429;
-                            if (isRateLimit) {
-                                console.warn('[Fallback Model] Chat API: Primary OpenRouter model failed/rate-limited/timed-out during stream. Failing over to Groq...');
-                                return await groqModel.doStream(options);
-                            }
-                            throw err;
-                        }
-                    }
-                } as any;
-            }
-            return openrouterModel;
-        };
 
         // 3. IDENTIFY THE USER (BOT OWNER)
         const supabase = await createClient();
@@ -518,7 +446,7 @@ CATALOG-INVENTORY SYNC RULES:
         // 5. STREAM WITH TOOLS (Groq)
         // Note: AI SDK automatically converts tools to OpenAI format compatible with Groq
         const result = streamText({
-            model: openrouterInstance("openrouter/free"),
+            model: chatModel,
             messages: await convertToModelMessages(messages),
             system: systemPrompt,
             stopWhen: stepCountIs(5),

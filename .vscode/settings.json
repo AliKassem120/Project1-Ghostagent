@@ -1,3 +1,9 @@
 {
-    "css.lint.unknownAtRules": "ignore"
+    "css.lint.unknownAtRules": "ignore",
+    "yaml.schemas": {
+        "file:///c%3A/Users/ali/.vscode/extensions/continue.continue-1.2.22-win32-x64/config-yaml-schema.json": [
+            ".continue/**/*.yaml",
+            "file:///c%3A/Users/ali/.continue/config.yaml"
+        ]
+    }
 }

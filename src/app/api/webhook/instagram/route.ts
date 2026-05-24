@@ -1227,84 +1227,16 @@ async function generateCommentReplyPlan(
                 .join('\n');
         }
 
-        const { createOpenAI } = await import('@ai-sdk/openai');
         const { createGroq } = await import('@ai-sdk/groq');
         const { generateText } = await import('ai');
 
-        const rawOpenRouter = createOpenAI({
-            baseURL: 'https://openrouter.ai/api/v1',
-            apiKey: process.env.OPENROUTER_API_KEY,
-        });
-
         const groqKey = process.env.GROQ_API_KEY;
-        const groq = groqKey ? createGroq({ apiKey: groqKey }) : null;
-
-        const promiseTimeout = <T>(promise: Promise<T> | PromiseLike<T>, ms: number, errorMsg: string): Promise<T> => {
-            return new Promise<T>((resolve, reject) => {
-                const timer = setTimeout(() => {
-                    reject(new Error(errorMsg));
-                }, ms);
-
-                Promise.resolve(promise)
-                    .then(res => {
-                        clearTimeout(timer);
-                        resolve(res);
-                    })
-                    .catch(err => {
-                        clearTimeout(timer);
-                        reject(err);
-                    });
-            });
-        };
-
-        const openrouterInstance = (modelId: string) => {
-            const openrouterModel = rawOpenRouter.chat(modelId);
-            if (groq) {
-                const groqModel = groq('llama-3.3-70b-versatile');
-                return {
-                    modelId: openrouterModel.modelId,
-                    specificationVersion: openrouterModel.specificationVersion,
-                    provider: openrouterModel.provider,
-                    doGenerate: async (options: any) => {
-                        try {
-                            return await promiseTimeout(openrouterModel.doGenerate(options), 12000, 'OpenRouter request timed out after 12s');
-                        } catch (err: any) {
-                            const errMessage = err?.message || '';
-                            const statusCode = err?.statusCode || err?.status || 0;
-                            const isRateLimit = errMessage.toLowerCase().includes('rate limit') || 
-                                                errMessage.toLowerCase().includes('quota') ||
-                                                errMessage.toLowerCase().includes('json') ||
-                                                errMessage.toLowerCase().includes('timeout') ||
-                                                statusCode === 429;
-                            if (isRateLimit) {
-                                console.warn('[Fallback Model] Comments API: Primary OpenRouter model failed/rate-limited/timed-out. Failing over to Groq...');
-                                return await groqModel.doGenerate(options);
-                            }
-                            throw err;
-                        }
-                    },
-                    doStream: async (options: any) => {
-                        try {
-                            return await promiseTimeout(openrouterModel.doStream(options), 12000, 'OpenRouter stream request timed out after 12s');
-                        } catch (err: any) {
-                            const errMessage = err?.message || '';
-                            const statusCode = err?.statusCode || err?.status || 0;
-                            const isRateLimit = errMessage.toLowerCase().includes('rate limit') || 
-                                                errMessage.toLowerCase().includes('quota') ||
-                                                errMessage.toLowerCase().includes('json') ||
-                                                errMessage.toLowerCase().includes('timeout') ||
-                                                statusCode === 429;
-                            if (isRateLimit) {
-                                console.warn('[Fallback Model] Comments API: Primary OpenRouter model failed/rate-limited/timed-out during stream. Failing over to Groq...');
-                                return await groqModel.doStream(options);
-                            }
-                            throw err;
-                        }
-                    }
-                } as any;
-            }
-            return openrouterModel;
-        };
+        if (!groqKey) {
+            throw new Error('GROQ_API_KEY is missing');
+        }
+        const groq = createGroq({ apiKey: groqKey });
+        // Use small model for comment replies (simple task)
+        const commentModel = groq('llama-3.1-8b-instant');
 
         // Dynamic comment prompt based on business type
         let businessTypeDirective = 'This is a product-based business. Focus on products and orders.';
@@ -1402,7 +1334,7 @@ ${inventoryContext}
 ${businessInstructions}`;
 
             const publicResult = await generateText({
-                model: openrouterInstance("openrouter/free"),
+                model: commentModel,
                 system: publicPrompt,
                 messages: [{ role: 'user', content: `Instagram comment from @${commenterName}: "${commentText}"` }],
             });
@@ -1437,7 +1369,7 @@ ${inventoryContext}
 ${businessInstructions}`;
 
             const dmResult = await generateText({
-                model: openrouterInstance("openrouter/free"),
+                model: commentModel,
                 system: dmPrompt,
                 messages: [{ role: 'user', content: `Instagram comment from @${commenterName}: "${commentText}"` }],
             });

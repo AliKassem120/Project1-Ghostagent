@@ -29,7 +29,7 @@ export interface CustomerNote {
  * in `existingNotes` so the LLM can skip them.
  */
 export async function extractNoteworthyFacts(
-    openrouterInstance: any,
+    groqInstance: any,
     messages: { role: string; content: string }[],
     existingNotes: string[] = []
 ): Promise<CustomerNote[]> {
@@ -46,7 +46,7 @@ export async function extractNoteworthyFacts(
 
     try {
         const result = await generateText({
-            model: openrouterInstance('openrouter/free'),
+            model: groqInstance('llama-3.1-8b-instant'),
             system: `Extract personal facts about the CUSTOMER from this conversation.
 Only extract facts that would be useful for a human employee to remember for next time.
 
