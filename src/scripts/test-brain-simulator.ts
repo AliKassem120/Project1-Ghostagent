@@ -32,10 +32,11 @@ const supabase = createClient(
 // Force the agent to use openrouter/free during simulation
 process.env.AGENT_MODEL = 'openrouter/free';
 
-const openrouterInstance = createOpenAI({
+const openrouter = createOpenAI({
     baseURL: 'https://openrouter.ai/api/v1',
     apiKey: process.env.OPENROUTER_API_KEY,
 });
+const openrouterInstance = (modelId: string) => openrouter.chat(modelId);
 
 interface Persona {
     id: string;

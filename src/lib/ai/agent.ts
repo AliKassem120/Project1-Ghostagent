@@ -45,7 +45,7 @@ function getOpenRouter() {
             throw new Error('No LLM providers available (OPENROUTER_API_KEY and GROQ_API_KEY are missing)');
         }
 
-        const openrouterModel = openrouter(modelId);
+        const openrouterModel = openrouter.chat(modelId);
 
         if (groq) {
             const groqModel = groq('llama-3.3-70b-versatile');

@@ -28,7 +28,7 @@ async function main() {
     try {
         console.log('Testing tool calling with openrouter/free...');
         const result = await generateText({
-            model: openrouter('openrouter/free'),
+            model: openrouter.chat('openrouter/free'),
             prompt: 'Please check the current weather in Beirut.',
             tools: {
                 getWeather: tool({

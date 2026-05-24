@@ -1224,7 +1224,7 @@ async function generateCommentReplyPlan(
         const groq = groqKey ? createGroq({ apiKey: groqKey }) : null;
 
         const openrouterInstance = (modelId: string) => {
-            const openrouterModel = rawOpenRouter(modelId);
+            const openrouterModel = rawOpenRouter.chat(modelId);
             if (groq) {
                 const groqModel = groq('llama-3.3-70b-versatile');
                 return {
