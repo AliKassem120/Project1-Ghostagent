@@ -1223,6 +1223,24 @@ async function generateCommentReplyPlan(
         const groqKey = process.env.GROQ_API_KEY;
         const groq = groqKey ? createGroq({ apiKey: groqKey }) : null;
 
+        const promiseTimeout = <T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> => {
+            return new Promise<T>((resolve, reject) => {
+                const timer = setTimeout(() => {
+                    reject(new Error(errorMsg));
+                }, ms);
+
+                promise
+                    .then(res => {
+                        clearTimeout(timer);
+                        resolve(res);
+                    })
+                    .catch(err => {
+                        clearTimeout(timer);
+                        reject(err);
+                    });
+            });
+        };
+
         const openrouterInstance = (modelId: string) => {
             const openrouterModel = rawOpenRouter.chat(modelId);
             if (groq) {
@@ -1233,16 +1251,17 @@ async function generateCommentReplyPlan(
                     provider: openrouterModel.provider,
                     doGenerate: async (options: any) => {
                         try {
-                            return await openrouterModel.doGenerate(options);
+                            return await promiseTimeout(openrouterModel.doGenerate(options), 12000, 'OpenRouter request timed out after 12s');
                         } catch (err: any) {
                             const errMessage = err?.message || '';
                             const statusCode = err?.statusCode || err?.status || 0;
                             const isRateLimit = errMessage.toLowerCase().includes('rate limit') || 
                                                 errMessage.toLowerCase().includes('quota') ||
                                                 errMessage.toLowerCase().includes('json') ||
+                                                errMessage.toLowerCase().includes('timeout') ||
                                                 statusCode === 429;
                             if (isRateLimit) {
-                                console.warn('[Fallback Model] Comments API: Primary OpenRouter model failed/rate-limited. Failing over to Groq...');
+                                console.warn('[Fallback Model] Comments API: Primary OpenRouter model failed/rate-limited/timed-out. Failing over to Groq...');
                                 return await groqModel.doGenerate(options);
                             }
                             throw err;
@@ -1250,16 +1269,17 @@ async function generateCommentReplyPlan(
                     },
                     doStream: async (options: any) => {
                         try {
-                            return await openrouterModel.doStream(options);
+                            return await promiseTimeout(openrouterModel.doStream(options), 12000, 'OpenRouter stream request timed out after 12s');
                         } catch (err: any) {
                             const errMessage = err?.message || '';
                             const statusCode = err?.statusCode || err?.status || 0;
                             const isRateLimit = errMessage.toLowerCase().includes('rate limit') || 
                                                 errMessage.toLowerCase().includes('quota') ||
                                                 errMessage.toLowerCase().includes('json') ||
+                                                errMessage.toLowerCase().includes('timeout') ||
                                                 statusCode === 429;
                             if (isRateLimit) {
-                                console.warn('[Fallback Model] Comments API: Primary OpenRouter model failed/rate-limited during stream. Failing over to Groq...');
+                                console.warn('[Fallback Model] Comments API: Primary OpenRouter model failed/rate-limited/timed-out during stream. Failing over to Groq...');
                                 return await groqModel.doStream(options);
                             }
                             throw err;

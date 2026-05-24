@@ -1,0 +1,16 @@
+{
+  "models": [
+    {
+      "title": "Gemini 1.5 Pro",
+      "provider": "gemini",
+      "model": "gemini-1.5-pro",
+      "apiKey": "AIzaSyClG8YsKMYRamdVUYwaHw5Idc3gsid7g9M"
+    },
+    {
+      "title": "Gemini 1.5 Flash",
+      "provider": "gemini",
+      "model": "gemini-1.5-flash",
+      "apiKey": "AIzaSyClG8YsKMYRamdVUYwaHw5Idc3gsid7g9M"
+    }
+  ]
+}
