@@ -1,37 +1,38 @@
 'use server';
 
 import { generateSmartLink } from '@/lib/whatsapp';
-import OpenAI from 'openai';
-
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
+import { createGroq } from '@ai-sdk/groq';
+import { generateText } from 'ai';
 
 export async function approveInteraction(id: number, comment: string) {
     try {
-        // Use OpenAI to analyze intent and detect product info
-        const completion = await openai.chat.completions.create({
-            model: "gpt-4o",
-            messages: [
-                {
-                    role: "system",
-                    content: `You are GhostAgent, a high-end AI sales assistant for an Instagram store. 
-                    Analyze the customer's comment and extract product information. 
-                    If no specific product is mentioned, assume they are asking about the "Phantom Hoodie" ($85.00).
-                    Respond in a helpful, premium tone. 
-                    Return your response as a JSON object with: 
-                    "productName", "price", "personalizedMessage"`
-                },
-                {
-                    role: "user",
-                    content: `Analyze this comment: "${comment}"`
-                }
-            ],
-            response_format: { type: "json_object" }
+        const groqKey = process.env.GROQ_API_KEY;
+        if (!groqKey) {
+            throw new Error('GROQ_API_KEY is missing');
+        }
+
+        const groq = createGroq({ apiKey: groqKey });
+        // Use smart model for complex JSON structure generation and custom personalization
+        const model = groq('llama-3.3-70b-versatile');
+
+        // Use Groq to analyze intent and detect product info
+        const system = `You are GhostAgent, a high-end AI sales assistant for an Instagram store. 
+Analyze the customer's comment and extract product information. 
+If no specific product is mentioned, assume they are asking about the "Phantom Hoodie" ($85.00).
+Respond in a helpful, premium tone. 
+Return your response as a JSON object with: 
+"productName", "price", "personalizedMessage"`;
+
+        const completion = await generateText({
+            model,
+            system,
+            prompt: `Analyze this comment: "${comment}"`,
+            temperature: 0.2,
+            responseFormat: { type: 'json' },
         });
 
-        const aiOutput = JSON.parse(completion.choices[0].message.content || "{}");
-        const productName = aiOutput.productName || "Phantom Hoodie";
+        const aiOutput = JSON.parse(completion.text || '{}');
+        const productName = aiOutput.productName || 'Phantom Hoodie';
         const price = aiOutput.price || 85.00;
         const personalizedMessage = aiOutput.personalizedMessage;
 

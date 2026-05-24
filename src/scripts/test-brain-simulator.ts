@@ -7,7 +7,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { createOpenAI } from '@ai-sdk/openai';
+import { createGroq } from '@ai-sdk/groq';
 import { generateText } from 'ai';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -29,14 +29,13 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Force the agent to use openrouter/free during simulation
-process.env.AGENT_MODEL = 'openrouter/free';
-
-const openrouter = createOpenAI({
-    baseURL: 'https://openrouter.ai/api/v1',
-    apiKey: process.env.OPENROUTER_API_KEY,
-});
-const openrouterInstance = (modelId: string) => openrouter.chat(modelId);
+const groqKey = process.env.GROQ_API_KEY;
+if (!groqKey) {
+    console.error('❌ Missing GROQ_API_KEY env var');
+    process.exit(1);
+}
+const groq = createGroq({ apiKey: groqKey });
+const groqInstance = (modelId: string) => groq(modelId);
 
 interface Persona {
     id: string;
@@ -256,7 +255,7 @@ Guidelines:
     ];
 
     const response = await generateText({
-        model: openrouterInstance('openrouter/free'),
+        model: groqInstance('llama-3.1-8b-instant'),
         messages: simulatorMessages as any,
         temperature: 0.5,
     });
@@ -291,7 +290,7 @@ Assess the bot's performance and output a JSON object containing:
 }`;
 
     const response = await generateText({
-        model: openrouterInstance('openrouter/free'),
+        model: groqInstance('llama-3.3-70b-versatile'),
         system: `You are an expert AI conversation auditor. You grade bot-user transcripts. You MUST respond with ONLY a valid raw JSON object matching the requested schema. Do not wrap in markdown code blocks.`,
         prompt,
         temperature: 0.1,
