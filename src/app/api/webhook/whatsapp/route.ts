@@ -431,7 +431,7 @@ async function processWhatsAppEvent(body: any) {
                     .single();
                 const ownerPlan = (ownerData?.plan_tier || '').toLowerCase();
                 const allowDevFallbackWA = process.env.WHATSAPP_ALLOW_DEV_FALLBACK === 'true';
-                const hasWhatsAppAccess = ownerPlan === 'pro' || ownerPlan === 'empire';
+                const hasWhatsAppAccess = ownerPlan === 'pro' || ownerPlan === 'empire' || ownerPlan === 'free_trial';
                 if (!hasWhatsAppAccess && !allowDevFallbackWA) {
                     console.warn(`🚫 WhatsApp blocked for ${ownerId}: plan is '${ownerPlan}', requires Pro or Empire. Message from ${customerPhone} dropped.`);
                     continue;

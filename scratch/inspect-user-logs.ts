@@ -1,0 +1,35 @@
+import { Client } from 'pg';
+
+async function main() {
+    const client = new Client({
+        host: 'aws-1-ap-south-1.pooler.supabase.com',
+        user: 'postgres.kysrcsqkgngigvjvwlat',
+        password: 'Tkbh2kvweAjQfysq',
+        database: 'postgres',
+        port: 6543,
+        ssl: { 
+            rejectUnauthorized: false,
+            servername: 'db.kysrcsqkgngigvjvwlat.supabase.co'
+        }
+    });
+
+    try {
+        await client.connect();
+        
+        console.log('--- Fetching User Activity Logs ---');
+        const res = await client.query(`
+            SELECT id, event_type, description, metadata, timestamp
+            FROM activity_log
+            WHERE user_id = 'a91ad903-67af-4977-951b-ab7735b34625'
+            ORDER BY timestamp DESC
+            LIMIT 50;
+        `);
+        console.log(JSON.stringify(res.rows, null, 2));
+
+        await client.end();
+    } catch (err: any) {
+        console.error('❌ Failed:', err.message);
+    }
+}
+
+main().catch(console.error);

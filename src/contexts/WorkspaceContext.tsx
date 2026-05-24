@@ -46,6 +46,7 @@ function normalisePlan(raw: string | null | undefined): PlanTier {
     const v = raw.toLowerCase().trim();
     if (v === 'empire') return 'empire';
     if (v === 'pro' || v === 'pro agent') return 'pro';
+    if (v === 'free_trial' || v === 'free trial') return 'pro';
     if (v === 'starter') return 'starter';
     return 'starter';
 }

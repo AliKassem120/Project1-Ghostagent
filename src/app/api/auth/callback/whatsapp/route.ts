@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     // Verify Pro+ plan
     const { data: userData } = await supabase.from('users').select('plan_tier').eq('id', user.id).single();
     const plan = (userData?.plan_tier || 'starter').toLowerCase();
-    if (plan !== 'pro' && plan !== 'empire') {
+    if (plan !== 'pro' && plan !== 'empire' && plan !== 'free_trial') {
         return NextResponse.json({ error: 'WhatsApp requires Pro or Empire plan.' }, { status: 403 });
     }
 

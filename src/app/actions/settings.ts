@@ -21,9 +21,9 @@ export async function updateWorkspaceSettingsAction(workspaceId: string, setting
         .single()
 
     const planTier = (userData?.plan_tier || 'starter').toLowerCase()
-    const isPro = planTier === 'pro' || planTier === 'empire'
+    const isPro = planTier === 'pro' || planTier === 'empire' || planTier === 'free_trial'
     const isEmpireVerified = planTier === 'empire'
-    const isPaid = planTier === 'pro' || planTier === 'empire' // pro, empire get reply delay
+    const isPaid = planTier === 'pro' || planTier === 'empire' || planTier === 'free_trial' // pro, empire, free_trial get reply delay
 
     const { error } = await supabase
         .from('ai_settings')

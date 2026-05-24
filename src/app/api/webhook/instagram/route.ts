@@ -284,7 +284,8 @@ async function processWebhookEvent(body: any) {
                             // 🔒 WhatsApp alerts are a Pro & Empire feature
                             const { data: ownerUser } = await supabaseAdmin.from('users').select('plan_tier').eq('id', ownerId).single();
                             const planTier = ownerUser?.plan_tier?.toLowerCase() || 'starter';
-                            if (planTier !== 'empire' && planTier !== 'pro' && planTier !== 'pro agent') {
+                            const isProOrPaid = planTier === 'pro' || planTier === 'pro agent' || planTier === 'empire' || planTier === 'free_trial' || planTier === 'free trial';
+                            if (!isProOrPaid) {
                                 console.log(`🚨 [Alert] Skipping: WhatsApp alerts require Pro/Empire plan (current: ${planTier}).`);
                                 return;
                             }
