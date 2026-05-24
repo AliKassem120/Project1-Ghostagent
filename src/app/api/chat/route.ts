@@ -31,14 +31,13 @@ export async function POST(req: Request) {
 
         const groqKey = process.env.GROQ_API_KEY;
         const groq = groqKey ? createGroq({ apiKey: groqKey }) : null;
-
-        const promiseTimeout = <T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> => {
+        const promiseTimeout = <T>(promise: Promise<T> | PromiseLike<T>, ms: number, errorMsg: string): Promise<T> => {
             return new Promise<T>((resolve, reject) => {
                 const timer = setTimeout(() => {
                     reject(new Error(errorMsg));
                 }, ms);
 
-                promise
+                Promise.resolve(promise)
                     .then(res => {
                         clearTimeout(timer);
                         resolve(res);

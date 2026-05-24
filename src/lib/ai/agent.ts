@@ -24,13 +24,13 @@ import type { ConversationStage } from '@/lib/ai/types';
 
 const MODEL = process.env.AGENT_MODEL || 'openrouter/free';
 
-const promiseTimeout = <T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> => {
+const promiseTimeout = <T>(promise: Promise<T> | PromiseLike<T>, ms: number, errorMsg: string): Promise<T> => {
     return new Promise<T>((resolve, reject) => {
         const timer = setTimeout(() => {
             reject(new Error(errorMsg));
         }, ms);
 
-        promise
+        Promise.resolve(promise)
             .then(res => {
                 clearTimeout(timer);
                 resolve(res);

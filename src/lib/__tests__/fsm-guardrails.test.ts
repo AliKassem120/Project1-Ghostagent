@@ -40,12 +40,18 @@ describe('FSM Guardrails & Session/Loop Management', () => {
             expect(res3.approvedStage).toBe('post_order_modify');
         });
 
-        it('rejects invalid state transitions and keeps current state', () => {
-            // idle to awaiting_checkout_confirmation (invalid because we need product/variant first)
-            const res = validateTransition('idle', 'awaiting_checkout_confirmation', 0);
-            expect(res.approvedStage).toBe('idle');
+        it('allows booking shortcuts from idle straight to booking confirmation', () => {
+            const res = validateTransition('idle', 'awaiting_booking_confirmation', 0);
+            expect(res.approvedStage).toBe('awaiting_booking_confirmation');
+            expect(res.resetLoop).toBe(true);
+        });
+
+        it('rejects invalid cross-domain state transitions and keeps current state', () => {
+            // awaiting_service (appointment domain) to awaiting_checkout_confirmation (e-commerce domain)
+            const res = validateTransition('awaiting_service', 'awaiting_checkout_confirmation', 0);
+            expect(res.approvedStage).toBe('awaiting_service');
             expect(res.resetLoop).toBe(false);
-            expect(res.reason).toBe('Invalid transition from idle to awaiting_checkout_confirmation');
+            expect(res.reason).toBe('Invalid transition from awaiting_service to awaiting_checkout_confirmation');
         });
 
         it('forces fallback when loop limit is reached', () => {

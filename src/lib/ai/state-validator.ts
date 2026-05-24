@@ -25,7 +25,19 @@ export interface StateValidationResult {
 
 export const STATE_CONFIGS: Record<string, StateConfig> = {
     idle: {
-        validNext: ['collecting', 'confirming', 'handoff', 'awaiting_product', 'awaiting_service'],
+        validNext: [
+            'collecting',
+            'confirming',
+            'handoff',
+            'awaiting_product',
+            'awaiting_variant',
+            'awaiting_order_details',
+            'awaiting_checkout_confirmation',
+            'awaiting_service',
+            'awaiting_date_time',
+            'awaiting_customer_details',
+            'awaiting_booking_confirmation'
+        ],
         maxLoops: 1,
         maxDurationMinutes: Infinity,
         fallbackState: 'idle',
@@ -63,7 +75,7 @@ export const STATE_CONFIGS: Record<string, StateConfig> = {
         fallbackState: 'idle',
     },
     awaiting_variant: {
-        validNext: ['awaiting_order_details', 'awaiting_checkout_confirmation', 'idle', 'handoff'],
+        validNext: ['awaiting_product', 'awaiting_order_details', 'awaiting_checkout_confirmation', 'idle', 'handoff'],
         maxLoops: 2,
         maxDurationMinutes: 10,
         fallbackState: 'idle',
@@ -81,13 +93,13 @@ export const STATE_CONFIGS: Record<string, StateConfig> = {
         fallbackState: 'idle',
     },
     awaiting_service: {
-        validNext: ['awaiting_date_time', 'idle', 'handoff'],
+        validNext: ['awaiting_date_time', 'awaiting_customer_details', 'awaiting_booking_confirmation', 'idle', 'handoff'],
         maxLoops: 3,
         maxDurationMinutes: 15,
         fallbackState: 'idle',
     },
     awaiting_date_time: {
-        validNext: ['awaiting_customer_details', 'awaiting_booking_confirmation', 'idle', 'handoff'],
+        validNext: ['awaiting_service', 'awaiting_customer_details', 'awaiting_booking_confirmation', 'idle', 'handoff'],
         maxLoops: 3,
         maxDurationMinutes: 15,
         fallbackState: 'idle',
