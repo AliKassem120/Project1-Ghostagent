@@ -2,7 +2,8 @@
 
 import { generateSmartLink } from '@/lib/whatsapp';
 import { createGroq } from '@ai-sdk/groq';
-import { generateText } from 'ai';
+import { generateObject } from 'ai';
+import { z } from 'zod';
 
 export async function approveInteraction(id: number, comment: string) {
     try {
@@ -19,19 +20,21 @@ export async function approveInteraction(id: number, comment: string) {
         const system = `You are GhostAgent, a high-end AI sales assistant for an Instagram store. 
 Analyze the customer's comment and extract product information. 
 If no specific product is mentioned, assume they are asking about the "Phantom Hoodie" ($85.00).
-Respond in a helpful, premium tone. 
-Return your response as a JSON object with: 
-"productName", "price", "personalizedMessage"`;
+Respond in a helpful, premium tone.`;
 
-        const completion = await generateText({
+        const completion = await generateObject({
             model,
             system,
             prompt: `Analyze this comment: "${comment}"`,
+            schema: z.object({
+                productName: z.string().default('Phantom Hoodie'),
+                price: z.number().default(85.00),
+                personalizedMessage: z.string(),
+            }),
             temperature: 0.2,
-            responseFormat: { type: 'json' },
         });
 
-        const aiOutput = JSON.parse(completion.text || '{}');
+        const aiOutput = completion.object;
         const productName = aiOutput.productName || 'Phantom Hoodie';
         const price = aiOutput.price || 85.00;
         const personalizedMessage = aiOutput.personalizedMessage;
