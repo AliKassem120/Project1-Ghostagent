@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Send, Users, Megaphone, Loader2, Search, CheckSquare, Square } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Send, Users, Megaphone, Loader2, Search, CheckSquare, Square, UserPlus, X } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
@@ -19,11 +19,16 @@ export default function MarketingPage() {
     const [message, setMessage] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
 
-    useEffect(() => {
-        const fetchCustomers = async () => {
-            if (!activeWorkspaceId) return;
-            setLoading(true);
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [newCustomerName, setNewCustomerName] = useState('');
+    const [newCustomerPhone, setNewCustomerPhone] = useState('');
+    const [addingCustomer, setAddingCustomer] = useState(false);
 
+    const fetchCustomers = async () => {
+        if (!activeWorkspaceId) return;
+        setLoading(true);
+
+        try {
             // Fetch from orders
             const { data: orders } = await supabase
                 .from('orders')
@@ -37,6 +42,13 @@ export default function MarketingPage() {
                 .select('customer_name, customer_phone')
                 .eq('workspace_id', activeWorkspaceId)
                 .not('customer_phone', 'is', null);
+
+            // Fetch from customer_profiles (unified profiles, including manual additions)
+            const { data: profiles } = await supabase
+                .from('customer_profiles')
+                .select('name, phone')
+                .eq('workspace_id', activeWorkspaceId)
+                .not('phone', 'is', null);
 
             const map = new Map<string, { phone: string, name: string, source: string }>();
             const getDeduplicationKey = (p: string) => {
@@ -71,10 +83,29 @@ export default function MarketingPage() {
                 }
             });
 
-            setCustomers(Array.from(map.values()));
-            setLoading(false);
-        };
+            profiles?.forEach(p => {
+                if (p.phone && p.phone.length > 5) {
+                    const key = getDeduplicationKey(p.phone);
+                    if (key.length > 5) {
+                        const existing = map.get(key);
+                        if (!existing || p.phone.length > existing.phone.length) {
+                            const source = existing ? existing.source : 'Manual';
+                            map.set(key, { phone: p.phone, name: p.name || 'Customer', source });
+                        }
+                    }
+                }
+            });
 
+            setCustomers(Array.from(map.values()));
+        } catch (err: any) {
+            console.error('Error fetching customers:', err);
+            toast.error('Failed to load customers');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchCustomers();
     }, [activeWorkspaceId, supabase]);
 
@@ -137,6 +168,83 @@ export default function MarketingPage() {
         }
     };
 
+    const handleAddCustomer = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!activeWorkspaceId) {
+            toast.error('No active workspace selected');
+            return;
+        }
+
+        const trimmedName = newCustomerName.trim();
+        const cleanedPhone = newCustomerPhone.replace(/[^\d+]/g, '');
+
+        if (!trimmedName) {
+            toast.error("Please enter the customer's name.");
+            return;
+        }
+
+        if (!/^\+[1-9]\d{7,15}$/.test(cleanedPhone)) {
+            toast.error('Invalid phone number. Please include "+" and the country code (e.g., +1234567890).');
+            return;
+        }
+
+        setAddingCustomer(true);
+        try {
+            // First check if a customer profile with this whatsapp_chat_id exists
+            const { data: existingProfile, error: searchError } = await supabase
+                .from('customer_profiles')
+                .select('id')
+                .eq('workspace_id', activeWorkspaceId)
+                .eq('whatsapp_chat_id', cleanedPhone)
+                .maybeSingle();
+
+            if (searchError) throw searchError;
+
+            if (existingProfile) {
+                toast.error('A customer with this phone number already exists in this workspace.');
+                setAddingCustomer(false);
+                return;
+            }
+
+            const { error: insertError } = await supabase
+                .from('customer_profiles')
+                .insert({
+                    workspace_id: activeWorkspaceId,
+                    name: trimmedName,
+                    phone: cleanedPhone,
+                    whatsapp_chat_id: cleanedPhone,
+                    first_seen: new Date().toISOString(),
+                    last_seen: new Date().toISOString()
+                });
+
+            if (insertError) {
+                if (insertError.code === '23505') {
+                    toast.error('A customer with this phone number already exists in this workspace.');
+                } else {
+                    throw insertError;
+                }
+            } else {
+                toast.success('Customer added successfully!');
+                setNewCustomerName('');
+                setNewCustomerPhone('');
+                setShowAddModal(false);
+                
+                await fetchCustomers();
+                
+                setSelectedPhones(prev => {
+                    const next = new Set(prev);
+                    next.add(cleanedPhone);
+                    return next;
+                });
+            }
+        } catch (err: any) {
+            console.error('Error adding customer:', err);
+            toast.error('Failed to add customer: ' + (err.message || 'Unknown error'));
+        } finally {
+            setAddingCustomer(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
@@ -165,7 +273,16 @@ export default function MarketingPage() {
                     className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6 flex flex-col h-[600px]"
                 >
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-bold text-foreground">Audience ({customers.length})</h3>
+                        <div className="flex items-center gap-3">
+                            <h3 className="font-bold text-foreground">Audience ({customers.length})</h3>
+                            <button
+                                onClick={() => setShowAddModal(true)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-primary hover:text-primary-hover bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors press"
+                            >
+                                <UserPlus className="w-3.5 h-3.5" />
+                                Add Customer
+                            </button>
+                        </div>
                         <div className="relative w-64">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10 pointer-events-none" />
                             <input
@@ -275,6 +392,85 @@ export default function MarketingPage() {
                     </div>
                 </motion.div>
             </div>
+
+            {/* Manual Customer Modal */}
+            <AnimatePresence>
+                {showAddModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <motion.div 
+                            initial={{ opacity: 0 }} 
+                            animate={{ opacity: 1 }} 
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowAddModal(false)}
+                            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                        />
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="bg-surface-1 border border-border shadow-2xl rounded-3xl p-6 w-full max-w-md relative z-10"
+                        >
+                            <div className="flex items-center justify-between mb-2">
+                                <h2 className="text-xl font-bold text-foreground">Add Customer Manually</h2>
+                                <button 
+                                    onClick={() => setShowAddModal(false)}
+                                    className="p-1.5 rounded-lg text-muted-foreground hover:bg-surface-2 transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-6">Create a new customer profile for WhatsApp marketing campaigns.</p>
+                            
+                            <form onSubmit={handleAddCustomer} className="space-y-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">Full Name</label>
+                                    <input 
+                                        type="text" 
+                                        value={newCustomerName}
+                                        onChange={e => setNewCustomerName(e.target.value)}
+                                        placeholder="John Doe" 
+                                        required 
+                                        className="w-full h-11 bg-surface-2 border border-border rounded-xl px-4 text-sm focus:border-primary outline-none" 
+                                    />
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">Phone Number</label>
+                                    <input 
+                                        type="tel" 
+                                        value={newCustomerPhone}
+                                        onChange={e => setNewCustomerPhone(e.target.value)}
+                                        placeholder="+1234567890" 
+                                        required 
+                                        className="w-full h-11 bg-surface-2 border border-border rounded-xl px-4 text-sm focus:border-primary outline-none font-mono" 
+                                    />
+                                    <p className="text-[10px] text-muted-foreground px-1">
+                                        Must include &quot;+&quot; and country code (e.g., +96176123456)
+                                    </p>
+                                </div>
+
+                                <div className="flex gap-3 pt-4">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setShowAddModal(false)} 
+                                        className="flex-1 h-12 rounded-2xl border border-border text-sm font-bold text-foreground hover:bg-surface-2 transition-colors press"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        type="submit" 
+                                        disabled={addingCustomer || !newCustomerName.trim() || !newCustomerPhone.trim()}
+                                        className="flex-1 h-12 rounded-2xl bg-primary text-white text-sm font-bold hover:bg-primary-hover disabled:opacity-50 transition-colors press flex items-center justify-center gap-2"
+                                    >
+                                        {addingCustomer && <Loader2 className="w-4 h-4 animate-spin" />}
+                                        {addingCustomer ? 'Adding...' : 'Add Customer'}
+                                    </button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

@@ -99,13 +99,16 @@ DISCOUNTS:
 - Use check_slot BEFORE confirming any booking.
 - Use lookup_customer to check if they've been here before — skip asking info you already have.
 - Use book_appointment ONLY after the customer explicitly confirms the date, time, and service.
-- NEVER say "booked" or "confirmed" unless book_appointment returned success.
+- Use reschedule_appointment ONLY if the customer has an existing appointment they want to reschedule or modify, and they have confirmed the new date and time.
+- If the customer wants to change their appointment time/date, call reschedule_appointment instead of book_appointment to avoid creating duplicates.
+- NEVER say "booked" or "confirmed" unless book_appointment or reschedule_appointment returned success.
 - ALWAYS generate a conversational text reply to the customer after using any tool. Never output just a tool call.
 - IMPORTANT: Once you have the customer's name, phone, service type, date, and time — call the book_appointment tool immediately. Do NOT hand off to a human agent. Do NOT say "a staff member will contact you." Complete the booking yourself.
 - ${platform === 'whatsapp' ? 'On WhatsApp: Use send_booking_flow ONCE when the customer first expresses interest in booking. After sending the booking button, do NOT call send_booking_flow again. If the user clicks the button (their message will be "📅 Book Now" or "Book Now"), respond in TEXT asking which date and time they prefer — do NOT send the button again.' : 'Ask for date/time manually.'}
 ${serviceCatalogBlock}
 CONTEXT RECOVERY:
-- If you previously suggested a date/time (e.g. "How about tomorrow?" or "What about 3 PM?") and the customer replies with a confirmation like "yeah", "sure", "ok", "yep", "that works", "sounds good", "perfect" — treat their answer as confirming the date/time YOU proposed. Extract it from YOUR previous message and proceed with the booking.
+- If you previously suggested a specific date/time (e.g. "How about tomorrow?" or "What about 3 PM?") and the customer replies with a confirmation like "yeah", "sure", "ok", "yep", "that works", "sounds good", "perfect" — treat their answer as confirming the date/time YOU proposed. Extract it from YOUR previous message and proceed with the booking.
+- CRITICAL: Never treat general opening hours or working hours (e.g., "we're open from 9 am to 7 pm") as a proposed date/time slot. You must propose a specific date and time slot (e.g., "today at 3:00 PM") first before treating a user's confirmation as confirming that slot.
 - Do NOT re-ask for information you already proposed and they confirmed.`
             : `TOOLS:
 - You have full access to database tools. You are the orchestrator.
@@ -252,6 +255,26 @@ async function classifyProposedNextStage(
     actions: string[]
 ): Promise<ConversationStage> {
     try {
+        const appointmentStages = `For 'appointments' business type:
+- 'idle': Conversation is completed, cancelled, or reset to start.
+- 'awaiting_service': Customer is choosing/discussing which service they want.
+- 'awaiting_date_time': Service is known, but we are waiting for date/time preference or availability check.
+- 'awaiting_customer_details': Service and date/time are known, but we need customer name, phone, or details.
+- 'awaiting_booking_confirmation': We have service, date/time, and customer details, and we are asking them to confirm the booking or confirming it.
+- 'post_appointment_modify': Customer wants to reschedule, cancel, or modify an existing booking. Keep using this state for the entire cancellation/modification flow; do NOT choose 'awaiting_customer_details', 'awaiting_service', or 'awaiting_date_time' even if collecting details or discussing dates for the cancellation.
+- 'handoff': User explicitly asked to talk to a human, the bot cannot help them, or the bot states that a staff member or human will contact or help them shortly.`;
+
+        const ecommerceStages = `For 'ecommerce' business type:
+- 'idle': Conversation is completed, cancelled, or reset to start.
+- 'awaiting_product': Customer is choosing/discussing which product they want.
+- 'awaiting_variant': Product is known, but we are waiting for size, color, or variant choice.
+- 'awaiting_order_details': Product/variant is known, but we need customer shipping details (name, phone, address).
+- 'awaiting_checkout_confirmation': We have product and shipping details, and we are asking them to confirm the order or confirming it.
+- 'post_order_modify': Customer wants to cancel, track, or modify an existing order. Keep using this state for the entire order modification/tracking flow; do NOT choose 'awaiting_order_details', 'awaiting_product', or 'awaiting_variant' even if collecting details for the modification.
+- 'handoff': User explicitly asked to talk to a human, the bot cannot help them, or the bot states that a staff member or human will contact or help them shortly.`;
+
+        const stageDirectives = businessType === 'appointments' ? appointmentStages : ecommerceStages;
+
         const system = `You are a conversation state classifier for an FSM.
 Based on:
 1. Current State: "${currentStage}"
@@ -260,23 +283,7 @@ Based on:
 4. Bot Reply: "${reply}"
 
 Choose the most appropriate next state from the list of valid states for this business type:
-For 'appointments' business type:
-- 'idle': Conversation is completed, cancelled, or reset to start.
-- 'awaiting_service': Customer is choosing/discussing which service they want.
-- 'awaiting_date_time': Service is known, but we are waiting for date/time preference or availability check.
-- 'awaiting_customer_details': Service and date/time are known, but we need customer name, phone, or details.
-- 'awaiting_booking_confirmation': We have service, date/time, and customer details, and we are asking them to confirm the booking or confirming it.
-- 'post_appointment_modify': Customer wants to reschedule, cancel, or modify an existing booking. Keep using this state for the entire cancellation/modification flow; do NOT choose 'awaiting_customer_details', 'awaiting_service', or 'awaiting_date_time' even if collecting details or discussing dates for the cancellation.
-- 'handoff': User explicitly asked to talk to a human, the bot cannot help them, or the bot states that a staff member or human will contact or help them shortly.
-
-For 'ecommerce' business type:
-- 'idle': Conversation is completed, cancelled, or reset to start.
-- 'awaiting_product': Customer is choosing/discussing which product they want.
-- 'awaiting_variant': Product is known, but we are waiting for size, color, or variant choice.
-- 'awaiting_order_details': Product/variant is known, but we need customer shipping details (name, phone, address).
-- 'awaiting_checkout_confirmation': We have product and shipping details, and we are asking them to confirm the order or confirming it.
-- 'post_order_modify': Customer wants to cancel, track, or modify an existing order. Keep using this state for the entire order modification/tracking flow; do NOT choose 'awaiting_order_details', 'awaiting_product', or 'awaiting_variant' even if collecting details for the modification.
-- 'handoff': User explicitly asked to talk to a human, the bot cannot help them, or the bot states that a staff member or human will contact or help them shortly.
+${stageDirectives}
 
 Choose strictly one of the stage keys listed above (must be a valid string literal like 'awaiting_date_time' or 'awaiting_order_details').
 Reply with exactly the stage key name and nothing else.`;
@@ -643,20 +650,15 @@ Reply with exactly one word: "simple" or "transaction".`,
                     temperature: 0.3,
                 });
             } catch (primaryErr: any) {
-                v2log.warn('V3_AGENT', `Smart model ${SMART_MODEL} failed, retrying...`, { error: primaryErr.message });
-                try {
-                    // Retry #1: same smart model WITH tools (handles transient errors)
-                    result = await generateText({
-                        model: groqInstance(SMART_MODEL),
-                        system,
-                        messages,
-                        tools: wrappedTools,
-                        stopWhen: stepCountIs(5),
-                        temperature: 0.3,
-                    });
-                } catch (retryErr: any) {
-                    v2log.warn('V3_AGENT', `Retry with tools also failed, falling back to tool-less mode with small model`, { error: retryErr.message });
-                    // Retry #2: tool-less mode with small model as last resort
+                const isRateLimit = 
+                    primaryErr.statusCode === 429 || 
+                    (primaryErr.message && (
+                        primaryErr.message.toLowerCase().includes('rate limit') || 
+                        primaryErr.message.includes('429')
+                    ));
+
+                if (isRateLimit) {
+                    v2log.warn('V3_AGENT', `Smart model ${SMART_MODEL} rate-limited (429), bypassing retry and falling back immediately to tool-less small model`, { error: primaryErr.message });
                     const fallbackSystem = buildPrompt(config, replyLang, ragExamples, input.platform, true, activeServices, recentSummaries, session, customerNotes, emotionBlock, proactiveBlock, crossChannelNote);
                     result = await generateText({
                         model: groqInstance(SMALL_MODEL),
@@ -664,6 +666,29 @@ Reply with exactly one word: "simple" or "transaction".`,
                         messages,
                         temperature: 0.3,
                     });
+                } else {
+                    v2log.warn('V3_AGENT', `Smart model ${SMART_MODEL} failed, retrying...`, { error: primaryErr.message });
+                    try {
+                        // Retry #1: same smart model WITH tools (handles transient errors)
+                        result = await generateText({
+                            model: groqInstance(SMART_MODEL),
+                            system,
+                            messages,
+                            tools: wrappedTools,
+                            stopWhen: stepCountIs(5),
+                            temperature: 0.3,
+                        });
+                    } catch (retryErr: any) {
+                        v2log.warn('V3_AGENT', `Retry with tools also failed, falling back to tool-less mode with small model`, { error: retryErr.message });
+                        // Retry #2: tool-less mode with small model as last resort
+                        const fallbackSystem = buildPrompt(config, replyLang, ragExamples, input.platform, true, activeServices, recentSummaries, session, customerNotes, emotionBlock, proactiveBlock, crossChannelNote);
+                        result = await generateText({
+                            model: groqInstance(SMALL_MODEL),
+                            system: fallbackSystem,
+                            messages,
+                            temperature: 0.3,
+                        });
+                    }
                 }
             }
         }
@@ -681,7 +706,7 @@ Reply with exactly one word: "simple" or "transaction".`,
                 
                 v2log.info('AGENT', `Tool Executed: ${toolName}`, { result: JSON.stringify(data)?.slice(0, 100) });
 
-                if (['book_appointment', 'place_order', 'cancel_appointment', 'cancel_order'].includes(toolName)) {
+                if (['book_appointment', 'place_order', 'cancel_appointment', 'cancel_order', 'reschedule_appointment'].includes(toolName)) {
                     dbWriteAttempted = true;
                     if (data?.success) {
                         dbWriteSuccess = true;

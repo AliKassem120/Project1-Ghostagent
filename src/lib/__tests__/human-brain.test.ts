@@ -14,6 +14,29 @@ vi.mock('ai', async (importOriginal) => {
     };
 });
 
+// Mock appointments lookup module
+vi.mock('../ai/appointments/lookup', async (importOriginal) => {
+    const original: any = await importOriginal();
+    return {
+        ...original,
+        cancelLatestAppointment: vi.fn(),
+        rescheduleAppointment: vi.fn().mockResolvedValue({ success: true }),
+        lookupLatestAppointment: vi.fn().mockResolvedValue({
+            id: 'appt-123',
+            serviceName: 'Haircut',
+            date: '2026-06-01',
+            startTime: '09:00',
+            endTime: '09:30',
+            durationMinutes: 30,
+            customerName: 'John Doe',
+            customerPhone: '+96170123456',
+            status: 'confirmed',
+            createdAt: '2026-05-31T00:00:00Z',
+            isEditable: true
+        }),
+    };
+});
+
 describe('Human Brain Phase 3 Features', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -292,6 +315,31 @@ describe('Human Brain Phase 3 Features', () => {
             // Assert duplicate profile is deleted
             expect(deleteMock).toHaveBeenCalled();
             expect(deleteEqMock).toHaveBeenCalledWith('id', 'p-dupe');
+        });
+    });
+
+    describe('5. Appointment Rescheduling & Tooling', () => {
+        it('registers the reschedule_appointment tool and calls the backend helper', async () => {
+            const { createAppointmentTools } = await import('../ai/tools');
+            const tools = createAppointmentTools({
+                supabase: {} as any,
+                userId: 'u-123',
+                workspaceId: 'ws-123',
+                chatId: 'chat-123',
+                platform: 'whatsapp',
+                config: { id: 'ws-123', businessType: 'appointments' } as any
+            });
+
+            expect(tools.reschedule_appointment).toBeDefined();
+
+            const result = await tools.reschedule_appointment.execute({
+                date: '2026-06-02',
+                time: '14:00'
+            });
+
+            expect(result.success).toBe(true);
+            expect(result.new_date).toBe('2026-06-02');
+            expect(result.new_time).toBe('2:00 PM');
         });
     });
 });

@@ -15,7 +15,7 @@ import { loadActiveServices, findBestServiceMatch } from './appointments/service
 import { loadBusinessHours, getHoursForDay } from './appointments/hours';
 import { checkAvailability } from './appointments/availability';
 import { createAppointmentV2Structured } from './appointments/create-appointment';
-import { cancelLatestAppointment } from './appointments/lookup';
+import { cancelLatestAppointment, rescheduleAppointment, lookupLatestAppointment } from './appointments/lookup';
 import { formatTime12, minutesToTime } from './time';
 
 // ── E-Commerce imports ───────────────────────────────────────
@@ -146,6 +146,35 @@ export function createAppointmentTools(ctx: ToolContext) {
             inputSchema: z.object({}),
             execute: async () => {
                 return await cancelLatestAppointment(ctx.supabase, ctx.workspaceId, ctx.chatId);
+            },
+        },
+        reschedule_appointment: {
+            description: "Reschedule the customer's most recent upcoming confirmed appointment to a new date and time.",
+            inputSchema: z.object({
+                date: z.string().describe('New YYYY-MM-DD date'),
+                time: z.string().describe('New HH:mm 24h start time'),
+            }),
+            execute: async ({ date, time }: { date: string; time: string }) => {
+                const latest = await lookupLatestAppointment(ctx.supabase, ctx.workspaceId, ctx.chatId);
+                if (!latest) {
+                    return { success: false, error: 'No upcoming active appointment found to reschedule.' };
+                }
+                const result = await rescheduleAppointment(
+                    ctx.supabase,
+                    ctx.workspaceId,
+                    latest.id,
+                    date,
+                    time,
+                    latest.durationMinutes
+                );
+                return { 
+                    success: result.success, 
+                    reason: result.reason, 
+                    previous_date: latest.date,
+                    previous_time: formatTime12(latest.startTime),
+                    new_date: date,
+                    new_time: formatTime12(time)
+                };
             },
         },
         lookup_customer: {
@@ -377,6 +406,7 @@ export const TRANSACTIONAL_TOOL_NAMES = [
     'cancel_order',
     'book_appointment',
     'cancel_appointment',
+    'reschedule_appointment',
 ] as const;
 
 /**
@@ -395,6 +425,6 @@ export function createEcommerceToolsReadOnly(ctx: ToolContext) {
  */
 export function createAppointmentToolsReadOnly(ctx: ToolContext) {
     const all = createAppointmentTools(ctx);
-    const { book_appointment, cancel_appointment, ...readOnly } = all;
+    const { book_appointment, cancel_appointment, reschedule_appointment, ...readOnly } = all;
     return readOnly;
 }
