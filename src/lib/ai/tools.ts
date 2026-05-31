@@ -83,6 +83,21 @@ export function createAppointmentTools(ctx: ToolContext) {
                 const services = await loadActiveServices(ctx.supabase, ctx.workspaceId);
                 const match = findBestServiceMatch(services, service);
                 if (!match) return { success: false, error: 'Service not found' };
+
+                // Enforce availability validation at write-time to prevent overlapping/duplicate bookings
+                const hours = await loadBusinessHours(ctx.supabase, ctx.workspaceId);
+                const avail = await checkAvailability({
+                    supabase: ctx.supabase,
+                    workspaceId: ctx.workspaceId,
+                    date,
+                    startTime: time,
+                    durationMinutes: match.durationMinutes,
+                    businessHours: hours
+                });
+                if (!avail.available) {
+                    return { success: false, error: 'This time slot is no longer available.' };
+                }
+
                 const [h, m] = time.split(':').map(Number);
                 const endTime = minutesToTime(h * 60 + m + match.durationMinutes);
                 let handle = 'Customer';
