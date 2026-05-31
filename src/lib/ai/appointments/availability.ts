@@ -24,8 +24,9 @@ export async function checkAvailability(args: {
     startTime: string;  // HH:mm
     durationMinutes: number;
     businessHours: BusinessHoursRecord[];
+    excludeAppointmentId?: string;
 }): Promise<AvailabilityResult> {
-    const { supabase, workspaceId, date, startTime, durationMinutes, businessHours } = args;
+    const { supabase, workspaceId, date, startTime, durationMinutes, businessHours, excludeAppointmentId } = args;
 
     // 1. Check business hours
     const dayOfWeek = new Date(`${date}T12:00:00`).getDay();
@@ -45,12 +46,18 @@ export async function checkAvailability(args: {
 
     // 2. Check for overlapping appointments
     try {
-        const { data: overlaps, error } = await supabase
+        let query = supabase
             .from('appointments')
             .select('id, start_time, end_time')
             .eq('workspace_id', workspaceId)
             .eq('appointment_date', date)
             .in('status', ['confirmed', 'pending']);
+
+        if (excludeAppointmentId) {
+            query = query.neq('id', excludeAppointmentId);
+        }
+
+        const { data: overlaps, error } = await query;
 
         if (error) throw error;
 

@@ -129,6 +129,7 @@ export async function rescheduleAppointment(
         startTime: newStartTime,
         durationMinutes,
         businessHours: hours,
+        excludeAppointmentId: appointmentId,
     });
 
     if (!avail.available) {
