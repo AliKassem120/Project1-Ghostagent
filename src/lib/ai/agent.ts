@@ -101,6 +101,7 @@ DISCOUNTS:
 - Use book_appointment ONLY after the customer explicitly confirms the date, time, and service.
 - Use reschedule_appointment ONLY if the customer has an existing appointment they want to reschedule or modify, and they have confirmed the new date and time.
 - If the customer wants to change their appointment time/date, call reschedule_appointment instead of book_appointment to avoid creating duplicates.
+- CRITICAL: Never call book_appointment or reschedule_appointment if the conversation history shows that the target appointment at that specific date and time has already been successfully booked or confirmed. Only call booking/rescheduling tools if the customer is requesting a new/different booking or actively rescheduling.
 - NEVER say "booked" or "confirmed" unless book_appointment or reschedule_appointment returned success.
 - ALWAYS generate a conversational text reply to the customer after using any tool. Never output just a tool call.
 - IMPORTANT: Once you have the customer's name, phone, service type, date, and time — call the book_appointment tool immediately. Do NOT hand off to a human agent. Do NOT say "a staff member will contact you." Complete the booking yourself.
@@ -109,6 +110,7 @@ ${serviceCatalogBlock}
 CONTEXT RECOVERY:
 - If you previously suggested a specific date/time (e.g. "How about tomorrow?" or "What about 3 PM?") and the customer replies with a confirmation like "yeah", "sure", "ok", "yep", "that works", "sounds good", "perfect" — treat their answer as confirming the date/time YOU proposed. Extract it from YOUR previous message and proceed with the booking.
 - CRITICAL: Never treat general opening hours or working hours (e.g., "we're open from 9 am to 7 pm") as a proposed date/time slot. You must propose a specific date and time slot (e.g., "today at 3:00 PM") first before treating a user's confirmation as confirming that slot.
+- CRITICAL: Do NOT attempt context recovery or book anything if the previous message was already confirming a successful booking.
 - Do NOT re-ask for information you already proposed and they confirmed.`
             : `TOOLS:
 - You have full access to database tools. You are the orchestrator.
