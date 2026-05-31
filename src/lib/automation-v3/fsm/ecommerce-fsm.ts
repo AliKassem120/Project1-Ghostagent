@@ -75,14 +75,14 @@ export async function runEcommerceFSM(
     const address = extractedAddr || 
                     (reuse.reuseAddress && known?.address ? known.address : null) || 
                     session.data?.address || 
-                    session.customerProfile?.address || 
+                    session.customerProfile?.metadata?.address || 
                     null;
 
     return { name, phone, address };
   };
 
   // Helper to check if name, phone, and address are all filled
-  const hasAllDetails = (d: { name: any; phone: any; address: any }) => {
+  const hasAllDetails = (d: Record<string, any>) => {
     return !!(d.name && d.phone && d.address);
   };
 

@@ -48,7 +48,7 @@ export async function runAppointmentFSM(
 
   // Helper to load known customer details
   const getKnownDetails = async () => {
-    const known = await tools.lookup_customer.execute({});
+    const known = await tools.lookup_customer.execute();
     return known.found ? known : null;
   };
 
@@ -74,7 +74,7 @@ export async function runAppointmentFSM(
   };
 
   // Helper to check if name/phone are both present
-  const hasDetails = (d: { name: any; phone: any }) => {
+  const hasDetails = (d: Record<string, any>) => {
     return !!(d.name && d.phone);
   };
 
@@ -182,8 +182,8 @@ export async function runAppointmentFSM(
         actions.push('book_appointment_success');
         nextState = 'idle';
         session.data = {};
-        const reply = getTemplate('booking_confirmed', langScript, { date: formatDateLabel(date, timeCtx), time: bookRes.time }) || 
-                      `Appointment booked successfully! ✅ See you ${formatDateLabel(date, timeCtx)} at ${bookRes.time}`;
+        const reply = getTemplate('booking_confirmed', langScript, { date: formatDateLabel(date, timeCtx), time: bookRes.time || '' }) || 
+                      `Appointment booked successfully! ✅ See you ${formatDateLabel(date, timeCtx)} at ${bookRes.time || ''}`;
         return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
       } else {
         actions.push('book_appointment_failed');

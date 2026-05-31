@@ -5,6 +5,8 @@
  * All shared type definitions.
  */
 
+export type Platform = 'instagram' | 'whatsapp';
+
 // ── Engine Input / Output ────────────────────────────────────
 
 export interface AutomationInput {

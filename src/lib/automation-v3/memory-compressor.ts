@@ -83,7 +83,7 @@ async function summarizeTurns(
         'Do NOT include greetings or filler. Be extremely concise.',
       prompt: transcript,
       temperature: 0,
-      maxTokens: 80,
+      maxOutputTokens: 80,
     });
 
     return result.text?.trim() || '';
