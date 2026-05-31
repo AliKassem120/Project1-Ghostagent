@@ -103,6 +103,7 @@ DISCOUNTS:
 - If the customer wants to change their appointment time/date, call reschedule_appointment instead of book_appointment to avoid creating duplicates.
 - Use cancel_appointment if they want to cancel.
 - CRITICAL: Never call book_appointment or reschedule_appointment if the conversation history shows that the target appointment at that specific date and time has already been successfully booked or confirmed. Only call booking/rescheduling tools if the customer is requesting a new/different booking or actively rescheduling.
+- CRITICAL: You must collect the customer's name and phone number before booking. If they are missing from KNOWN CUSTOMER DETAILS, you MUST ask the customer for them immediately after verifying slot availability, before asking for final booking confirmation.
 - NEVER say "booked", "confirmed", or "cancelled" unless the corresponding database tool returned success.
 - ALWAYS generate a conversational text reply to the customer after using any tool. Never output just a tool call.
 - IMPORTANT: Once you have the customer's name, phone, service type, date, and time — call the book_appointment tool immediately. Do NOT hand off to a human agent. Do NOT say "a staff member will contact you." Complete the booking yourself.
@@ -115,9 +116,10 @@ CONTEXT RECOVERY:
 - Do NOT re-ask for information you already proposed and they confirmed.`
             : `TOOLS:
 - You have full access to database tools. You are the orchestrator.
-- Use search_products for ANY question about products, prices, or stock.
+- Use search_products for ANY question about products, prices, or stock. CRITICAL: When calling search_products, always query for the base product name (e.g. "leather jacket") and do NOT include size, color, or variant modifiers (like "size M") in the search query parameter, as this will fail to find the product in the database.
 - Use lookup_customer to check if they've ordered before — skip asking info you already have.
 - If you need their address or phone, ask for it naturally. Once you have it, call place_order.
+- CRITICAL: You must collect the customer's name, phone, and shipping address before placing the order. If they are missing from KNOWN CUSTOMER DETAILS, you MUST ask the customer for them immediately after they choose the product, before asking for final checkout confirmation.
 - Use place_order ONLY after the customer explicitly confirms the product and you have their details.
 - NEVER say "ordered" or "confirmed" unless place_order returned success.
 - Use cancel_order if they want to cancel.
@@ -222,12 +224,51 @@ When in doubt, keep sentences very short and copy the exact formatting from the 
         identityNote = `\n${crossChannelNote}\n`;
     }
 
+    let stateGuidelineBlock = '';
+    if (session) {
+        if (config.businessType === 'appointments') {
+            if (session.state === 'awaiting_customer_details') {
+                stateGuidelineBlock = `\nSTATE INSTRUCTION (Current Stage: awaiting_customer_details):
+- The customer has now provided their name and/or phone number.
+- You have all necessary details: Service, Date/Time, Name, and Phone.
+- You must now ask the customer for final confirmation to book the appointment (e.g. "Would you like me to go ahead and book this haircut for you on Monday at 11 AM?").
+- Do NOT ask for their name, phone, or date/time again. Just ask for final confirmation to book.`;
+            } else if (session.state === 'awaiting_booking_confirmation') {
+                stateGuidelineBlock = `\nSTATE INSTRUCTION (Current Stage: awaiting_booking_confirmation):
+- The customer has confirmed they want to book.
+- You must call the book_appointment tool immediately to finalize the booking in the database.
+- Do NOT ask them any more questions. Just call the tool and report success when done.`;
+            } else if (session.state === 'post_appointment_modify') {
+                stateGuidelineBlock = `\nSTATE INSTRUCTION (Current Stage: post_appointment_modify):
+- The customer wants to cancel or modify their appointment.
+- If they want to cancel, call the cancel_appointment tool immediately.
+- If they want to reschedule, check the slot availability for their new preferred date/time, then call reschedule_appointment.`;
+            }
+        } else if (config.businessType === 'ecommerce') {
+            if (session.state === 'awaiting_order_details') {
+                stateGuidelineBlock = `\nSTATE INSTRUCTION (Current Stage: awaiting_order_details):
+- You have all details: Product/Variant, Name, Phone, and Address.
+- You must now ask the customer for final confirmation to place the order (e.g. "Would you like me to go ahead and place this order?").
+- Do NOT ask for their details or products again.`;
+            } else if (session.state === 'awaiting_checkout_confirmation') {
+                stateGuidelineBlock = `\nSTATE INSTRUCTION (Current Stage: awaiting_checkout_confirmation):
+- The customer has confirmed the order.
+- You must call the place_order tool immediately to place the order in the database.
+- Do NOT ask them any more questions. Just call the tool and report success.`;
+            } else if (session.state === 'post_order_modify') {
+                stateGuidelineBlock = `\nSTATE INSTRUCTION (Current Stage: post_order_modify):
+- The customer wants to cancel, track, or modify their order.
+- If they want to cancel, call the cancel_order tool immediately.`;
+            }
+        }
+    }
+
     return `You are the DM manager of "${config.businessName}", ${businessDesc}.
 You're chatting with a customer on ${platform === 'whatsapp' ? 'WhatsApp' : 'Instagram DMs'}.
 
 UNDERSTANDING ARABIZI/FRANCO-ARABIC INPUT:
 Customers may write in Lebanese Arabizi (Franco-Arabic) where numbers replace Arabic letters. Common mappings: 3=ع (ain), 7=ح (ha), 2=ء/ق (hamza/qaf), 5=خ (kha), 8=غ (ghain), 6=ط (ta). Examples: "e7joz" = "I want to book", "3ndkn" = "do you have", "nhar l a7ad" = "Sunday", "mar7aba" = "hello", "addesh" = "how much", "se3r" = "price", "maw3ed" = "appointment". If you receive a message mixing numbers and Latin letters, try to interpret it as Arabizi before asking the customer to repeat.
-${memoryBlock}${notesBlock}${identityNote}${sessionBlock}${emotionBlock || ''}${proactiveBlock || ''}
+${memoryBlock}${notesBlock}${identityNote}${sessionBlock}${stateGuidelineBlock}${emotionBlock || ''}${proactiveBlock || ''}
 RULES:
 1. ${lengthRule}
 2. ${tone}
@@ -249,6 +290,53 @@ ${config.contactInfo ? `CONTACT: ${config.contactInfo}` : ''}
 ${config.businessType === 'ecommerce' && config.shippingRules ? `SHIPPING: ${config.shippingRules}` : ''}`;
 }
 
+async function generateObjectFallback<T>(
+    groqInstance: any,
+    modelId: string,
+    args: {
+        system: string;
+        prompt: string;
+        schema: { parse: (val: any) => T };
+        temperature?: number;
+    }
+): Promise<{ object: T }> {
+    const shape = (args.schema as any).shape || {};
+    const keyBlueprint = JSON.stringify(
+        Object.fromEntries(Object.keys(shape).map(k => [k, "your_classified_value"]))
+    );
+    const jsonPrompt = `${args.prompt}\n\nIMPORTANT: You must output ONLY a valid JSON object. Do NOT include markdown code blocks, backticks, or any conversational text.\nYour JSON object MUST use this exact key structure: ${keyBlueprint}`;
+
+    const result = await generateText({
+        model: groqInstance(modelId),
+        system: args.system,
+        prompt: jsonPrompt,
+        temperature: args.temperature ?? 0,
+    });
+
+    const text = result.text?.trim() || '';
+    const cleanedText = text
+        .replace(/^```json/i, '')
+        .replace(/^```/i, '')
+        .replace(/```$/, '')
+        .trim();
+
+    try {
+        const parsed = JSON.parse(cleanedText);
+        return { object: args.schema.parse(parsed) };
+    } catch (e) {
+        const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            try {
+                const parsed = JSON.parse(jsonMatch[0]);
+                return { object: args.schema.parse(parsed) };
+            } catch (innerErr: any) {
+                throw new Error(`Failed to parse extracted JSON: ${innerErr.message || String(innerErr)}. Original text: ${cleanedText}`);
+            }
+        }
+        throw new Error(`Failed to parse LLM response as JSON. Original text: ${cleanedText}`);
+    }
+}
+
 async function classifyProposedNextStage(
     groqInstance: any,
     currentStage: string,
@@ -261,8 +349,8 @@ async function classifyProposedNextStage(
         const appointmentStages = `For 'appointments' business type:
 - 'idle': Conversation is completed, cancelled, or reset to start.
 - 'awaiting_service': Customer is choosing/discussing which service they want.
-- 'awaiting_date_time': Service is known, but we are waiting for date/time preference or availability check.
-- 'awaiting_customer_details': Service and date/time are known, but we need customer name, phone, or details.
+- 'awaiting_date_time': Service is known, but we are waiting for date/time preference or availability check. (If the customer has already specified their date/time preference, e.g. "Monday at 11am", do NOT choose 'awaiting_date_time'; choose 'awaiting_customer_details').
+- 'awaiting_customer_details': Service and date/time are known, but we need customer name, phone, or details. (If the customer has already supplied these details, do NOT choose 'awaiting_customer_details'; choose 'awaiting_booking_confirmation').
 - 'awaiting_booking_confirmation': We have service, date/time, and customer details, and we are asking them to confirm the booking or confirming it.
 - 'post_appointment_modify': Customer wants to reschedule, cancel, or modify an existing booking. Keep using this state for the entire cancellation/modification flow; do NOT choose 'awaiting_customer_details', 'awaiting_service', or 'awaiting_date_time' even if collecting details or discussing dates for the cancellation.
 - 'handoff': User explicitly asked to talk to a human, the bot cannot help them, or the bot states that a staff member or human will contact or help them shortly.`;
@@ -270,8 +358,8 @@ async function classifyProposedNextStage(
         const ecommerceStages = `For 'ecommerce' business type:
 - 'idle': Conversation is completed, cancelled, or reset to start.
 - 'awaiting_product': Customer is choosing/discussing which product they want.
-- 'awaiting_variant': Product is known, but we are waiting for size, color, or variant choice.
-- 'awaiting_order_details': Product/variant is known, but we need customer shipping details (name, phone, address).
+- 'awaiting_variant': Product is known, but we are waiting for size, color, or variant choice. (If the customer has already specified their variant/size/color, e.g. "size M", do NOT choose 'awaiting_variant'; choose 'awaiting_order_details').
+- 'awaiting_order_details': Product/variant is known, but we need customer shipping details (name, phone, address). (If the customer has already supplied these details, do NOT choose 'awaiting_order_details'; choose 'awaiting_checkout_confirmation').
 - 'awaiting_checkout_confirmation': We have product and shipping details, and we are asking them to confirm the order or confirming it.
 - 'post_order_modify': Customer wants to cancel, track, or modify an existing order. Keep using this state for the entire order modification/tracking flow; do NOT choose 'awaiting_order_details', 'awaiting_product', or 'awaiting_variant' even if collecting details for the modification.
 - 'handoff': User explicitly asked to talk to a human, the bot cannot help them, or the bot states that a staff member or human will contact or help them shortly.`;
@@ -288,27 +376,26 @@ Based on:
 Choose the most appropriate next state from the list of valid states for this business type:
 ${stageDirectives}
 
-Choose strictly one of the stage keys listed above (must be a valid string literal like 'awaiting_date_time' or 'awaiting_order_details').
-Reply with exactly the stage key name and nothing else.`;
+Choose strictly one of the stage keys listed above (must be a valid string literal like 'awaiting_date_time' or 'awaiting_order_details').`;
 
-        const classification = await generateText({
-            model: groqInstance(SMALL_MODEL),
+        const { z } = await import('zod');
+
+        const classification = await generateObjectFallback(groqInstance, SMALL_MODEL, {
             system,
             prompt: `Determine next stage. Current stage is ${currentStage}.`,
+            schema: z.object({
+                stage: z.enum([
+                    'idle', 'collecting', 'confirming', 'complete', 'handoff',
+                    'awaiting_product', 'awaiting_variant', 'awaiting_order_details', 'awaiting_checkout_confirmation',
+                    'awaiting_service', 'awaiting_date_time', 'awaiting_customer_details', 'awaiting_booking_confirmation',
+                    'post_order_modify', 'post_appointment_modify'
+                ] as const).describe('The determined next stage of the conversation')
+            }),
             temperature: 0,
         });
 
-        let proposed = classification.text?.trim().toLowerCase();
-        if (proposed) {
-            proposed = proposed.replace(/^['"`\s]+|['"`\s]+$/g, '');
-        }
-        const validStages = [
-            'idle', 'collecting', 'confirming', 'complete', 'handoff',
-            'awaiting_product', 'awaiting_variant', 'awaiting_order_details', 'awaiting_checkout_confirmation',
-            'awaiting_service', 'awaiting_date_time', 'awaiting_customer_details', 'awaiting_booking_confirmation',
-            'post_order_modify', 'post_appointment_modify'
-        ];
-        if (!proposed || !validStages.includes(proposed)) {
+        const proposed = classification.object?.stage;
+        if (!proposed) {
             v2log.warn('STATE_CLASSIFIER', 'Invalid stage classified, defaulting to current stage', { proposed, currentStage });
             return currentStage as ConversationStage;
         }
@@ -440,20 +527,33 @@ export async function runV3Agent(
     let route: 'simple' | 'transaction' = 'transaction';
     if (session.state === 'idle') {
         try {
-            const classification = await generateText({
-                model: groqInstance(SMALL_MODEL),
+            const { z } = await import('zod');
+
+            const classification = await generateObjectFallback(groqInstance, SMALL_MODEL, {
                 system: `You are an AI router. Categorize if the customer message requires querying or modifying live database tables.
 Categories:
 - "transaction": Customer wants to book an appointment, check slot availability, search products, check stock/availability of products, ask about prices, ask how much something costs, ask how long a service takes, ask about duration, order products, cancel an order, check order status, mentions a specific date or time (e.g. "today", "tomorrow", "3pm", "next week"), or says they want to book/reserve/schedule.
 - "simple": ONLY pure greetings (hi, hello, hey), pure thanks (thanks, thank you, merci, shukran), or basic casual chat that has NOTHING to do with services, products, booking, or prices.
+
 When in doubt, always choose "transaction".
-Reply with exactly one word: "simple" or "transaction".`,
+
+Examples:
+- Customer: "hello, do you have leather jackets?" -> {"route": "transaction"}
+- Customer: "hi" -> {"route": "simple"}
+- Customer: "thanks!" -> {"route": "simple"}
+- Customer: "I need to cancel my haircut" -> {"route": "transaction"}
+- Customer: "how much is a haircut?" -> {"route": "transaction"}
+- Customer: "ok perfect" -> {"route": "simple"}
+- Customer: "can I book tomorrow at 5?" -> {"route": "transaction"}`,
                 prompt: `Customer message: "${input.message}"`,
+                schema: z.object({
+                    route: z.enum(['simple', 'transaction']).describe('The classified route for the incoming customer message')
+                }),
                 temperature: 0,
             });
 
-            const ans = classification.text?.trim().toLowerCase() || '';
-            if (ans.includes('simple')) {
+            const ans = classification.object?.route || 'transaction';
+            if (ans === 'simple') {
                 route = 'simple';
             }
         } catch (classifyErr) {
@@ -644,6 +744,7 @@ Reply with exactly one word: "simple" or "transaction".`,
         if (route === 'transaction') {
             const system = buildPrompt(config, replyLang, ragExamples, input.platform, false, activeServices, recentSummaries, session, customerNotes, emotionBlock, proactiveBlock, crossChannelNote);
             try {
+                // Try Smart Model with Tools first
                 result = await generateText({
                     model: groqInstance(SMART_MODEL),
                     system,
@@ -651,6 +752,7 @@ Reply with exactly one word: "simple" or "transaction".`,
                     tools: wrappedTools,
                     stopWhen: stepCountIs(5),
                     temperature: 0.3,
+                    maxRetries: 0,
                 });
             } catch (primaryErr: any) {
                 const isRateLimit = 
@@ -660,30 +762,51 @@ Reply with exactly one word: "simple" or "transaction".`,
                         primaryErr.message.includes('429')
                     ));
 
-                if (isRateLimit) {
-                    v2log.warn('V3_AGENT', `Smart model ${SMART_MODEL} rate-limited (429), bypassing retry and falling back immediately to tool-less small model`, { error: primaryErr.message });
-                    const fallbackSystem = buildPrompt(config, replyLang, ragExamples, input.platform, true, activeServices, recentSummaries, session, customerNotes, emotionBlock, proactiveBlock, crossChannelNote);
+                v2log.warn('V3_AGENT', `Smart model ${SMART_MODEL} execution failed, trying small model with tools...`, { error: primaryErr.message, isRateLimit });
+                
+                try {
+                    // Try Small Model with Tools as the first fallback level
                     result = await generateText({
                         model: groqInstance(SMALL_MODEL),
-                        system: fallbackSystem,
+                        system,
                         messages,
+                        tools: wrappedTools,
+                        stopWhen: stepCountIs(5),
                         temperature: 0.3,
                     });
-                } else {
-                    v2log.warn('V3_AGENT', `Smart model ${SMART_MODEL} failed, retrying...`, { error: primaryErr.message });
-                    try {
-                        // Retry #1: same smart model WITH tools (handles transient errors)
-                        result = await generateText({
-                            model: groqInstance(SMART_MODEL),
-                            system,
-                            messages,
-                            tools: wrappedTools,
-                            stopWhen: stepCountIs(5),
-                            temperature: 0.3,
-                        });
-                    } catch (retryErr: any) {
-                        v2log.warn('V3_AGENT', `Retry with tools also failed, falling back to tool-less mode with small model`, { error: retryErr.message });
-                        // Retry #2: tool-less mode with small model as last resort
+                } catch (smallModelErr: any) {
+                    const isRateLimit = 
+                        smallModelErr.statusCode === 429 || 
+                        (smallModelErr.message && (
+                            smallModelErr.message.toLowerCase().includes('rate limit') || 
+                            smallModelErr.message.toLowerCase().includes('tpm') ||
+                            smallModelErr.message.includes('429')
+                        ));
+                    
+                    if (isRateLimit) {
+                        v2log.warn('V3_AGENT', 'Small model hit rate limit, waiting 15s before retry...', { error: smallModelErr.message });
+                        await new Promise(resolve => setTimeout(resolve, 15000));
+                        try {
+                            result = await generateText({
+                                model: groqInstance(SMALL_MODEL),
+                                system,
+                                messages,
+                                tools: wrappedTools,
+                                stopWhen: stepCountIs(5),
+                                temperature: 0.3,
+                            });
+                        } catch (retryErr: any) {
+                            v2log.warn('V3_AGENT', `Small model retry also failed, falling back to tool-less small model`, { error: retryErr.message });
+                            const fallbackSystem = buildPrompt(config, replyLang, ragExamples, input.platform, true, activeServices, recentSummaries, session, customerNotes, emotionBlock, proactiveBlock, crossChannelNote);
+                            result = await generateText({
+                                model: groqInstance(SMALL_MODEL),
+                                system: fallbackSystem,
+                                messages,
+                                temperature: 0.3,
+                            });
+                        }
+                    } else {
+                        v2log.warn('V3_AGENT', `Small model with tools also failed, falling back to tool-less small model`, { error: smallModelErr.message });
                         const fallbackSystem = buildPrompt(config, replyLang, ragExamples, input.platform, true, activeServices, recentSummaries, session, customerNotes, emotionBlock, proactiveBlock, crossChannelNote);
                         result = await generateText({
                             model: groqInstance(SMALL_MODEL),
@@ -711,6 +834,7 @@ Reply with exactly one word: "simple" or "transaction".`,
 
                 if (['book_appointment', 'place_order', 'cancel_appointment', 'cancel_order', 'reschedule_appointment'].includes(toolName)) {
                     dbWriteAttempted = true;
+                    actions.push('tool_' + toolName);
                     if (data?.success) {
                         dbWriteSuccess = true;
                         actions.push(toolName + '_success');
@@ -770,7 +894,7 @@ Reply with exactly one word: "simple" or "transaction".`,
                 price: s.price,
                 durationMinutes: s.durationMinutes
             }));
-            const verifyResult = verifyAgentReply(reply, actions, serviceInfoList, 'appointments', hasActiveBooking, false);
+            const verifyResult = verifyAgentReply(reply, actions, serviceInfoList, 'appointments', hasActiveBooking, false, replyLang);
             if (!verifyResult.verified) {
                 reply = verifyResult.correctedReply;
                 for (const violation of verifyResult.violations) {
@@ -784,7 +908,7 @@ Reply with exactly one word: "simple" or "transaction".`,
                 price: p.price,
                 stockLevel: p.stockLevel
             }));
-            const verifyResult = verifyAgentReply(reply, actions, productInfoList, 'ecommerce', false, hasActiveOrder);
+            const verifyResult = verifyAgentReply(reply, actions, productInfoList, 'ecommerce', false, hasActiveOrder, replyLang);
             if (!verifyResult.verified) {
                 reply = verifyResult.correctedReply;
                 for (const violation of verifyResult.violations) {
@@ -795,14 +919,63 @@ Reply with exactly one word: "simple" or "transaction".`,
         }
 
         // FSM Stage Classification & Transition Validation (Phase 2)
-        const proposedStage = await classifyProposedNextStage(
-            groqInstance,
-            session.state,
-            config.businessType as 'appointments' | 'ecommerce',
-            input.message,
-            reply,
-            actions
-        );
+        if (!session.data) {
+            session.data = {};
+        }
+        const isRepeatMessage = session.data.lastUserMessage &&
+            session.data.lastUserMessage.trim().toLowerCase() === input.message.trim().toLowerCase();
+
+        session.data.lastUserMessage = input.message;
+
+        let proposedStage: ConversationStage;
+        if (actions.includes('book_appointment_success') || actions.includes('place_order_success')) {
+            v2log.info('V3_AGENT', 'Booking or order creation successful, forcing state to idle', { actions });
+            proposedStage = 'idle';
+        } else if (isRepeatMessage) {
+            v2log.info('V3_AGENT', 'Repeat user message detected, forcing proposed stage to remain at current state to trigger loop detection', { currentState: session.state });
+            proposedStage = session.state;
+        } else {
+            proposedStage = await classifyProposedNextStage(
+                groqInstance,
+                session.state,
+                config.businessType as 'appointments' | 'ecommerce',
+                input.message,
+                reply,
+                actions
+            );
+
+            // Heuristic Promotion for e-commerce awaiting_variant -> awaiting_order_details
+            if (proposedStage === 'awaiting_variant' && config.businessType === 'ecommerce') {
+                const msgLower = input.message.toLowerCase();
+                const replyLower = reply.toLowerCase();
+                const hasVariantSpec = msgLower.includes('size') || 
+                                       /\b(medium|large|small|xl|xs|xxl)\b/i.test(msgLower) ||
+                                       /\b([sml])\b/i.test(msgLower) ||
+                                       msgLower.includes('color') || 
+                                       msgLower.includes('black') || 
+                                       msgLower.includes('white');
+                const isBotAskingToOrder = replyLower.includes('place an order') || 
+                                           replyLower.includes('place your order') || 
+                                           replyLower.includes('details') || 
+                                           replyLower.includes('shipping') || 
+                                           replyLower.includes('address');
+                if (hasVariantSpec || isBotAskingToOrder) {
+                    v2log.info('V3_AGENT', 'Variant already specified or bot asking to order, promoting awaiting_variant to awaiting_order_details');
+                    proposedStage = 'awaiting_order_details';
+                }
+            }
+
+            // Heuristic Promotion for appointments awaiting_date_time -> awaiting_customer_details
+            if (proposedStage === 'awaiting_date_time' && config.businessType === 'appointments') {
+                const msgLower = input.message.toLowerCase();
+                const hasDateTimeSpec = /\b(at|am|pm|today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.test(msgLower) ||
+                                        /\b\d{1,2}(:\d{2})?\b/.test(msgLower);
+                if (hasDateTimeSpec) {
+                    v2log.info('V3_AGENT', 'Date/time preference already specified, promoting awaiting_date_time to awaiting_customer_details');
+                    proposedStage = 'awaiting_customer_details';
+                }
+            }
+        }
 
         const validation = validateTransition(
             session.state,

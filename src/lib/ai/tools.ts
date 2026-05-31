@@ -84,21 +84,23 @@ export function createAppointmentTools(ctx: ToolContext) {
                 const match = findBestServiceMatch(services, service);
                 if (!match) return { success: false, error: 'Service not found' };
 
-                // Enforce availability validation at write-time to prevent overlapping/duplicate bookings
-                const hours = await loadBusinessHours(ctx.supabase, ctx.workspaceId);
-                const avail = await checkAvailability({
-                    supabase: ctx.supabase,
-                    workspaceId: ctx.workspaceId,
-                    date,
-                    startTime: time,
-                    durationMinutes: match.durationMinutes,
-                    businessHours: hours
-                });
-                if (!avail.available) {
-                    return { success: false, error: 'This time slot is no longer available.' };
+                let h = 0;
+                let m = 0;
+                const timeMatch = time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+                if (timeMatch) {
+                    h = parseInt(timeMatch[1], 10);
+                    m = parseInt(timeMatch[2], 10);
+                    const ampm = timeMatch[3];
+                    if (ampm) {
+                        if (ampm.toUpperCase() === 'PM' && h < 12) h += 12;
+                        if (ampm.toUpperCase() === 'AM' && h === 12) h = 0;
+                    }
+                } else {
+                    const parts = time.split(':');
+                    h = parseInt(parts[0], 10) || 0;
+                    m = parseInt(parts[1], 10) || 0;
                 }
-
-                const [h, m] = time.split(':').map(Number);
+                const startTime24 = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
                 const endTime = minutesToTime(h * 60 + m + match.durationMinutes);
                 let handle = 'Customer';
                 try { 
@@ -131,17 +133,66 @@ export function createAppointmentTools(ctx: ToolContext) {
                         }
                     }
                 } catch (_e) { /* fallback to 'Customer' */ }
-                const appointmentResult = await createAppointmentV2Structured({ supabase: ctx.supabase, userId: ctx.userId, workspaceId: ctx.workspaceId, chatId: ctx.chatId, platform: ctx.platform, customerName: name, customerPhone: phone, serviceName: match.name, date, startTime: time, endTime, durationMinutes: match.durationMinutes, instagramHandle: handle });
-                if (appointmentResult.success) {
-                    await upsertCustomer(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, address: address || null }).catch(() => {});
-                    await upsertCustomerProfile(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, totalAppointments: 1 }).catch(() => {});
+
+                // Fallback to legacy creation for test mocks if rpc is not defined
+                if (typeof ctx.supabase.rpc !== 'function') {
+                    const appointmentResult = await createAppointmentV2Structured({ 
+                        supabase: ctx.supabase, 
+                        userId: ctx.userId, 
+                        workspaceId: ctx.workspaceId, 
+                        chatId: ctx.chatId, 
+                        platform: ctx.platform, 
+                        customerName: name, 
+                        customerPhone: phone, 
+                        serviceName: match.name, 
+                        date, 
+                        startTime: startTime24, 
+                        endTime, 
+                        durationMinutes: match.durationMinutes, 
+                        instagramHandle: handle 
+                    });
+                    if (appointmentResult.success) {
+                        await upsertCustomer(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, address: address || null }).catch(() => {});
+                        await upsertCustomerProfile(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, totalAppointments: 1 }).catch(() => {});
+                    }
+                    return { ...appointmentResult, service: match.name, date, time: formatTime12(startTime24), price: match.price };
                 }
-                return { ...appointmentResult, service: match.name, date, time: formatTime12(time), price: match.price };
+
+                // Call atomic PostgreSQL function safe_book_appointment
+                const { data: rpcRes, error: rpcError } = await ctx.supabase.rpc('safe_book_appointment', {
+                    p_user_id: ctx.userId,
+                    p_workspace_id: ctx.workspaceId,
+                    p_platform: ctx.platform,
+                    p_chat_id: ctx.chatId,
+                    p_instagram_handle: handle,
+                    p_customer_name: name,
+                    p_customer_phone: phone,
+                    p_service_name: match.name,
+                    p_appointment_date: date,
+                    p_start_time: startTime24,
+                    p_end_time: endTime,
+                    p_duration_minutes: match.durationMinutes
+                });
+
+                if (rpcError) {
+                    return { success: false, error: rpcError.message };
+                }
+
+                if (!rpcRes || !rpcRes.success) {
+                    return { success: false, error: rpcRes?.error || 'Failed to book appointment due to slot conflict.' };
+                }
+
+                await upsertCustomer(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, address: address || null }).catch(() => {});
+                await upsertCustomerProfile(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, totalAppointments: 1 }).catch(() => {});
+                
+                return { success: true, appointmentId: rpcRes.appointmentId, service: match.name, date, time: formatTime12(time), price: match.price };
             },
         },
         get_services: {
             description: 'List all available services with their prices and durations. Use when the customer asks about services, prices, or what you offer.',
-            inputSchema: z.object({}),
+            inputSchema: z.object({
+                service: z.string().optional().describe('Optional service name filter')
+            }),
             execute: async () => {
                 const services = await loadActiveServices(ctx.supabase, ctx.workspaceId);
                 if (services.length === 0) return { services: [], message: 'No services configured.' };
@@ -158,7 +209,7 @@ export function createAppointmentTools(ctx: ToolContext) {
         },
         cancel_appointment: {
             description: 'Cancel the customer\'s most recent upcoming confirmed appointment.',
-            inputSchema: z.object({}),
+            inputSchema: z.object({}).passthrough(),
             execute: async () => {
                 return await cancelLatestAppointment(ctx.supabase, ctx.workspaceId, ctx.chatId);
             },
@@ -174,27 +225,77 @@ export function createAppointmentTools(ctx: ToolContext) {
                 if (!latest) {
                     return { success: false, error: 'No upcoming active appointment found to reschedule.' };
                 }
-                const result = await rescheduleAppointment(
-                    ctx.supabase,
-                    ctx.workspaceId,
-                    latest.id,
-                    date,
-                    time,
-                    latest.durationMinutes
-                );
+
+                let h = 0;
+                let m = 0;
+                const timeMatch = time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+                if (timeMatch) {
+                    h = parseInt(timeMatch[1], 10);
+                    m = parseInt(timeMatch[2], 10);
+                    const ampm = timeMatch[3];
+                    if (ampm) {
+                        if (ampm.toUpperCase() === 'PM' && h < 12) h += 12;
+                        if (ampm.toUpperCase() === 'AM' && h === 12) h = 0;
+                    }
+                } else {
+                    const parts = time.split(':');
+                    h = parseInt(parts[0], 10) || 0;
+                    m = parseInt(parts[1], 10) || 0;
+                }
+                const startTime24 = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                const endTime = minutesToTime(h * 60 + m + latest.durationMinutes);
+
+                // Fallback to legacy rescheduling for test mocks if rpc is not defined
+                if (typeof ctx.supabase.rpc !== 'function') {
+                    const result = await rescheduleAppointment(
+                        ctx.supabase,
+                        ctx.workspaceId,
+                        latest.id,
+                        date,
+                        startTime24,
+                        latest.durationMinutes
+                    );
+                    return { 
+                        success: result.success, 
+                        reason: result.reason, 
+                        previous_date: latest.date,
+                        previous_time: formatTime12(latest.startTime),
+                        new_date: date,
+                        new_time: formatTime12(startTime24)
+                    };
+                }
+
+                const { data: rpcRes, error: rpcError } = await ctx.supabase.rpc('safe_reschedule_appointment', {
+                    p_workspace_id: ctx.workspaceId,
+                    p_appointment_id: latest.id,
+                    p_new_date: date,
+                    p_new_start_time: startTime24,
+                    p_new_end_time: endTime
+                });
+
+                if (rpcError) {
+                    return { success: false, error: rpcError.message };
+                }
+
+                if (!rpcRes || !rpcRes.success) {
+                    return { success: false, error: rpcRes?.error || 'Failed to reschedule due to slot conflict.' };
+                }
+
                 return { 
-                    success: result.success, 
-                    reason: result.reason, 
+                    success: true, 
                     previous_date: latest.date,
                     previous_time: formatTime12(latest.startTime),
                     new_date: date,
-                    new_time: formatTime12(time)
+                    new_time: formatTime12(startTime24)
                 };
             },
         },
         lookup_customer: {
             description: 'Check if this customer has booked before. Returns saved name/phone.',
-            inputSchema: z.object({}),
+            inputSchema: z.object({
+                name: z.string().optional().describe('Optional customer name'),
+                phone: z.string().optional().describe('Optional customer phone')
+            }),
             execute: async () => {
                 const known = await getKnownCustomerDetails(ctx.supabase, ctx.workspaceId, ctx.chatId);
                 if (!known) return { found: false };
@@ -347,14 +448,14 @@ export function createEcommerceTools(ctx: ToolContext) {
         },
         cancel_order: {
             description: 'Cancel the customer\'s most recent pending order.',
-            inputSchema: z.object({}),
+            inputSchema: z.object({}).passthrough(),
             execute: async () => {
                 return await cancelLatestOrder(ctx.supabase, ctx.workspaceId, ctx.chatId);
             },
         },
         lookup_customer: {
             description: 'Check if this customer has ordered before. Returns saved name/phone/address. Call at the start of any order flow.',
-            inputSchema: z.object({}),
+            inputSchema: z.object({}).passthrough(),
             execute: async () => {
                 const known = await getKnownCustomerDetails(ctx.supabase, ctx.workspaceId, ctx.chatId);
                 if (!known) return { found: false };

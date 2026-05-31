@@ -253,6 +253,14 @@ async function processWebhookEvent(body: any) {
 
                     console.log(`📩 Received from ${senderId}: ${messageText}`);
 
+                    // Deduplicate webhook event retries
+                    const { isDuplicate } = await import('@/lib/ai/queue');
+                    const isDup = await isDuplicate(senderId, messageText, event.timestamp || Date.now(), event.message?.mid);
+                    if (isDup) {
+                        console.log(`⏭️ [Webhook IG] Duplicate event detected and skipped: messageId=${event.message?.mid}`);
+                        continue;
+                    }
+
                     // ── IDENTIFY THE BUSINESS OWNER + WORKSPACE ──
                     const ownerResult = await findOwner(supabaseAdmin, recipientId);
                     if (!ownerResult) {

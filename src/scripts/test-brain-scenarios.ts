@@ -215,7 +215,7 @@ const SCENARIOS: Scenario[] = [
         turns: [
             {
                 userMessage: 'hello, do you have leather jackets?',
-                expectedStateAfter: 'idle', // remains in idle while browsing
+                expectedStateAfter: 'awaiting_product', // transitions to awaiting_product while browsing
                 assert: (res) => {
                     if (!res.actions.includes('tool_search_products')) {
                         throw new Error('Bot did not search for products in stock');
@@ -312,7 +312,14 @@ async function runScenarioBacktests() {
 
     const logLines: string[] = ['=== SCENARIO BACKTEST RESULTS ===\n'];
 
+    let isFirstScenario = true;
     for (const scenario of SCENARIOS) {
+        if (!isFirstScenario) {
+            console.log(`\n⏱️ Sleeping 25s to allow Groq TPM rate limits to reset between scenarios...`);
+            await new Promise(resolve => setTimeout(resolve, 25000));
+        }
+        isFirstScenario = false;
+
         const ws = scenario.type === 'appointments' ? apptWs : ecomWs;
         const testChatId = `scenario_test_${scenario.type}_${Date.now()}`;
         
@@ -408,8 +415,8 @@ async function runScenarioBacktests() {
                 break; // stop scenario turns if one fails
             }
 
-            // Pause slightly between turns for realism
-            await new Promise(resolve => setTimeout(resolve, 800));
+            // Pause slightly between turns for realism and rate limit compliance
+            await new Promise(resolve => setTimeout(resolve, 4000));
         }
 
         // Clean up scenario test-specific entities

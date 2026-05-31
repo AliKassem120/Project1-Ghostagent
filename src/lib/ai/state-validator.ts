@@ -94,7 +94,7 @@ export const STATE_CONFIGS: Record<string, StateConfig> = {
     },
     awaiting_service: {
         validNext: ['awaiting_date_time', 'awaiting_customer_details', 'awaiting_booking_confirmation', 'idle', 'handoff'],
-        maxLoops: 3,
+        maxLoops: 2,
         maxDurationMinutes: 15,
         fallbackState: 'idle',
     },

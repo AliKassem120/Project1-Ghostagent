@@ -339,6 +339,14 @@ async function processWhatsAppEvent(body: any) {
 
                 console.log(`📱 WhatsApp message from ${customerPhone}: "${messageText.slice(0, 80)}"`);
 
+                // Deduplicate webhook event retries
+                const { isDuplicate } = await import('@/lib/ai/queue');
+                const isDup = await isDuplicate(customerPhone, messageText, Number(message.timestamp || Date.now() / 1000) * 1000, message.id);
+                if (isDup) {
+                    console.log(`⏭️ [Webhook WA] Duplicate event detected and skipped: messageId=${message.id}`);
+                    continue;
+                }
+
                 // ── 1. FIND WORKSPACE ──────────────────────────────────────
                 // Match by whatsapp_phone_number_id so each SaaS user's
                 // connected number routes to their correct agent.

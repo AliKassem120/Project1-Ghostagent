@@ -115,16 +115,70 @@ function findItemForPrice(
 
 // ── Main Verifier ────────────────────────────────────────────
 
+const LOCALIZED_FALLBACKS: Record<string, {
+    booking_claim: string;
+    availability_deny: string;
+    order_claim: string;
+    stock_deny: string;
+}> = {
+    english: {
+        booking_claim: "I'd love to get that booked for you! Could you please confirm the date, time, and service so I can finalize your appointment?",
+        availability_deny: "Let me check our availability for you! What date and time were you thinking?",
+        order_claim: "I'd love to place that order for you! Could you please confirm your name, phone number, and address so we can finalize the order?",
+        stock_deny: "Let me check the stock levels for you! Which product were you looking for?"
+    },
+    arabizi: {
+        booking_claim: "Yalla 7abeb e7jizlak! Fik t2akid l date, l wa2et w ayya service baddak ta2aman l maw3ed?",
+        availability_deny: "Khaline shouf l maw3id l fadye! Ayya nhar w se3a baddak?",
+        order_claim: "Yalla baddi a3mil l order! Fik t2akid l isem, ra2em l tilefon w l address ta nkhalles l order?",
+        stock_deny: "Khaline shouf iza fi stock! Ayya product baddak?"
+    },
+    'lebanese franco': {
+        booking_claim: "Yalla 7abeb e7jizlak! Fik t2akid l date, l wa2et w ayya service baddak ta2aman l maw3ed?",
+        availability_deny: "Khaline shouf l maw3id l fadye! Ayya nhar w se3a baddak?",
+        order_claim: "Yalla baddi a3mil l order! Fik t2akid l isem, ra2em l tilefon w l address ta nkhalles l order?",
+        stock_deny: "Khaline shouf iza fi stock! Ayya product baddak?"
+    },
+    mixed: {
+        booking_claim: "Yalla 7abeb e7jizlak! Fik t2akid l date, l wa2et w ayya service baddak ta2aman l maw3ed?",
+        availability_deny: "Khaline shouf l maw3id l fadye! Ayya nhar w se3a baddak?",
+        order_claim: "Yalla baddi a3mil l order! Fik t2akid l isem, ra2em l tilefon w l address ta nkhalles l order?",
+        stock_deny: "Khaline shouf iza fi stock! Ayya product baddak?"
+    },
+    spanish: {
+        booking_claim: "¡Me encantaría reservarlo para ti! ¿Podrías confirmar la fecha, la hora y el servicio para finalizar tu cita?",
+        availability_deny: "¡Déjame verificar nuestra disponibilidad! ¿En qué fecha y hora estabas pensando?",
+        order_claim: "¡Me encantaría hacer ese pedido por ti! ¿Podrías confirmar tu nombre, número de teléfono y dirección para finalizar el pedido?",
+        stock_deny: "¿Déjame verificar el stock! ¿Qué producto estabas buscando?"
+    },
+    french: {
+        booking_claim: "Je serais ravi de réserver cela pour vous ! Pourriez-vous confirmer la date, l'heure et le service afin que je puisse finaliser votre rendez-vous ?",
+        availability_deny: "Laissez-moi vérifier nos disponibilités ! À quelle date et heure pensiez-vous ?",
+        order_claim: "Je serais ravi de passer cette commande pour vous ! Pourriez-vous confirmer votre nom, numéro de téléphone et adresse afin de finaliser la commande ?",
+        stock_deny: "Laissez-moi vérifier les niveaux de stock ! Quel produit recherchiez-vous ?"
+    },
+    arabic: {
+        booking_claim: "يسعدني أن أحجز ذلك لك! هل يمكنك تأكيد التاريخ والوقت والخدمة لتأكيد موعدك؟",
+        availability_deny: "دعني أتحقق من التوفر لدينا! ما هو التاريخ والوقت الذي تفضله؟",
+        order_claim: "يسعدني إتمام طلبك! هل يمكنك تأكيد اسمك ورقم هاتفك وعنوانك لتأكيد الطلب؟",
+        stock_deny: "دعني أتحقق من توفر المنتج! ما هو المنتج الذي تبحث عنه؟"
+    }
+};
+
 export function verifyAgentReply(
     reply: string,
     actions: string[],
     items: (ServiceInfo | ProductInfo)[],
     businessType: 'appointments' | 'ecommerce' = 'appointments',
     hasActiveBooking = false,
-    hasActiveOrder = false
+    hasActiveOrder = false,
+    language = 'english'
 ): VerifyResult {
     const violations: string[] = [];
     let corrected = reply;
+
+    const langKey = language ? language.toLowerCase() : 'english';
+    const templates = LOCALIZED_FALLBACKS[langKey] || LOCALIZED_FALLBACKS['english'];
 
     if (businessType === 'appointments') {
         // ── 1. Booking claim verification ────────────────────────
@@ -142,8 +196,7 @@ export function verifyAgentReply(
             });
 
             // Rewrite: strip the false confirmation and ask to confirm details
-            corrected =
-                "I'd love to get that booked for you! Could you please confirm the date, time, and service so I can finalize your appointment?";
+            corrected = templates.booking_claim;
         }
 
         // ── 2. Availability claim verification ───────────────────
@@ -160,8 +213,7 @@ export function verifyAgentReply(
             });
 
             // Rewrite: offer to actually check availability
-            corrected =
-                "Let me check our availability for you! What date and time were you thinking?";
+            corrected = templates.availability_deny;
         }
     } else {
         // ── E-Commerce specific checks ──────────────────────────
@@ -180,8 +232,7 @@ export function verifyAgentReply(
                 hasActiveOrder,
             });
 
-            corrected =
-                "I'd love to place that order for you! Could you please confirm your name, phone number, and address so we can finalize the order?";
+            corrected = templates.order_claim;
         }
 
         // ── 2. Stock denial verification ─────────────────────────
@@ -197,8 +248,7 @@ export function verifyAgentReply(
                 actions,
             });
 
-            corrected =
-                "Let me check the stock levels for you! Which product were you looking for?";
+            corrected = templates.stock_deny;
         }
     }
 

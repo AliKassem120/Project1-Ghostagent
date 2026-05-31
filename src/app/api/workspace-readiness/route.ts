@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     // ── Check 1: Workspace exists in ai_settings ─────────────
     const { data: ws, error: wsErr } = await supabase
         .from('ai_settings')
-        .select('id, user_id, name, business_type, system_instructions')
+        .select('id, user_id, name, business_type, system_instructions, whatsapp_phone_number_id')
         .eq('id', workspaceId)
         .maybeSingle();
 
@@ -47,10 +47,11 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Check 2: At least one channel connected ──────────────
-    const { count: igCount } = await supabase
+    const { data: igIntegration } = await supabase
         .from('instagram_integrations')
-        .select('id', { count: 'exact', head: true })
-        .eq('workspace_id', workspaceId);
+        .select('id')
+        .eq('workspace_id', workspaceId)
+        .limit(1);
 
     const { count: waCount } = await supabase
         .from('user_connections')
@@ -58,7 +59,7 @@ export async function GET(req: NextRequest) {
         .eq('user_id', ws.user_id)
         .in('provider', ['whatsapp', 'WHATSAPP']);
 
-    const hasChannel = (igCount ?? 0) > 0 || (waCount ?? 0) > 0;
+    const hasChannel = (igIntegration && igIntegration.length > 0) || (waCount ?? 0) > 0 || !!ws.whatsapp_phone_number_id;
 
     checks.push({
         label: 'Channel connected',

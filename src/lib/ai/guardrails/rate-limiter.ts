@@ -75,29 +75,29 @@ export async function checkRateLimit(
         }
     }
 
-    // ── In-memory burst + duplicate check ────────────────────
-    let tracker = chatTrackers.get(key);
-    if (!tracker) {
-        tracker = { messages: [], lastChecked: now };
-        // Evict oldest if too many trackers
-        if (chatTrackers.size >= MAX_TRACKER_SIZE) {
-            const oldest = [...chatTrackers.entries()]
-                .sort((a, b) => a[1].lastChecked - b[1].lastChecked)[0];
-            if (oldest) chatTrackers.delete(oldest[0]);
+    // ── Distributed DB-backed burst + duplicate check ───────
+    let recentRuns: any[] = [];
+    try {
+        const sixtySecondsAgo = new Date(now - BURST_WINDOW_MS).toISOString();
+        const { data, error } = await supabase
+            .from('automation_runs')
+            .select('incoming_message, created_at')
+            .eq('workspace_id', workspaceId)
+            .eq('chat_id', chatId)
+            .gte('created_at', sixtySecondsAgo)
+            .order('created_at', { ascending: false });
+
+        if (!error && data) {
+            recentRuns = data;
         }
-        chatTrackers.set(key, tracker);
+    } catch (dbErr) {
+        v2log.warn('RATE_LIMIT', 'Failed to fetch automation runs from DB, failing open', { error: dbErr });
     }
 
-    // Add current message
-    tracker.messages.push({ text: message.trim().toLowerCase(), timestamp: now });
-    tracker.lastChecked = now;
-
-    // Clean old messages (older than burst window)
-    tracker.messages = tracker.messages.filter(m => now - m.timestamp < BURST_WINDOW_MS);
-
     // Burst check: too many messages in window
-    if (tracker.messages.length > BURST_LIMIT) {
-        v2log.warn('RATE_LIMIT', `Burst detected: ${tracker.messages.length} msgs in ${BURST_WINDOW_MS}ms`, {
+    // Since the current message hasn't been logged to DB yet, we rate limit if prior runs >= BURST_LIMIT
+    if (recentRuns.length >= BURST_LIMIT) {
+        v2log.warn('RATE_LIMIT', `Burst detected: ${recentRuns.length + 1} msgs in ${BURST_WINDOW_MS}ms`, {
             chatId, workspaceId,
         });
         const isArabizi = language === 'arabizi' || language === 'arabic' || language === 'mixed';
@@ -112,7 +112,7 @@ export async function checkRateLimit(
 
     // Duplicate check: same message 3+ times
     const normalizedMsg = message.trim().toLowerCase();
-    const duplicateCount = tracker.messages.filter(m => m.text === normalizedMsg).length;
+    const duplicateCount = recentRuns.filter(r => (r.incoming_message || '').trim().toLowerCase() === normalizedMsg).length + 1; // +1 for current
     if (duplicateCount >= DUPLICATE_THRESHOLD) {
         v2log.warn('RATE_LIMIT', `Duplicate detected: "${normalizedMsg}" x${duplicateCount}`, {
             chatId, workspaceId,

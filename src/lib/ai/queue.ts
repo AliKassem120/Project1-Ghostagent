@@ -134,8 +134,10 @@ import { createClient } from '@supabase/supabase-js';
  * Uses Supabase `message_dedup` table with PK constraint for distributed
  * consistency across serverless instances.
  */
-export async function isDuplicate(chatId: string, message: string, timestamp: number): Promise<boolean> {
-    const key = `${chatId}:${hashMessage(message)}:${Math.floor(timestamp / 60000)}`;
+export async function isDuplicate(chatId: string, message: string, timestamp: number, messageId?: string): Promise<boolean> {
+    const key = messageId 
+        ? `msg:${messageId}` 
+        : `${chatId}:${hashMessage(message)}:${Math.floor(timestamp / 60000)}`;
 
     try {
         const supabase = createClient(
