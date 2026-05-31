@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Users, Megaphone, Loader2, Search, CheckSquare, Square, UserPlus, X } from 'lucide-react';
+import { Send, Users, Megaphone, Loader2, Search, CheckSquare, Square, UserPlus, X, Trash2 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
@@ -245,6 +245,36 @@ export default function MarketingPage() {
         }
     };
 
+    const handleDeleteCustomer = async (phone: string) => {
+        if (!activeWorkspaceId) return;
+
+        if (!window.confirm('Are you sure you want to delete this customer profile?')) {
+            return;
+        }
+
+        try {
+            const { error } = await supabase
+                .from('customer_profiles')
+                .delete()
+                .eq('workspace_id', activeWorkspaceId)
+                .eq('phone', phone);
+
+            if (error) throw error;
+
+            toast.success('Customer deleted successfully');
+            await fetchCustomers();
+
+            setSelectedPhones(prev => {
+                const next = new Set(prev);
+                next.delete(phone);
+                return next;
+            });
+        } catch (err: any) {
+            console.error('Error deleting customer:', err);
+            toast.error('Failed to delete customer: ' + (err.message || 'Unknown error'));
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
@@ -318,24 +348,40 @@ export default function MarketingPage() {
                             </div>
                         ) : (
                             filteredCustomers.map(c => (
-                                <button
+                                <div
                                     key={c.phone}
-                                    onClick={() => togglePhone(c.phone)}
-                                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-2 transition-colors text-left"
+                                    className="group/row w-full flex items-center justify-between gap-3 px-4 py-2 rounded-xl hover:bg-surface-2 transition-colors text-left"
                                 >
-                                    {selectedPhones.has(c.phone) ? (
-                                        <CheckSquare className="w-5 h-5 text-primary shrink-0" />
-                                    ) : (
-                                        <Square className="w-5 h-5 text-muted-foreground shrink-0" />
-                                    )}
-                                    <div className="flex-1 truncate">
-                                        <p className="font-semibold text-sm text-foreground truncate">{c.name}</p>
-                                        <p className="text-xs text-muted-foreground font-mono truncate">{c.phone}</p>
+                                    <button
+                                        onClick={() => togglePhone(c.phone)}
+                                        className="flex-1 flex items-center gap-3 truncate text-left focus:outline-none"
+                                    >
+                                        {selectedPhones.has(c.phone) ? (
+                                            <CheckSquare className="w-5 h-5 text-primary shrink-0" />
+                                        ) : (
+                                            <Square className="w-5 h-5 text-muted-foreground shrink-0" />
+                                        )}
+                                        <div className="flex-1 truncate">
+                                            <p className="font-semibold text-sm text-foreground truncate">{c.name}</p>
+                                            <p className="text-xs text-muted-foreground font-mono truncate">{c.phone}</p>
+                                        </div>
+                                    </button>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <span className="text-[10px] font-bold text-muted-foreground bg-surface-3 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                            {c.source}
+                                        </span>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteCustomer(c.phone);
+                                            }}
+                                            className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all opacity-0 group-hover/row:opacity-100 focus:opacity-100"
+                                            title="Delete Customer Profile"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
                                     </div>
-                                    <span className="text-[10px] font-bold text-muted-foreground bg-surface-3 px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0">
-                                        {c.source}
-                                    </span>
-                                </button>
+                                </div>
                             ))
                         )}
                     </div>
