@@ -105,6 +105,7 @@ export interface WorkspaceConfig {
     maxDiscount: number | null;
     minOrderForDiscount: number | null;
     slotDurationMinutes: number;
+    automationEngineVersion: 'v1' | 'v2' | 'v3_brain' | 'v3';
 }
 
 // ── Language ─────────────────────────────────────────────────

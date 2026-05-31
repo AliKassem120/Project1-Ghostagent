@@ -53,6 +53,9 @@ export interface MetricEvent {
     // Errors
     error?: string;
     rateLimited?: boolean;
+
+    // Experiments (Phase 4)
+    experimentVariants?: Record<string, string>;
 }
 
 // ── Metric Builder ───────────────────────────────────────────
@@ -140,6 +143,10 @@ interface MetricBatchItem {
     record: any;
 }
 
+const BATCH_FLUSH_SIZE = 20;
+const BATCH_FLUSH_INTERVAL_MS = 1000;
+const MAX_QUEUE_CAPACITY = 200;
+
 const batchQueue: MetricBatchItem[] = [];
 let flushTimeout: NodeJS.Timeout | null = null;
 
@@ -157,7 +164,7 @@ function scheduleFlush() {
         } catch (err: any) {
             v2log.warn('METRIC_BATCH', 'Background metric flush error', { error: err.message });
         }
-    }, 1000);
+    }, BATCH_FLUSH_INTERVAL_MS);
 }
 
 /**
@@ -221,8 +228,14 @@ export async function emitMetric(
             rate_limited: event.rateLimited || false,
         };
 
+        // Drop oldest items if queue is at capacity to prevent unbounded growth
+        if (batchQueue.length >= MAX_QUEUE_CAPACITY) {
+            batchQueue.shift();
+            v2log.warn('METRIC_BATCH', 'Queue at capacity, dropping oldest metric');
+        }
+
         batchQueue.push({ supabase, record });
-        if (batchQueue.length >= 20) {
+        if (batchQueue.length >= BATCH_FLUSH_SIZE) {
             scheduleFlush();
         } else if (!flushTimeout) {
             scheduleFlush();

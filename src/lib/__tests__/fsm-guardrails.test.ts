@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { validateTransition } from '../ai/state-validator';
 import { verifyAgentReply } from '../ai/guardrails/reply-verifier';
-import { isFreshSessionTimeout } from '../ai/session-manager';
+import { isFreshSessionTimeout } from '../automation-v3/session-manager';
 
 describe('FSM Guardrails & Session/Loop Management', () => {
     describe('FSM State Transitions', () => {

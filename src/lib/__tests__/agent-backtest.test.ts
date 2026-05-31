@@ -11,6 +11,65 @@ vi.mock('ai', async (importOriginal) => {
     };
 });
 
+// Mock OpenAI (DeepSeek) completions for decoupled Brain Layer pipeline in tests using vi.hoisted for hoisted references
+const { mockChatCompletionsCreate } = vi.hoisted(() => {
+    const mockFn = vi.fn().mockImplementation(async (args) => {
+        // Import generateText dynamically inside to get its value at execution time
+        const { generateText } = await import('ai');
+        // If Thinking Layer (strategist JSON)
+        if (args.response_format?.type === 'json_object') {
+            const genTextResult = await (generateText as any).mock.results.slice(-1)[0]?.value;
+            const text = genTextResult?.text || '';
+            // If the mocked Groq output is a handoff, return handoff strategy
+            const isHandoff = text.includes('[HANDOFF]');
+            return {
+                choices: [{
+                    message: {
+                        content: JSON.stringify({
+                            intentAnalysis: 'mock intent',
+                            emotion: 'neutral',
+                            goal: isHandoff ? 'redirect_human' : 'gather_info',
+                            knownFacts: [],
+                            unknownGaps: [],
+                            templateSuitable: false,
+                            customStrategy: 'mock strategy',
+                            toneInstruction: 'Friendly',
+                            shouldHandoff: isHandoff,
+                            handoffReason: isHandoff ? 'human_requested' : undefined
+                        })
+                    }
+                }]
+            };
+        }
+        // Else Response Generator (mouth text)
+        const genTextResult = await (generateText as any).mock.results.slice(-1)[0]?.value;
+        const text = genTextResult?.text || 'Mock response';
+        return {
+            choices: [{
+                message: {
+                    content: text
+                }
+            }]
+        };
+    });
+    return {
+        mockChatCompletionsCreate: mockFn
+    };
+});
+
+vi.mock('openai', () => {
+    class MockOpenAI {
+        chat = {
+            completions: {
+                create: mockChatCompletionsCreate
+            }
+        };
+    }
+    return {
+        default: MockOpenAI
+    };
+});
+
 describe('AI Agent Offline Backtesting Suite', () => {
     let mockSupabase: any;
 

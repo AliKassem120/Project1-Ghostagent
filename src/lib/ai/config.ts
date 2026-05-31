@@ -25,6 +25,7 @@ export async function loadWorkspaceConfig(supabase: any, workspaceId: string, us
         shippingRules: settings.shipping_rules || null,
         maxDiscount: settings.max_discount || null,
         minOrderForDiscount: settings.min_order_for_discount || null,
-        slotDurationMinutes: settings.slot_duration_minutes || 30
+        slotDurationMinutes: settings.slot_duration_minutes || 30,
+        automationEngineVersion: settings.automation_engine_version || 'v2'
     };
 }
