@@ -280,7 +280,30 @@ export async function orchestrate(
     config.businessType,
     input.platform
   );
-  const stateBefore = session.state;
+  let stateBefore = session.state;
+
+  // Check for stage duration timeout before processing to prevent split-brain states
+  if (session.state !== 'idle' && session.stateEnteredAt) {
+    const { STATE_CONFIGS } = await import('@/lib/ai/state-validator');
+    const stateConfig = STATE_CONFIGS[session.state];
+    if (stateConfig && stateConfig.maxDurationMinutes !== Infinity) {
+      const enteredTime = new Date(session.stateEnteredAt).getTime();
+      const elapsedMinutes = (Date.now() - enteredTime) / (1000 * 60);
+      if (elapsedMinutes > stateConfig.maxDurationMinutes) {
+        v2log.warn('ORCHESTRATOR', 'Stage duration timeout detected before processing. Resetting to fallback state.', {
+          currentState: session.state,
+          elapsedMinutes,
+          max: stateConfig.maxDurationMinutes,
+          fallback: stateConfig.fallbackState
+        });
+        session.state = stateConfig.fallbackState || 'idle';
+        session.loopCount = 0;
+        session.stateEnteredAt = new Date().toISOString();
+        stateBefore = session.state;
+        await saveSession(input.supabase, session, config.businessType);
+      }
+    }
+  }
 
   // 3. Load Conversation History
   const history = await loadConversationHistory(
