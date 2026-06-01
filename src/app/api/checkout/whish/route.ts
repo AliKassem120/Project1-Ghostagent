@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 // Use the Service Role Key here to bypass row level security for checkout requests that happen right after signup (before email verification).
@@ -72,7 +72,7 @@ export async function POST(req: Request) {
                 'Content-Type': 'application/json',
                 'channel': channel,
                 'secret': secret,
-                'websiteUrl': websiteUrl,
+                'websiteurl': websiteUrl,
             },
             body: JSON.stringify(whishPayload)
         });
