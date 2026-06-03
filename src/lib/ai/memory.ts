@@ -1,18 +1,11 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- * GhostAgent — Conversation Memory
- * ═══════════════════════════════════════════════════════════════
- * Gives the agent persistent memory across conversation sessions.
- *
- * When a chat goes idle for 30+ minutes, the current session is
- * summarized via a cheap LLM call and stored in the database.
- * On the next interaction the agent can load recent summaries to
- * recall what was previously discussed.
- */
-
-import { generateText } from 'ai';
+import OpenAI from 'openai';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { v2log } from './logger';
+
+const deepseek = new OpenAI({
+  baseURL: 'https://api.deepseek.com/v1',
+  apiKey: process.env.DEEPSEEK_API_KEY || 'mock-key',
+});
 
 /** Gap (in ms) before we consider the conversation a new session. */
 const SESSION_GAP_MS = 30 * 60 * 1000; // 30 minutes
@@ -21,10 +14,9 @@ const SESSION_GAP_MS = 30 * 60 * 1000; // 30 minutes
 
 /**
  * Generate a 1-2 sentence summary of a conversation session
- * using the cheap Groq model.
+ * using the deepseek-chat model.
  */
 export async function generateConversationSummary(
-    groqInstance: any,
     messages: { role: string; content: string }[]
 ): Promise<string> {
     if (!messages || messages.length === 0) {
@@ -36,16 +28,22 @@ export async function generateConversationSummary(
         .join('\n');
 
     try {
-        const result = await generateText({
-            model: groqInstance('llama-3.1-8b-instant'),
-            system:
-                'Summarize this customer service conversation in 1-2 sentences. ' +
-                'Focus on: what the customer wanted, what was discussed, and the outcome. Be concise.',
-            prompt: transcript,
+        const response = await deepseek.chat.completions.create({
+            model: 'deepseek-chat',
+            messages: [
+                {
+                    role: 'system',
+                    content: 'Summarize this customer service conversation in 1-2 sentences. Focus on: what the customer wanted, what was discussed, and the outcome. Be concise.'
+                },
+                {
+                    role: 'user',
+                    content: transcript
+                }
+            ],
             temperature: 0,
         });
 
-        const summary = result.text?.trim() || '';
+        const summary = response.choices[0].message.content?.trim() || '';
         v2log.info('MEMORY', 'Generated conversation summary', {
             messageCount: messages.length,
             summaryLength: summary.length,
@@ -172,7 +170,6 @@ export function shouldGenerateSummary(
  */
 export async function checkAndProcessSessionSummary(
     supabase: SupabaseClient,
-    groqInstance: any,
     workspaceId: string,
     chatId: string,
     userId: string,
@@ -243,7 +240,7 @@ export async function checkAndProcessSessionSummary(
 
             if (messages.length === 0) return;
 
-            const summary = await generateConversationSummary(groqInstance, messages);
+            const summary = await generateConversationSummary(messages);
             if (summary) {
                 await saveConversationSummary(
                     supabase,

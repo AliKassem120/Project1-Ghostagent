@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Description is required' }, { status: 400 });
         }
 
-        const apiKey = process.env.GROQ_API_KEY;
+        const apiKey = process.env.DEEPSEEK_API_KEY;
         if (!apiKey) {
             return NextResponse.json({ error: 'AI service not configured' }, { status: 500 });
         }
@@ -37,14 +37,14 @@ STRICT RULES:
 - Keep it under 200 words. Be specific and actionable. Plain text only, no markdown.
 - Write in second person (e.g., "When asked about delivery...").`;
 
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile',
+                model: 'deepseek-chat',
                 messages: [{ role: 'user', content: prompt }],
                 temperature: 0.6,
                 max_tokens: 400,
@@ -53,7 +53,7 @@ STRICT RULES:
 
         if (!response.ok) {
             const err = await response.text();
-            console.error('Groq API error:', err);
+            console.error('DeepSeek API error:', err);
             return NextResponse.json({ error: 'AI generation failed' }, { status: 500 });
         }
 

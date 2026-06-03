@@ -65,15 +65,17 @@ function createSession(overrides: Partial<SessionContext> = {}): SessionContext 
         stateEnteredAt: new Date().toISOString(),
         isFreshSession: true,
         customerProfile: {
+            id: 'cp_test',
+            workspaceId: 'ws_test',
             name: 'Ali Kassem',
             phone: '96171123456',
-            address: 'Beirut, Hamra',
-            workspaceId: 'ws_test',
-            chatId: 'chat_test',
-            platform: 'instagram',
+            instagramChatId: 'chat_test',
             totalOrders: 2,
             totalAppointments: 1,
             tags: [],
+            firstInteractionAt: new Date().toISOString(),
+            lastInteractionAt: new Date().toISOString(),
+            metadata: { address: 'Beirut, Hamra' },
         },
         platform: 'instagram',
         workspaceId: 'ws_test',
@@ -142,7 +144,8 @@ describe('Regression: E-Commerce Flows', () => {
         const result = await runEcommerceFSM('I want to buy the hoodie', session, config, mockSupabase);
 
         expect(result.nextState).toBe('awaiting_variant');
-        expect(result.replyText).toContain('size');
+        expect(result.context.actionType).toBe('info_gathered');
+        expect(result.context.payload.isAwaitingVariant).toBe(true);
         expect(result.actions).toContain('tool_search_products');
         expect(session.data?.productName).toBe('Essential Hoodie');
     });
@@ -166,7 +169,9 @@ describe('Regression: E-Commerce Flows', () => {
         );
 
         expect(result.nextState).toBe('awaiting_checkout_confirmation');
-        expect(result.replyText).toContain('Essential Hoodie');
+        expect(result.context.actionType).toBe('info_gathered');
+        expect(result.context.payload.productName).toBe('Essential Hoodie');
+        expect(result.context.payload.isReadyToConfirm).toBe(true);
         expect(session.data?.name).toBe('Ali Kassem');
         expect(session.data?.phone).toBe('71123456');
     });
@@ -248,7 +253,8 @@ describe('Regression: Appointment Flows', () => {
         const result = await runAppointmentFSM('I want a haircut', session, config, mockSupabase);
 
         expect(result.nextState).toBe('awaiting_date_time');
-        expect(result.replyText).toContain('date');
+        expect(result.context.actionType).toBe('info_gathered');
+        expect(result.context.payload.isAwaitingDateTime).toBe(true);
         expect(session.data?.service).toBe('Haircut');
     });
 
@@ -347,7 +353,7 @@ describe('Regression: Rate Limiting', () => {
         const mockSupabase = createMockSupabase();
         const { checkRateLimit } = await import('../ai/guardrails/rate-limiter');
 
-        const result = await checkRateLimit(mockSupabase, 'ws_test', 'chat_test', 'hello', 'english');
+        const result = await checkRateLimit(mockSupabase as any, 'ws_test', 'chat_test', 'hello', 'english');
         expect(result.allowed).toBe(true);
     });
 });
@@ -450,6 +456,7 @@ describe('Regression: Voice Consistency Guard', () => {
         expect(result.correctedText).not.toContain('is there anything else');
     });
 
+    // Test 24b
     it('T24b: Approves clean, natural DM-style replies', () => {
         const naturalReply = 'Yeah we got the hoodie! Want it in M or L?';
         const result = checkVoiceConsistency(naturalReply, { tone: 'Casual' }, []);

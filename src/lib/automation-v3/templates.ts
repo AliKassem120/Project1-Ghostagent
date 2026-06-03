@@ -1,4 +1,4 @@
-export type LanguageScript = 'english' | 'arabic' | 'franco' | 'mixed' | 'unknown';
+export type LanguageScript = 'english' | 'arabic' | 'franco' | 'mixed' | 'unknown' | 'arabizi';
 
 const TEMPLATES: Record<string, Record<string, string>> = {
   // === GREETINGS ===
@@ -174,8 +174,11 @@ export function getTemplate(
   const templateSet = TEMPLATES[templateId];
   if (!templateSet) return null;
 
+  let script = languageScript;
+  if (script === 'arabizi') script = 'franco';
+
   // Try exact match first
-  let text = templateSet[languageScript];
+  let text = templateSet[script];
 
   // Fallback chain: mixed → franco → english
   if (!text && languageScript === 'mixed') text = templateSet['franco'];

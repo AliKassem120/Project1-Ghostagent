@@ -1,19 +1,10 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- * GhostAgent V3 — Memory Compressor
- * ═══════════════════════════════════════════════════════════════
- * Instead of sending full conversation history to the LLM (expensive
- * and slow), compress older turns into a single summary sentence.
- * Only the most recent N turns are kept verbatim.
- *
- * This dramatically reduces token usage while preserving context:
- *   20 turns × ~50 tokens = 1,000 tokens → compressed to ~60 tokens
- *   + 4 recent turns × ~50 tokens = 200 tokens
- *   Total: ~260 tokens vs ~1,000 tokens (74% reduction)
- */
-
-import { generateText } from 'ai';
+import OpenAI from 'openai';
 import { v2log } from '@/lib/ai/logger';
+
+const deepseek = new OpenAI({
+  baseURL: 'https://api.deepseek.com/v1',
+  apiKey: process.env.DEEPSEEK_API_KEY || 'mock-key',
+});
 
 /** Default number of recent turns to keep verbatim. */
 const DEFAULT_MAX_RECENT_TURNS = 4;
@@ -25,7 +16,6 @@ const DEFAULT_MAX_RECENT_TURNS = 4;
  * If the history is short enough, returns it unchanged.
  */
 export async function compressConversationHistory(
-  groqInstance: (modelId: string) => any,
   messages: Array<{ role: string; content: string }>,
   maxRecentTurns: number = DEFAULT_MAX_RECENT_TURNS
 ): Promise<Array<{ role: string; content: string }>> {
@@ -39,11 +29,10 @@ export async function compressConversationHistory(
   const recentMessages = messages.slice(-maxRecentTurns);
 
   // Summarize the older messages
-  const summary = await summarizeTurns(groqInstance, oldMessages);
+  const summary = await summarizeTurns(oldMessages);
 
   if (!summary) {
     // If summarization fails, just return the recent turns
-    // (still better than sending the full history)
     v2log.warn('MEMORY_COMPRESSOR', 'Summarization failed, returning recent turns only');
     return recentMessages;
   }
@@ -62,10 +51,9 @@ export async function compressConversationHistory(
 
 /**
  * Summarize a block of conversation turns into 1–2 sentences
- * using the cheap fast model (Groq llama-3.1-8b-instant).
+ * using the deepseek-chat model.
  */
 async function summarizeTurns(
-  groqInstance: (modelId: string) => any,
   turns: Array<{ role: string; content: string }>
 ): Promise<string> {
   if (turns.length === 0) return '';
@@ -75,18 +63,23 @@ async function summarizeTurns(
     .join('\n');
 
   try {
-    const result = await generateText({
-      model: groqInstance('llama-3.1-8b-instant'),
-      system:
-        'Summarize this customer service conversation in 1-2 sentences. ' +
-        'Focus on: what the customer wanted, what they discussed, and the outcome or current state. ' +
-        'Do NOT include greetings or filler. Be extremely concise.',
-      prompt: transcript,
+    const response = await deepseek.chat.completions.create({
+      model: 'deepseek-chat',
+      messages: [
+        {
+          role: 'system',
+          content: 'Summarize this customer service conversation in 1-2 sentences. Focus on: what the customer wanted, what was discussed, and the outcome or current state. Do NOT include greetings or filler. Be extremely concise.'
+        },
+        {
+          role: 'user',
+          content: transcript
+        }
+      ],
       temperature: 0,
-      maxOutputTokens: 80,
+      max_tokens: 80,
     });
 
-    return result.text?.trim() || '';
+    return response.choices[0].message.content?.trim() || '';
   } catch (err) {
     v2log.error('MEMORY_COMPRESSOR', 'Failed to summarize conversation turns', { error: err });
     return '';

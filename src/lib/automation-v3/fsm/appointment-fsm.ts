@@ -1,16 +1,18 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { SessionContext } from '../session-manager';
 import type { WorkspaceConfig } from '@/lib/ai/types';
-import { getTemplate } from '../templates';
 import { detectLanguageScript, detectYesNo, extractNameAndPhone, detectReuseSignals } from '@/lib/ai/language';
 import { buildTimeContext, resolveDateFromMessage, resolveTimeFromMessage, formatDateLabel } from '@/lib/ai/time';
 import { loadActiveServices, findBestServiceMatch } from '@/lib/ai/appointments/services';
 import { createAppointmentTools } from '@/lib/ai/tools';
 
-export interface FSMResult {
-  replyText: string;
+export interface FsmResult {
   nextState: string;
   actions: string[];
+  context: {
+    actionType: 'order_cancelled' | 'checkout_success' | 'appointment_booked' | 'info_gathered';
+    payload: Record<string, any>;
+  };
   dbWriteAttempted: boolean;
   dbWriteSuccess: boolean;
 }
@@ -20,12 +22,11 @@ export async function runAppointmentFSM(
   session: SessionContext,
   config: WorkspaceConfig,
   supabase: SupabaseClient
-): Promise<FSMResult> {
+): Promise<FsmResult> {
   const actions: string[] = [];
   let dbWriteAttempted = false;
   let dbWriteSuccess = false;
 
-  const langScript = detectLanguageScript(message);
   const timeCtx = buildTimeContext(config.timezone);
 
   if (!session.data) {
@@ -90,22 +91,24 @@ export async function runAppointmentFSM(
         actions.push('cancel_appointment_success');
         nextState = 'idle';
         return {
-          replyText: langScript === 'franco' || langScript === 'mixed'
-            ? 'Tmm, l maw3ed tghalgha. ✅'
-            : 'Your appointment has been successfully cancelled. ✅',
           nextState,
           actions,
+          context: {
+            actionType: 'order_cancelled',
+            payload: { success: true, type: 'appointment' }
+          },
           dbWriteAttempted,
           dbWriteSuccess
         };
       } else {
         actions.push('cancel_appointment_failed');
         return {
-          replyText: langScript === 'franco' || langScript === 'mixed'
-            ? 'Ma 2darna nelghe l maw3ed. L team ra7 ykellmak halla2.'
-            : 'We could not cancel your appointment automatically. A team member will assist you shortly.',
           nextState: 'handoff',
           actions: [...actions, 'handoff'],
+          context: {
+            actionType: 'order_cancelled',
+            payload: { success: false, error: 'cancellation_failed', type: 'appointment' }
+          },
           dbWriteAttempted,
           dbWriteSuccess
         };
@@ -124,18 +127,35 @@ export async function runAppointmentFSM(
         actions.push('reschedule_appointment_success');
         nextState = 'idle';
         const dateLabel = formatDateLabel(date, timeCtx);
-        const reply = langScript === 'franco' || langScript === 'mixed'
-          ? `Maw3adak tghayyar la ${dateLabel} se3a ${reschedRes.new_time}. ✅`
-          : `Your appointment has been rescheduled to ${dateLabel} at ${reschedRes.new_time}. ✅`;
-        return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+        return {
+          nextState,
+          actions,
+          context: {
+            actionType: 'info_gathered',
+            payload: {
+              rescheduled: true,
+              success: true,
+              date,
+              time: reschedRes.new_time,
+              dateLabel
+            }
+          },
+          dbWriteAttempted,
+          dbWriteSuccess
+        };
       } else {
         actions.push('reschedule_appointment_failed');
         return {
-          replyText: langScript === 'franco' || langScript === 'mixed'
-            ? `Hal wa2et mesh fadi (${reschedRes.error || 'overlap'}). N2e nhar aw se3a tanye.`
-            : `That slot is unavailable (${reschedRes.error || 'overlap'}). Please choose a different date or time.`,
           nextState,
           actions,
+          context: {
+            actionType: 'info_gathered',
+            payload: {
+              rescheduled: true,
+              success: false,
+              error: reschedRes.error || 'overlap'
+            }
+          },
           dbWriteAttempted,
           dbWriteSuccess
         };
@@ -154,16 +174,40 @@ export async function runAppointmentFSM(
         session.data = { ...session.data, ...details };
         if (hasDetails(session.data)) {
           nextState = 'awaiting_booking_confirmation';
-          const reply = langScript === 'franco' || langScript === 'mixed'
-            ? `Ready ta ne7joz l ${service} nhar l ${formatDateLabel(date, timeCtx)} se3a ${time}? (Eh / La)`
-            : `Ready to book your ${service} on ${formatDateLabel(date, timeCtx)} at ${time}? (Yes / No)`;
-          return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+          return {
+            nextState,
+            actions,
+            context: {
+              actionType: 'info_gathered',
+              payload: {
+                service,
+                date,
+                time,
+                name: session.data.name,
+                phone: session.data.phone,
+                isReadyToConfirm: true
+              }
+            },
+            dbWriteAttempted,
+            dbWriteSuccess
+          };
         } else {
           nextState = 'awaiting_customer_details';
-          const reply = langScript === 'franco' || langScript === 'mixed'
-            ? `B3atle ismak w ra2mak ta e7joz l ${service}.`
-            : `Please provide your name and phone number to book the ${service}.`;
-          return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+          return {
+            nextState,
+            actions,
+            context: {
+              actionType: 'info_gathered',
+              payload: {
+                service,
+                date,
+                time,
+                missingDetails: ['name', 'phone'].filter(k => !session.data![k])
+              }
+            },
+            dbWriteAttempted,
+            dbWriteSuccess
+          };
         }
       }
 
@@ -182,17 +226,35 @@ export async function runAppointmentFSM(
         actions.push('book_appointment_success');
         nextState = 'idle';
         session.data = {};
-        const reply = getTemplate('booking_confirmed', langScript, { date: formatDateLabel(date, timeCtx), time: bookRes.time || '' }) || 
-                      `Appointment booked successfully! ✅ See you ${formatDateLabel(date, timeCtx)} at ${bookRes.time || ''}`;
-        return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+        return {
+          nextState,
+          actions,
+          context: {
+            actionType: 'appointment_booked',
+            payload: {
+              success: true,
+              service,
+              date,
+              time: bookRes.time || time,
+              name,
+              phone
+            }
+          },
+          dbWriteAttempted,
+          dbWriteSuccess
+        };
       } else {
         actions.push('book_appointment_failed');
         return {
-          replyText: langScript === 'franco' || langScript === 'mixed'
-            ? 'Moshkle bl 7ajes. L team ra7 ykellmak halla2.'
-            : 'There was an issue completing your booking. A team member will assist you shortly.',
           nextState: 'handoff',
           actions: [...actions, 'handoff'],
+          context: {
+            actionType: 'appointment_booked',
+            payload: {
+              success: false,
+              error: 'booking_creation_failed'
+            }
+          },
           dbWriteAttempted,
           dbWriteSuccess
         };
@@ -201,19 +263,31 @@ export async function runAppointmentFSM(
       nextState = 'idle';
       session.data = {};
       return {
-        replyText: langScript === 'franco' || langScript === 'mixed'
-          ? 'Tmm, lghayna l 7ajes. Nshalla marra tanye! 👍'
-          : 'Understood, the booking has been cancelled. Let us know if you need anything else! 👍',
         nextState,
         actions,
+        context: {
+          actionType: 'info_gathered',
+          payload: {
+            bookingConfirmed: false
+          }
+        },
         dbWriteAttempted,
         dbWriteSuccess
       };
     } else {
-      const reply = langScript === 'franco' || langScript === 'mixed'
-        ? `Ready ta ne7joz l ${session.data.service}? Say Eh or La.`
-        : `Ready to book your ${session.data.service}? Say Yes or No.`;
-      return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+      return {
+        nextState,
+        actions,
+        context: {
+          actionType: 'info_gathered',
+          payload: {
+            isReadyToConfirm: true,
+            service: session.data.service
+          }
+        },
+        dbWriteAttempted,
+        dbWriteSuccess
+      };
     }
   }
 
@@ -224,19 +298,39 @@ export async function runAppointmentFSM(
 
     if (hasDetails(session.data)) {
       nextState = 'awaiting_booking_confirmation';
-      const reply = langScript === 'franco' || langScript === 'mixed'
-        ? `Ready ta ne7joz l ${session.data.service} nhar l ${formatDateLabel(session.data.date, timeCtx)} se3a ${session.data.time}? (Eh / La)`
-        : `Ready to book your ${session.data.service} on ${formatDateLabel(session.data.date, timeCtx)} at ${session.data.time}? (Yes / No)`;
-      return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+      return {
+        nextState,
+        actions,
+        context: {
+          actionType: 'info_gathered',
+          payload: {
+            service: session.data.service,
+            date: session.data.date,
+            time: session.data.time,
+            name: session.data.name,
+            phone: session.data.phone,
+            isReadyToConfirm: true
+          }
+        },
+        dbWriteAttempted,
+        dbWriteSuccess
+      };
     } else {
-      const missing: string[] = [];
-      if (!session.data.name) missing.push(langScript === 'franco' || langScript === 'mixed' ? 'ismak (name)' : 'name');
-      if (!session.data.phone) missing.push(langScript === 'franco' || langScript === 'mixed' ? 'ra2mak (phone)' : 'phone');
-      
-      const reply = langScript === 'franco' || langScript === 'mixed'
-        ? `B3atle kman: ${missing.join(', ')}.`
-        : `Please provide your: ${missing.join(', ')}.`;
-      return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+      return {
+        nextState,
+        actions,
+        context: {
+          actionType: 'info_gathered',
+          payload: {
+            service: session.data.service,
+            date: session.data.date,
+            time: session.data.time,
+            missingDetails: ['name', 'phone'].filter(k => !session.data![k])
+          }
+        },
+        dbWriteAttempted,
+        dbWriteSuccess
+      };
     }
   }
 
@@ -262,28 +356,75 @@ export async function runAppointmentFSM(
 
         if (hasDetails(session.data)) {
           nextState = 'awaiting_booking_confirmation';
-          const reply = langScript === 'franco' || langScript === 'mixed'
-            ? `Ready ta ne7joz l ${session.data.service} nhar l ${formatDateLabel(date, timeCtx)} se3a ${time}? (Eh / La)`
-            : `Ready to book your ${session.data.service} on ${formatDateLabel(date, timeCtx)} at ${time}? (Yes / No)`;
-          return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+          return {
+            nextState,
+            actions,
+            context: {
+              actionType: 'info_gathered',
+              payload: {
+                slotAvailable: true,
+                service: session.data.service,
+                date,
+                time,
+                name: session.data.name,
+                phone: session.data.phone,
+                isReadyToConfirm: true
+              }
+            },
+            dbWriteAttempted,
+            dbWriteSuccess
+          };
         } else {
           nextState = 'awaiting_customer_details';
-          const reply = langScript === 'franco' || langScript === 'mixed'
-            ? `L slot fadi! ✅ B3atle ismak w ra2mak ta e7jiz.`
-            : `That slot is available! ✅ Please provide your name and phone number to finalize booking.`;
-          return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+          return {
+            nextState,
+            actions,
+            context: {
+              actionType: 'info_gathered',
+              payload: {
+                slotAvailable: true,
+                service: session.data.service,
+                date,
+                time,
+                missingDetails: ['name', 'phone'].filter(k => !session.data![k])
+              }
+            },
+            dbWriteAttempted,
+            dbWriteSuccess
+          };
         }
       } else {
-        const reply = langScript === 'franco' || langScript === 'mixed'
-          ? `L slot mesh fadi (${checkRes.message || 'taken'}). N2e se3a aw nhar tanye.`
-          : `That slot is unavailable (${checkRes.message || 'taken'}). Please choose a different date or time.`;
-        return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+        return {
+          nextState,
+          actions,
+          context: {
+            actionType: 'info_gathered',
+            payload: {
+              slotAvailable: false,
+              service: session.data.service,
+              date,
+              time,
+              error: checkRes.message || 'taken'
+            }
+          },
+          dbWriteAttempted,
+          dbWriteSuccess
+        };
       }
     } else {
-      const reply = langScript === 'franco' || langScript === 'mixed'
-        ? `N2e nhar w se3a ta ne7joz l ${session.data.service}.`
-        : `Which date and time would you like for your ${session.data.service}?`;
-      return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+      return {
+        nextState,
+        actions,
+        context: {
+          actionType: 'info_gathered',
+          payload: {
+            service: session.data.service,
+            isAwaitingDateTime: true
+          }
+        },
+        dbWriteAttempted,
+        dbWriteSuccess
+      };
     }
   }
 
@@ -311,37 +452,94 @@ export async function runAppointmentFSM(
 
         if (hasDetails(session.data)) {
           nextState = 'awaiting_booking_confirmation';
-          const reply = langScript === 'franco' || langScript === 'mixed'
-            ? `Ready ta ne7joz l ${match.name} nhar l ${formatDateLabel(date, timeCtx)} se3a ${time}? (Eh / La)`
-            : `Ready to book your ${match.name} on ${formatDateLabel(date, timeCtx)} at ${time}? (Yes / No)`;
-          return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+          return {
+            nextState,
+            actions,
+            context: {
+              actionType: 'info_gathered',
+              payload: {
+                service: match.name,
+                slotAvailable: true,
+                date,
+                time,
+                name: session.data.name,
+                phone: session.data.phone,
+                isReadyToConfirm: true
+              }
+            },
+            dbWriteAttempted,
+            dbWriteSuccess
+          };
         } else {
           nextState = 'awaiting_customer_details';
-          const reply = langScript === 'franco' || langScript === 'mixed'
-            ? `L slot fadi! ✅ B3atle ismak w ra2mak ta e7jiz.`
-            : `That slot is available! ✅ Please provide your name and phone number to finalize booking.`;
-          return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+          return {
+            nextState,
+            actions,
+            context: {
+              actionType: 'info_gathered',
+              payload: {
+                service: match.name,
+                slotAvailable: true,
+                date,
+                time,
+                missingDetails: ['name', 'phone'].filter(k => !session.data![k])
+              }
+            },
+            dbWriteAttempted,
+            dbWriteSuccess
+          };
         }
       } else {
         nextState = 'awaiting_date_time';
-        const reply = langScript === 'franco' || langScript === 'mixed'
-          ? `L slot mesh fadi (${checkRes.message || 'taken'}). N2e se3a aw nhar tanye.`
-          : `That slot is unavailable (${checkRes.message || 'taken'}). Please choose a different date or time.`;
-        return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+        return {
+          nextState,
+          actions,
+          context: {
+            actionType: 'info_gathered',
+            payload: {
+              service: match.name,
+              slotAvailable: false,
+              date,
+              time,
+              error: checkRes.message || 'taken'
+            }
+          },
+          dbWriteAttempted,
+          dbWriteSuccess
+        };
       }
     } else {
       nextState = 'awaiting_date_time';
-      const reply = langScript === 'franco' || langScript === 'mixed'
-        ? `Tmm, l ${match.name} b $${match.price}. Ayya nhar w se3a baddak?`
-        : `Great, the ${match.name} is $${match.price}. Which date and time would you like?`;
-      return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+      return {
+        nextState,
+        actions,
+        context: {
+          actionType: 'info_gathered',
+          payload: {
+            service: match.name,
+            price: match.price,
+            isAwaitingDateTime: true
+          }
+        },
+        dbWriteAttempted,
+        dbWriteSuccess
+      };
     }
   } else {
     // List services
-    const serviceList = services.map(s => s.name).join(', ');
-    const reply = langScript === 'franco' || langScript === 'mixed'
-      ? `Ma l2ina hal service. 3anna: ${serviceList}. Ayya baddak?`
-      : `We couldn't find that service. We offer: ${serviceList}. Which one would you like?`;
-    return { replyText: reply, nextState: 'idle', actions, dbWriteAttempted, dbWriteSuccess };
+    return {
+      nextState: 'idle',
+      actions,
+      context: {
+        actionType: 'info_gathered',
+        payload: {
+          serviceNotFound: true,
+          query: message,
+          availableServices: services.map(s => s.name)
+        }
+      },
+      dbWriteAttempted,
+      dbWriteSuccess
+    };
   }
 }

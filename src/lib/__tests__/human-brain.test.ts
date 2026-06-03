@@ -14,6 +14,46 @@ vi.mock('ai', async (importOriginal) => {
     };
 });
 
+// Mock OpenAI (DeepSeek) completions for testing
+const { mockChatCompletionsCreate } = vi.hoisted(() => {
+    return {
+        mockChatCompletionsCreate: vi.fn().mockImplementation(async () => {
+            const { generateText } = await import('ai');
+            let text = '';
+            try {
+                const res = await (generateText as any)();
+                text = res?.text || '';
+            } catch (e) {
+                // Ignore
+            }
+            if (!text) {
+                const genTextResult = await (generateText as any).mock.results.slice(-1)[0]?.value;
+                text = genTextResult?.text || '';
+            }
+            return {
+                choices: [{
+                    message: {
+                        content: text
+                    }
+                }]
+            };
+        })
+    };
+});
+
+vi.mock('openai', () => {
+    class MockOpenAI {
+        chat = {
+            completions: {
+                create: mockChatCompletionsCreate
+            }
+        };
+    }
+    return {
+        default: MockOpenAI
+    };
+});
+
 // Mock appointments lookup module
 vi.mock('../ai/appointments/lookup', async (importOriginal) => {
     const original: any = await importOriginal();

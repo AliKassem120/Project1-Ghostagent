@@ -32,15 +32,17 @@ describe('V3 FSM Architecture Tests (Zero-LLM Paths)', () => {
       stateEnteredAt: new Date().toISOString(),
       isFreshSession: true,
       customerProfile: {
+        id: 'cp_123',
+        workspaceId: 'ws_123',
         name: 'Ali Kassem',
         phone: '96171123456',
-        address: 'Beirut, Hamra',
-        workspaceId: 'ws_123',
-        chatId: 'chat_123',
-        platform: 'instagram',
+        instagramChatId: 'chat_123',
         totalOrders: 2,
         totalAppointments: 1,
-        tags: []
+        tags: [],
+        firstInteractionAt: new Date().toISOString(),
+        lastInteractionAt: new Date().toISOString(),
+        metadata: { address: 'Beirut, Hamra' }
       },
       platform: 'instagram',
       workspaceId: 'ws_123',
@@ -93,7 +95,8 @@ describe('V3 FSM Architecture Tests (Zero-LLM Paths)', () => {
       );
 
       expect(result.nextState).toBe('awaiting_variant');
-      expect(result.replyText).toContain('Which size do you need?');
+      expect(result.context.actionType).toBe('info_gathered');
+      expect(result.context.payload.isAwaitingVariant).toBe(true);
       expect(result.actions).toContain('tool_search_products');
       expect(mockSession.data?.productName).toBe('Essential Hoodie');
     });
@@ -116,7 +119,9 @@ describe('V3 FSM Architecture Tests (Zero-LLM Paths)', () => {
       );
 
       expect(result.nextState).toBe('awaiting_checkout_confirmation');
-      expect(result.replyText).toContain('Essential Hoodie');
+      expect(result.context.actionType).toBe('info_gathered');
+      expect(result.context.payload.productName).toBe('Essential Hoodie');
+      expect(result.context.payload.isReadyToConfirm).toBe(true);
       expect(mockSession.data?.name).toBe('Ali Kassem');
       expect(mockSession.data?.phone).toBe('71123456');
       expect(mockSession.data?.address).toBe('Beirut Hamra');
@@ -150,7 +155,8 @@ describe('V3 FSM Architecture Tests (Zero-LLM Paths)', () => {
       );
 
       expect(result.nextState).toBe('awaiting_date_time');
-      expect(result.replyText).toContain('Which date and time would you like?');
+      expect(result.context.actionType).toBe('info_gathered');
+      expect(result.context.payload.isAwaitingDateTime).toBe(true);
       expect(mockSession.data?.service).toBe('Haircut');
     });
   });

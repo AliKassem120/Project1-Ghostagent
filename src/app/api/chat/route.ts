@@ -1,4 +1,4 @@
-import { createGroq } from '@ai-sdk/groq';
+import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, convertToModelMessages, tool, stepCountIs } from "ai";
 import { z } from "zod";
 import dns from "node:dns";
@@ -17,13 +17,16 @@ export async function POST(req: Request) {
         console.log('Message received on server:', messages);
         console.log('Stream started');
 
-        const groqKey = process.env.GROQ_API_KEY;
-        if (!groqKey) {
-            throw new Error("GROQ_API_KEY is missing!");
+        const deepseekKey = process.env.DEEPSEEK_API_KEY;
+        if (!deepseekKey) {
+            throw new Error("DEEPSEEK_API_KEY is missing!");
         }
 
-        const groq = createGroq({ apiKey: groqKey });
-        const chatModel = groq('llama-3.3-70b-versatile');
+        const deepseek = createOpenAI({
+            baseURL: 'https://api.deepseek.com/v1',
+            apiKey: deepseekKey,
+        });
+        const chatModel = deepseek('deepseek-chat');
 
 
         // 3. IDENTIFY THE USER (BOT OWNER)

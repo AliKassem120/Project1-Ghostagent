@@ -1,15 +1,11 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- * GhostAgent — Customer Notes (Memory Notes)
- * ═══════════════════════════════════════════════════════════════
- * Extracts, stores, and retrieves personal facts about customers
- * so the agent remembers preferences, complaints, and details
- * across conversations — like a real human employee would.
- */
-
-import { generateText } from 'ai';
+import OpenAI from 'openai';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { v2log } from './logger';
+
+const deepseek = new OpenAI({
+  baseURL: 'https://api.deepseek.com/v1',
+  apiKey: process.env.DEEPSEEK_API_KEY || 'mock-key',
+});
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -21,7 +17,7 @@ export interface CustomerNote {
 // ── Extraction ──────────────────────────────────────────────
 
 /**
- * Use a cheap LLM to extract noteworthy personal facts from a
+ * Use a cheap LLM (deepseek-chat) to extract noteworthy personal facts from a
  * conversation. Returns an empty array if nothing interesting
  * was mentioned.
  *
@@ -29,10 +25,30 @@ export interface CustomerNote {
  * in `existingNotes` so the LLM can skip them.
  */
 export async function extractNoteworthyFacts(
+    messages: { role: string; content: string }[],
+    existingNotes?: string[]
+): Promise<CustomerNote[]>;
+export async function extractNoteworthyFacts(
     groqInstance: any,
     messages: { role: string; content: string }[],
-    existingNotes: string[] = []
+    existingNotes?: string[]
+): Promise<CustomerNote[]>;
+export async function extractNoteworthyFacts(
+    arg1: any,
+    arg2?: any,
+    arg3?: any
 ): Promise<CustomerNote[]> {
+    let messages: { role: string; content: string }[] = [];
+    let existingNotes: string[] = [];
+
+    if (Array.isArray(arg1)) {
+        messages = arg1;
+        existingNotes = arg2 || [];
+    } else {
+        messages = arg2 || [];
+        existingNotes = arg3 || [];
+    }
+
     if (!messages || messages.length < 2) return [];
 
     const transcript = messages
@@ -45,9 +61,12 @@ export async function extractNoteworthyFacts(
         : '';
 
     try {
-        const result = await generateText({
-            model: groqInstance('llama-3.1-8b-instant'),
-            system: `Extract personal facts about the CUSTOMER from this conversation.
+        const response = await deepseek.chat.completions.create({
+            model: 'deepseek-chat',
+            messages: [
+                {
+                    role: 'system',
+                    content: `Extract personal facts about the CUSTOMER from this conversation.
 Only extract facts that would be useful for a human employee to remember for next time.
 
 Good examples:
@@ -69,12 +88,17 @@ If there are NO noteworthy personal facts, reply with exactly: NONE
 Otherwise, reply with one fact per line in the format:
 TYPE: fact text
 
-Where TYPE is one of: preference, fact, issue, feedback`,
-            prompt: transcript,
+Where TYPE is one of: preference, fact, issue, feedback`
+                },
+                {
+                    role: 'user',
+                    content: transcript
+                }
+            ],
             temperature: 0,
         });
 
-        const text = result.text?.trim() || '';
+        const text = response.choices[0].message.content?.trim() || '';
         if (!text || text.toUpperCase() === 'NONE') return [];
 
         const notes: CustomerNote[] = [];

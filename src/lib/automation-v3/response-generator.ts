@@ -1,5 +1,4 @@
 import OpenAI from 'openai';
-import { getTemplate } from './templates';
 import type { LanguageScript } from './templates';
 
 const deepseek = new OpenAI({
@@ -22,32 +21,21 @@ export interface ResponseContext {
     isoDate: string;
     isoTime: string;
   };
+  fsmContext?: any;
 }
 
 export async function generateResponse(
   context: ResponseContext
 ): Promise<{ text: string; suggestedActions?: string[] }> {
-  // 1. If template is suitable and exists, use it (instant, $0)
-  if (context.strategy.templateSuitable && context.strategy.templateId) {
-    const templateText = getTemplate(
-      context.strategy.templateId,
-      context.requiredLanguageScript,
-      buildTemplateVariables(context)
-    );
-    if (templateText) {
-      console.log(`ℹ️ [Response Gen] Using pre-built template: ${context.strategy.templateId}`);
-      return { text: templateText };
-    }
-  }
-
-  // 2. Otherwise, generate custom reply using DeepSeek V4 Flash (Text Mode)
+  // Enforce 100% Dynamic LLM Generation using DeepSeek V4 Flash
   const prompt = buildReplyPrompt(context);
+  const systemInstruction = buildSystemInstructionWithContext(context);
 
   try {
     const response = await deepseek.chat.completions.create({
       model: 'deepseek-chat',
       messages: [
-        { role: 'system', content: context.systemInstruction },
+        { role: 'system', content: systemInstruction },
         { role: 'user', content: prompt }
       ],
       temperature: 0.7,
@@ -58,28 +46,57 @@ export async function generateResponse(
     return { text };
   } catch (error: any) {
     console.error('❌ [Response Gen] DeepSeek text generation failed:', error);
-    // Safe fallback: grab a standard greeting template or basic helper text
-    const fallbackText = getTemplate('loop_detected_simple', context.requiredLanguageScript, {})
-      || (context.requiredLanguageScript === 'franco'
-          ? 'Fi moshkle shway, la7za w bijeeb el team ykellmak.'
-          : "I'm having a small issue. One moment while I connect you to our staff.");
+    // Safe fallback message in Franco or English
+    const fallbackText = context.requiredLanguageScript === 'franco'
+      ? 'Fi moshkle shway, la7za w bijeeb el team ykellmak.'
+      : "I'm having a small issue. One moment while I connect you to our staff.";
     return { text: fallbackText };
   }
 }
 
+function buildSystemInstructionWithContext(context: ResponseContext): string {
+  const fsmContextBlock = context.fsmContext 
+    ? `\n=== DETERMINISTIC FSM EXECUTION CONTEXT ===
+FSM Action Type: ${context.fsmContext.actionType}
+FSM Payload: ${JSON.stringify(context.fsmContext.payload)}
+Use this FSM context to formulate your response. For example:
+- If actionType is "order_cancelled", let them know their order (or appointment) was cancelled successfully.
+- If actionType is "checkout_success", confirm details of their new order.
+- If actionType is "appointment_booked", confirm their appointment time and details.
+- If actionType is "info_gathered", use the gathered details and missing details to prompt them for the next step or confirm booking/checkout.
+`
+    : '';
+
+  return `${context.systemInstruction}
+${fsmContextBlock}
+=== LEBANESE FRANCO-ARABIC DICTIONARY & BRAND PERSONA RULES ===
+1. Local Dictionary Casing & Meanings:
+   - "min" translates to "who" (e.g. "min ma3e?" -> "who is with me?"), not just "from".
+   - "taleta" represents "Tuesday" (day of week).
+   - "tlete" represents the number "three" (3).
+2. Dynamic & Varied Greetings:
+   - NEVER repeat the exact same greeting or use rigid templates (like "Back again? 😎 What are we getting today?") repeatedly, especially when a transaction completes or resets.
+   - Vary your greetings and conversational banter dynamically to sound like a natural human store representative.
+   - Match the user's script and energy. Keep it warm and friendly.`;
+}
+
 function buildReplyPrompt(context: ResponseContext): string {
-  const s = context.strategy;
+  const s = context.strategy || {
+    goal: 'gather_info',
+    toneInstruction: context.workspaceConfig.tone || 'Casual',
+    customStrategy: 'Interact naturally with the customer to assist them.'
+  };
   const isFranco = context.requiredLanguageScript === 'franco' || context.requiredLanguageScript === 'mixed';
 
   return `You are texting as ${context.workspaceConfig.businessName}'s sales rep.
 Date: ${context.timeContext.dayName}, ${context.timeContext.isoDate} at ${context.timeContext.isoTime}
 Platform: ${context.channel}
+Active Session State: ${context.currentState}
 
 === STRATEGIST INSTRUCTION ===
 Goal: ${s.goal}
-Tone: ${s.toneInstruction}
+Tone: ${s.toneInstruction || 'Casual'}
 Strategy: ${s.customStrategy}
-Cultural notes: ${s.culturalNotes}
 
 === CUSTOMER ===
 ${context.customerProfile?.name ? `Name: ${context.customerProfile.name}` : ''}
@@ -114,32 +131,4 @@ ${context.toolResults.map(r => `- ${r.tool}: ${JSON.stringify(r.result)}`).join(
 16. ${context.requiredLanguageScript === 'arabic' ? 'Write in Arabic script (العربية). Use "حضرتك" for respect if tone is formal.' : ''}
 
 Now write the reply:`;
-}
-
-function buildTemplateVariables(context: ResponseContext): Record<string, string> {
-  const vars: Record<string, string> = {};
-  const toolResults = context.toolResults;
-
-  // Extract search/stock results if present
-  const searchResult = toolResults.find(r => r.tool === 'search_products' || r.tool === 'check_stock')?.result;
-  if (searchResult) {
-    // Search result could be:
-    // 1. { success: true, products: [...] }
-    // 2. An array of products: [...]
-    // 3. A single product object: {...}
-    const product = searchResult.products?.[0]
-      || (Array.isArray(searchResult) ? searchResult[0] : searchResult);
-    if (product) {
-      vars.productName = product.itemName || product.name || '';
-      vars.price = String(product.price || 0);
-      vars.stock = String(product.stockLevel ?? product.quantity ?? 0);
-      vars.variant = product.variant || '';
-    }
-  }
-
-  if (context.customerProfile?.name) {
-    vars.name = context.customerProfile.name;
-  }
-
-  return vars;
 }

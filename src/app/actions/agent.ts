@@ -1,20 +1,23 @@
 'use server';
 
 import { generateSmartLink } from '@/lib/whatsapp';
-import { createGroq } from '@ai-sdk/groq';
+import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 
 export async function approveInteraction(id: number, comment: string) {
     try {
-        const groqKey = process.env.GROQ_API_KEY;
-        if (!groqKey) {
-            throw new Error('GROQ_API_KEY is missing');
+        const deepseekKey = process.env.DEEPSEEK_API_KEY;
+        if (!deepseekKey) {
+            throw new Error('DEEPSEEK_API_KEY is missing');
         }
 
-        const groq = createGroq({ apiKey: groqKey });
-        // Use smart model for complex JSON structure generation and custom personalization
-        const model = groq('llama-3.3-70b-versatile');
+        const deepseek = createOpenAI({
+            baseURL: 'https://api.deepseek.com/v1',
+            apiKey: deepseekKey,
+        });
+        // Use DeepSeek V4-Flash
+        const model = deepseek('deepseek-chat');
 
         // Use Groq to analyze intent and detect product info
         const system = `You are GhostAgent, a high-end AI sales assistant for an Instagram store. 

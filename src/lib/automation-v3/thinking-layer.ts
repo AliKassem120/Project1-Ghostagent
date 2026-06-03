@@ -7,18 +7,11 @@ const deepseek = new OpenAI({
 
 export interface ThinkingResult {
   intentAnalysis: string;
-  emotion: 'excited' | 'hesitant' | 'frustrated' | 'confused' | 'neutral' | 'angry' | 'rushed';
-  goal: 'close_sale' | 'reassure' | 'de_escalate' | 'gather_info' | 'redirect_human' | 'build_rapport' | 'recover_abandoned';
-  knownFacts: string[];
-  unknownGaps: string[];
-  templateSuitable: boolean;
-  templateId?: string;
+  emotion: string;
+  goal: 'close_sale' | 'gather_info' | 'resolve_issue';
+  toolsNeeded: string[];
+  suggestedNextState: string;
   customStrategy: string;
-  toneInstruction: string;
-  shouldHandoff: boolean;
-  handoffReason?: string;
-  proactiveSuggestion?: string;
-  culturalNotes: string;
 }
 
 export interface ToolResult {
@@ -26,7 +19,7 @@ export interface ToolResult {
   result: any;
 }
 
-// System prefix to leverage prompt caching (identical across runs)
+// System prefix to leverage prompt caching
 export const CACHED_SYSTEM_PREFIX = `You are the internal strategist for a business.
 You analyze customer messages and decide how the sales rep should reply.
 You are NOT the sales rep. You are the strategist behind the scenes.
@@ -44,15 +37,13 @@ You are NOT the sales rep. You are the strategist behind the scenes.
 2. What emotion is the user feeling?
 3. What is our GOAL in this exact message?
 4. What do we KNOW vs NOT know?
-5. Should we use template or custom text?
+5. Determine which tools are needed to get the required information or perform action.
 6. If stock LOW (≤3), create honest urgency
 7. If RETURNING customer, reference casually
 8. If sentiment DECLINING, de-escalate first
-9. If loopCount ≥ 2, suggest menu/reset
+9. If loopCount ≥ 2, suggest handoff/reset
 10. If HESITANT, offer social proof or guarantee
-11. If "inshallah" to buying = NOT committed
-12. If "khalas" = stop selling immediately
-13. VIP (3+ orders or $500+) = white-glove treatment`;
+11. VIP (3+ orders or $500+) = white-glove treatment`;
 
 export async function runThinkingLayer(
   message: string,
@@ -65,7 +56,7 @@ export async function runThinkingLayer(
   const isFranco = detectedLanguage === 'franco' || detectedLanguage === 'mixed' || detectedLanguage === 'arabizi';
 
   const dynamicPrompt = `You are the internal strategist for "${workspaceConfig.businessName}".
-Analyze the customer message and decide EXACTLY how the sales rep should reply.
+Analyze the customer message and decide what needs to be done.
 
 === CUSTOMER CONTEXT ===
 Name: ${customer?.name || 'Unknown'}
@@ -84,9 +75,6 @@ Last bot message: ${session.lastBotMessage || 'None'}
 
 === LANGUAGE SCRIPT ===
 Detected language: ${detectedLanguage}
-
-=== TOOL RESULTS (verified facts only) ===
-${toolResults.map(r => `- ${r.tool}: ${JSON.stringify(r.result)}`).join('\n') || 'No tool results'}
 
 === CULTURAL CONTEXT ===
 ${isFranco ? `This user writes in Lebanese Franco-Arabic (Arabizi).
@@ -109,36 +97,21 @@ Cultural rules:
 - Clear, direct answers appreciated
 - Religious phrases ("الحمدلله", "إن شاء الله") are common courtesies, not binding commitments` : ''}
 
-=== STRATEGY RULES ===
-1. What is the REAL intent? (Look past literal words)
-2. What emotion is the user feeling? Be specific.
-3. What is our GOAL in this exact message? Choose ONE primary goal.
-4. What do we KNOW vs what do we NOT know? Never make up facts.
-5. Should we use a pre-written template or generate custom text?
-6. If stock is LOW (≤3 items), create urgency but be honest.
-7. If user is RETURNING (bought before), reference it casually.
-8. If sentiment is DECLINING or NEGATIVE, de-escalate first, sell second.
-9. If loopCount ≥ 2, suggest menu/reset instead of repeating.
-10. If user seems HESITANT, offer social proof or guarantee.
-11. If user says "inshallah" to a purchase, they are NOT committed. Stay light.
-12. If user is a VIP (3+ orders or $500+ spent), give white-glove treatment.
-
 === RESPONSE FORMAT (JSON ONLY) ===
+You must output EXACTLY a JSON object matching this schema:
 {
-  "intentAnalysis": "Detailed analysis of what user really wants",
-  "emotion": "excited|hesitant|frustrated|confused|neutral|angry|rushed",
-  "goal": "close_sale|reassure|de_escalate|gather_info|redirect_human|build_rapport|recover_abandoned",
-  "knownFacts": ["fact 1", "fact 2"],
-  "unknownGaps": ["missing info 1"],
-  "templateSuitable": true,
-  "templateId": "scarcity_urgent|returning_customer|frustration_acknowledge|hesitant_nudge|greeting|...",
-  "customStrategy": "Specific tactical instruction for the writer",
-  "toneInstruction": "exact tone and style description",
-  "shouldHandoff": false,
-  "handoffReason": "",
-  "proactiveSuggestion": "Optional: suggest next product/service based on history",
-  "culturalNotes": "Any cultural adjustments needed"
-}`;
+  "intentAnalysis": "string describing user intent",
+  "emotion": "string detailing customer sentiment",
+  "goal": "close_sale | gather_info | resolve_issue",
+  "toolsNeeded": ["search_products", "check_stock", "cancel_order"], 
+  "suggestedNextState": "string matching state tree keys (e.g. idle, awaiting_product, awaiting_variant, awaiting_order_details, awaiting_checkout_confirmation, awaiting_service, awaiting_date_time, awaiting_customer_details, awaiting_booking_confirmation, post_order_modify, post_appointment_modify, handoff)",
+  "customStrategy": "Highly specific tactical instructions for the response generator step"
+}
+
+Available tools you can request:
+- For ecommerce: "search_products", "get_business_hours", "lookup_customer"
+- For appointments: "check_slot", "get_services", "lookup_customer", "send_booking_flow"
+- Do NOT request transactional write tools like "place_order", "cancel_order", "book_appointment", "cancel_appointment", or "reschedule_appointment" since those are exclusively managed by the FSM flows.`;
 
   try {
     const response = await deepseek.chat.completions.create({
@@ -158,31 +131,19 @@ Cultural rules:
       intentAnalysis: result.intentAnalysis || '',
       emotion: result.emotion || 'neutral',
       goal: result.goal || 'gather_info',
-      knownFacts: result.knownFacts || [],
-      unknownGaps: result.unknownGaps || [],
-      templateSuitable: result.templateSuitable || false,
-      templateId: result.templateId,
+      toolsNeeded: result.toolsNeeded || [],
+      suggestedNextState: result.suggestedNextState || session.state || 'idle',
       customStrategy: result.customStrategy || 'Reply naturally and helpfully',
-      toneInstruction: result.toneInstruction || 'Casual and friendly',
-      shouldHandoff: result.shouldHandoff || false,
-      handoffReason: result.handoffReason,
-      proactiveSuggestion: result.proactiveSuggestion,
-      culturalNotes: result.culturalNotes || '',
     };
   } catch (error: any) {
     console.error('❌ [Thinking Layer] DeepSeek call failed:', error);
-    // Return safe default strategy to fall back gracefully
     return {
       intentAnalysis: 'Fallback due to API error',
       emotion: 'neutral',
       goal: 'gather_info',
-      knownFacts: [],
-      unknownGaps: [],
-      templateSuitable: false,
+      toolsNeeded: [],
+      suggestedNextState: session.state || 'idle',
       customStrategy: 'Reply naturally and offer to connect to a human agent.',
-      toneInstruction: 'Casual and helpful',
-      shouldHandoff: false,
-      culturalNotes: '',
     };
   }
 }

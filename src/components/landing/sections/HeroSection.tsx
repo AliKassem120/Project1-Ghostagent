@@ -12,12 +12,12 @@ import { ArrowRight, Zap, Instagram, MessageCircle } from 'lucide-react';
    CHAT MESSAGES — Multilingual DM Demo
    ════════════════════════════════════════════════════ */
 const chatMessages = [
-  { type: 'user', text: 'Hi! How does Ghost Agent actually work?', delay: 0.5 },
-  { type: 'bot', text: 'Hey! 👋 We connect to your Instagram to automatically answer DMs and comments 24/7. It learns your inventory and replies in any language. Want to see pricing?', delay: 3.0 },
-  { type: 'user', text: 'Yeah, how much is the Pro plan?', delay: 5.5 },
-  { type: 'bot', text: 'Pro is $49/mo — up to 1,000 AI replies/month, inventory sync, and sales analytics. Should I send you the setup link? 🚀', delay: 8.5 },
-  { type: 'user', text: "Let's do it!", delay: 11.5 },
-  { type: 'bot', text: 'Awesome! ✅ I just sent you a DM with the onboarding link. Welcome aboard!', delay: 13.5 },
+  { type: 'user', text: 'Hi! How does Ghost Agent work? Can it run on WhatsApp too?', delay: 0.5 },
+  { type: 'bot', text: 'Hey! 👋 Yes! We automate both Instagram and WhatsApp 24/7. It syncs your live inventory, auto-books calendar meetings, and uses smart memory compression to remember past chats. Want to see our plans?', delay: 3.5 },
+  { type: 'user', text: 'Yes, what do the Pro and Empire plans include?', delay: 9.0 },
+  { type: 'bot', text: 'Pro ($49/mo) offers 1,000 replies/mo, Instagram + WhatsApp, auto-reply to comments, and live agent handoff. Empire ($149/mo) gives 10,000 replies across 3 brands. Ready to set it up?', delay: 12.0 },
+  { type: 'user', text: "Pro is perfect, let's do it!", delay: 17.5 },
+  { type: 'bot', text: 'Awesome! 🚀 I just sent you the setup link to connect your channels. Welcome aboard!', delay: 19.5 },
 ];
 
 function PhoneMockup() {
@@ -57,7 +57,7 @@ function PhoneMockup() {
         startCycle();
       }, 1000);
       timeouts.push(restartTimeout);
-    }, 16000);
+    }, 23000);
     timeouts.push(resetTimeout);
 
     return () => timeouts.forEach(clearTimeout);

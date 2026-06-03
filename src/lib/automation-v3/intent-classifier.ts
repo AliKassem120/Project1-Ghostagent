@@ -1,8 +1,11 @@
-import Groq from 'groq-sdk';
+import OpenAI from 'openai';
 import type { LanguageScript } from './templates';
 import type { CustomerProfile } from '@/lib/ai/customer-profile';
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || 'mock-key' });
+const deepseek = new OpenAI({
+  baseURL: 'https://api.deepseek.com/v1',
+  apiKey: process.env.DEEPSEEK_API_KEY || 'mock-key',
+});
 
 export interface IntentClassification {
   intent: string;
@@ -53,7 +56,7 @@ AVAILABLE INTENTS: ${intents.join(', ')}
 
 CLASSIFICATION RULES:
 1. "Kifak", "hala", "marhaba", "hi", "hello" → greeting
-2. "badde", "i want", "order", "buy", "shu se3er", "price" + product mention → purchase_intent (or booking_intent if appointments)
+2. "badde", "i want", "order", "buy", "shu se3r", "price" + product mention → purchase_intent (or booking_intent if appointments)
 3. "mawjoud", "available", "stock", "in stock" → product_availability (or service_availability if appointments)
 4. "cancel", "el8e", "la8e", "mesh badda" → cancel_order / cancel_appointment
 5. "wain", "location", "address", "where" → location_question
@@ -82,8 +85,8 @@ Respond in JSON ONLY (with no markdown wrappers or backticks):
 }`;
 
   try {
-    const response = await groq.chat.completions.create({
-      model: 'llama-3.1-8b-instant',
+    const response = await deepseek.chat.completions.create({
+      model: 'deepseek-chat',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.1,
       max_tokens: 200,
@@ -104,10 +107,10 @@ Respond in JSON ONLY (with no markdown wrappers or backticks):
       source: 'llm',
     };
   } catch (error) {
-    console.warn('⚠️ [Intent Classifier] Llama execution failed, retrying once...', error);
+    console.warn('⚠️ [Intent Classifier] DeepSeek execution failed, retrying once...', error);
     try {
-      const retry = await groq.chat.completions.create({
-        model: 'llama-3.1-8b-instant',
+      const retry = await deepseek.chat.completions.create({
+        model: 'deepseek-chat',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.1,
         max_tokens: 200,

@@ -1,16 +1,17 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { SessionContext } from '../session-manager';
 import type { WorkspaceConfig } from '@/lib/ai/types';
-import { getTemplate } from '../templates';
-import { detectLanguageScript, detectYesNo, extractPhone, extractNameAndPhone, extractAddress, detectReuseSignals } from '@/lib/ai/language';
+import { detectLanguageScript, detectYesNo, extractNameAndPhone, extractAddress, detectReuseSignals } from '@/lib/ai/language';
 import { searchProducts, findBestProductMatch } from '@/lib/ai/ecommerce/products';
 import { createEcommerceTools } from '@/lib/ai/tools';
-import { checkVoiceConsistency } from '../voice-consistency-guard';
 
-export interface FSMResult {
-  replyText: string;
+export interface FsmResult {
   nextState: string;
   actions: string[];
+  context: {
+    actionType: 'order_cancelled' | 'checkout_success' | 'appointment_booked' | 'info_gathered';
+    payload: Record<string, any>;
+  };
   dbWriteAttempted: boolean;
   dbWriteSuccess: boolean;
 }
@@ -20,14 +21,12 @@ export async function runEcommerceFSM(
   session: SessionContext,
   config: WorkspaceConfig,
   supabase: SupabaseClient
-): Promise<FSMResult> {
+): Promise<FsmResult> {
   const actions: string[] = [];
   let dbWriteAttempted = false;
   let dbWriteSuccess = false;
   
-  const langScript = detectLanguageScript(message);
-  
-  // 1. Initialize session data if null
+  // Initialize session data if null
   if (!session.data) {
     session.data = {};
   }
@@ -128,22 +127,24 @@ export async function runEcommerceFSM(
         actions.push('cancel_order_success');
         nextState = 'idle';
         return {
-          replyText: langScript === 'franco' || langScript === 'mixed'
-            ? 'Tmm, l order tghalgha. ✅'
-            : 'Your order has been successfully cancelled. ✅',
           nextState,
           actions,
+          context: {
+            actionType: 'order_cancelled',
+            payload: { success: true }
+          },
           dbWriteAttempted,
           dbWriteSuccess
         };
       } else {
         actions.push('cancel_order_failed');
         return {
-          replyText: langScript === 'franco' || langScript === 'mixed'
-            ? 'Ma 2darna nelghe l order. L team ra7 ykellmak halla2.'
-            : 'We could not cancel your order automatically. A team member will assist you shortly.',
           nextState: 'handoff',
           actions: [...actions, 'handoff'],
+          context: {
+            actionType: 'order_cancelled',
+            payload: { success: false, error: 'cancellation_failed' }
+          },
           dbWriteAttempted,
           dbWriteSuccess
         };
@@ -165,16 +166,42 @@ export async function runEcommerceFSM(
         session.data = { ...session.data, ...details };
         if (hasAllDetails(session.data)) {
           nextState = 'awaiting_checkout_confirmation';
-          const variables = { productName: session.data.productName || '', price: String(session.data.price || '') };
-          const reply = getTemplate('awaiting_order_details', langScript, variables) || 
-                        `Ready to place order for ${session.data.productName}?`;
-          return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+          return {
+            nextState,
+            actions,
+            context: {
+              actionType: 'info_gathered',
+              payload: {
+                productName: session.data.productName,
+                price: session.data.price,
+                name: session.data.name,
+                phone: session.data.phone,
+                address: session.data.address,
+                isReadyToConfirm: true
+              }
+            },
+            dbWriteAttempted,
+            dbWriteSuccess
+          };
         } else {
           nextState = 'awaiting_order_details';
-          const variables = { productName: session.data.productName || '', price: String(session.data.price || '') };
-          const reply = getTemplate('awaiting_order_details', langScript, variables) || 
-                        `Please send your name, phone number, and address to place the order.`;
-          return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+          return {
+            nextState,
+            actions,
+            context: {
+              actionType: 'info_gathered',
+              payload: {
+                productName: session.data.productName,
+                price: session.data.price,
+                name: session.data.name,
+                phone: session.data.phone,
+                address: session.data.address,
+                missingDetails: ['name', 'phone', 'address'].filter(k => !session.data![k])
+              }
+            },
+            dbWriteAttempted,
+            dbWriteSuccess
+          };
         }
       }
 
@@ -196,16 +223,36 @@ export async function runEcommerceFSM(
         nextState = 'idle';
         // Clear session order fields after placement
         session.data = {};
-        const reply = getTemplate('order_confirmed', langScript) || 'Order placed successfully! ✅';
-        return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+        return {
+          nextState,
+          actions,
+          context: {
+            actionType: 'checkout_success',
+            payload: {
+              success: true,
+              productName,
+              variant,
+              quantity: qty,
+              name,
+              phone,
+              address
+            }
+          },
+          dbWriteAttempted,
+          dbWriteSuccess
+        };
       } else {
         actions.push('place_order_failed');
         return {
-          replyText: langScript === 'franco' || langScript === 'mixed'
-            ? 'Moshkle bl order. L team ra7 ykellmak halla2.'
-            : 'There was an issue completing your order. A team member will assist you shortly.',
           nextState: 'handoff',
           actions: [...actions, 'handoff'],
+          context: {
+            actionType: 'checkout_success',
+            payload: {
+              success: false,
+              error: 'order_creation_failed'
+            }
+          },
           dbWriteAttempted,
           dbWriteSuccess
         };
@@ -214,20 +261,33 @@ export async function runEcommerceFSM(
       nextState = 'idle';
       session.data = {};
       return {
-        replyText: langScript === 'franco' || langScript === 'mixed'
-          ? 'Tmm, lghayna l order. Nshalla marra tanye! 👍'
-          : 'Understood, the order has been cancelled. Let us know if you need anything else! 👍',
         nextState,
         actions,
+        context: {
+          actionType: 'info_gathered',
+          payload: {
+            checkoutConfirmed: false
+          }
+        },
         dbWriteAttempted,
         dbWriteSuccess
       };
     } else {
       // Repeat prompt for confirmation
-      const variables = { productName: session.data.productName || '', price: String(session.data.price || '') };
-      const reply = getTemplate('awaiting_order_details', langScript, variables) || 
-                    `Would you like to confirm the order? Yes or No?`;
-      return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+      return {
+        nextState,
+        actions,
+        context: {
+          actionType: 'info_gathered',
+          payload: {
+            isReadyToConfirm: true,
+            productName: session.data.productName,
+            price: session.data.price
+          }
+        },
+        dbWriteAttempted,
+        dbWriteSuccess
+      };
     }
   }
 
@@ -237,21 +297,41 @@ export async function runEcommerceFSM(
 
     if (hasAllDetails(session.data)) {
       nextState = 'awaiting_checkout_confirmation';
-      const variables = { productName: session.data.productName || '', price: String(session.data.price || '') };
-      const reply = getTemplate('awaiting_order_details', langScript, variables) || 
-                    `Ready to confirm order for ${session.data.productName}? Say Yes or No.`;
-      return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+      return {
+        nextState,
+        actions,
+        context: {
+          actionType: 'info_gathered',
+          payload: {
+            productName: session.data.productName,
+            price: session.data.price,
+            name: session.data.name,
+            phone: session.data.phone,
+            address: session.data.address,
+            isReadyToConfirm: true
+          }
+        },
+        dbWriteAttempted,
+        dbWriteSuccess
+      };
     } else {
-      // Prompt for missing details
-      const missing: string[] = [];
-      if (!session.data.name) missing.push(langScript === 'franco' || langScript === 'mixed' ? 'ismak (name)' : 'name');
-      if (!session.data.phone) missing.push(langScript === 'franco' || langScript === 'mixed' ? 'ra2mak (phone)' : 'phone');
-      if (!session.data.address) missing.push(langScript === 'franco' || langScript === 'mixed' ? '3nwenak (address)' : 'address');
-      
-      const reply = langScript === 'franco' || langScript === 'mixed'
-        ? `B3atle kman: ${missing.join(', ')}.`
-        : `Please provide your missing details: ${missing.join(', ')}.`;
-      return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+      return {
+        nextState,
+        actions,
+        context: {
+          actionType: 'info_gathered',
+          payload: {
+            productName: session.data.productName,
+            price: session.data.price,
+            name: session.data.name,
+            phone: session.data.phone,
+            address: session.data.address,
+            missingDetails: ['name', 'phone', 'address'].filter(k => !session.data![k])
+          }
+        },
+        dbWriteAttempted,
+        dbWriteSuccess
+      };
     }
   }
 
@@ -264,22 +344,57 @@ export async function runEcommerceFSM(
 
       if (hasAllDetails(session.data)) {
         nextState = 'awaiting_checkout_confirmation';
-        const variables = { productName: session.data.productName || '', price: String(session.data.price || '') };
-        const reply = getTemplate('awaiting_order_details', langScript, variables) || 
-                      `Ready to confirm order for ${session.data.productName}?`;
-        return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+        return {
+          nextState,
+          actions,
+          context: {
+            actionType: 'info_gathered',
+            payload: {
+              productName: session.data.productName,
+              price: session.data.price,
+              name: session.data.name,
+              phone: session.data.phone,
+              address: session.data.address,
+              variant: session.data.variant,
+              isReadyToConfirm: true
+            }
+          },
+          dbWriteAttempted,
+          dbWriteSuccess
+        };
       } else {
         nextState = 'awaiting_order_details';
-        const variables = { productName: session.data.productName || '', price: String(session.data.price || '') };
-        const reply = getTemplate('awaiting_order_details', langScript, variables) || 
-                      `Please provide your name, phone number, and address.`;
-        return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+        return {
+          nextState,
+          actions,
+          context: {
+            actionType: 'info_gathered',
+            payload: {
+              productName: session.data.productName,
+              price: session.data.price,
+              variant: session.data.variant,
+              missingDetails: ['name', 'phone', 'address'].filter(k => !session.data![k])
+            }
+          },
+          dbWriteAttempted,
+          dbWriteSuccess
+        };
       }
     } else {
-      const reply = langScript === 'franco' || langScript === 'mixed'
-        ? 'Ayya size aw lon baddak?'
-        : 'Which size or color would you like?';
-      return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+      return {
+        nextState,
+        actions,
+        context: {
+          actionType: 'info_gathered',
+          payload: {
+            isAwaitingVariant: true,
+            productName: session.data.productName,
+            price: session.data.price
+          }
+        },
+        dbWriteAttempted,
+        dbWriteSuccess
+      };
     }
   }
 
@@ -308,33 +423,75 @@ export async function runEcommerceFSM(
     
     if ((hasVariants || hasSizesOrColors) && !session.data.variant) {
       nextState = 'awaiting_variant';
-      const reply = langScript === 'franco' || langScript === 'mixed'
-        ? `L ${match.itemName} b $${match.price}. Ayya size baddak?`
-        : `The ${match.itemName} is $${match.price}. Which size do you need?`;
-      return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+      return {
+        nextState,
+        actions,
+        context: {
+          actionType: 'info_gathered',
+          payload: {
+            productName: match.itemName,
+            price: match.price,
+            isAwaitingVariant: true
+          }
+        },
+        dbWriteAttempted,
+        dbWriteSuccess
+      };
     } else {
       const details = await resolveDetails(message);
       session.data = { ...session.data, ...details };
 
       if (hasAllDetails(session.data)) {
         nextState = 'awaiting_checkout_confirmation';
-        const variables = { productName: session.data.productName || '', price: String(session.data.price || '') };
-        const reply = getTemplate('awaiting_order_details', langScript, variables) || 
-                      `Ready to confirm order for ${session.data.productName}?`;
-        return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+        return {
+          nextState,
+          actions,
+          context: {
+            actionType: 'info_gathered',
+            payload: {
+              productName: session.data.productName,
+              price: session.data.price,
+              name: session.data.name,
+              phone: session.data.phone,
+              address: session.data.address,
+              isReadyToConfirm: true
+            }
+          },
+          dbWriteAttempted,
+          dbWriteSuccess
+        };
       } else {
         nextState = 'awaiting_order_details';
-        const variables = { productName: session.data.productName || '', price: String(session.data.price || '') };
-        const reply = getTemplate('awaiting_order_details', langScript, variables) || 
-                      `Please provide your name, phone number, and address.`;
-        return { replyText: reply, nextState, actions, dbWriteAttempted, dbWriteSuccess };
+        return {
+          nextState,
+          actions,
+          context: {
+            actionType: 'info_gathered',
+            payload: {
+              productName: session.data.productName,
+              price: session.data.price,
+              missingDetails: ['name', 'phone', 'address'].filter(k => !session.data![k])
+            }
+          },
+          dbWriteAttempted,
+          dbWriteSuccess
+        };
       }
     }
   } else {
     // No product matched
-    const reply = langScript === 'franco' || langScript === 'mixed'
-      ? 'Ma l2ina hal product. Shou kman 3ndak?'
-      : "We couldn't find that product. What else are you looking for?";
-    return { replyText: reply, nextState: 'idle', actions, dbWriteAttempted, dbWriteSuccess };
+    return {
+      nextState: 'idle',
+      actions,
+      context: {
+        actionType: 'info_gathered',
+        payload: {
+          productNotFound: true,
+          query: message
+        }
+      },
+      dbWriteAttempted,
+      dbWriteSuccess
+    };
   }
 }

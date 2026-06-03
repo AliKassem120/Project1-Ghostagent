@@ -10,8 +10,7 @@ import { loadActiveServices, findBestServiceMatch } from '@/lib/ai/appointments/
 
 import crypto from 'crypto';
 import { checkUserLimit } from '@/lib/billing';
-import Groq from 'groq-sdk';
-import { toFile } from 'groq-sdk';
+import OpenAI, { toFile } from 'openai';
 
 // Extend Vercel function timeout to 60 seconds for AI processing
 export const maxDuration = 60;
@@ -1235,16 +1234,15 @@ async function generateCommentReplyPlan(
                 .join('\n');
         }
 
-        const { createGroq } = await import('@ai-sdk/groq');
+        const { createOpenAI } = await import('@ai-sdk/openai');
         const { generateText } = await import('ai');
 
-        const groqKey = process.env.GROQ_API_KEY;
-        if (!groqKey) {
-            throw new Error('GROQ_API_KEY is missing');
-        }
-        const groq = createGroq({ apiKey: groqKey });
-        // Use small model for comment replies (simple task)
-        const commentModel = groq('llama-3.1-8b-instant');
+        const deepseekKey = process.env.DEEPSEEK_API_KEY || 'mock-key';
+        const deepseekProvider = createOpenAI({
+            baseURL: 'https://api.deepseek.com/v1',
+            apiKey: deepseekKey,
+        });
+        const commentModel = deepseekProvider('deepseek-chat');
 
         // Dynamic comment prompt based on business type
         let businessTypeDirective = 'This is a product-based business. Focus on products and orders.';
@@ -1469,10 +1467,10 @@ async function transcribeVoiceNote(url: string): Promise<string | null> {
         // Convert to a File-like object that the SDK accepts
         const file = await toFile(buffer, 'voicenote.m4a', { type: 'audio/mp4' });
 
-        const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
-        const transcription = await groqClient.audio.transcriptions.create({
+        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        const transcription = await openai.audio.transcriptions.create({
             file: file,
-            model: 'whisper-large-v3', // Highest accuracy Whisper model
+            model: 'whisper-1', // Standard Whisper model
             response_format: 'text',
         });
 
