@@ -67,6 +67,11 @@ function buildPrompt(
     serviceCatalogBlock = `\nSERVICES MENU (from database):\n${serviceLines}\n`;
   }
 
+  let shippingBlock = '';
+  if (config.shippingRules) {
+    shippingBlock = `\nSHIPPING & DELIVERY RULES:\n${config.shippingRules}\n`;
+  }
+
   const lengthRule = 'Keep replies short and DM-style. 1–3 sentences max. No paragraphs. Be natural, not robotic.';
 
   let memoryBlock = '';
@@ -105,7 +110,7 @@ RULES:
 ${config.systemInstructions ? `BUSINESS INFO:\n${config.systemInstructions}` : ''}
 ${config.storeLocation ? `LOCATION: ${config.storeLocation}` : ''}
 ${config.contactInfo ? `CONTACT: ${config.contactInfo}` : ''}
-${serviceCatalogBlock}`;
+${shippingBlock}${serviceCatalogBlock}`;
 }
 
 async function executeTool(
@@ -431,7 +436,19 @@ export async function orchestrate(
         isoDate: timeCtx.isoDate,
         isoTime: timeCtx.isoTime
       },
-      fsmContext: fsmRes.context
+      fsmContext: fsmRes.context ? {
+        actionType: fsmRes.context.actionType,
+        payload: {
+          productName: fsmRes.context.payload?.productName,
+          serviceName: fsmRes.context.payload?.serviceName,
+          price: fsmRes.context.payload?.price,
+          date: fsmRes.context.payload?.date,
+          time: fsmRes.context.payload?.time,
+          missingDetails: fsmRes.context.payload?.missingDetails,
+          isReadyToConfirm: fsmRes.context.payload?.isReadyToConfirm,
+          isAwaitingVariant: fsmRes.context.payload?.isAwaitingVariant,
+        }
+      } : undefined
     });
 
     const reply = responseGenResult.text;

@@ -85,6 +85,15 @@ export function checkVoiceConsistency(
     }
   }
 
+  // Cleanup trailing connectors and spaces
+  corrected = corrected
+    .replace(/\s+and\s*([.!?])/gi, '$1')
+    .replace(/\s+or\s*([.!?])/gi, '$1')
+    .replace(/\s+,\s*([.!?])/gi, '$1')
+    .replace(/\s+([.!?])/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+
   return {
     approved: violations.length === 0,
     correctedText: corrected,

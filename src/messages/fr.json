@@ -349,7 +349,19 @@
     "val4Desc": "Focalisé uniquement sur la génération de revenus et la prise de réservations.",
     "ctaTitle": "Prêt à arrêter de perdre des clients dans vos DMs ?",
     "ctaDesc": "Lancez votre agent business IA et laissez GhostAgent gérer les réponses, commandes et rendez-vous 24h/24.",
-    "contactUs": "Nous contacter"
+    "contactUs": "Nous contacter",
+    "featWhatsAppTitle": "DMs WhatsApp & Instagram unifiés",
+    "featWhatsAppDesc": "Connectez WhatsApp officiel et les DMs Instagram pour automatiser les réponses avec un seul assistant unique.",
+    "featEcomTitle": "Moteur E-Commerce IA",
+    "featEcomDesc": "Consultez le stock en direct, gérez les tailles/couleurs, calculez la livraison et générez des liens d'achat stricts.",
+    "featApptTitle": "Planification intelligente des rendez-vous",
+    "featApptDesc": "Réservez des services, vérifiez la disponibilité du calendrier en temps réel et collectez les noms et téléphones dans le DM.",
+    "featCommentsTitle": "Réponse automatique aux commentaires",
+    "featCommentsDesc": "Répondez automatiquement aux commentaires et envoyez un DM instantané pour conclure des ventes.",
+    "featMarketingTitle": "Campagnes de diffusion",
+    "featMarketingDesc": "Lancez des campagnes promotionnelles en masse et des diffusions pour réengager vos clients.",
+    "featInboxTitle": "Pilote automatique & boîte de réception unique",
+    "featInboxDesc": "Activez le pilote automatique, reprenez les chats manuellement, consultez les analyses et gérez les paramètres."
   },
   "Terms": {
     "title": "Conditions d'utilisation",

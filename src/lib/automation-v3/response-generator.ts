@@ -38,11 +38,12 @@ export async function generateResponse(
         { role: 'system', content: systemInstruction },
         { role: 'user', content: prompt }
       ],
-      temperature: 0.7,
+      temperature: 0.9,
       max_tokens: 200,
     });
 
-    const text = response.choices[0].message.content?.trim() || '';
+    let text = response.choices[0].message.content?.trim() || '';
+    text = enforceSentenceLimit(text);
     return { text };
   } catch (error: any) {
     console.error('❌ [Response Gen] DeepSeek text generation failed:', error);
@@ -112,23 +113,58 @@ ${context.conversationHistory.slice(-4).map(m => `${m.role}: "${m.content}"`).jo
 === VERIFIED FACTS (never contradict these) ===
 ${context.toolResults.map(r => `- ${r.tool}: ${JSON.stringify(r.result)}`).join('\n') || 'No verified facts'}
 
-=== WRITING RULES ===
-1. Reply in ${context.requiredLanguageScript} ONLY. Never switch languages mid-message.
-2. Keep it SHORT: 1 sentence for quick replies, 2-3 sentences max for complex answers.
-3. Sound like a real person texting their friend. NOT corporate. NOT robotic.
-4. ${context.workspaceConfig.useEmojis ? 'Use 0-1 emoji only when natural. Never more than 1.' : 'NO emojis. Zero.'}
-5. NEVER say "As an AI", "How may I assist you today?", "I am here to help", or "Please let me know"
-6. NEVER echo back what the customer said ("You said you want...")
-7. NEVER list products as bullet points unless explicitly asked
-8. NEVER make up prices, stock numbers, or availability. Only use verified facts above.
-9. If you don't know something, say so honestly and offer to connect with a human.
-10. If stock is LOW, sound slightly worried FOR them: "only 2 left 😬" — not robotic scarcity
-11. If they seem frustrated, acknowledge FIRST: "ugh yeah that's annoying" — then solve
-12. If they bought before, reference it CASUALLY: "you got the hoodie last time right?"
-13. If they say "inshallah" to buying, they're NOT committed. Stay light. Don't push.
-14. If they say "khalas", stop selling. Switch to helpful mode.
-15. ${isFranco ? 'Write in Lebanese Franco-Arabic naturally. Mix numbers (3,7,2,5) for Arabic sounds. Example: "hala", "shu", "kif", "mashi", "tayyeb", "baddak", "mabsout", "7elo"' : ''}
-16. ${context.requiredLanguageScript === 'arabic' ? 'Write in Arabic script (العربية). Use "حضرتك" for respect if tone is formal.' : ''}
+${buildWritingRules(context, isFranco)}
 
 Now write the reply:`;
+}
+
+function buildWritingRules(context: ResponseContext, isFranco: boolean): string {
+  const lang = context.requiredLanguageScript;
+  const emojiRule = context.workspaceConfig.useEmojis 
+    ? 'Use 0-1 emoji only when natural. Never more than 1.' 
+    : 'NO emojis at all.';
+  
+  let examples = '';
+  if (lang === 'franco') {
+    examples = `Good Franco Examples:
+- "Hala! 3anna haircuts b $15. Baddak nehjoz la bukra? 💇"
+- "B2e bas 2 mn l black hoodie 😬 Baddak yeh?"
+- "Ugh bte3zor, la7za w bkhalle 7ada mn l team ye7kike."
+Bad Franco Examples:
+- "Kif fiyi se3dak lyoum? Ana bot AI hon kermel se3dak."
+- "Enta tracking order. 3anna: - Hoodie ($15)"`;
+  } else if (lang === 'arabic') {
+    examples = `Good Arabic Examples:
+- "أهلاً! في قص شعر بـ 15$. بتحب نحجز لبكرة؟ 💇"
+- "بقي قطعتين بس من الهودي الأسود 😬 بتحب نأكد الطلب؟"
+- "بعتذر منك جداً. لحظة ورح خلي حدا من الفريق يتواصل معك."
+Bad Arabic Examples:
+- "بصفتي ذكاءً اصطناعيًا، كيف يمكنني مساعدتك اليوم؟"
+- "لقد قلت أنك تريد هودي. لدينا: - هودي ($15)"`;
+  } else {
+    examples = `Good English Examples:
+- "Hey! We have haircuts for $15. Want to book for tomorrow? 💇"
+- "Only 2 left of the black hoodie 😬 Let me know if you want to grab it!"
+- "Ah that's annoying, sorry about that. Let me get someone to help you."
+Bad English Examples:
+- "As an AI, I am here to help you today. Please let me know how I may assist you."
+- "You said you want a haircut. We offer: - Haircut ($15) - Lashes ($20)"`;
+  }
+
+  return `=== WRITING RULES ===
+1. Reply in ${lang} ONLY. Short (max 2 sentences), texting-style.
+2. ${emojiRule}
+3. Use verified facts only. Never hallucinate details.
+4. Text like a real human friend. No robotic or AI phrases.
+${examples}`;
+}
+
+function enforceSentenceLimit(text: string): string {
+  if (!text) return text;
+  const sentenceRegex = /[^.!?]+(?:[.!?]+|$)/g;
+  const matches = text.match(sentenceRegex);
+  if (matches && matches.length > 2) {
+    return matches.slice(0, 2).join(' ').replace(/\s+/g, ' ').trim();
+  }
+  return text;
 }

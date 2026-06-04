@@ -1,194 +1,194 @@
-Testing: "unnamed" (appointments)
+Testing: "Ali Salon" (appointments)
 
 
 --- 1. GREETINGS & SMALL TALK ---
 [PASS] English greeting
   USER: "hey"
-  BOT:  "Hey! How can I help?"
-  ACT:  [greeting]
+  BOT:  "Hey! Welcome to Ali Salon."
+  ACT:  [tool_get_services, tool_get_business_hours, v3_brain_reply, llm_reply]
 [PASS] Arabic greeting
   USER: "salam"
-  BOT:  "Hey! How can I help?"
-  ACT:  [greeting]
+  BOT:  "Wa alaikum assalam! Welcome to Ali Salon."
+  ACT:  [tool_lookup_customer, v3_brain_reply, llm_reply]
 [PASS] Arabizi greeting
   USER: "hala kifak"
-  BOT:  "Hala! Kif fiyi se3dak?"
-  ACT:  [greeting]
+  BOT:  "Hey, welcome!  — looking to book an appointment or just checking out our services?"
+  ACT:  [tool_get_services, tool_get_business_hours, v3_brain_reply, llm_reply]
 [PASS] Small talk - how are you
   USER: "how are you"
-  BOT:  "I'm good thanks, how can I help you today? 😊"
-  ACT:  [llm_path]
+  BOT:  "Doing well, thanks for asking! Anything I can help you with today — looking to book an ..."
+  ACT:  [v3_brain_reply, llm_reply]
 [PASS] Small talk - wsh
   USER: "wsh"
-  BOT:  "Wshak mabghitch shi?"
-  ACT:  [llm_path]
+  BOT:  "Hey! What's up?"
+  ACT:  [v3_brain_reply, llm_reply]
 [PASS] Small talk - kif el 7al
   USER: "kif el 7al"
-  BOT:  "El hamdella, how can I assist you today?"
-  ACT:  [llm_path]
+  BOT:  "Hey! We're good, thanks for asking."
+  ACT:  [v3_brain_reply, llm_reply]
 
 --- 2. SERVICE INQUIRY ---
 [PASS] What services do you offer
   USER: "what services do you offer?"
-  BOT:  "We offer a variety of services, what kind of service are you looking for?"
-  ACT:  [llm_path]
+  BOT:  "Hey! We offer haircuts for $15."
+  ACT:  [tool_get_services, v3_brain_reply, llm_reply]
 [PASS] What do you do
   USER: "what do you do?"
-  BOT:  "We're currently not offering any services, sorry about that."
-  ACT:  [service_search_empty]
+  BOT:  "We offer haircuts for $15! Want to book an appointment?"
+  ACT:  [v3_brain_reply, llm_reply]
 [PASS] Arabizi - shu khedameto
   USER: "shu khedameto?"
-  BOT:  "Ma fi khedamet halla2."
-  ACT:  [service_search_empty]
+  BOT:  "We offer haircuts for $15. Want to book an appointment?"
+  ACT:  [tool_get_services, v3_brain_reply, llm_reply]
 [PASS] Do you do haircuts
   USER: "do you do haircuts?"
-  BOT:  "We're currently not offering any services, sorry about that."
-  ACT:  [service_search_empty]
+  BOT:  "Yes, we do! Haircuts are $15 and take about 30 minutes."
+  ACT:  [v3_brain_reply, llm_reply]
 [PASS] Do you do lashes
   USER: "do you do eyelash extensions?"
-  BOT:  "No services available right now."
-  ACT:  [service_search_empty]
+  BOT:  "We don't offer eyelash extensions, but we do have haircuts for $15. Let me know if you'..."
+  ACT:  [v3_brain_reply, llm_reply]
 
 --- 3. BOOKING INTENT ---
 [PASS] I want to book
   USER: "i want to book an appointment"
-  BOT:  "What can I help you with today? We have a few services available, which one are you int..."
-  ACT:  [asked_service_again]
+  BOT:  "Sure, we'd love to have you! We have haircuts available."
+  ACT:  [v3_brain_reply, llm_reply]
 [PASS] I want a haircut
   USER: "i want a haircut"
-  BOT:  "Which service would you like? We offer:"
-  ACT:  [asked_service_again]
+  BOT:  "Connecting you to a human agent shortly..."
+  ACT:  [handoff]
 [PASS] Arabizi bade e7joz
   USER: "bade e7joz maw3ed"
-  BOT:  "Aya service bdk? 3anna:"
-  ACT:  [asked_service_again]
+  BOT:  "Hi! Sure, I can help you book an appointment."
+  ACT:  [v3_brain_reply, llm_reply]
 [PASS] Book for tomorrow
   USER: "can I book for tomorrow?"
-  BOT:  "Which service would you like? We offer:"
-  ACT:  [asked_service_again]
+  BOT:  "Sure, I can help you with that! Which service would you like to book, and what time wor..."
+  ACT:  [v3_brain_reply, llm_reply]
 [PASS] Arabizi bade ji
   USER: "bade ji 3andkon"
-  BOT:  "Aya service bdk? 3anna:"
-  ACT:  [asked_service_again]
+  BOT:  "Hey! We have haircuts for $15."
+  ACT:  [tool_get_services, tool_check_slot, v3_brain_reply, llm_reply]
 
 --- 4. PRICE QUESTIONS ---
 [PASS] How much for a haircut
   USER: "how much is a haircut?"
-  BOT:  "Which service would you like? We offer:"
-  ACT:  [asked_service_again]
+  BOT:  "Hey! We have haircuts for $15."
+  ACT:  [v3_brain_reply, llm_reply]
 [PASS] Price of facial
   USER: "what is the price of a facial?"
-  BOT:  "Which service would you like? We offer:"
-  ACT:  [asked_service_again]
+  BOT:  "We actually don't offer facials at our salon. Our main service is haircuts for $15."
+  ACT:  [v3_brain_reply, llm_reply]
 [PASS] Arabizi addesh
   USER: "addesh el maw3ed?"
-  BOT:  "Aya service bdk? 3anna:"
-  ACT:  [asked_service_again]
+  BOT:  "Our haircut is $15. When would you like to come in?"
+  ACT:  [v3_brain_reply, llm_reply]
 
 --- 5. APPOINTMENT STATUS ---
 [PASS] When is my appointment
   USER: "when is my appointment?"
-  BOT:  "Which service would you like? We offer:"
-  ACT:  [asked_service_again]
+  BOT:  "Connecting you to a human agent shortly..."
+  ACT:  [handoff]
 [PASS] Do I have a booking
   USER: "do I have a booking?"
-  BOT:  "Which service would you like? We offer:"
-  ACT:  [asked_service_again]
+  BOT:  "Connecting you to a human agent shortly..."
+  ACT:  [tool_lookup_customer, v3_brain_reply, llm_reply, handoff]
 [PASS] Arabizi wein maw3ede
   USER: "wein maw3ede?"
-  BOT:  "Aya service bdk? 3anna:"
-  ACT:  [asked_service_again]
+  BOT:  "Connecting you to a human agent shortly..."
+  ACT:  [tool_lookup_customer, v3_brain_reply, llm_reply, handoff]
 
 --- 6. CANCEL APPOINTMENT ---
 [PASS] Cancel my appointment
   USER: "cancel my appointment"
-  BOT:  "Something went wrong. Please try again."
-  ACT:  [appointment_cancel_failed]
+  BOT:  "Sure, I can cancel that for you. Please confirm your name so I can find and remove the ..."
+  ACT:  [tool_cancel_appointment, cancel_appointment_failed, handoff, v3_brain_reply, llm_reply]
 [PASS] I can't come
   USER: "I can't come tomorrow"
-  BOT:  "Something went wrong. Please try again."
-  ACT:  [appointment_cancel_failed]
+  BOT:  "Sure, I can cancel that for you. Please confirm your name so I can find and remove the ..."
+  ACT:  [v3_brain_reply, llm_reply]
 [PASS] Arabizi el8e maw3ed
   USER: "bde el8e l maw3ed"
-  BOT:  "Fi 8alat. Jarreb kamen."
-  ACT:  [appointment_cancel_failed]
+  BOT:  "Sure, I can cancel that for you. Please confirm your name so I can find and remove the ..."
+  ACT:  [tool_cancel_appointment, cancel_appointment_failed, handoff, v3_brain_reply, llm_reply]
 [PASS] Arabizi ma fiyye eje
   USER: "ma fiyye eje"
-  BOT:  "Something went wrong. Please try again."
-  ACT:  [appointment_cancel_failed]
+  BOT:  "Connecting you to a human agent shortly..."
+  ACT:  [handoff]
 
 --- 7. RESCHEDULE APPOINTMENT ---
 [PASS] Reschedule
   USER: "can I reschedule my appointment?"
-  BOT:  "Which service would you like? We offer:"
-  ACT:  [asked_service_again]
+  BOT:  "Sure, I can help you with that. Could you let me know your current appointment date and..."
+  ACT:  [v3_brain_reply, llm_reply]
 [PASS] Change to different day
   USER: "can I change to a different day?"
-  BOT:  "Which service would you like? We offer:"
-  ACT:  [asked_service_again]
+  BOT:  "Of course. Could you let me know your current appointment date and time so I can check ..."
+  ACT:  [v3_brain_reply, llm_reply]
 [PASS] Arabizi bade ghayyir
   USER: "bade ghayyir maw3ede la bukra"
-  BOT:  "Wala yhemak. Khaberne eza bdk shi."
-  ACT:  [cancelled_flow]
+  BOT:  "Sure, I can help you change your appointment to tomorrow. What time would you like to c..."
+  ACT:  [v3_brain_reply, llm_reply]
 
 --- 8. BUSINESS HOURS & LOCATION ---
 [PASS] Working hours
   USER: "what are your working hours?"
-  BOT:  "I'm looking for that right now, but I'm not seeing it in our current catalog. Did you m..."
-  ACT:  [agent_error]
+  BOT:  "Our salon is open from 9 AM to 8 PM, Monday through Saturday. We are closed on Sundays."
+  ACT:  [v3_brain_reply, llm_reply]
 [PASS] Are you open on Sunday
   USER: "are you open on Sunday?"
-  BOT:  "Let me check on that for you. I'm not finding it in our current catalog, can you tell m..."
-  ACT:  [agent_error]
+  BOT:  "we're closed on Sundays. We're open Monday through Friday from 9 AM to 5 PM if you'd li..."
+  ACT:  [tool_get_business_hours, v3_brain_reply, llm_reply]
 [PASS] Where are you located
   USER: "where are you located?"
-  BOT:  "I'm looking for that right now, but I'm not seeing it in our current catalog. Did you m..."
-  ACT:  [agent_error]
+  BOT:  "We're in Hamra. You can come by anytime Monday to Friday, 9 AM to 5 PM."
+  ACT:  [v3_brain_reply, llm_reply]
 [PASS] Arabizi wen mawjudin
   USER: "wen mawjudin?"
-  BOT:  "I'm looking for that right now, but I'm not seeing it in our current catalog. Did you m..."
-  ACT:  [agent_error]
+  BOT:  "We're located in Hamra, on the main street near the American University. Let me know if..."
+  ACT:  [tool_get_business_hours, v3_brain_reply, llm_reply]
 
 --- 9. HUMAN HANDOFF & FRUSTRATION ---
-[FAIL] Talk to human
+[PASS] Talk to human
   USER: "i want to talk to a real person"
-  BOT:  "(no reply)"
-  ACT:  [llm_path]
-[FAIL] Speak to manager
+  BOT:  "Connecting you to a human agent shortly..."
+  ACT:  [handoff]
+[PASS] Speak to manager
   USER: "let me speak to the manager"
-  BOT:  "(no reply)"
-  ACT:  [llm_path]
+  BOT:  "Connecting you to a human agent shortly..."
+  ACT:  [handoff]
 [PASS] Frustration
   USER: "forget it, leave me alone"
-  BOT:  "Sorry about that. I won't bother you. If you need anything, just message us."
-  ACT:  [frustration_stop]
+  BOT:  "Connecting you to a human agent shortly..."
+  ACT:  [handoff]
 [PASS] Arabizi khalas hel 3ane
   USER: "khalas hel 3ane"
-  BOT:  "Sorry about that. I won't bother you. If you need anything, just message us."
-  ACT:  [frustration_stop]
+  BOT:  "Connecting you to a human agent shortly..."
+  ACT:  [handoff]
 
 --- 10. CORRECTIONS & OFF-TOPIC ---
 [PASS] You misunderstood
   USER: "you misunderstood me"
-  BOT:  "Sorry about that! What did you need?"
-  ACT:  [correction_acknowledged]
+  BOT:  "Connecting you to a human agent shortly..."
+  ACT:  [v3_brain_reply, llm_reply, handoff]
 [PASS] Arabizi ma fhemte
   USER: "ma fhemte"
-  BOT:  "Sorry about that! What did you need?"
-  ACT:  [correction_acknowledged]
+  BOT:  "Connecting you to a human agent shortly..."
+  ACT:  [handoff]
 [PASS] Off-topic question
   USER: "do you sell products too?"
-  BOT:  "I'm looking for that right now, but I'm not seeing it in our current catalog. Did you m..."
-  ACT:  [agent_error]
+  BOT:  "We do sell a few hair products in the salon. You're welcome to stop by and check them o..."
+  ACT:  [v3_brain_reply, llm_reply]
 [PASS] Compliment
   USER: "your salon is amazing!"
-  BOT:  "I'm looking for that right now, but I'm not seeing it in our current catalog. Did you m..."
-  ACT:  [agent_error]
+  BOT:  "Thank you so much, that means a lot! Is there anything I can help you with today, maybe..."
+  ACT:  [v3_brain_reply, llm_reply]
 [PASS] Goodbye
   USER: "ok thanks bye"
-  BOT:  "I'm looking for that right now, but I'm not seeing it in our current catalog. Did you m..."
-  ACT:  [agent_error]
+  BOT:  "You're welcome. Take care and ."
+  ACT:  [v3_brain_reply, llm_reply]
 
 ============================================================
-RESULTS: 40/42 tests got a reply
+RESULTS: 42/42 tests got a reply
 ============================================================

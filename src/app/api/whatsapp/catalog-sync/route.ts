@@ -16,7 +16,13 @@ export async function POST(req: Request) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-        const { workspaceId } = await req.json();
+        let workspaceId: string | undefined;
+        try {
+            const body = await req.json();
+            workspaceId = body?.workspaceId;
+        } catch (e) {
+            // empty body or invalid JSON
+        }
         if (!workspaceId) return NextResponse.json({ error: 'Missing workspaceId' }, { status: 400 });
 
         // Get catalog ID and token

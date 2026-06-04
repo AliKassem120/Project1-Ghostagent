@@ -56,13 +56,10 @@ function DashboardSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
         { icon: Instagram, label: 'Instagram', href: '/dashboard/channels/instagram' },
     ];
 
-    // ── GROUP 3: BUSINESS CONFIG ──
     const businessConfig: { icon: any, label: string, href: string }[] = [
         ...(businessType === 'appointments' ? [{ icon: Briefcase, label: 'Services', href: '/dashboard/services' }] : []),
         ...(businessType === 'ecommerce' ? [{ icon: Package, label: 'Inventory', href: '/dashboard/inventory' }] : []),
         { icon: Clock, label: 'Working Hours', href: '/dashboard/hours' },
-        { icon: Megaphone, label: 'Marketing', href: '/dashboard/marketing' },
-        { icon: Phone, label: 'Simulator', href: '/dashboard/simulator' },
         { icon: Settings, label: 'AI Settings', href: '/dashboard/settings' },
         { icon: BarChart2, label: 'Analytics', href: '/dashboard/analytics' },
         { icon: CreditCard, label: 'Billing', href: '/dashboard/billing' },

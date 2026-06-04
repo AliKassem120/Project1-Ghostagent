@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { MessageCircle, Phone, Loader2, Wifi, Sparkles, Lock, ChevronDown, Check, AlertTriangle } from 'lucide-react';
+import { MessageCircle, Phone, Loader2, Wifi, Sparkles, Lock, ChevronDown, Check, AlertTriangle, Megaphone } from 'lucide-react';
 import { clsx } from 'clsx';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { updateWorkspaceSettingsAction } from '@/app/actions/settings';
+import Link from 'next/link';
 
 const TEMPLATE_INFO: Record<string, { title: string; category: string; trigger: string; preview: string; businessType: 'appointments' | 'ecommerce' | 'all' }> = {
     ghostagent_order_shipped: {
@@ -323,12 +324,21 @@ export default function WhatsAppChannelPage() {
                             </p>
                         </div>
                     </div>
-                    <button
-                        onClick={handleConnectWhatsApp}
-                        className="w-full sm:w-auto px-6 py-2.5 bg-emerald-500 text-black font-bold rounded-xl hover:bg-emerald-400 transition-all flex items-center justify-center gap-2 text-sm shadow-[0_0_20px_rgba(16,185,129,0.2)]"
-                    >
-                        {isConnected ? 'Re-Connect' : 'Connect WhatsApp'}
-                    </button>
+                    <div className="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto">
+                        <Link
+                            href="/dashboard/simulator"
+                            className="px-6 py-2.5 bg-surface-3 border border-border text-foreground font-bold rounded-xl hover:bg-surface-4 transition-all flex items-center justify-center gap-2 text-sm shrink-0"
+                        >
+                            <Phone className="w-4 h-4 text-emerald-400" />
+                            Test in Simulator
+                        </Link>
+                        <button
+                            onClick={handleConnectWhatsApp}
+                            className="w-full sm:w-auto px-6 py-2.5 bg-emerald-500 text-black font-bold rounded-xl hover:bg-emerald-400 transition-all flex items-center justify-center gap-2 text-sm shadow-[0_0_20px_rgba(16,185,129,0.2)] shrink-0"
+                        >
+                            {isConnected ? 'Re-Connect' : 'Connect WhatsApp'}
+                        </button>
+                    </div>
                 </div>
 
                 {/* How it works */}
@@ -340,7 +350,7 @@ export default function WhatsAppChannelPage() {
                     <div className="space-y-2 text-[11px] text-muted-foreground leading-relaxed">
                         <p>1. Click <strong>Connect WhatsApp</strong> above — you'll be taken to Meta to log in.</p>
                         <p>2. Select your <strong>WhatsApp Business Account</strong> and phone number.</p>
-                        <p>3. Click <strong>Sync to Meta</strong> below to activate message templates and booking flows.</p>
+                        <p>3. Click <strong>Sync to Meta</strong> below to activate message templates (booking flows coming soon).</p>
                         <p>4. That's it! GhostAgent will handle your WhatsApp messages automatically.</p>
                     </div>
                 </div>
@@ -467,17 +477,52 @@ export default function WhatsAppChannelPage() {
                     )}
 
                     {/* Flow Status */}
-                    <div className="flex items-center gap-2 p-3 rounded-xl bg-surface-1 border border-border">
-                        <div className={`w-2 h-2 rounded-full ${waFlowId ? 'bg-emerald-400' : 'bg-zinc-500'}`} />
-                        <span className="text-[10px] font-medium text-foreground">Native Booking Flow</span>
-                        <span className={`text-[9px] font-bold uppercase tracking-wider ml-auto ${waFlowId ? 'text-emerald-400' : 'text-muted-foreground'}`}>
-                            {waFlowId ? 'ACTIVE' : 'NOT CREATED'}
-                        </span>
+                    <div className="flex flex-col gap-1.5 p-3.5 rounded-xl bg-surface-1 border border-border">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+                            <span className="text-[10px] font-medium text-foreground">Native Booking Flow</span>
+                            <span className="text-[9px] font-bold uppercase tracking-wider ml-auto text-purple-400 bg-purple-500/10 px-2.5 py-0.5 rounded border border-purple-500/20">
+                                Coming Soon
+                            </span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground leading-normal">
+                            Native booking forms inside WhatsApp require a warmed-up phone number with higher messaging volume to get Meta approval. This feature will automatically unlock as you send more messages!
+                        </p>
                     </div>
 
                     <p className="text-[10px] text-muted-foreground leading-relaxed">
-                        Click <strong>Sync to Meta</strong> to register all message templates (for marketing blasts & notifications) and create the native booking flow under your WhatsApp Business Account.
+                        Click <strong>Sync to Meta</strong> to register all message templates (for marketing blasts & notifications). Flow sync is currently disabled during your number warmup phase.
                     </p>
+                </div>
+            </motion.div>
+
+            {/* Marketing & Campaigns */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
+                className="bg-surface-1 border border-border shadow-sm rounded-2xl p-6"
+            >
+                <div className="flex items-center gap-3 pb-5 border-b border-border">
+                    <div className="p-2.5 rounded-xl bg-purple-500/10">
+                        <Megaphone className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <div>
+                        <h2 className="text-sm font-semibold text-foreground">Marketing Campaigns</h2>
+                        <p className="text-[11px] text-muted-foreground">Send promotional blasts and broadcasts to your WhatsApp contacts</p>
+                    </div>
+                </div>
+
+                <div className="mt-5 flex flex-col sm:flex-row items-center justify-between p-5 bg-surface-2 rounded-2xl border border-border gap-4">
+                    <div className="flex-1">
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                            Select a target audience from your orders and appointments list, draft a campaign message, and send bulk promotional updates directly via WhatsApp.
+                        </p>
+                    </div>
+                    <Link
+                        href="/dashboard/marketing"
+                        className="w-full sm:w-auto px-6 py-2.5 bg-primary text-black font-bold rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 text-sm shrink-0"
+                    >
+                        <Megaphone className="w-4 h-4" />
+                        Launch Campaign
+                    </Link>
                 </div>
             </motion.div>
 

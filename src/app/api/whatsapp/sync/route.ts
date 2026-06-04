@@ -51,20 +51,12 @@ export async function POST(req: Request) {
         const isAppointmentBiz = businessType === 'appointments';
 
         if (wabaId && isAppointmentBiz) {
-            if (republishFlow) {
-                // Delete old flow and create a fresh static one (for fixing publish issues)
-                flowResult = await republishBookingFlow(wabaId, token, ws?.whatsapp_booking_flow_id || null);
-            } else {
-                flowResult = await createBookingFlow(wabaId, token);
-            }
-
-            // Save the flow_id to DB if created successfully
-            if (flowResult.success && flowResult.flowId) {
-                await supabase
-                    .from('ai_settings')
-                    .update({ whatsapp_booking_flow_id: flowResult.flowId })
-                    .eq('id', workspaceId);
-            }
+            // Skipped because the user cannot publish it yet (new number needs warm-up messages first)
+            flowResult = {
+                success: false,
+                skipped: true,
+                reason: 'WhatsApp Flows are coming soon (your number needs higher messaging volume before publishing flows).'
+            };
         } else if (wabaId) {
             flowResult = { skipped: true, reason: 'Flows are only supported/needed for Appointments workspaces. E-Commerce uses native WhatsApp Catalogs/Carts.' };
         }

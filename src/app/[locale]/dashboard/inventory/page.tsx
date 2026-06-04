@@ -174,10 +174,14 @@ export default function InventoryPage() {
     const handleSyncCatalog = async () => {
         setIsSyncing(true);
         try {
-            const res = await fetch('/api/whatsapp/catalog-sync', { method: 'POST' });
+            const res = await fetch('/api/whatsapp/catalog-sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ workspaceId: activeWorkspaceId })
+            });
             const data = await res.json();
             if (data.error) throw new Error(data.error);
-            toast.success('Catalog Synced', { description: `Synced ${data.syncedCount} products to WhatsApp.` });
+            toast.success('Catalog Synced', { description: `Synced ${data.syncedCount || data.synced} products to WhatsApp.` });
         } catch (err: any) {
             console.error('Sync error:', err);
             toast.error('Failed to sync catalog', { description: err.message });

@@ -349,7 +349,19 @@
     "val4Desc": "Focused purely on driving revenue and completing bookings.",
     "ctaTitle": "Ready to stop missing customers in your DMs?",
     "ctaDesc": "Launch your AI business agent and let GhostAgent handle replies, orders, and appointments around the clock.",
-    "contactUs": "Contact Us"
+    "contactUs": "Contact Us",
+    "featWhatsAppTitle": "Unified WhatsApp & Instagram DMs",
+    "featWhatsAppDesc": "Connect both official WhatsApp and Instagram DMs to automate responses from a single unified assistant.",
+    "featEcomTitle": "AI E-Commerce Engine",
+    "featEcomDesc": "Query live stock, handle size/color variants, calculate shipping, and generate strict checkout links.",
+    "featApptTitle": "Smart Appointment Scheduling",
+    "featApptDesc": "Book services, check real-time calendar slot availability, and collect name & phone details inside the DM.",
+    "featCommentsTitle": "Post Comment Auto-Reply",
+    "featCommentsDesc": "Automatically reply to post comments and send an instant direct message to close high-intent sales.",
+    "featMarketingTitle": "Marketing Campaigns",
+    "featMarketingDesc": "Launch bulk promotional campaigns and template blasts to re-engage your customer base.",
+    "featInboxTitle": "Autopilot & Unified Inbox",
+    "featInboxDesc": "Toggle autopilot, take over chats manually, view analytics, and manage settings from a centralized dashboard."
   },
   "Terms": {
     "title": "Terms of Service",
