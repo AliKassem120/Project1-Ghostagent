@@ -1032,10 +1032,16 @@ export default function SettingsPage() {
                                 <span className="text-xs text-muted-foreground font-medium">Business Type</span>
                                 <span className="text-xs font-semibold text-foreground capitalize">{settings.businessType?.replace('_', ' ') || '—'}</span>
                             </div>
-                            <div className="flex items-center justify-between py-2">
+                            <div className="flex items-center justify-between py-2 border-b border-border/50">
                                 <span className="text-xs text-muted-foreground font-medium">Instagram Connected</span>
                                 <span className={`text-xs font-bold ${instagramStatus === null ? 'text-muted-foreground' : instagramStatus.connected ? 'text-emerald-400' : 'text-red-400'}`}>
                                     {instagramStatus === null ? 'Loading...' : instagramStatus.connected ? 'Yes' : 'No'}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between py-2">
+                                <span className="text-xs text-muted-foreground font-medium">WhatsApp Connected</span>
+                                <span className={`text-xs font-bold ${settings.waPhoneNumberId && settings.waPhoneNumberId !== 'NOT SET' ? 'text-emerald-400' : 'text-red-400'}`}>
+                                    {settings.waPhoneNumberId && settings.waPhoneNumberId !== 'NOT SET' ? 'Yes' : 'No'}
                                 </span>
                             </div>
                         </div>
