@@ -4,6 +4,14 @@ const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    async rewrites() {
+        return [
+            {
+                source: '/favicon.ico',
+                destination: '/icon.svg',
+            },
+        ];
+    },
     async headers() {
         return [
             {
