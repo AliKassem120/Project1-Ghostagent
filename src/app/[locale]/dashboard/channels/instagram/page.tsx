@@ -278,7 +278,7 @@ export default function InstagramChannelPage() {
 
                             {instagramStatus.accounts.length === 0 && (
                                 <div className="flex flex-col sm:flex-row items-center justify-between p-5 bg-surface-2 rounded-2xl border border-border gap-4">
-                                    <div className="flex items-center gap-4 w-full">
+                                    <div className="flex items-center gap-4 flex-1 min-w-0">
                                         <div className="w-12 h-12 rounded-2xl bg-pink-500/10 flex items-center justify-center border border-pink-500/20 shrink-0">
                                             <Instagram className="w-6 h-6 text-pink-400" />
                                         </div>

@@ -311,7 +311,7 @@ export default function WhatsAppChannelPage() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-center justify-between p-5 bg-surface-2 rounded-2xl border border-border gap-4">
-                    <div className="flex items-center gap-4 w-full">
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
                         <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 shrink-0">
                             <MessageCircle className="w-6 h-6 text-emerald-400" />
                         </div>
