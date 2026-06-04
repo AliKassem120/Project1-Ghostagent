@@ -53,6 +53,9 @@ Analyze the customer message and classify it.
 CUSTOMER MESSAGE: "${message}"
 BUSINESS TYPE: ${workspaceType}
 AVAILABLE INTENTS: ${intents.join(', ')}
+${context?.recentProduct ? `RECENT PRODUCT DISCUSSED: "${context.recentProduct}"` : ''}
+${context?.recentService ? `RECENT SERVICE DISCUSSED: "${context.recentService}"` : ''}
+${context?.currentState ? `CURRENT CONVERSATION STATE: "${context.currentState}"` : ''}
 
 CLASSIFICATION RULES:
 1. "Kifak", "hala", "marhaba", "hi", "hello" → greeting

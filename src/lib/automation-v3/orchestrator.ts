@@ -118,7 +118,7 @@ async function executeTool(
 
   if (toolName === 'search_products' || toolName === 'check_stock') {
     const { searchProducts } = await import('@/lib/ai/ecommerce/products');
-    const query = entities.productName || message;
+    const query = entities.productName || toolCtx.session?.data?.productName || message;
     const products = await searchProducts({ supabase: toolCtx.supabase, workspaceId: toolCtx.workspaceId, query });
     return {
       products: products.map(p => ({
@@ -146,7 +146,7 @@ async function executeTool(
     const { checkAvailability } = await import('@/lib/ai/appointments/availability');
     const { loadBusinessHours } = await import('@/lib/ai/appointments/hours');
     const services = await loadActiveServices(toolCtx.supabase, toolCtx.workspaceId);
-    const serviceName = entities.serviceName || '';
+    const serviceName = entities.serviceName || toolCtx.session?.data?.serviceName || '';
     const match = findBestServiceMatch(services, serviceName);
     if (!match) return { available: false, reason: 'service_not_found', services_available: services.map(s => s.name) };
 
@@ -541,7 +541,9 @@ export async function orchestrate(
   v2log.info('ORCHESTRATOR', 'Running DeepSeek Intent Classifier');
   const classification = await classifyIntent(input.message, config.businessType, {
     currentState: stateBefore,
-    customerProfile: session.customerProfile
+    customerProfile: session.customerProfile,
+    recentProduct: session.data?.productName,
+    recentService: session.data?.serviceName,
   });
 
   const intent = classification.intent;
@@ -611,6 +613,7 @@ export async function orchestrate(
     chatId: input.chatId,
     config,
     platform: input.platform,
+    session,
   };
 
   for (const toolName of strategy.toolsNeeded) {
