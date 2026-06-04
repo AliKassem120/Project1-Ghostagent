@@ -23,7 +23,7 @@ export async function POST(req: Request) {
         // Fetch workspace WA credentials
         const { data: ws } = await supabase
             .from('ai_settings')
-            .select('whatsapp_business_account_id, whatsapp_access_token, whatsapp_phone_number_id, whatsapp_booking_flow_id')
+            .select('whatsapp_business_account_id, whatsapp_access_token, whatsapp_phone_number_id, whatsapp_booking_flow_id, business_type')
             .eq('id', workspaceId)
             .maybeSingle();
 
@@ -40,13 +40,15 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'WhatsApp Business Account not connected. Please connect WhatsApp first or enter credentials in Advanced Config.' }, { status: 400 });
         }
 
+        const businessType = ws?.business_type || workspace?.business_type || 'ecommerce';
+
         // ── 1. Provision Message Templates ──
         const existingTemplates = await listExistingTemplates(wabaId, token);
-        const templateResults = await provisionAllTemplates(wabaId, token, workspace?.business_type as any);
+        const templateResults = await provisionAllTemplates(wabaId, token, businessType as any);
 
         // ── 2. Create Booking Flow (Appointments Only) ──
         let flowResult: any = { skipped: true, reason: 'No WABA ID' };
-        const isAppointmentBiz = workspace?.business_type === 'appointments';
+        const isAppointmentBiz = businessType === 'appointments';
 
         if (wabaId && isAppointmentBiz) {
             if (republishFlow) {
