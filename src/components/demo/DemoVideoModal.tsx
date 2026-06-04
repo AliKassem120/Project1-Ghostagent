@@ -326,25 +326,30 @@ export default function DemoVideoModal({ isOpen, onClose }: DemoVideoModalProps)
                     />
 
                     {/* Modal Wrapper */}
-                    <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 md:p-6 overflow-y-auto">
+                    <div 
+                        onClick={onClose}
+                        className="fixed inset-0 z-[101] flex items-center justify-center p-4 md:p-6 overflow-y-auto"
+                    >
                         <motion.div
                             initial={{ opacity: 0, scale: 0.96, y: 15 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.96, y: 15 }}
                             transition={{ duration: 0.3 }}
+                            onClick={(e) => e.stopPropagation()}
                             className="relative w-full max-w-5xl bg-surface-1 rounded-3xl p-4 md:p-6 border border-border shadow-2xl flex flex-col gap-6"
                         >
                             {/* Close Button */}
                             <button
                                 onClick={onClose}
-                                className="absolute -top-12 right-0 md:-top-3 md:-right-3 p-2.5 rounded-full bg-surface-2 hover:bg-surface-3 text-foreground transition-colors z-50 border border-border shadow"
+                                className="absolute top-4 right-4 p-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-foreground transition-colors z-50 border border-border shadow-sm flex items-center justify-center"
+                                aria-label="Close modal"
                             >
                                 <X className="w-5 h-5" />
                             </button>
 
                             {/* Header Info */}
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border">
-                                <div className="space-y-1">
+                                <div className="space-y-1 pr-12">
                                     <div className="flex items-center gap-2">
                                         <Sparkles className="w-4 h-4 text-primary" />
                                         <h3 className="text-lg font-bold text-foreground">Interactive Agent Demo</h3>
