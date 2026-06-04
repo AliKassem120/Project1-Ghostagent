@@ -18,7 +18,7 @@ export const VOICE_RULES = {
     /^yes, /i,  // "Yes, the product..."
     /^no, /i,   // "No, we don't..."
     /\*\*/g,    // Markdown bold
-    /\d+\.\s/g, // Numbered lists
+    /^\d+\.\s/gm, // Numbered lists
   ],
   max_length: 300,
   min_length: 2,
@@ -80,7 +80,7 @@ export function checkVoiceConsistency(
       const priceMatch = corrected.match(/\$(\d+(?:\.\d+)?)/);
       if (priceMatch && parseFloat(priceMatch[1]) !== product.price) {
         violations.push(`Hallucinated price: expected $${product.price}, found $${priceMatch[1]}`);
-        corrected = corrected.replace(/\$(\d+(?:\.\d+)?)/, `$${product.price}`);
+        corrected = corrected.replace(/\$(\d+(?:\.\d+)?)/, () => `$${product.price}`);
       }
     }
   }

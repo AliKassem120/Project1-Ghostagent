@@ -284,7 +284,7 @@ export function verifyAgentReply(
 
                 // Replace just the wrong price with the correct one
                 const correctPrice = `$${item.price}`;
-                corrected = corrected.replace(pm.full, correctPrice);
+                corrected = corrected.replace(pm.full, () => correctPrice);
             }
         }
     }
