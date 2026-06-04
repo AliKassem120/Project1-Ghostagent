@@ -3,6 +3,7 @@ import type { SessionContext } from '../session-manager';
 import type { WorkspaceConfig } from '@/lib/ai/types';
 import { detectLanguageScript, detectYesNo, extractNameAndPhone, extractAddress, detectReuseSignals } from '@/lib/ai/language';
 import { searchProducts, findBestProductMatch } from '@/lib/ai/ecommerce/products';
+import { lookupLatestOrder, updateOrderVariant, updateOrderAddress, updateOrderQuantity } from '@/lib/ai/ecommerce/lookup';
 import { createEcommerceTools } from '@/lib/ai/tools';
 
 export interface FsmResult {
@@ -45,10 +46,13 @@ export async function runEcommerceFSM(
   };
   const tools = createEcommerceTools(toolCtx);
 
-  // Helper to load known customer details
+  // Helper to load known customer details (cached within this FSM call)
+  let _cachedCustomer: any = undefined;
   const getKnownDetails = async () => {
+    if (_cachedCustomer !== undefined) return _cachedCustomer;
     const known = await tools.lookup_customer.execute();
-    return known.found ? known : null;
+    _cachedCustomer = known.found ? known : null;
+    return _cachedCustomer;
   };
 
   // Helper to extract or reuse name/phone/address
@@ -111,13 +115,15 @@ export async function runEcommerceFSM(
 
   // Extract quantity if mentioned
   const extractQty = (msg: string): number => {
-    const match = msg.match(/\b([1-9]|10)\s*(pcs|pieces|quantity|qty)?\b/);
+    const match = msg.match(/\b([1-9][0-9]?)\s*(pcs|pieces|quantity|qty)?\b/);
     return match ? parseInt(match[1], 10) : 1;
   };
 
   // Handle flow states
   if (currentState === 'post_order_modify') {
     const lowerMsg = message.toLowerCase();
+
+    // Cancellation signals
     if (lowerMsg.includes('cancel') || lowerMsg.includes('el8e') || lowerMsg.includes('la8e') || lowerMsg.includes('mesh badda')) {
       dbWriteAttempted = true;
       actions.push('tool_cancel_order');
@@ -149,6 +155,114 @@ export async function runEcommerceFSM(
           dbWriteSuccess
         };
       }
+    }
+
+    // Modification signals (address, variant/size, quantity)
+    const latestOrder = await lookupLatestOrder(supabase, session.workspaceId, session.chatId);
+    if (latestOrder && latestOrder.isEditable) {
+      const isAddressChange = /\b(address|location|deliver|ship|عنوان)\b/i.test(message);
+      const isVariantChange = /\b(size|color|colour|variant|لون|قياس)\b/i.test(message);
+      const isQtyChange = /\b(quantity|qty|pieces|pcs|كمية)\b/i.test(message);
+
+      if (isAddressChange) {
+        const newAddress = extractAddress(message);
+        if (newAddress) {
+          dbWriteAttempted = true;
+          actions.push('tool_update_order_address');
+          const ok = await updateOrderAddress(supabase, latestOrder.id, newAddress);
+          dbWriteSuccess = ok;
+          actions.push(ok ? 'update_order_address_success' : 'update_order_address_failed');
+          nextState = 'idle';
+          return {
+            nextState,
+            actions,
+            context: {
+              actionType: 'info_gathered',
+              payload: { modified: true, field: 'address', success: ok, newAddress }
+            },
+            dbWriteAttempted,
+            dbWriteSuccess
+          };
+        }
+        // Address mentioned but couldn't extract — ask for it
+        return {
+          nextState,
+          actions,
+          context: {
+            actionType: 'info_gathered',
+            payload: { modified: false, field: 'address', needsAddress: true }
+          },
+          dbWriteAttempted,
+          dbWriteSuccess
+        };
+      }
+
+      if (isVariantChange) {
+        const newVariant = extractVariant(message);
+        if (newVariant) {
+          dbWriteAttempted = true;
+          actions.push('tool_update_order_variant');
+          const ok = await updateOrderVariant(supabase, latestOrder.id, newVariant);
+          dbWriteSuccess = ok;
+          actions.push(ok ? 'update_order_variant_success' : 'update_order_variant_failed');
+          nextState = 'idle';
+          return {
+            nextState,
+            actions,
+            context: {
+              actionType: 'info_gathered',
+              payload: { modified: true, field: 'variant', success: ok, newVariant }
+            },
+            dbWriteAttempted,
+            dbWriteSuccess
+          };
+        }
+        // Variant mentioned but couldn't extract — ask
+        return {
+          nextState,
+          actions,
+          context: {
+            actionType: 'info_gathered',
+            payload: { modified: false, field: 'variant', needsVariant: true }
+          },
+          dbWriteAttempted,
+          dbWriteSuccess
+        };
+      }
+
+      if (isQtyChange) {
+        const newQty = extractQty(message);
+        if (newQty > 0) {
+          dbWriteAttempted = true;
+          actions.push('tool_update_order_quantity');
+          const ok = await updateOrderQuantity(supabase, latestOrder.id, newQty);
+          dbWriteSuccess = ok;
+          actions.push(ok ? 'update_order_quantity_success' : 'update_order_quantity_failed');
+          nextState = 'idle';
+          return {
+            nextState,
+            actions,
+            context: {
+              actionType: 'info_gathered',
+              payload: { modified: true, field: 'quantity', success: ok, newQty }
+            },
+            dbWriteAttempted,
+            dbWriteSuccess
+          };
+        }
+      }
+    } else if (latestOrder && !latestOrder.isEditable) {
+      // Order exists but is no longer editable
+      return {
+        nextState: 'idle',
+        actions: [...actions, 'order_not_editable'],
+        context: {
+          actionType: 'info_gathered',
+          payload: { modified: false, reason: 'order_not_editable', status: latestOrder.status }
+        },
+        dbWriteAttempted,
+        dbWriteSuccess
+      };
     }
   }
 
@@ -203,6 +317,30 @@ export async function runEcommerceFSM(
             dbWriteSuccess
           };
         }
+      }
+
+      // Re-check stock before placing order to prevent overselling
+      actions.push('tool_check_stock');
+      const freshProducts = await searchProducts({ supabase, workspaceId: session.workspaceId, query: productName });
+      const freshMatch = findBestProductMatch(freshProducts, productName);
+      if (!freshMatch || freshMatch.stockLevel < qty) {
+        nextState = 'idle';
+        session.data = {};
+        return {
+          nextState,
+          actions: [...actions, 'out_of_stock_at_checkout'],
+          context: {
+            actionType: 'info_gathered',
+            payload: {
+              outOfStock: true,
+              productName,
+              requestedQty: qty,
+              availableStock: freshMatch?.stockLevel ?? 0
+            }
+          },
+          dbWriteAttempted,
+          dbWriteSuccess
+        };
       }
 
       dbWriteAttempted = true;

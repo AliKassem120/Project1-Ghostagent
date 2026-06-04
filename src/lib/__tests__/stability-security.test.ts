@@ -57,6 +57,7 @@ describe('Stability Patch — Appointment Status', () => {
             eq: vi.fn().mockReturnThis(),
             in: vi.fn().mockReturnThis(),
             or: vi.fn().mockReturnThis(),
+            gte: vi.fn().mockReturnThis(),
             order: vi.fn().mockReturnThis(),
             limit: vi.fn().mockReturnThis(),
             maybeSingle: mockSingle,

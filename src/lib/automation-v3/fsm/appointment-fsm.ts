@@ -47,10 +47,13 @@ export async function runAppointmentFSM(
   };
   const tools = createAppointmentTools(toolCtx);
 
-  // Helper to load known customer details
+  // Helper to load known customer details (cached within this FSM call)
+  let _cachedCustomer: any = undefined;
   const getKnownDetails = async () => {
+    if (_cachedCustomer !== undefined) return _cachedCustomer;
     const known = await tools.lookup_customer.execute();
-    return known.found ? known : null;
+    _cachedCustomer = known.found ? known : null;
+    return _cachedCustomer;
   };
 
   // Helper to resolve customer name/phone
@@ -161,6 +164,30 @@ export async function runAppointmentFSM(
         };
       }
     }
+
+    // Partial rescheduling — only date or only time provided
+    const partialDate = resolveDateFromMessage(message, timeCtx);
+    const partialTime = resolveTimeFromMessage(message);
+    if (partialDate || partialTime) {
+      // Store whatever we have and ask for the missing piece
+      if (partialDate) session.data.rescheduleDate = partialDate;
+      if (partialTime) session.data.rescheduleTime = partialTime;
+      return {
+        nextState,
+        actions,
+        context: {
+          actionType: 'info_gathered',
+          payload: {
+            rescheduling: true,
+            date: partialDate || session.data.rescheduleDate || null,
+            time: partialTime || session.data.rescheduleTime || null,
+            missingForReschedule: !partialDate && !session.data.rescheduleDate ? 'date' : (!partialTime && !session.data.rescheduleTime ? 'time' : null)
+          }
+        },
+        dbWriteAttempted,
+        dbWriteSuccess
+      };
+    }
   }
 
   // 2. Handle booking confirmation state
@@ -213,6 +240,28 @@ export async function runAppointmentFSM(
 
       dbWriteAttempted = true;
       actions.push('tool_book_appointment');
+
+      // Re-check slot availability to prevent race conditions (especially on legacy non-RPC path)
+      const slotRecheck = await tools.check_slot.execute({ date, time, service });
+      if (!slotRecheck.available) {
+        return {
+          nextState: 'awaiting_date_time',
+          actions: [...actions, 'slot_taken_at_confirmation'],
+          context: {
+            actionType: 'info_gathered',
+            payload: {
+              slotAvailable: false,
+              service,
+              date,
+              time,
+              error: slotRecheck.message || slotRecheck.reason || 'Slot is no longer available'
+            }
+          },
+          dbWriteAttempted: false,
+          dbWriteSuccess: false
+        };
+      }
+
       const bookRes = await tools.book_appointment.execute({
         name,
         phone,

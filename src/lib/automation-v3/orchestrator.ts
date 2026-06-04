@@ -217,6 +217,46 @@ async function executeTool(
     return { success: false, error: 'Flow ID missing' };
   }
 
+  if (toolName === 'send_product_card') {
+    if (toolCtx.platform !== 'whatsapp') return { success: false, error: 'Only available on WhatsApp' };
+
+    const { searchProducts, findBestProductMatch } = await import('@/lib/ai/ecommerce/products');
+    const productQuery = entities.productName || toolCtx.session?.data?.productName || '';
+    const products = await searchProducts({ supabase: toolCtx.supabase, workspaceId: toolCtx.workspaceId, query: productQuery });
+    const match = findBestProductMatch(products, productQuery);
+    if (!match) return { success: false, error: 'Product not found' };
+
+    const isSimulator = toolCtx.chatId.startsWith('sim_') || toolCtx.chatId.includes('simulator');
+    if (isSimulator) {
+      return { success: true, message: `Sent product card for ${match.itemName} (Simulated)` };
+    }
+
+    const { data: ws } = await toolCtx.supabase.from('ai_settings').select('whatsapp_catalog_id, whatsapp_phone_number_id, whatsapp_access_token').eq('id', toolCtx.workspaceId).maybeSingle();
+    if (!ws?.whatsapp_phone_number_id || !ws?.whatsapp_access_token) return { success: false, error: 'WhatsApp credentials missing' };
+
+    if (!ws.whatsapp_catalog_id) {
+      const { sendButtons } = await import('@/lib/whatsapp/send');
+      await sendButtons(
+        { phoneNumberId: ws.whatsapp_phone_number_id, accessToken: ws.whatsapp_access_token },
+        toolCtx.chatId,
+        `🛍️ *${match.itemName}*\n\nPrice: *$${match.price}*\nStock: ${match.stockLevel > 0 ? '✅ In Stock' : '❌ Out of Stock'}\n\nTap below if you'd like to order!`,
+        [{ id: `buy_now_${match.id}`, title: '🛍️ Order Now' }],
+        match.itemName,
+        'Powered by GhostAgent'
+      );
+      return { success: true, message: `Sent product details button (Catalog fallback) for ${match.itemName}` };
+    }
+
+    const { sendSingleProductCard } = await import('@/lib/whatsapp/catalog');
+    await sendSingleProductCard(
+      { phoneNumberId: ws.whatsapp_phone_number_id, accessToken: ws.whatsapp_access_token },
+      toolCtx.chatId,
+      ws.whatsapp_catalog_id,
+      match.id
+    );
+    return { success: true, message: `Sent product card for ${match.itemName}` };
+  }
+
   return null;
 }
 
@@ -568,10 +608,11 @@ export async function orchestrate(
 
   // 7. DIRECT ROUTE FOR CANCELLATION / RESCHEDULING INTENTS
   const isCancelOrder = intent === 'cancel_order';
+  const isModifyOrder = intent === 'modify_order';
   const isCancelAppt = intent === 'cancel_appointment';
   const isReschedAppt = intent === 'reschedule_appointment' || intent === 'modify_appointment';
 
-  if (config.businessType === 'ecommerce' && isCancelOrder) {
+  if (config.businessType === 'ecommerce' && (isCancelOrder || isModifyOrder)) {
     session.state = 'post_order_modify';
     session.stateEnteredAt = new Date().toISOString();
     const fsmRes = await runEcommerceFSM(input.message, session, config, input.supabase);

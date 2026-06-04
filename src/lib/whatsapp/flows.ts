@@ -4,13 +4,41 @@
  * ═══════════════════════════════════════════════════════════════
  * Creates and sends WhatsApp Flows — native structured forms
  * inside WhatsApp for booking appointments and ordering products.
+ *
+ * IMPORTANT: These are STATIC flows (no endpoint / no data exchange).
+ * The user fills out the form, taps Submit, and the payload comes
+ * back to the main WhatsApp webhook as an `nfm_reply` message.
+ * No RSA keys, no health check, no endpoint_uri required.
  */
 
 import { sendFlow, sendButtons, type WhatsAppCredentials } from './send';
 
 const WA_API = 'https://graph.facebook.com/v21.0';
 
-// ── Create a Flow Definition ─────────────────────────────────
+// ── Delete an existing Flow ──────────────────────────────────
+
+export async function deleteFlow(
+    flowId: string,
+    accessToken: string
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        const res = await fetch(`${WA_API}/${flowId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${accessToken}` },
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            console.error('❌ [Flows] Failed to delete flow:', data.error);
+            return { success: false, error: data.error?.message };
+        }
+        console.log(`🗑️ [Flows] Deleted flow ${flowId}`);
+        return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+}
+
+// ── Create a Flow Definition (Static — No Endpoint) ──────────
 
 export async function createBookingFlow(
     whatsappBusinessAccountId: string,
@@ -19,7 +47,7 @@ export async function createBookingFlow(
 ) {
     let flowId: string | null = null;
 
-    // 1. Try to create the flow
+    // 1. Try to create the flow WITHOUT an endpoint (static mode)
     const createRes = await fetch(`${WA_API}/${whatsappBusinessAccountId}/flows`, {
         method: 'POST',
         headers: {
@@ -28,7 +56,8 @@ export async function createBookingFlow(
         },
         body: JSON.stringify({
             name: flowName,
-            categories: ['OTHER'],
+            categories: ['APPOINTMENT_BOOKING'],
+            // No endpoint_uri = static flow (no data exchange, no RSA, no health check)
         }),
     });
 
@@ -62,7 +91,7 @@ export async function createBookingFlow(
 
     if (!flowId) return { success: false, error: 'No flow ID available' };
 
-    // 2. Upload the flow JSON definition
+    // 2. Upload the flow JSON definition (static — no data_exchange actions)
     const flowJson = buildBookingFlowJSON();
 
     const formData = new FormData();
@@ -90,7 +119,49 @@ export async function createBookingFlow(
     return { success: true, flowId };
 }
 
-// ── Booking Flow JSON Definition ─────────────────────────────
+/**
+ * Delete the old flow (which may have been created with endpoint mode)
+ * and create a fresh one as static (no endpoint).
+ * Call this if your existing flow can't be published.
+ */
+export async function republishBookingFlow(
+    whatsappBusinessAccountId: string,
+    accessToken: string,
+    oldFlowId?: string | null,
+    flowName: string = 'GhostAgent Booking V3'
+): Promise<{ success: boolean; flowId?: string; error?: string }> {
+    // 1. Delete the old flow if we have its ID
+    if (oldFlowId) {
+        console.log(`🔄 [Flows] Deleting old flow ${oldFlowId} to recreate as static...`);
+        await deleteFlow(oldFlowId, accessToken);
+    } else {
+        // Try to find and delete by name
+        try {
+            const listRes = await fetch(`${WA_API}/${whatsappBusinessAccountId}/flows`, {
+                headers: { 'Authorization': `Bearer ${accessToken}` },
+            });
+            const listData = await listRes.json();
+            const existing = (listData.data || []).find((f: any) => f.name === flowName);
+            if (existing?.id) {
+                console.log(`🔄 [Flows] Found existing flow "${flowName}" (${existing.id}). Deleting...`);
+                await deleteFlow(existing.id, accessToken);
+            }
+        } catch (err) {
+            console.warn('⚠️ [Flows] Could not list/delete existing flows:', err);
+        }
+    }
+
+    // 2. Create a fresh static flow
+    const result = await createBookingFlow(whatsappBusinessAccountId, accessToken, flowName);
+    return result;
+}
+
+// ── Booking Flow JSON Definition (Static — No Endpoint) ──────
+// 
+// This is a self-contained form. No data_exchange, no routing_model,
+// no endpoint calls. The user fills in all fields and hits "Book Now".
+// The complete payload is delivered to the WhatsApp webhook as an
+// nfm_reply interactive message.
 
 function buildBookingFlowJSON() {
     return {
@@ -136,14 +207,23 @@ function buildBookingFlowJSON() {
                                     required: true,
                                     'data-source': [
                                         { id: '09:00', title: '9:00 AM' },
+                                        { id: '09:30', title: '9:30 AM' },
                                         { id: '10:00', title: '10:00 AM' },
+                                        { id: '10:30', title: '10:30 AM' },
                                         { id: '11:00', title: '11:00 AM' },
+                                        { id: '11:30', title: '11:30 AM' },
                                         { id: '12:00', title: '12:00 PM' },
+                                        { id: '12:30', title: '12:30 PM' },
                                         { id: '13:00', title: '1:00 PM' },
+                                        { id: '13:30', title: '1:30 PM' },
                                         { id: '14:00', title: '2:00 PM' },
+                                        { id: '14:30', title: '2:30 PM' },
                                         { id: '15:00', title: '3:00 PM' },
+                                        { id: '15:30', title: '3:30 PM' },
                                         { id: '16:00', title: '4:00 PM' },
+                                        { id: '16:30', title: '4:30 PM' },
                                         { id: '17:00', title: '5:00 PM' },
+                                        { id: '17:30', title: '5:30 PM' },
                                         { id: '18:00', title: '6:00 PM' },
                                     ],
                                 },

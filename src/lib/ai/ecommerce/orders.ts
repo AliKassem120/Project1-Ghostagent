@@ -103,16 +103,30 @@ export async function createOrderV2(input: CreateOrderInput): Promise<CreateOrde
 
         v2log.ecommerce.orderSuccess({ orderId: inserted.id });
 
-        // 3. Decrement inventory stock
+        // 3. Decrement inventory stock (with retry)
         if (productId && !productId.startsWith('csv-')) {
-            const { error: stockError } = await supabase.rpc('decrement_stock', {
-                p_product_id: productId,
-                p_quantity: quantity,
-            });
-            if (stockError) {
-                // Non-fatal: order is placed but stock sync failed
-                v2log.warn('V2_ECOMMERCE_ORDER_CREATE', 'Stock decrement failed (order still placed)', {
-                    productId, quantity, error: stockError.message,
+            let stockDecrementSuccess = false;
+            for (let attempt = 1; attempt <= 2; attempt++) {
+                const { error: stockError } = await supabase.rpc('decrement_stock', {
+                    p_product_id: productId,
+                    p_quantity: quantity,
+                });
+                if (!stockError) {
+                    stockDecrementSuccess = true;
+                    break;
+                }
+                v2log.warn('V2_ECOMMERCE_ORDER_CREATE', `Stock decrement attempt ${attempt} failed`, {
+                    productId, quantity, error: stockError.message, attempt,
+                });
+                if (attempt < 2) {
+                    // Brief delay before retry
+                    await new Promise(r => setTimeout(r, 200));
+                }
+            }
+            if (!stockDecrementSuccess) {
+                // Non-fatal: order is placed but stock sync failed after all retries
+                v2log.error('V2_ECOMMERCE_ORDER_CREATE', 'Stock decrement FAILED after all retries (order still placed, manual stock correction needed)', {
+                    orderId: inserted.id, productId, quantity,
                 });
             }
         }

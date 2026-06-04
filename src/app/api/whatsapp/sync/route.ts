@@ -9,7 +9,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { provisionAllTemplates, listExistingTemplates } from '@/lib/whatsapp/templates';
-import { createBookingFlow } from '@/lib/whatsapp/flows';
+import { createBookingFlow, republishBookingFlow } from '@/lib/whatsapp/flows';
 
 export async function POST(req: Request) {
     try {
@@ -17,13 +17,13 @@ export async function POST(req: Request) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-        const { workspaceId } = await req.json();
+        const { workspaceId, republishFlow } = await req.json();
         if (!workspaceId) return NextResponse.json({ error: 'Missing workspaceId' }, { status: 400 });
 
         // Fetch workspace WA credentials
         const { data: ws } = await supabase
             .from('ai_settings')
-            .select('whatsapp_business_account_id, whatsapp_access_token, whatsapp_phone_number_id')
+            .select('whatsapp_business_account_id, whatsapp_access_token, whatsapp_phone_number_id, whatsapp_booking_flow_id')
             .eq('id', workspaceId)
             .maybeSingle();
 
@@ -49,7 +49,12 @@ export async function POST(req: Request) {
         const isAppointmentBiz = workspace?.business_type === 'appointments';
 
         if (wabaId && isAppointmentBiz) {
-            flowResult = await createBookingFlow(wabaId, token);
+            if (republishFlow) {
+                // Delete old flow and create a fresh static one (for fixing publish issues)
+                flowResult = await republishBookingFlow(wabaId, token, ws?.whatsapp_booking_flow_id || null);
+            } else {
+                flowResult = await createBookingFlow(wabaId, token);
+            }
 
             // Save the flow_id to DB if created successfully
             if (flowResult.success && flowResult.flowId) {

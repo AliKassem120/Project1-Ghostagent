@@ -167,7 +167,7 @@ export async function cancelLatestAppointment(
     workspaceId: string,
     chatId: string
 ): Promise<CancelAppointmentResult> {
-    const appt = await lookupLatestAppointmentAnyStatus(supabase, workspaceId, chatId);
+    const appt = await lookupLatestAppointment(supabase, workspaceId, chatId);
     if (!appt) return { success: false, reason: 'no_appointment' };
 
     const normalizedStatus = appt.status.toLowerCase();
