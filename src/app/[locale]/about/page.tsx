@@ -258,9 +258,11 @@ export default function AboutPage() {
                   <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[80px] rounded-full pointer-events-none" />
                   
                   <div className="flex items-center gap-4 mb-8 relative z-10">
-                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center shadow-lg border border-white/10 shrink-0">
-                          <span className="text-white font-bold tracking-widest text-lg">AK</span>
-                      </div>
+                      <img 
+                          src="/ali-founder.png" 
+                          alt="Ali, Founder of GhostAgent" 
+                          className="w-14 h-14 rounded-full object-cover border border-primary/20 shadow-lg shrink-0" 
+                      />
                       <div>
                           <h2 className="text-2xl font-bold">{t('founderNote')}</h2>
                       </div>
