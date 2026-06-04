@@ -56,14 +56,14 @@ CREATE POLICY "Service role can insert automation runs"
 -- public.conversations
 DROP POLICY IF EXISTS "Service role has full access to conversations" ON public.conversations;
 CREATE POLICY "Service role has full access to conversations"
-    ON public.conversations TO service_role FOR ALL
+    ON public.conversations FOR ALL TO service_role
     USING (true)
     WITH CHECK (true);
 
 -- public.messages
 DROP POLICY IF EXISTS "Service role has full access to messages" ON public.messages;
 CREATE POLICY "Service role has full access to messages"
-    ON public.messages TO service_role FOR ALL
+    ON public.messages FOR ALL TO service_role
     USING (true)
     WITH CHECK (true);
 
@@ -99,7 +99,7 @@ BEGIN
             WHERE schemaname = 'public' AND tablename = t
         ) THEN
             EXECUTE format('DROP POLICY IF EXISTS "Service role full access" ON public.%I', t);
-            EXECUTE format('CREATE POLICY "Service role full access" ON public.%I TO service_role FOR ALL USING (true) WITH CHECK (true)', t);
+            EXECUTE format('CREATE POLICY "Service role full access" ON public.%I FOR ALL TO service_role USING (true) WITH CHECK (true)', t);
         END IF;
     END LOOP;
 END;
