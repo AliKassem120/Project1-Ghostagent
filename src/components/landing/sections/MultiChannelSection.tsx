@@ -44,7 +44,7 @@ export default function MultiChannelSection() {
                 <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-6 group-hover:bg-emerald-500/20 transition-colors">
                   <Smartphone className="w-7 h-7 text-emerald-500" />
                 </div>
-                <h3 className="text-xl sm:text-2xl font-bold text-foreground mb-3 tracking-tight">WhatsApp Native Flows</h3>
+                <h3 className="text-xl sm:text-2xl font-bold text-foreground mb-3 tracking-tight flex flex-wrap items-center gap-2">WhatsApp Native Flows <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[9px] font-black rounded-full border border-emerald-500/20 uppercase tracking-widest whitespace-nowrap">Coming Soon</span></h3>
                 <p className="text-sm sm:text-base text-muted-foreground leading-relaxed font-medium mb-6">
                   Collect orders and book appointments with native popup forms inside WhatsApp — no links, no redirects. Customers fill structured forms without leaving the chat.
                 </p>

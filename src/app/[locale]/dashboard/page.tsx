@@ -560,12 +560,12 @@ export default function DashboardPage() {
                         },
                     {
                         icon: DollarSign,
-                        label: 'Order Value',
+                        label: activeWorkspace?.business_type === 'appointments' ? 'Booking Value' : 'Order Value',
                         value: m.revenue,
                         prefix: '$',
                         color: 'text-emerald-400',
                         bg: 'bg-emerald-500/10',
-                        change: 'From orders',
+                        change: activeWorkspace?.business_type === 'appointments' ? 'From bookings' : 'From orders',
                         changeColor: 'text-muted-foreground',
                     },
                     {

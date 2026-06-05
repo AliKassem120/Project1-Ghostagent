@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+process.env.DEEPSEEK_API_KEY = 'mock-key';
+
 import { runV3Agent } from '../ai/agent';
 import { getTemplate } from '../automation-v3/templates';
 import { checkVoiceConsistency } from '../automation-v3/voice-consistency-guard';

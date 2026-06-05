@@ -35,13 +35,14 @@ function ConfirmAuthLogic() {
 
             // 3. Wait for Supabase to parse hash fragments or use the newly acquired session
             const { data: { session }, error } = await supabase.auth.getSession();
+            const next = searchParams.get('next') || '/dashboard';
 
             if (error) {
                 router.push('/auth/auth-code-error?message=' + encodeURIComponent(error.message));
             } else if (session) {
                 // Add a tiny delay to ensure cookies are flushed
                 setTimeout(() => {
-                    window.location.href = '/dashboard';
+                    window.location.href = next;
                 }, 500);
             } else {
                 // If it fails immediately, it might be parsing the hash still, 
@@ -49,14 +50,14 @@ function ConfirmAuthLogic() {
                 // Let's add an explicit observer just in case.
                 const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
                     if (newSession) {
-                        window.location.href = '/dashboard';
+                        window.location.href = next;
                     }
                 });
 
                 // Set a timeout to fail if no session is found after 3 seconds
                 setTimeout(() => {
                     subscription.unsubscribe();
-                    if (!window.location.href.includes('/dashboard')) {
+                    if (!window.location.href.includes(next)) {
                         router.push('/auth/auth-code-error?message=No_Session_Or_Code_Found_After_Delay');
                     }
                 }, 3000);

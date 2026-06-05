@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { runEcommerceFSM } from '../automation-v3/fsm/ecommerce-fsm';
 import { runAppointmentFSM } from '../automation-v3/fsm/appointment-fsm';
-import type { SessionContext } from '../automation-v3/session-manager';
+import type { SessionContext } from '../automation-v3/types';
 import type { WorkspaceConfig } from '@/lib/ai/types';
 
 describe('V3 FSM Architecture Tests (Zero-LLM Paths)', () => {
@@ -95,8 +95,8 @@ describe('V3 FSM Architecture Tests (Zero-LLM Paths)', () => {
       );
 
       expect(result.nextState).toBe('awaiting_variant');
-      expect(result.context.actionType).toBe('info_gathered');
-      expect(result.context.payload.isAwaitingVariant).toBe(true);
+      expect(result.context!.actionType).toBe('info_gathered');
+      expect(result.context!.payload.isAwaitingVariant).toBe(true);
       expect(result.actions).toContain('tool_search_products');
       expect(mockSession.data?.productName).toBe('Essential Hoodie');
     });
@@ -119,9 +119,9 @@ describe('V3 FSM Architecture Tests (Zero-LLM Paths)', () => {
       );
 
       expect(result.nextState).toBe('awaiting_checkout_confirmation');
-      expect(result.context.actionType).toBe('info_gathered');
-      expect(result.context.payload.productName).toBe('Essential Hoodie');
-      expect(result.context.payload.isReadyToConfirm).toBe(true);
+      expect(result.context!.actionType).toBe('info_gathered');
+      expect(result.context!.payload.productName).toBe('Essential Hoodie');
+      expect(result.context!.payload.isReadyToConfirm).toBe(true);
       expect(mockSession.data?.name).toBe('Ali Kassem');
       expect(mockSession.data?.phone).toBe('71123456');
       expect(mockSession.data?.address).toBe('Beirut Hamra');
@@ -155,8 +155,8 @@ describe('V3 FSM Architecture Tests (Zero-LLM Paths)', () => {
       );
 
       expect(result.nextState).toBe('awaiting_date_time');
-      expect(result.context.actionType).toBe('info_gathered');
-      expect(result.context.payload.isAwaitingDateTime).toBe(true);
+      expect(result.context!.actionType).toBe('info_gathered');
+      expect(result.context!.payload.isAwaitingDateTime).toBe(true);
       expect(mockSession.data?.service).toBe('Haircut');
     });
   });

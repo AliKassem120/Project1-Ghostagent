@@ -28,7 +28,7 @@ import { validateTransition } from '../ai/state-validator';
 import { isFreshSessionTimeout, shouldDetectLoop } from '../automation-v3/session-manager';
 import { getVariant, isFeatureEnabled, getActiveExperiments } from '../automation-v3/experiments';
 import { estimateTokenCount } from '../automation-v3/memory-compressor';
-import type { SessionContext } from '../automation-v3/session-manager';
+import type { SessionContext } from '../automation-v3/types';
 import type { WorkspaceConfig } from '../ai/types';
 
 // ── Shared test fixtures ────────────────────────────────────
@@ -144,8 +144,8 @@ describe('Regression: E-Commerce Flows', () => {
         const result = await runEcommerceFSM('I want to buy the hoodie', session, config, mockSupabase);
 
         expect(result.nextState).toBe('awaiting_variant');
-        expect(result.context.actionType).toBe('info_gathered');
-        expect(result.context.payload.isAwaitingVariant).toBe(true);
+        expect(result.context!.actionType).toBe('info_gathered');
+        expect(result.context!.payload.isAwaitingVariant).toBe(true);
         expect(result.actions).toContain('tool_search_products');
         expect(session.data?.productName).toBe('Essential Hoodie');
     });
@@ -169,9 +169,9 @@ describe('Regression: E-Commerce Flows', () => {
         );
 
         expect(result.nextState).toBe('awaiting_checkout_confirmation');
-        expect(result.context.actionType).toBe('info_gathered');
-        expect(result.context.payload.productName).toBe('Essential Hoodie');
-        expect(result.context.payload.isReadyToConfirm).toBe(true);
+        expect(result.context!.actionType).toBe('info_gathered');
+        expect(result.context!.payload.productName).toBe('Essential Hoodie');
+        expect(result.context!.payload.isReadyToConfirm).toBe(true);
         expect(session.data?.name).toBe('Ali Kassem');
         expect(session.data?.phone).toBe('71123456');
     });
@@ -253,8 +253,8 @@ describe('Regression: Appointment Flows', () => {
         const result = await runAppointmentFSM('I want a haircut', session, config, mockSupabase);
 
         expect(result.nextState).toBe('awaiting_date_time');
-        expect(result.context.actionType).toBe('info_gathered');
-        expect(result.context.payload.isAwaitingDateTime).toBe(true);
+        expect(result.context!.actionType).toBe('info_gathered');
+        expect(result.context!.payload.isAwaitingDateTime).toBe(true);
         expect(session.data?.service).toBe('Haircut');
     });
 

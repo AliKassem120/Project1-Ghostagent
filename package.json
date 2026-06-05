@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:scenarios": "vitest run src/lib/automation-v2/__tests__/scenarios/",
+    "test:v3": "vitest run v3",
     "test:db-smoke": "npx tsx scripts/db-smoke-test.ts"
   },
   "dependencies": {

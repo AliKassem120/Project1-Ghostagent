@@ -1,21 +1,10 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import type { SessionContext } from '../session-manager';
+import type { SessionContext, FsmResult } from '../types';
 import type { WorkspaceConfig } from '@/lib/ai/types';
 import { detectLanguageScript, detectYesNo, extractNameAndPhone, extractAddress, detectReuseSignals } from '@/lib/ai/language';
 import { searchProducts, findBestProductMatch } from '@/lib/ai/ecommerce/products';
 import { lookupLatestOrder, updateOrderVariant, updateOrderAddress, updateOrderQuantity } from '@/lib/ai/ecommerce/lookup';
 import { createEcommerceTools } from '@/lib/ai/tools';
-
-export interface FsmResult {
-  nextState: string;
-  actions: string[];
-  context: {
-    actionType: 'order_cancelled' | 'checkout_success' | 'appointment_booked' | 'info_gathered';
-    payload: Record<string, any>;
-  };
-  dbWriteAttempted: boolean;
-  dbWriteSuccess: boolean;
-}
 
 export async function runEcommerceFSM(
   message: string,

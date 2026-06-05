@@ -102,7 +102,7 @@ export default function AnalyticsPage() {
                 .from('activity_log')
                 .select('*', { count: 'exact', head: true })
                 .eq('workspace_id', activeWorkspaceId)
-                .in('event_type', ['AI_REPLY', 'COMMENT_REPLY'])
+                .in('event_type', ['AI_REPLY', 'automation_v2', 'COMMENT_REPLY'])
                 .gte('timestamp', firstOfThisMonth);
 
             // ── Replies last month
@@ -110,7 +110,7 @@ export default function AnalyticsPage() {
                 .from('activity_log')
                 .select('*', { count: 'exact', head: true })
                 .eq('workspace_id', activeWorkspaceId)
-                .in('event_type', ['AI_REPLY', 'COMMENT_REPLY'])
+                .in('event_type', ['AI_REPLY', 'automation_v2', 'COMMENT_REPLY'])
                 .gte('timestamp', firstOfLastMonth)
                 .lt('timestamp', firstOfThisMonth);
 
@@ -119,7 +119,7 @@ export default function AnalyticsPage() {
                 .from('activity_log')
                 .select('*', { count: 'exact', head: true })
                 .eq('workspace_id', activeWorkspaceId)
-                .in('event_type', ['AI_REPLY', 'COMMENT_REPLY']);
+                .in('event_type', ['AI_REPLY', 'automation_v2', 'COMMENT_REPLY']);
 
             // ── Unique conversations this month
             const { data: convLogs } = await supabase
@@ -273,7 +273,7 @@ export default function AnalyticsPage() {
                 .from('activity_log')
                 .select('timestamp')
                 .eq('workspace_id', activeWorkspaceId)
-                .in('event_type', ['AI_REPLY', 'COMMENT_REPLY'])
+                .in('event_type', ['AI_REPLY', 'automation_v2', 'COMMENT_REPLY'])
                 .gte('timestamp', new Date(Date.now() - 14 * 86400000).toISOString());
 
             const dailyMap: Record<string, number> = {};

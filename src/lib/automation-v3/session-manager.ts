@@ -2,21 +2,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { loadCustomerProfile, type CustomerProfile } from '@/lib/ai/customer-profile';
 import type { ConversationStage, Platform } from '@/lib/ai/types';
 
-export interface SessionContext {
-  state: ConversationStage;
-  data: Record<string, any> | null;
-  postContext: Record<string, any> | null;
-  loopCount: number;
-  lastBotMessage: string | null;
-  lastInteractionAt: string; // ISO
-  stateEnteredAt: string; // ISO
-  isFreshSession: boolean;
-  customerProfile: CustomerProfile | null;
-  platform: Platform;
-  workspaceId: string;
-  chatId: string;
-  userId: string;
-}
+import type { SessionContext } from './types';
 
 const SESSION_TIMEOUT_MINUTES = 30;
 const MAX_LOOP_COUNT = 3;
@@ -61,15 +47,20 @@ export async function loadSession(
     const minutesSinceLastInteraction = (Date.now() - lastInteraction.getTime()) / 60000;
     const isTimedOut = minutesSinceLastInteraction > SESSION_TIMEOUT_MINUTES;
 
+    // Explicit handoff expiry: if state is handoff and timed out, force reset to idle
+    // and clear stale context so the LLM doesn't see old handoff messages
+    const isHandoffExpired = stateRow.stage === 'handoff' && minutesSinceLastInteraction > SESSION_TIMEOUT_MINUTES;
+    const shouldReset = isTimedOut || isHandoffExpired;
+
     session = {
-      state: isTimedOut ? 'idle' : (stateRow.stage as ConversationStage),
-      data: isTimedOut ? null : (stateRow.data || {}),
-      postContext: isTimedOut ? null : (stateRow.data?.postContext || null),
-      loopCount: isTimedOut ? 0 : (stateRow.data?.loopCount || 0),
-      lastBotMessage: stateRow.data?.lastBotMessage || null,
+      state: shouldReset ? 'idle' : (stateRow.stage as ConversationStage),
+      data: shouldReset ? null : (stateRow.data || {}),
+      postContext: shouldReset ? null : (stateRow.data?.postContext || null),
+      loopCount: shouldReset ? 0 : (stateRow.data?.loopCount || 0),
+      lastBotMessage: shouldReset ? null : (stateRow.data?.lastBotMessage || null),
       lastInteractionAt: stateRow.updated_at || now,
-      stateEnteredAt: stateRow.data?.stateEnteredAt || stateRow.updated_at || now,
-      isFreshSession: isTimedOut || stateRow.stage === 'idle',
+      stateEnteredAt: shouldReset ? now : (stateRow.data?.stateEnteredAt || stateRow.updated_at || now),
+      isFreshSession: shouldReset || stateRow.stage === 'idle',
       customerProfile: null,
       platform,
       workspaceId,

@@ -45,6 +45,69 @@ export interface ToolContext {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// SHARED HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+/** Parse any time string (HH:mm, H:mm AM/PM) to 24h format "HH:mm" */
+function parseTimeTo24h(time: string): string {
+    let h = 0;
+    let m = 0;
+    const timeMatch = time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+    if (timeMatch) {
+        h = parseInt(timeMatch[1], 10);
+        m = parseInt(timeMatch[2], 10);
+        const ampm = timeMatch[3];
+        if (ampm) {
+            if (ampm.toUpperCase() === 'PM' && h < 12) h += 12;
+            if (ampm.toUpperCase() === 'AM' && h === 12) h = 0;
+        }
+    } else {
+        const parts = time.split(':');
+        h = parseInt(parts[0], 10) || 0;
+        m = parseInt(parts[1], 10) || 0;
+    }
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+/** Convert "HH:mm" to total minutes */
+function parseTimeToMinutes(time24: string): number {
+    const [h, m] = time24.split(':').map(Number);
+    return h * 60 + m;
+}
+
+/** Resolve Instagram handle from activity logs */
+async function resolveInstagramHandle(ctx: ToolContext): Promise<string> {
+    let handle = 'Customer';
+    try {
+        const { data } = await ctx.supabase
+            .from('activity_log')
+            .select('metadata')
+            .eq('user_id', ctx.userId)
+            .order('timestamp', { ascending: false })
+            .limit(10);
+
+        if (data && data.length > 0) {
+            const relevantLogs = data.filter((l: any) =>
+                l.metadata?.chat_id === ctx.chatId ||
+                l.metadata?.chatId === ctx.chatId
+            );
+            const bestLog = relevantLogs.find((l: any) =>
+                l.metadata?.username ||
+                l.metadata?.commenter_name ||
+                l.metadata?.sender?.attendee_name
+            );
+            if (bestLog) {
+                handle = bestLog.metadata.username ||
+                         bestLog.metadata.commenter_name ||
+                         bestLog.metadata.sender?.attendee_name ||
+                         handle;
+            }
+        }
+    } catch (_e) { /* fallback to 'Customer' */ }
+    return handle;
+}
+
+// ═══════════════════════════════════════════════════════════════
 // APPOINTMENT TOOLS
 // ═══════════════════════════════════════════════════════════════
 
@@ -84,108 +147,87 @@ export function createAppointmentTools(ctx: ToolContext) {
                 const match = findBestServiceMatch(services, service);
                 if (!match) return { success: false, error: 'Service not found' };
 
-                let h = 0;
-                let m = 0;
-                const timeMatch = time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
-                if (timeMatch) {
-                    h = parseInt(timeMatch[1], 10);
-                    m = parseInt(timeMatch[2], 10);
-                    const ampm = timeMatch[3];
-                    if (ampm) {
-                        if (ampm.toUpperCase() === 'PM' && h < 12) h += 12;
-                        if (ampm.toUpperCase() === 'AM' && h === 12) h = 0;
-                    }
-                } else {
-                    const parts = time.split(':');
-                    h = parseInt(parts[0], 10) || 0;
-                    m = parseInt(parts[1], 10) || 0;
-                }
-                const startTime24 = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                const endTime = minutesToTime(h * 60 + m + match.durationMinutes);
-                let handle = 'Customer';
-                try { 
-                    // Query last 10 logs to find any that have a username/handle
-                    const { data } = await ctx.supabase
-                        .from('activity_log')
-                        .select('metadata')
-                        .eq('user_id', ctx.userId)
-                        .order('timestamp', { ascending: false })
-                        .limit(10);
+                const startTime24 = parseTimeTo24h(time);
+                const endTime = minutesToTime(parseTimeToMinutes(startTime24) + match.durationMinutes);
+                let handle = await resolveInstagramHandle(ctx);
 
-                    if (data && data.length > 0) {
-                        // Filter for logs matching this chat ID (checking both key variants)
-                        const relevantLogs = data.filter(l => 
-                            l.metadata?.chat_id === ctx.chatId || 
-                            l.metadata?.chatId === ctx.chatId
-                        );
-                        
-                        const bestLog = relevantLogs.find(l => 
-                            l.metadata?.username || 
-                            l.metadata?.commenter_name || 
-                            l.metadata?.sender?.attendee_name
-                        );
+                const updateCustomerAfterBooking = async () => {
+                    await upsertCustomer(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, address: address || null }).catch(() => {});
+                    await upsertCustomerProfile(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, totalAppointments: 1 }).catch(() => {});
+                };
 
-                        if (bestLog) {
-                            handle = bestLog.metadata.username || 
-                                     bestLog.metadata.commenter_name || 
-                                     bestLog.metadata.sender?.attendee_name || 
-                                     handle;
-                        }
-                    }
-                } catch (_e) { /* fallback to 'Customer' */ }
+                // STRATEGY: Direct TypeScript insert first (reliable, same pattern as createOrderV2)
+                // RPC only used when explicitly enabled via env var
+                const useRpc = process.env.USE_RPC_APPOINTMENTS === 'true';
 
-                // Fallback to legacy creation for test mocks if rpc is not defined
-                if (typeof ctx.supabase.rpc !== 'function') {
-                    const appointmentResult = await createAppointmentV2Structured({ 
-                        supabase: ctx.supabase, 
-                        userId: ctx.userId, 
-                        workspaceId: ctx.workspaceId, 
-                        chatId: ctx.chatId, 
-                        platform: ctx.platform, 
-                        customerName: name, 
-                        customerPhone: phone, 
-                        serviceName: match.name, 
-                        date, 
-                        startTime: startTime24, 
-                        endTime, 
-                        durationMinutes: match.durationMinutes, 
-                        instagramHandle: handle 
+                if (!useRpc) {
+                    const result = await createAppointmentV2Structured({
+                        supabase: ctx.supabase,
+                        userId: ctx.userId,
+                        workspaceId: ctx.workspaceId,
+                        chatId: ctx.chatId,
+                        platform: ctx.platform,
+                        customerName: name,
+                        customerPhone: phone,
+                        serviceName: match.name,
+                        date,
+                        startTime: startTime24,
+                        endTime,
+                        durationMinutes: match.durationMinutes,
+                        instagramHandle: handle,
                     });
-                    if (appointmentResult.success) {
-                        await upsertCustomer(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, address: address || null }).catch(() => {});
-                        await upsertCustomerProfile(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, totalAppointments: 1 }).catch(() => {});
+                    if (result.success) {
+                        await updateCustomerAfterBooking();
                     }
-                    return { ...appointmentResult, service: match.name, date, time: formatTime12(startTime24), price: match.price };
+                    return { ...result, service: match.name, date, time: formatTime12(startTime24), price: match.price };
                 }
 
-                // Call atomic PostgreSQL function safe_book_appointment
-                const { data: rpcRes, error: rpcError } = await ctx.supabase.rpc('safe_book_appointment', {
-                    p_user_id: ctx.userId,
-                    p_workspace_id: ctx.workspaceId,
-                    p_platform: ctx.platform,
-                    p_chat_id: ctx.chatId,
-                    p_instagram_handle: handle,
-                    p_customer_name: name,
-                    p_customer_phone: phone,
-                    p_service_name: match.name,
-                    p_appointment_date: date,
-                    p_start_time: startTime24,
-                    p_end_time: endTime,
-                    p_duration_minutes: match.durationMinutes
-                });
+                // RPC path (only when explicitly enabled)
+                try {
+                    const { data: rpcRes, error: rpcError } = await ctx.supabase.rpc('safe_book_appointment', {
+                        p_user_id: ctx.userId,
+                        p_workspace_id: ctx.workspaceId,
+                        p_platform: ctx.platform,
+                        p_chat_id: ctx.chatId,
+                        p_instagram_handle: handle,
+                        p_customer_name: name,
+                        p_customer_phone: phone,
+                        p_service_name: match.name,
+                        p_appointment_date: date,
+                        p_start_time: startTime24,
+                        p_end_time: endTime,
+                        p_duration_minutes: match.durationMinutes
+                    });
 
-                if (rpcError) {
-                    return { success: false, error: rpcError.message };
+                    if (rpcError || !rpcRes?.success) {
+                        throw rpcError || new Error(rpcRes?.error || 'RPC returned failure');
+                    }
+
+                    await updateCustomerAfterBooking();
+                    return { success: true, appointmentId: rpcRes.appointmentId, service: match.name, date, time: formatTime12(startTime24), price: match.price };
+                } catch (rpcErr: any) {
+                    // RPC failed — fallback to direct insert
+                    console.warn('⚠️ [APPOINTMENT] RPC failed, falling back to direct insert:', rpcErr?.message || rpcErr);
+                    const result = await createAppointmentV2Structured({
+                        supabase: ctx.supabase,
+                        userId: ctx.userId,
+                        workspaceId: ctx.workspaceId,
+                        chatId: ctx.chatId,
+                        platform: ctx.platform,
+                        customerName: name,
+                        customerPhone: phone,
+                        serviceName: match.name,
+                        date,
+                        startTime: startTime24,
+                        endTime,
+                        durationMinutes: match.durationMinutes,
+                        instagramHandle: handle,
+                    });
+                    if (result.success) {
+                        await updateCustomerAfterBooking();
+                    }
+                    return { ...result, service: match.name, date, time: formatTime12(startTime24), price: match.price };
                 }
-
-                if (!rpcRes || !rpcRes.success) {
-                    return { success: false, error: rpcRes?.error || 'Failed to book appointment due to slot conflict.' };
-                }
-
-                await upsertCustomer(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, address: address || null }).catch(() => {});
-                await upsertCustomerProfile(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, totalAppointments: 1 }).catch(() => {});
-                
-                return { success: true, appointmentId: rpcRes.appointmentId, service: match.name, date, time: formatTime12(time), price: match.price };
             },
         },
         get_services: {
@@ -226,27 +268,13 @@ export function createAppointmentTools(ctx: ToolContext) {
                     return { success: false, error: 'No upcoming active appointment found to reschedule.' };
                 }
 
-                let h = 0;
-                let m = 0;
-                const timeMatch = time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
-                if (timeMatch) {
-                    h = parseInt(timeMatch[1], 10);
-                    m = parseInt(timeMatch[2], 10);
-                    const ampm = timeMatch[3];
-                    if (ampm) {
-                        if (ampm.toUpperCase() === 'PM' && h < 12) h += 12;
-                        if (ampm.toUpperCase() === 'AM' && h === 12) h = 0;
-                    }
-                } else {
-                    const parts = time.split(':');
-                    h = parseInt(parts[0], 10) || 0;
-                    m = parseInt(parts[1], 10) || 0;
-                }
-                const startTime24 = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                const endTime = minutesToTime(h * 60 + m + latest.durationMinutes);
+                const startTime24 = parseTimeTo24h(time);
+                const endTime = minutesToTime(parseTimeToMinutes(startTime24) + latest.durationMinutes);
 
-                // Fallback to legacy rescheduling for test mocks if rpc is not defined
-                if (typeof ctx.supabase.rpc !== 'function') {
+                // STRATEGY: Direct reschedule first (reliable), RPC as opt-in
+                const useRpc = process.env.USE_RPC_APPOINTMENTS === 'true';
+
+                if (!useRpc) {
                     const result = await rescheduleAppointment(
                         ctx.supabase,
                         ctx.workspaceId,
@@ -255,9 +283,9 @@ export function createAppointmentTools(ctx: ToolContext) {
                         startTime24,
                         latest.durationMinutes
                     );
-                    return { 
-                        success: result.success, 
-                        reason: result.reason, 
+                    return {
+                        success: result.success,
+                        reason: result.reason,
                         previous_date: latest.date,
                         previous_time: formatTime12(latest.startTime),
                         new_date: date,
@@ -265,29 +293,47 @@ export function createAppointmentTools(ctx: ToolContext) {
                     };
                 }
 
-                const { data: rpcRes, error: rpcError } = await ctx.supabase.rpc('safe_reschedule_appointment', {
-                    p_workspace_id: ctx.workspaceId,
-                    p_appointment_id: latest.id,
-                    p_new_date: date,
-                    p_new_start_time: startTime24,
-                    p_new_end_time: endTime
-                });
+                // RPC path (only when explicitly enabled)
+                try {
+                    const { data: rpcRes, error: rpcError } = await ctx.supabase.rpc('safe_reschedule_appointment', {
+                        p_workspace_id: ctx.workspaceId,
+                        p_appointment_id: latest.id,
+                        p_new_date: date,
+                        p_new_start_time: startTime24,
+                        p_new_end_time: endTime
+                    });
 
-                if (rpcError) {
-                    return { success: false, error: rpcError.message };
+                    if (rpcError || !rpcRes?.success) {
+                        throw rpcError || new Error(rpcRes?.error || 'RPC reschedule failed');
+                    }
+
+                    return {
+                        success: true,
+                        previous_date: latest.date,
+                        previous_time: formatTime12(latest.startTime),
+                        new_date: date,
+                        new_time: formatTime12(startTime24)
+                    };
+                } catch (rpcErr: any) {
+                    // RPC failed — fallback to direct reschedule
+                    console.warn('⚠️ [APPOINTMENT] RPC reschedule failed, falling back to direct:', rpcErr?.message || rpcErr);
+                    const result = await rescheduleAppointment(
+                        ctx.supabase,
+                        ctx.workspaceId,
+                        latest.id,
+                        date,
+                        startTime24,
+                        latest.durationMinutes
+                    );
+                    return {
+                        success: result.success,
+                        reason: result.reason,
+                        previous_date: latest.date,
+                        previous_time: formatTime12(latest.startTime),
+                        new_date: date,
+                        new_time: formatTime12(startTime24)
+                    };
                 }
-
-                if (!rpcRes || !rpcRes.success) {
-                    return { success: false, error: rpcRes?.error || 'Failed to reschedule due to slot conflict.' };
-                }
-
-                return { 
-                    success: true, 
-                    previous_date: latest.date,
-                    previous_time: formatTime12(latest.startTime),
-                    new_date: date,
-                    new_time: formatTime12(startTime24)
-                };
             },
         },
         lookup_customer: {
@@ -302,6 +348,7 @@ export function createAppointmentTools(ctx: ToolContext) {
                 return { found: true, name: known.name, phone: known.phone, address: known.address };
             },
         },
+        /*
         send_booking_flow: {
             description: 'Send a native WhatsApp booking form to the customer. Call this ONLY on WhatsApp when the customer is ready to book, instead of asking for date/time manually.',
             inputSchema: z.object({
@@ -353,6 +400,7 @@ export function createAppointmentTools(ctx: ToolContext) {
                 }
             },
         },
+        */
     };
 }
 

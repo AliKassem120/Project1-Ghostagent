@@ -22,6 +22,7 @@ export default function LoginPage() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [showPassword, setShowPassword] = useState(false);
+    const [rememberMe, setRememberMe] = useState(true);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -38,6 +39,11 @@ export default function LoginPage() {
                 setError(signInError.message);
                 setLoading(false);
                 return;
+            }
+
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('remember_me', rememberMe ? 'true' : 'false');
+                sessionStorage.setItem('session_active', 'true');
             }
 
             window.location.href = '/dashboard';
@@ -132,7 +138,7 @@ export default function LoginPage() {
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                        className="w-full max-w-[420px]"
+                        className="w-full max-w-[420px] relative group"
                     >
                         {/* Mobile Header / Logo */}
                         <div className="flex flex-col items-center mb-8 lg:hidden mt-8">
@@ -141,9 +147,12 @@ export default function LoginPage() {
                             </div>
                         </div>
 
-                        <div className="bg-surface-1/80 backdrop-blur-xl p-6 sm:p-10 rounded-[2.5rem] border border-border/60 shadow-2xl relative">
+                        {/* Ambient Card Glow */}
+                        <div className="absolute -inset-1 bg-gradient-to-r from-primary/10 via-violet-500/15 to-primary/10 rounded-[2.6rem] blur-2xl opacity-75 group-hover:opacity-100 transition duration-700 pointer-events-none" />
+
+                        <div className="relative bg-surface-1/80 backdrop-blur-xl p-6 sm:p-10 rounded-[2.5rem] border border-border/60 shadow-2xl overflow-hidden">
                             {/* Decorative top gradient */}
-                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+                            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
 
                             <div className="text-center mb-8 lg:text-left mt-2">
                                 <h1 className="text-3xl font-black text-foreground mb-2 tracking-tight">{tLogin('welcomeBack')}</h1>
@@ -152,7 +161,13 @@ export default function LoginPage() {
 
                             <div className="mb-6 w-full">
                                 <GoogleSignInButton
-                                    onSuccess={() => { window.location.href = '/dashboard'; }}
+                                    onSuccess={() => {
+                                        if (typeof window !== 'undefined') {
+                                            localStorage.setItem('remember_me', 'true');
+                                            sessionStorage.setItem('session_active', 'true');
+                                        }
+                                        window.location.href = '/dashboard';
+                                    }}
                                     onError={(err) => { setError(err.message || 'Failed to sign in with Google'); }}
                                 />
                             </div>
@@ -222,6 +237,21 @@ export default function LoginPage() {
                                             {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                         </button>
                                     </div>
+                                </div>
+
+                                {/* Remember Me Checkbox */}
+                                <div className="flex items-center justify-between py-1 ml-1">
+                                    <label className="flex items-center gap-2 cursor-pointer group">
+                                        <input
+                                            type="checkbox"
+                                            checked={rememberMe}
+                                            onChange={(e) => setRememberMe(e.target.checked)}
+                                            className="w-4 h-4 rounded border-border bg-surface-2 text-primary focus:ring-primary/50 cursor-pointer accent-primary"
+                                        />
+                                        <span className="text-xs font-bold text-muted-foreground group-hover:text-foreground transition-colors select-none">
+                                            {tAuth('rememberMe')}
+                                        </span>
+                                    </label>
                                 </div>
 
                                 <button

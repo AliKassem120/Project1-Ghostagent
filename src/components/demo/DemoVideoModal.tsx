@@ -336,7 +336,7 @@ export default function DemoVideoModal({ isOpen, onClose }: DemoVideoModalProps)
                             exit={{ opacity: 0, scale: 0.96, y: 15 }}
                             transition={{ duration: 0.3 }}
                             onClick={(e) => e.stopPropagation()}
-                            className="relative w-full max-w-5xl bg-surface-1 rounded-3xl p-4 md:p-6 border border-border shadow-2xl flex flex-col gap-6"
+                            className="relative w-full max-w-5xl max-h-[90dvh] overflow-y-auto bg-surface-1 rounded-3xl p-4 md:p-6 border border-border shadow-2xl flex flex-col gap-4 md:gap-6"
                         >
                             {/* Close Button */}
                             <button
@@ -381,11 +381,11 @@ export default function DemoVideoModal({ isOpen, onClose }: DemoVideoModalProps)
                             </div>
 
                             {/* Simulator Sandbox */}
-                            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 min-h-[460px]">
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6 min-h-0">
                                 {/* Column 1: Simulated Phone (5 cols) */}
-                                <div className="md:col-span-5 flex items-center justify-center bg-surface-2/40 border border-border/60 rounded-2xl p-4">
+                                <div className="md:col-span-5 flex items-center justify-center bg-surface-2/40 border border-border/60 rounded-2xl p-3 md:p-4">
                                     {/* Phone Frame */}
-                                    <div className="w-full max-w-[270px] bg-background border-[6px] border-surface-3 rounded-[32px] overflow-hidden shadow-2xl relative flex flex-col aspect-[9/18.5] h-[450px]">
+                                    <div className="w-full max-w-[220px] md:max-w-[270px] bg-background border-[5px] md:border-[6px] border-surface-3 rounded-[28px] md:rounded-[32px] overflow-hidden shadow-2xl relative flex flex-col h-[350px] md:h-[450px]">
                                         {/* Phone Speaker Notch */}
                                         <div className="absolute top-2 left-1/2 -translate-x-1/2 w-20 h-4 bg-surface-3 rounded-full z-20 flex items-center justify-center">
                                             <div className="w-8 h-1 bg-zinc-700 rounded-full" />
@@ -493,7 +493,7 @@ export default function DemoVideoModal({ isOpen, onClose }: DemoVideoModalProps)
                                     </div>
 
                                     {/* Console Output */}
-                                    <div className="flex-1 p-4 font-mono text-[10px] leading-relaxed overflow-y-auto bg-black text-zinc-400 flex flex-col gap-2 min-h-[300px] max-h-[360px]">
+                                    <div className="flex-1 p-3 md:p-4 font-mono text-[10px] leading-relaxed overflow-y-auto bg-black text-zinc-400 flex flex-col gap-2 min-h-[200px] md:min-h-[300px] max-h-[250px] md:max-h-[360px]">
                                         {visibleLogs.length === 0 ? (
                                             <div className="flex flex-col items-center justify-center gap-2 h-full text-zinc-600">
                                                 <Database className="w-6 h-6 animate-pulse" />

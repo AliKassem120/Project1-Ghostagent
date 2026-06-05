@@ -192,7 +192,7 @@ export default function AboutPage() {
             initial="hidden" whileInView="visible" viewport={{ once: true }} variants={staggerContainer}
         >
             {[
-                { icon: Phone, title: t('featWhatsAppTitle'), desc: t('featWhatsAppDesc'), colorClass: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
+                { icon: Phone, title: <span className="flex items-center gap-2">{t('featWhatsAppTitle')} <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[9px] font-black rounded-full border border-emerald-500/20 uppercase tracking-widest whitespace-nowrap">Coming Soon</span></span>, desc: t('featWhatsAppDesc'), colorClass: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
                 { icon: Box, title: t('featEcomTitle'), desc: t('featEcomDesc'), colorClass: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
                 { icon: CalendarDays, title: t('featApptTitle'), desc: t('featApptDesc'), colorClass: 'text-rose-400 bg-rose-500/10 border-rose-500/20' },
                 { icon: MessageSquare, title: t('featCommentsTitle'), desc: t('featCommentsDesc'), colorClass: 'text-pink-400 bg-pink-500/10 border-pink-500/20' },

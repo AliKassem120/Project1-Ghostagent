@@ -37,6 +37,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 // Check active session
                 const { data: { session } } = await supabase.auth.getSession();
+
+                // Handle "Remember Me" session lifecycle
+                if (session && typeof window !== 'undefined') {
+                    const rememberMe = localStorage.getItem('remember_me');
+                    const sessionActive = sessionStorage.getItem('session_active');
+                    if (rememberMe === 'false' && !sessionActive) {
+                        console.log('[AuthContext] Remember me is false and tab/window was closed. Logging out...');
+                        await supabase.auth.signOut();
+                        if (mounted) {
+                            setUser(null);
+                            setLoading(false);
+                        }
+                        return;
+                    } else {
+                        // Mark current window session as active
+                        sessionStorage.setItem('session_active', 'true');
+                    }
+                }
+
                 if (mounted) setUser(session?.user ?? null);
 
                 // If we have a session and we're on a pure auth page, redirect
@@ -65,6 +84,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 if (mounted) {
                     setUser(session?.user ?? null);
                     setLoading(false);
+                }
+
+                if (session && typeof window !== 'undefined') {
+                    sessionStorage.setItem('session_active', 'true');
                 }
 
                 // Only redirect on SIGNED_IN if user is on an auth page

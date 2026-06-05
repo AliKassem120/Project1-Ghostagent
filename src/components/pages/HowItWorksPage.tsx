@@ -377,7 +377,7 @@ export default function HowItWorksPage() {
                   <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center group-hover:bg-emerald-500/20 transition-colors">
                     <Smartphone className="w-7 h-7 text-emerald-500" />
                   </div>
-                  <h4 className="font-bold text-lg">Native Booking Flows</h4>
+                  <h4 className="font-bold text-lg flex flex-wrap items-center gap-2">Native Booking Flows <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[9px] font-black rounded-full border border-emerald-500/20 uppercase tracking-widest whitespace-nowrap">Coming Soon</span></h4>
                   <p className="text-sm text-muted-foreground font-medium">Collect appointments and orders with native popup forms inside WhatsApp — no links, no redirects. Customers fill structured forms without leaving the chat.</p>
                   <div className="flex flex-wrap gap-2 pt-2">
                     {['V3 Flows', 'In-Chat Forms', 'Zero Friction'].map((tag) => (

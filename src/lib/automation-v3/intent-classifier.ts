@@ -1,11 +1,7 @@
-import OpenAI from 'openai';
+import { createProvider } from '@/lib/ai/providers/llm-provider';
+import { deepseekCircuit } from '@/lib/ai/circuit-breaker';
 import type { LanguageScript } from './templates';
 import type { CustomerProfile } from '@/lib/ai/customer-profile';
-
-const deepseek = new OpenAI({
-  baseURL: 'https://api.deepseek.com/v1',
-  apiKey: process.env.DEEPSEEK_API_KEY || 'mock-key',
-});
 
 export interface IntentClassification {
   intent: string;
@@ -46,6 +42,11 @@ export async function classifyIntent(
   }
 ): Promise<IntentClassification> {
   const intents = workspaceType === 'ecommerce' ? ECOMMERCE_INTENTS : APPOINTMENT_INTENTS;
+
+  if (!deepseekCircuit.canExecute()) {
+    console.warn('⚡ [Intent Classifier] DeepSeek circuit breaker is open. Triggering local fallback intent detection.');
+    return generateHardcodedFallback(message, workspaceType);
+  }
 
   const prompt = `You are an intent classifier for a customer service AI.
 Analyze the customer message and classify it.
@@ -88,15 +89,16 @@ Respond in JSON ONLY (with no markdown wrappers or backticks):
 }`;
 
   try {
-    const response = await deepseek.chat.completions.create({
-      model: 'deepseek-chat',
+    const provider = createProvider();
+    const response = await provider.complete({
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.1,
-      max_tokens: 200,
-      response_format: { type: 'json_object' },
+      maxTokens: 200,
+      responseFormat: 'json',
     });
 
-    const result = JSON.parse(response.choices[0].message.content || '{}');
+    const result = JSON.parse(response.text || '{}');
+    deepseekCircuit.recordSuccess();
 
     return {
       intent: result.intent || 'unknown',
@@ -111,15 +113,17 @@ Respond in JSON ONLY (with no markdown wrappers or backticks):
     };
   } catch (error) {
     console.warn('⚠️ [Intent Classifier] DeepSeek execution failed, retrying once...', error);
+    deepseekCircuit.recordFailure();
     try {
-      const retry = await deepseek.chat.completions.create({
-        model: 'deepseek-chat',
+      const provider = createProvider();
+      const retryResponse = await provider.complete({
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.1,
-        max_tokens: 200,
-        response_format: { type: 'json_object' },
+        maxTokens: 200,
+        responseFormat: 'json',
       });
-      const result = JSON.parse(retry.choices[0].message.content || '{}');
+      const result = JSON.parse(retryResponse.text || '{}');
+      deepseekCircuit.recordSuccess(); // Retry succeeded
       return {
         intent: result.intent || 'unknown',
         entities: result.entities || {},
@@ -130,22 +134,68 @@ Respond in JSON ONLY (with no markdown wrappers or backticks):
         urgencyLevel: result.urgencyLevel || 'low',
         source: 'retry',
       };
-    } catch {
-      return {
-        intent: 'unknown',
-        entities: {},
-        confidence: 0,
-        languageScript: 'unknown',
-        needsClarification: true,
-        sentimentScore: 0,
-        urgencyLevel: 'low',
-        source: 'fallback',
-      };
+    } catch (retryError) {
+      console.error('❌ [Intent Classifier] Retry also failed. Falling back to local handler.', retryError);
+      deepseekCircuit.recordFailure();
+      return generateHardcodedFallback(message, workspaceType);
     }
   }
+}
+
+function generateHardcodedFallback(
+  message: string,
+  workspaceType: 'appointments' | 'ecommerce'
+): IntentClassification {
+  const lower = message.toLowerCase();
+  const isEcom = workspaceType === 'ecommerce';
+
+  let intent = 'unknown';
+  const entities: Record<string, any> = {};
+  let confidence = 0.7;
+  let languageScript: LanguageScript = 'unknown';
+
+  // Detect basic language script
+  if (/[\u0600-\u06FF]/.test(message)) {
+    languageScript = 'arabic';
+  } else if (/\b(e7joz|3ndkn|mar7aba|addesh|se3r|maw3ed|se3a)\b/i.test(lower) || /[0-9]/.test(message)) {
+    languageScript = 'franco';
+  } else {
+    languageScript = 'english';
+  }
+
+  // Local rule-based intent categorization
+  if (/\b(hi|hello|marhaba|kifak|hala|keef|sabah|masa)\b/i.test(lower)) {
+    intent = 'greeting';
+  } else if (/\b(cancel|el8e|la8e|batalet|mish badde)\b/i.test(lower)) {
+    intent = isEcom ? 'cancel_order' : 'cancel_appointment';
+  } else if (/\b(human|agent|manager|bshar|kalam|talk to human)\b/i.test(lower)) {
+    intent = 'human_handoff';
+  } else if (/\b(stop|enough|slow|bad|terrible|khalas|bas)\b/i.test(lower)) {
+    intent = 'frustration_stop';
+  } else if (/\b(wain|where|location|address|matra7|ma7al)\b/i.test(lower)) {
+    intent = 'location_question';
+  } else if (/\b(time|open|hours|se3a ktr|emta btfta7o)\b/i.test(lower)) {
+    intent = 'business_hours';
+  } else if (/\b(mawjoud|available|stock|in stock|fe mnn)\b/i.test(lower)) {
+    intent = isEcom ? 'product_availability' : 'service_availability';
+  } else if (/\b(buy|order|baddak|badde|e7joz|reserve|appointment|book)\b/i.test(lower)) {
+    intent = isEcom ? 'purchase_intent' : 'booking_intent';
+  }
+
+  return {
+    intent,
+    entities,
+    confidence: intent === 'unknown' ? 0 : confidence,
+    languageScript,
+    needsClarification: intent === 'unknown',
+    sentimentScore: /\b(bad|slow|terrible|hate)\b/i.test(lower) ? -0.5 : /\b(great|love|best|7elo)\b/i.test(lower) ? 0.5 : 0,
+    urgencyLevel: /\b(now|asap|urgent|yalla)\b/i.test(lower) ? 'high' : 'low',
+    source: 'fallback'
+  };
 }
 
 function validateLanguageScript(script: string): LanguageScript {
   if (['english', 'arabic', 'franco', 'mixed'].includes(script)) return script as LanguageScript;
   return 'unknown';
 }
+

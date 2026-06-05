@@ -97,12 +97,49 @@ export async function getDashboardOverviewMetrics(
         ? Math.round((aiReplies / (aiReplies + manualReplies)) * 100)
         : 0;
 
-    // ── 2. Orders (all time, workspace-scoped) ───────────────
-    const ordersBreakdown = await getOrdersBreakdown(supabase, workspaceId);
-    sourceTables.push('orders');
+    // Get workspace business type
+    const { data: wsData } = await supabase
+        .from('workspaces')
+        .select('business_type')
+        .eq('id', workspaceId)
+        .maybeSingle();
+    const businessType = wsData?.business_type || 'ecommerce';
 
-    // Revenue = all non-cancelled orders
-    const revenue = ordersBreakdown.revenue;
+    // ── 2. Orders or Appointments Revenue (all time, workspace-scoped) ───────────────
+    let revenue = 0;
+    let ordersBreakdown = { counts: { pending: 0, contacted: 0, fulfilled: 0, cancelled: 0, total: 0 }, revenue: 0 };
+    
+    if (businessType === 'appointments') {
+        const { data: servicesData } = await supabase
+            .from('services')
+            .select('name, price')
+            .eq('workspace_id', workspaceId);
+
+        const servicePrices: Record<string, number> = {};
+        (servicesData || []).forEach((s: any) => {
+            servicePrices[s.name.trim().toLowerCase()] = Number(s.price) || 0;
+        });
+
+        const { data: apptsData } = await supabase
+            .from('appointments')
+            .select('service, status')
+            .eq('workspace_id', workspaceId);
+
+        if (apptsData) {
+            for (const appt of apptsData) {
+                const status = (appt.status || '').toLowerCase();
+                if (status !== 'cancelled' && status !== 'canceled' && status !== 'no_show' && status !== 'noshow') {
+                    const price = servicePrices[appt.service?.trim().toLowerCase()] || 0;
+                    revenue += price;
+                }
+            }
+        }
+        sourceTables.push('appointments');
+    } else {
+        ordersBreakdown = await getOrdersBreakdown(supabase, workspaceId);
+        revenue = ordersBreakdown.revenue;
+        sourceTables.push('orders');
+    }
 
     // ── 3. Appointments (all time, workspace-scoped) ─────────
     const appointmentsBreakdown = await getAppointmentsBreakdown(supabase, workspaceId);

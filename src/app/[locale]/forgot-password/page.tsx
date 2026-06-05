@@ -6,7 +6,18 @@ import Link from 'next/link';
 import { ArrowLeft, Loader2, Mail, CheckCircle2 } from 'lucide-react';
 import StarBackground from '@/components/StarBackground';
 import GhostLogo from '@/components/GhostLogo';
-import { supabase } from '@/lib/supabase';
+import { createBrowserClient } from '@supabase/ssr';
+
+// Create a custom supabase client with implicit flow specifically for cross-device forgot password
+const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+        auth: {
+            flowType: 'implicit',
+        },
+    }
+);
 
 export default function ForgotPasswordPage() {
     const [loading, setLoading] = useState(false);
@@ -21,7 +32,7 @@ export default function ForgotPasswordPage() {
 
         try {
             const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: `${window.location.origin}/auth/callback?next=/dashboard/settings`,
+                redirectTo: `${window.location.origin}/auth/confirm?next=/update-password`,
             });
 
             if (resetError) {

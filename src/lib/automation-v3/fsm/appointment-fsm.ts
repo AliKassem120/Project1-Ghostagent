@@ -1,21 +1,10 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import type { SessionContext } from '../session-manager';
+import type { SessionContext, FsmResult } from '../types';
 import type { WorkspaceConfig } from '@/lib/ai/types';
 import { detectLanguageScript, detectYesNo, extractNameAndPhone, detectReuseSignals } from '@/lib/ai/language';
 import { buildTimeContext, resolveDateFromMessage, resolveTimeFromMessage, formatDateLabel } from '@/lib/ai/time';
 import { loadActiveServices, findBestServiceMatch } from '@/lib/ai/appointments/services';
 import { createAppointmentTools } from '@/lib/ai/tools';
-
-export interface FsmResult {
-  nextState: string;
-  actions: string[];
-  context: {
-    actionType: 'order_cancelled' | 'checkout_success' | 'appointment_booked' | 'info_gathered';
-    payload: Record<string, any>;
-  };
-  dbWriteAttempted: boolean;
-  dbWriteSuccess: boolean;
-}
 
 export async function runAppointmentFSM(
   message: string,

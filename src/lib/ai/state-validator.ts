@@ -63,8 +63,8 @@ export const STATE_CONFIGS: Record<string, StateConfig> = {
     },
     handoff: {
         validNext: ['idle'],
-        maxLoops: 1,
-        maxDurationMinutes: Infinity,
+        maxLoops: 3,
+        maxDurationMinutes: 60,
         fallbackState: 'idle',
     },
     // Detailed enterprise refactor stages

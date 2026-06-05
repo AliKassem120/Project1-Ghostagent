@@ -1,10 +1,5 @@
-import OpenAI from 'openai';
+import { createProvider } from '@/lib/ai/providers/llm-provider';
 import type { LanguageScript } from './templates';
-
-const deepseek = new OpenAI({
-  baseURL: 'https://api.deepseek.com/v1',
-  apiKey: process.env.DEEPSEEK_API_KEY || 'mock-key',
-});
 
 export interface ResponseContext {
   systemInstruction: string;
@@ -32,17 +27,17 @@ export async function generateResponse(
   const systemInstruction = buildSystemInstructionWithContext(context);
 
   try {
-    const response = await deepseek.chat.completions.create({
-      model: 'deepseek-chat',
-      messages: [
-        { role: 'system', content: systemInstruction },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.9,
-      max_tokens: 200,
+    const provider = createProvider();
+    const responseText = await provider.complete({
+      system: systemInstruction,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.4,
+      maxTokens: 200,
     });
 
-    let text = response.choices[0].message.content?.trim() || '';
+    let text = responseText.text.trim();
+    // Strip [HANDOFF] from LLM output — handoff routing is the orchestrator's job, not the LLM's
+    text = text.replace(/\[HANDOFF\]/gi, '').trim();
     text = enforceSentenceLimit(text);
     return { text };
   } catch (error: any) {

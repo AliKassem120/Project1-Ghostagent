@@ -1,9 +1,4 @@
-import OpenAI from 'openai';
-
-const deepseek = new OpenAI({
-  baseURL: 'https://api.deepseek.com/v1',
-  apiKey: process.env.DEEPSEEK_API_KEY || 'mock-key',
-});
+import { createProvider } from '@/lib/ai/providers/llm-provider';
 
 export interface ThinkingResult {
   intentAnalysis: string;
@@ -109,23 +104,21 @@ You must output EXACTLY a JSON object matching this schema:
 }
 
 Available tools you can request:
-- For ecommerce: "search_products", "get_business_hours", "lookup_customer"
-- For appointments: "check_slot", "get_services", "lookup_customer", "send_booking_flow"
+- For ecommerce: "search_products", "check_stock", "get_business_hours", "lookup_customer", "send_product_card"
+- For appointments: "check_slot", "get_services", "get_business_hours", "lookup_customer"
 - Do NOT request transactional write tools like "place_order", "cancel_order", "book_appointment", "cancel_appointment", or "reschedule_appointment" since those are exclusively managed by the FSM flows.`;
 
   try {
-    const response = await deepseek.chat.completions.create({
-      model: 'deepseek-chat',
-      messages: [
-        { role: 'system', content: CACHED_SYSTEM_PREFIX },
-        { role: 'user', content: dynamicPrompt }
-      ],
+    const provider = createProvider();
+    const response = await provider.complete({
+      system: CACHED_SYSTEM_PREFIX,
+      messages: [{ role: 'user', content: dynamicPrompt }],
       temperature: 0.3,
-      max_tokens: 600,
-      response_format: { type: 'json_object' },
+      maxTokens: 600,
+      responseFormat: 'json',
     });
 
-    const result = JSON.parse(response.choices[0].message.content || '{}');
+    const result = JSON.parse(response.text || '{}');
 
     return {
       intentAnalysis: result.intentAnalysis || '',

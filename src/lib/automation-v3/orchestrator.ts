@@ -23,247 +23,16 @@ import { detectEmotion, buildEmotionPromptBlock } from '@/lib/ai/emotional-intel
 import { loadCustomerNotes, extractNoteworthyFacts, saveCustomerNotes } from '@/lib/ai/customer-notes';
 import { buildProactiveSuggestions, getNextAvailableSlotSuggestions } from '@/lib/ai/intent-chain';
 import { checkAndProcessSessionSummary, loadRecentSummaries } from '@/lib/ai/memory';
+import { buildPrompt } from './prompt-builder';
+import { executeTool } from './tool-executor';
+import { runFSMAndGenerateResponse } from './result-builder';
 
 // Phase 4 Intelligence imports
 import { compressConversationHistory } from './memory-compressor';
 import { getVariant, isFeatureEnabled, trackRequestExperiments } from './experiments';
 import { flushMetrics } from '@/lib/ai/metrics';
 
-function buildPrompt(
-  config: WorkspaceConfig,
-  replyLanguage: string,
-  ragExamples: { customer_message: string, owner_reply: string }[] | undefined,
-  platform: 'instagram' | 'whatsapp',
-  skipTools = false,
-  services?: any[],
-  recentSummaries?: string[],
-  session?: any,
-  customerNotes?: string[],
-  emotionBlock?: string,
-  proactiveBlock?: string,
-  crossChannelNote?: string
-): string {
-  const businessDesc = config.businessType === 'appointments'
-    ? 'a service-based business that takes appointments'
-    : 'an online store that sells products';
 
-  const toneMap: Record<string, string> = {
-    'Casual': 'Casual & friendly — like a cool employee texting a friend.',
-    'Professional': 'Professional & polished — courteous, precise, zero slang.',
-    'Luxury': 'Luxury & premium — elegant, refined, exclusive language.',
-    'Sarcastic': 'Sarcastic & witty — helpful but with dry humor. Never rude.',
-  };
-  const tone = toneMap[config.tone] || toneMap['Professional'];
-
-  const emojiRule = config.useEmojis
-    ? 'You may use up to 1 emoji per message, only when it feels natural. EXCEPTION: If the customer is frustrated, angry, or using ALL CAPS, do NOT use any emojis at all — they come across as dismissive and insincere.'
-    : 'Do NOT use any emojis. Zero. No exceptions.';
-
-  let serviceCatalogBlock = '';
-  if (config.businessType === 'appointments' && services && services.length > 0) {
-    const serviceLines = services.map(s =>
-      `- ${s.name}: $${s.price}, ${s.durationMinutes || s.duration} min`
-    ).join('\n');
-    serviceCatalogBlock = `\nSERVICES MENU (from database):\n${serviceLines}\n`;
-  }
-
-  let shippingBlock = '';
-  if (config.shippingRules) {
-    shippingBlock = `\nSHIPPING & DELIVERY RULES:\n${config.shippingRules}\n`;
-  }
-
-  const lengthRule = 'Keep replies short and DM-style. 1–3 sentences max. No paragraphs. Be natural, not robotic.';
-
-  let memoryBlock = '';
-  if (recentSummaries && recentSummaries.length > 0) {
-    memoryBlock = `\nRECALLED CONVERSATION HISTORY (summaries of prior sessions):\n${recentSummaries.map((s, idx) => `- Session ${idx + 1}: ${s}`).join('\n')}\nUse these summaries to remember what was previously discussed with this customer if they refer to past events, choices, or agreements. Do not mention that you are retrieving this from database memory.\n`;
-  }
-
-  let notesBlock = '';
-  if (customerNotes && customerNotes.length > 0) {
-    notesBlock = `\nCUSTOMER MEMORY (things you know about this person):\n${customerNotes.map(n => `- ${n}`).join('\n')}\nUse these naturally in conversation. Never say "according to my notes" — just reference them as if you personally remember.\n`;
-  }
-
-  let sessionBlock = '';
-  if (session) {
-    sessionBlock = `\nCURRENT CONVERSATION STATE:\n- Current Stage: ${session.state}\n- Loop Count: ${session.loopCount}\n- Last Bot Message: ${session.lastBotMessage || 'None'}\n`;
-  }
-
-  let identityNote = '';
-  if (crossChannelNote) {
-    identityNote = `\n${crossChannelNote}\n`;
-  }
-
-  return `You are the DM manager of "${config.businessName}", ${businessDesc}.
-You're chatting with a customer on ${platform === 'whatsapp' ? 'WhatsApp' : 'Instagram DMs'}.
-
-UNDERSTANDING ARABIZI/FRANCO-ARABIC INPUT:
-Customers may write in Lebanese Arabizi (Franco-Arabic) where numbers replace Arabic letters. Common mappings: 3=ع (ain), 7=ح (ha), 2=ء/ق (hamza/qaf), 5=خ (kha), 8=غ (ghain), 6=ط (ta). Examples: "e7joz" = "I want to book", "3ndkn" = "do you have", "nhar l a7ad" = "Sunday", "mar7aba" = "hello", "addesh" = "how much", "se3r" = "price", "maw3ed" = "appointment". If you receive a message mixing numbers and Latin letters, try to interpret it as Arabizi before asking the customer to repeat.
-${memoryBlock}${notesBlock}${identityNote}${sessionBlock}${emotionBlock || ''}${proactiveBlock || ''}
-RULES:
-1. ${lengthRule}
-2. ${tone}
-3. ${emojiRule}
-4. You are HUMAN. Never say you're an AI or bot.
-5. ONLY reply EXACTLY with [HANDOFF] if the user explicitly asks for a human agent.
-
-${config.systemInstructions ? `BUSINESS INFO:\n${config.systemInstructions}` : ''}
-${config.storeLocation ? `LOCATION: ${config.storeLocation}` : ''}
-${config.contactInfo ? `CONTACT: ${config.contactInfo}` : ''}
-${shippingBlock}${serviceCatalogBlock}`;
-}
-
-async function executeTool(
-  toolName: string,
-  message: string,
-  entities: Record<string, any>,
-  toolCtx: any
-): Promise<any> {
-  const timeCtx = buildTimeContext(toolCtx.config.timezone);
-
-  if (toolName === 'search_products' || toolName === 'check_stock') {
-    const { searchProducts } = await import('@/lib/ai/ecommerce/products');
-    const query = entities.productName || toolCtx.session?.data?.productName || message;
-    const products = await searchProducts({ supabase: toolCtx.supabase, workspaceId: toolCtx.workspaceId, query });
-    return {
-      products: products.map(p => ({
-        name: p.itemName,
-        price: p.price,
-        inStock: p.stockLevel > 0,
-        stock: p.stockLevel,
-        colors: (p as any).colors || undefined,
-        sizes: (p as any).sizes || undefined,
-        variants: p.variants || []
-      })),
-      count: products.length
-    };
-  }
-
-  if (toolName === 'get_business_hours') {
-    const { loadBusinessHours } = await import('@/lib/ai/appointments/hours');
-    const hours = await loadBusinessHours(toolCtx.supabase, toolCtx.workspaceId);
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    return { hours: hours.map(h => ({ day: dayNames[h.dayOfWeek], isOpen: h.isOpen, open: h.isOpen ? formatTime12(h.openTime) : null, close: h.isOpen ? formatTime12(h.closeTime) : null })) };
-  }
-
-  if (toolName === 'check_slot') {
-    const { loadActiveServices, findBestServiceMatch } = await import('@/lib/ai/appointments/services');
-    const { checkAvailability } = await import('@/lib/ai/appointments/availability');
-    const { loadBusinessHours } = await import('@/lib/ai/appointments/hours');
-    const services = await loadActiveServices(toolCtx.supabase, toolCtx.workspaceId);
-    const serviceName = entities.serviceName || toolCtx.session?.data?.serviceName || '';
-    const match = findBestServiceMatch(services, serviceName);
-    if (!match) return { available: false, reason: 'service_not_found', services_available: services.map(s => s.name) };
-
-    const date = resolveDateFromMessage(message, timeCtx);
-    const time = resolveTimeFromMessage(message);
-    if (!date || !time) {
-      return { available: false, reason: 'missing_date_time', message: 'Preferred date and time are missing from message.' };
-    }
-
-    const hours = await loadBusinessHours(toolCtx.supabase, toolCtx.workspaceId);
-    const r = await checkAvailability({ supabase: toolCtx.supabase, workspaceId: toolCtx.workspaceId, date, startTime: time, durationMinutes: match.durationMinutes, businessHours: hours });
-    if (r.available) return { available: true, service: match.name, price: match.price, duration: match.durationMinutes, date, time: formatTime12(time) };
-    return { available: false, reason: r.reason || 'overlap', message: 'Slot taken' };
-  }
-
-  if (toolName === 'get_services') {
-    const { loadActiveServices } = await import('@/lib/ai/appointments/services');
-    const services = await loadActiveServices(toolCtx.supabase, toolCtx.workspaceId);
-    return {
-      services: services.map(s => ({
-        name: s.name,
-        price: s.price,
-        duration: s.durationMinutes,
-        description: s.description || null
-      })),
-      count: services.length
-    };
-  }
-
-  if (toolName === 'lookup_customer') {
-    const { getKnownCustomerDetails } = await import('@/lib/ai/customer-history');
-    const known = await getKnownCustomerDetails(toolCtx.supabase, toolCtx.workspaceId, toolCtx.chatId);
-    if (!known) return { found: false };
-    return { found: true, name: known.name, phone: known.phone, address: known.address };
-  }
-
-  if (toolName === 'send_booking_flow') {
-    const { loadActiveServices, findBestServiceMatch } = await import('@/lib/ai/appointments/services');
-    const services = await loadActiveServices(toolCtx.supabase, toolCtx.workspaceId);
-    const match = findBestServiceMatch(services, entities.serviceName || '');
-    if (!match) return { success: false, error: 'Service not found' };
-
-    const isSimulator = toolCtx.chatId.startsWith('sim_') || toolCtx.chatId.includes('simulator');
-    if (isSimulator) {
-      return { success: true, message: `Sent booking flow for ${match.name} (Simulated)` };
-    }
-
-    const { data: ws } = await toolCtx.supabase.from('ai_settings').select('whatsapp_booking_flow_id, whatsapp_phone_number_id, whatsapp_access_token').eq('id', toolCtx.workspaceId).maybeSingle();
-    if (!ws?.whatsapp_phone_number_id || !ws?.whatsapp_access_token) return { success: false, error: 'WhatsApp credentials missing' };
-
-    const creds = { phoneNumberId: ws.whatsapp_phone_number_id, accessToken: ws.whatsapp_access_token };
-    if (ws.whatsapp_booking_flow_id) {
-      const { sendFlow } = await import('@/lib/whatsapp/send');
-      await sendFlow(
-        creds,
-        toolCtx.chatId,
-        ws.whatsapp_booking_flow_id,
-        `book_${match.id}_${Date.now()}`,
-        `📅 Ready to book your *${match.name}*?\n\nTap below to open the booking form and select a time!`,
-        'Book Appointment',
-        'BOOKING_DETAILS',
-        { service_id: match.id, service_name: match.name },
-        toolCtx.config.businessName || 'Booking',
-        'Powered by GhostAgent'
-      );
-      return { success: true, message: `Sent native booking flow for ${match.name}` };
-    }
-    return { success: false, error: 'Flow ID missing' };
-  }
-
-  if (toolName === 'send_product_card') {
-    if (toolCtx.platform !== 'whatsapp') return { success: false, error: 'Only available on WhatsApp' };
-
-    const { searchProducts, findBestProductMatch } = await import('@/lib/ai/ecommerce/products');
-    const productQuery = entities.productName || toolCtx.session?.data?.productName || '';
-    const products = await searchProducts({ supabase: toolCtx.supabase, workspaceId: toolCtx.workspaceId, query: productQuery });
-    const match = findBestProductMatch(products, productQuery);
-    if (!match) return { success: false, error: 'Product not found' };
-
-    const isSimulator = toolCtx.chatId.startsWith('sim_') || toolCtx.chatId.includes('simulator');
-    if (isSimulator) {
-      return { success: true, message: `Sent product card for ${match.itemName} (Simulated)` };
-    }
-
-    const { data: ws } = await toolCtx.supabase.from('ai_settings').select('whatsapp_catalog_id, whatsapp_phone_number_id, whatsapp_access_token').eq('id', toolCtx.workspaceId).maybeSingle();
-    if (!ws?.whatsapp_phone_number_id || !ws?.whatsapp_access_token) return { success: false, error: 'WhatsApp credentials missing' };
-
-    if (!ws.whatsapp_catalog_id) {
-      const { sendButtons } = await import('@/lib/whatsapp/send');
-      await sendButtons(
-        { phoneNumberId: ws.whatsapp_phone_number_id, accessToken: ws.whatsapp_access_token },
-        toolCtx.chatId,
-        `🛍️ *${match.itemName}*\n\nPrice: *$${match.price}*\nStock: ${match.stockLevel > 0 ? '✅ In Stock' : '❌ Out of Stock'}\n\nTap below if you'd like to order!`,
-        [{ id: `buy_now_${match.id}`, title: '🛍️ Order Now' }],
-        match.itemName,
-        'Powered by GhostAgent'
-      );
-      return { success: true, message: `Sent product details button (Catalog fallback) for ${match.itemName}` };
-    }
-
-    const { sendSingleProductCard } = await import('@/lib/whatsapp/catalog');
-    await sendSingleProductCard(
-      { phoneNumberId: ws.whatsapp_phone_number_id, accessToken: ws.whatsapp_access_token },
-      toolCtx.chatId,
-      ws.whatsapp_catalog_id,
-      match.id
-    );
-    return { success: true, message: `Sent product card for ${match.itemName}` };
-  }
-
-  return null;
-}
 
 export async function orchestrate(
   input: AutomationInput,
@@ -308,6 +77,23 @@ export async function orchestrate(
   );
   let stateBefore = session.state;
 
+  // HANDOFF AUTO-RECOVERY: If customer messages us after handoff and isn't asking for human, treat as fresh
+  if (stateBefore === 'handoff') {
+    const isHandoffRequest = /human|agent|manager|7ada|\u0641\u0627\u0639\u0644|\u0634\u062e\u0635|\u0628\u0634\u0631/i.test(input.message);
+    if (!isHandoffRequest) {
+      v2log.info('ORCHESTRATOR', 'Auto-recovering from handoff to idle (new intent detected)', {
+        message: input.message.substring(0, 50),
+      });
+      session.state = 'idle';
+      session.loopCount = 0;
+      session.lastBotMessage = null;
+      session.data = {};
+      session.stateEnteredAt = new Date().toISOString();
+      stateBefore = 'idle';
+      await saveSession(input.supabase, session, config.businessType);
+    }
+  }
+
   // Check for stage duration timeout before processing to prevent split-brain states
   if (session.state !== 'idle' && session.stateEnteredAt) {
     const { STATE_CONFIGS } = await import('@/lib/ai/state-validator');
@@ -324,6 +110,7 @@ export async function orchestrate(
         });
         session.state = stateConfig.fallbackState || 'idle';
         session.loopCount = 0;
+        session.lastBotMessage = null;
         session.stateEnteredAt = new Date().toISOString();
         stateBefore = session.state;
         await saveSession(input.supabase, session, config.businessType);
@@ -374,7 +161,7 @@ export async function orchestrate(
     }
 
     const handoffReply = replyLang === 'arabizi'
-      ? 'L7aza, 3am nwaslak ma3 7ada mn l team.'
+      ? 'La7za, 3am nwaslak ma3 7ada mn l team.'
       : 'Connecting you to a human agent shortly...';
 
     return {
@@ -391,97 +178,7 @@ export async function orchestrate(
     };
   };
 
-  const runFSMAndGenerateResponse = async (fsmRes: any): Promise<AutomationResult> => {
-    const validation = validateTransition(stateBefore, fsmRes.nextState as any, session.loopCount, session.stateEnteredAt);
-    let finalState = validation.approvedStage;
-    let loopCount = validation.resetLoop ? 0 : (fsmRes.nextState === stateBefore ? session.loopCount + 1 : 0);
 
-    if (validation.forceMenu) {
-      return await returnHandoff(`[HANDOFF] Loop/timeout limit exceeded.`, fsmRes.actions);
-    }
-
-    session.state = finalState;
-    session.loopCount = loopCount;
-
-    const systemPrompt = buildPrompt(
-      config,
-      replyLang,
-      [],
-      input.platform,
-      true, // skipTools
-      activeServices || activeProducts,
-      recentSummaries,
-      session,
-      customerNotes,
-      emotionBlock,
-      proactiveBlock,
-      crossChannelNote
-    );
-
-    const responseGenResult = await generateResponse({
-      systemInstruction: systemPrompt,
-      conversationHistory: history.map(h => ({
-        role: h.role,
-        content: typeof h.content === 'string' ? h.content : JSON.stringify(h.content)
-      })).concat([{ role: 'user', content: input.message }]),
-      currentState: session.state,
-      customerProfile: session.customerProfile,
-      toolResults: [],
-      requiredLanguageScript: replyLang as any,
-      channel: input.platform,
-      strategy: null,
-      workspaceConfig: config,
-      timeContext: {
-        dayName: timeCtx.dayName,
-        isoDate: timeCtx.isoDate,
-        isoTime: timeCtx.isoTime
-      },
-      fsmContext: fsmRes.context ? {
-        actionType: fsmRes.context.actionType,
-        payload: {
-          productName: fsmRes.context.payload?.productName,
-          serviceName: fsmRes.context.payload?.serviceName,
-          price: fsmRes.context.payload?.price,
-          date: fsmRes.context.payload?.date,
-          time: fsmRes.context.payload?.time,
-          missingDetails: fsmRes.context.payload?.missingDetails,
-          isReadyToConfirm: fsmRes.context.payload?.isReadyToConfirm,
-          isAwaitingVariant: fsmRes.context.payload?.isAwaitingVariant,
-        }
-      } : undefined
-    });
-
-    const reply = responseGenResult.text;
-    session.lastBotMessage = reply;
-    session.stateEnteredAt = new Date().toISOString();
-
-    await saveSession(input.supabase, session, config.businessType);
-
-    // Save metrics
-    metrics.addActions(fsmRes.actions).addLlmCall(0);
-    if (fsmRes.dbWriteSuccess) {
-      if (config.businessType === 'ecommerce') metrics.setOrderCreated();
-      if (config.businessType === 'appointments') metrics.setAppointmentCreated();
-    }
-    await emitMetric(input.supabase, metrics.setState(stateBefore, finalState).build());
-
-    const responseActions = [...fsmRes.actions];
-    if (!responseActions.includes('v3_brain_reply')) responseActions.push('v3_brain_reply');
-    if (!responseActions.includes('llm_reply')) responseActions.push('llm_reply');
-
-    return {
-      shouldReply: true,
-      replyText: reply,
-      actions: responseActions,
-      stateBefore,
-      stateAfter: finalState,
-      debug: {
-        requestId, engineVersion: 'v3-agent', workspaceId: input.workspaceId, workspaceType: config.businessType,
-        chatId: input.chatId, language: detected, dbWriteAttempted: fsmRes.dbWriteAttempted, dbWriteSuccess: fsmRes.dbWriteSuccess,
-        intent: responseActions[0] || 'fsm_flow', durationMs: Date.now() - startTime
-      }
-    };
-  };
 
   // Phase 3: Emotional Intelligence (rule-based, no LLM call)
   const emotionSignal = detectEmotion(input.message, history);
@@ -581,8 +278,8 @@ export async function orchestrate(
   const isAwaitingDetailsAppt = ['awaiting_service', 'awaiting_date_time', 'awaiting_customer_details', 'awaiting_booking_confirmation', 'post_appointment_modify'].includes(stateBefore);
 
   if ((config.businessType === 'ecommerce' && isAwaitingDetailsEcom) ||
-      (config.businessType === 'appointments' && isAwaitingDetailsAppt)) {
-    
+    (config.businessType === 'appointments' && isAwaitingDetailsAppt)) {
+
     v2log.info('ORCHESTRATOR', `Routing to active deterministic FSM flow: ${stateBefore}`);
     let fsmRes: any;
     if (config.businessType === 'ecommerce') {
@@ -591,7 +288,11 @@ export async function orchestrate(
       fsmRes = await runAppointmentFSM(input.message, session, config, input.supabase);
     }
 
-    return await runFSMAndGenerateResponse(fsmRes);
+    return await runFSMAndGenerateResponse({
+      fsmRes, stateBefore, session, history, input, config, replyLang, timeCtx,
+      activeServices, activeProducts, recentSummaries, customerNotes, emotionBlock, proactiveBlock, crossChannelNote,
+      metrics, startTime, requestId, detected, returnHandoff
+    });
   }
 
   // 5. RUN INTENT CLASSIFICATION (using DeepSeek)
@@ -611,8 +312,8 @@ export async function orchestrate(
   const isApptIntent = intent === 'booking_intent';
 
   if ((config.businessType === 'ecommerce' && isEcomIntent) ||
-      (config.businessType === 'appointments' && isApptIntent)) {
-    
+    (config.businessType === 'appointments' && isApptIntent)) {
+
     v2log.info('ORCHESTRATOR', `Starting FSM flow based on intent: ${intent}`);
     let fsmRes: any;
     if (config.businessType === 'ecommerce') {
@@ -620,7 +321,11 @@ export async function orchestrate(
     } else {
       fsmRes = await runAppointmentFSM(input.message, session, config, input.supabase);
     }
-    return await runFSMAndGenerateResponse(fsmRes);
+    return await runFSMAndGenerateResponse({
+      fsmRes, stateBefore, session, history, input, config, replyLang, timeCtx,
+      activeServices, activeProducts, recentSummaries, customerNotes, emotionBlock, proactiveBlock, crossChannelNote,
+      metrics, startTime, requestId, detected, returnHandoff
+    });
   }
 
   // 7. DIRECT ROUTE FOR CANCELLATION / RESCHEDULING INTENTS
@@ -633,14 +338,22 @@ export async function orchestrate(
     session.state = 'post_order_modify';
     session.stateEnteredAt = new Date().toISOString();
     const fsmRes = await runEcommerceFSM(input.message, session, config, input.supabase);
-    return await runFSMAndGenerateResponse(fsmRes);
+    return await runFSMAndGenerateResponse({
+      fsmRes, stateBefore, session, history, input, config, replyLang, timeCtx,
+      activeServices, activeProducts, recentSummaries, customerNotes, emotionBlock, proactiveBlock, crossChannelNote,
+      metrics, startTime, requestId, detected, returnHandoff
+    });
   }
 
   if (config.businessType === 'appointments' && (isCancelAppt || isReschedAppt)) {
     session.state = 'post_appointment_modify';
     session.stateEnteredAt = new Date().toISOString();
     const fsmRes = await runAppointmentFSM(input.message, session, config, input.supabase);
-    return await runFSMAndGenerateResponse(fsmRes);
+    return await runFSMAndGenerateResponse({
+      fsmRes, stateBefore, session, history, input, config, replyLang, timeCtx,
+      activeServices, activeProducts, recentSummaries, customerNotes, emotionBlock, proactiveBlock, crossChannelNote,
+      metrics, startTime, requestId, detected, returnHandoff
+    });
   }
 
   // 8. HUMAN HANDOFF INTENT
@@ -651,16 +364,6 @@ export async function orchestrate(
   // 9. FALLBACK DECOUPLED PIPELINE (Thinking Layer -> Executing Tools -> Response Generator)
   v2log.info('ORCHESTRATOR', 'Running Inverted Fallback Pipeline: Thinking Layer first');
 
-  // Step 1: Execute Strategy/Thinking layer
-  const strategy = await runThinkingLayer(
-    input.message,
-    session,
-    detected,
-    [], // Pass empty tool results first
-    config
-  );
-
-  // Step 2 & 3: Read toolsNeeded and execute tools sequentially
   const toolResults: ToolResult[] = [];
   const actions: string[] = [];
 
@@ -674,7 +377,47 @@ export async function orchestrate(
     session,
   };
 
+  // PROACTIVE TOOL EXECUTION: Pre-execute tools for known intent patterns
+  // so the response generator has real data from the start
+  const PROACTIVE_TOOLS: Record<string, string[]> = {
+    product_question: ['search_products'],
+    price_question: ['search_products'],
+    product_availability: ['search_products'],
+    purchase_intent: ['search_products'],
+    service_question: ['get_services'],
+    booking_intent: ['get_services'],
+    business_hours: ['get_business_hours'],
+  };
+
+  const proactiveTools = PROACTIVE_TOOLS[intent];
+  if (proactiveTools && proactiveTools.length > 0) {
+    for (const toolName of proactiveTools) {
+      v2log.info('ORCHESTRATOR', `Proactive tool execution: ${toolName} (intent: ${intent})`);
+      try {
+        const res = await executeTool(toolName, input.message, classification.entities || {}, toolCtxFallback);
+        if (res !== null) {
+          toolResults.push({ tool: toolName, result: res });
+          actions.push('proactive_tool_' + toolName);
+        }
+      } catch (err) {
+        v2log.warn('ORCHESTRATOR', `Failed proactive tool: ${toolName}`, { error: err });
+      }
+    }
+  }
+
+  // Step 1: Execute Strategy/Thinking layer WITH pre-loaded tool results
+  const strategy = await runThinkingLayer(
+    input.message,
+    session,
+    detected,
+    toolResults,
+    config
+  );
+
+  // Step 2 & 3: Read additional toolsNeeded and execute tools sequentially
+  const alreadyExecuted = new Set(toolResults.map(r => r.tool));
   for (const toolName of strategy.toolsNeeded) {
+    if (alreadyExecuted.has(toolName)) continue; // Skip already-executed proactive tools
     v2log.info('ORCHESTRATOR', `Executing tool: ${toolName}`);
     try {
       const res = await executeTool(toolName, input.message, classification.entities || {}, toolCtxFallback);
@@ -700,7 +443,8 @@ export async function orchestrate(
     customerNotes,
     emotionBlock,
     proactiveBlock,
-    crossChannelNote
+    crossChannelNote,
+    config.language
   );
 
   const responseGenResult = await generateResponse({
@@ -741,9 +485,9 @@ export async function orchestrate(
     ];
     extractNoteworthyFacts(conversationForNotes, customerNotes).then(notes => {
       if (notes.length > 0) {
-        saveCustomerNotes(input.supabase, input.workspaceId, input.chatId, input.platform, notes).catch(() => {});
+        saveCustomerNotes(input.supabase, input.workspaceId, input.chatId, input.platform, notes).catch(() => { });
       }
-    }).catch(() => {});
+    }).catch(() => { });
   } catch (e) {
     // Non-critical note saving fallback
   }
@@ -761,8 +505,34 @@ export async function orchestrate(
   let finalStage = validation.approvedStage;
   let loopCount = validation.resetLoop ? 0 : (strategy.suggestedNextState === session.state ? session.loopCount + 1 : 0);
 
+  // FIX: forceMenu was calling returnHandoff() which created a recursive trap.
+  // Instead, reset to idle with a friendly message.
   if (validation.forceMenu) {
-    return await returnHandoff(`[HANDOFF] Loop/timeout limit exceeded.`, actions);
+    v2log.warn('ORCHESTRATOR', 'forceMenu triggered — resetting to idle instead of handoff trap', {
+      currentState: session.state, loopCount: session.loopCount
+    });
+    session.state = 'idle';
+    session.loopCount = 0;
+    session.lastBotMessage = null;
+    session.data = {};
+    session.stateEnteredAt = new Date().toISOString();
+    await saveSession(input.supabase, session, config.businessType);
+
+    const freshStartReply = replyLang === 'arabizi' || replyLang === 'franco'
+      ? 'Hey! Kifak? Shou fi beddak?'
+      : 'Hey! How can I help you today?';
+    return {
+      shouldReply: true,
+      replyText: freshStartReply,
+      actions: [...actions, 'force_menu_reset'],
+      stateBefore,
+      stateAfter: 'idle',
+      debug: {
+        requestId, engineVersion: 'v3-agent', workspaceId: input.workspaceId, workspaceType: config.businessType,
+        chatId: input.chatId, language: detected, dbWriteAttempted: false, dbWriteSuccess: false,
+        intent: 'force_menu_reset', durationMs: Date.now() - startTime
+      }
+    };
   }
 
   if (reply.includes('[HANDOFF]') || finalStage === 'handoff') {
@@ -780,7 +550,7 @@ export async function orchestrate(
   await emitMetric(input.supabase, metrics.setState(stateBefore, finalStage).build());
 
   // Phase 4: Track experiment results (fire-and-forget)
-  trackRequestExperiments(input.supabase, input.workspaceId, actions, finalStage).catch(() => {});
+  trackRequestExperiments(input.supabase, input.workspaceId, actions, finalStage).catch(() => { });
 
   // Phase 4: Flush metrics before returning (important for serverless)
   await flushMetrics();
