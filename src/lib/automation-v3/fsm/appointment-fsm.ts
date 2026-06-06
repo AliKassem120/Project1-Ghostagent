@@ -586,6 +586,35 @@ export async function runAppointmentFSM(
       };
     }
   } else {
+    // No service matched — but check if this is a mid-booking question
+    // (e.g. "How long does it take?", "Where are you located?", "How much?")
+    // If the customer already has booking context (service selected, date/time given),
+    // don't loop awaiting_service — break out to idle so the LLM fallback pipeline
+    // can answer contextually using conversation history.
+    const isFollowUpQuestion = /\b(how much|price|cost|long|duration|minute|hour|where|location|address|park|cancel|reschedule|change|what|which|can you|do you|is there|are there|open|close|available|عنوان|وين|كم|سعر|وقت|ساعة|دقيقة)\b/i.test(message);
+    const hasExistingContext = !!(session.data?.service || session.data?.name || session.data?.date);
+
+    if (isFollowUpQuestion && hasExistingContext && currentState === 'awaiting_service') {
+      // Break out of FSM loop — let LLM answer the question with full context
+      return {
+        nextState: 'idle',
+        actions: [...actions, 'mid_booking_question_detected'],
+        context: {
+          actionType: 'defer_to_llm',
+          payload: {
+            serviceNotFound: true,
+            query: message,
+            existingService: session.data.service,
+            existingDate: session.data.date,
+            existingTime: session.data.time,
+            reason: 'Customer asked a follow-up question during booking flow'
+          }
+        },
+        dbWriteAttempted,
+        dbWriteSuccess
+      };
+    }
+
     // List services
     const targetState = (currentState === 'idle' || currentState === 'awaiting_service')
       ? 'awaiting_service'
