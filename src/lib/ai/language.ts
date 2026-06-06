@@ -243,8 +243,35 @@ function normalizeRepeatedLetters(input: string): string {
 // ── Name/Phone/Address Extraction (heuristic) ───────────────
 
 export function extractPhone(message: string): string | null {
-    const match = message.match(/(?:\+?\d[\d\s().\-]{6,}\d)/);
+    const match = message.match(/(?:\+?\d[\d\s().\-]{6,}\d)(?!\w)/);
     return match ? match[0].replace(/[\s()\-.]/g, '').trim() : null;
+}
+
+const NAME_EXCLUDE_WORDS = new Set([
+    'my', 'name', 'is', 'im', 'i', 'am', 'esme', 'esmi', 'ana', 'phone', 'number', 'tel', 'ra2m', 'رقم', 'اسمي', 'انا',
+    'address', '3nwen', '3nwene', 'عنوان', 'to', 'for', 'from', 'with', 'at', 'in', 'on', 'of', 'and', 'the', 'a', 'an',
+    'want', 'need', 'buy', 'order', 'purchase', 'get', 'take', 'have', 'deliver', 'delivered', 'delivery', 'towsil', 'tawsil',
+    'ship', 'shipped', 'shipping', 'send', 'sent', 'sending', 'book', 'booked', 'booking', 'reserve', 'reserved', 'reservation',
+    'schedule', 'scheduled', 'appoint', 'appointment', 'confirm', 'confirmed', 'cancel', 'cancelled', 'update', 'updated',
+    'change', 'changed', 'bade', 'baddi', 'badde', 'baddak', 'baddik', 'e5od', 'e5ud', 'ekhod', '7ajez', 'hajez',
+    'okay', 'ok', 'please', 'thanks', 'thank', 'khaye', 'e5te', 'enshalla', 'yes', 'no', 'yeah', 'yep', 'nah', 'nope',
+    'hi', 'hello', 'hey', 'marhaba', 'ahlan', 'can', 'could', 'would', 'should',
+    'how', 'what', 'where', 'when', 'why', 'who', 'much', 'price', 'se3r', 'se3ro', 'cost',
+    'cod', 'cash', 'pay', 'payment', 'money', 'dollar', 'dollars', 'usd', 'lbp', 'lira',
+    'beirut', 'hamra', 'rweis', 'dahye', 'dahyeh', 'ashrafieh', 'achrafieh', 'jounieh', 'tripoli', 'saida', 'sidon',
+    'tyre', 'sour', 'nabatieh', 'baabda', 'sin el fil', 'bourj', 'dekwanh', 'zahle', 'jbeil', 'byblos', 'aley', 'chouf',
+    'khalde', 'aramoun', 'bchamoun', 'hadath', 'hazmieh', 'chiyah', 'ghobeiry', 'haret hreik', 'mreijeh', 'tariq el jdideh',
+    'tariq jdideh', 'verdn', 'verdun', 'corniche', 'mar mikhael', 'gemmayzeh', 'badaro', 'ras beirut', 'raouche', 'koreitem',
+    'jal el dib', 'antelias', 'zalka', 'dbayeh', 'baouchriyeh', 'deknaneh', 'mansourieh', 'fanar', 'ein el remmaneh',
+    'furn el chebbak', 'bourj hammoud', 'dahiyeh',
+    'بناية', 'شارع', 'طابق', 'حداد', 'منطقة', 'قرب', 'مقبل', 'حد', 'جنب', 'ورا', 'قدام'
+]);
+
+function cleanNameStr(s: string): string {
+    return s.split(/\s+/)
+        .filter(w => w.length > 1 && !NAME_EXCLUDE_WORDS.has(w.toLowerCase()))
+        .join(' ')
+        .trim();
 }
 
 /**
@@ -258,47 +285,65 @@ export function extractPhone(message: string): string | null {
 export function extractNameAndPhone(message: string): { name: string | null; phone: string | null } {
     const phone = extractPhone(message);
     if (!phone) {
-        // No phone → check if the whole message is just a name
-        const cleaned = message.replace(/[,\-:]/g, ' ').replace(/\s+/g, ' ').trim();
-        const skipWords = ['my', 'name', 'is', 'im', 'i', 'am', 'esme', 'esmi', 'ana', 'phone', 'number', 'tel', 'ra2m', 'رقم', 'اسمي', 'انا'];
-        const nameCandidate = cleaned.split(' ').filter(w => w.length > 1 && !skipWords.includes(w.toLowerCase())).join(' ').trim();
+        // No phone -> check if we have an explicit introduction phrase
+        const introMatch = message.match(/(?:my\s+name\s+is|esme|esmi|ismme|اسمي|اسم)\s*[:.]?\s*([a-zA-Z\s\u0600-\u06FF]+)/i);
+        if (introMatch && introMatch[1]) {
+            const nameCandidate = cleanNameStr(introMatch[1]);
+            return { name: nameCandidate || null, phone: null };
+        }
+
+        // Check if word count is too large for just a name
+        const cleanedText = message.replace(/[,\-:]/g, ' ').replace(/\s+/g, ' ').trim();
+        const words = cleanedText.split(' ');
+        if (words.length > 3) {
+            // It's a sentence/address, not just a name
+            return { name: null, phone: null };
+        }
+
+        const nameCandidate = cleanNameStr(cleanedText);
         return { name: nameCandidate || null, phone: null };
     }
 
     // Remove the phone from the message to process remaining parts
     const remaining = message.replace(phone, '').replace(/[\+\-\(\)]/g, ' ').replace(/\s+/g, ' ').trim();
 
-    // Try comma-separated: "Ali, 71123456, Hamra"
-    const commaParts = remaining.split(',').map(p => p.trim()).filter(p => p.length > 0);
-    if (commaParts.length >= 1) {
-        const nameCandidate = cleanNamePart(commaParts[0]);
-        return { name: nameCandidate || null, phone };
-    }
-
-    // Try labeled format
+    // Check if remaining has explicit name labels
     const labeledName = remaining.match(/(?:name|esme|esmi|ism|ismme|اسمي|اسم)\s*[:.]?\s*([^\d,]+?)(?:\s+(?:phone|ra2m|ra2me|tel|number|رقم|address|3nwen|3nwene|عنوان)|$)/i);
     if (labeledName) {
-        return { name: cleanNamePart(labeledName[1]) || null, phone };
+        return { name: cleanNameStr(labeledName[1]) || null, phone };
     }
 
-    // Positional: everything before the phone number position is name
+    // Try comma-separated format
+    const commaParts = remaining.split(',').map(p => p.trim()).filter(p => p.length > 0);
+    if (commaParts.length >= 1) {
+        const nameCandidate = cleanNameStr(commaParts[0]);
+        if (nameCandidate) {
+            return { name: nameCandidate, phone };
+        }
+    }
+
+    // Positional: everything before the phone number position
     const phoneIndex = message.indexOf(phone.replace(/[\s\-\(\)]/g, '').slice(0, 4));
     if (phoneIndex > 0) {
         const beforePhone = message.slice(0, phoneIndex).replace(/[,\-:]/g, ' ').replace(/\s+/g, ' ').trim();
-        const nameCandidate = cleanNamePart(beforePhone);
-        return { name: nameCandidate || null, phone };
+        const nameCandidate = cleanNameStr(beforePhone);
+        if (nameCandidate) {
+            return { name: nameCandidate, phone };
+        }
     }
 
-    // Fallback: first non-skip word(s) before any digits
+    // Fallback: search words before phone-like numbers
     const words = remaining.split(' ');
-    const skipWords = ['my', 'name', 'is', 'im', 'i', 'am', 'esme', 'esmi', 'ana', 'phone', 'number', 'tel', 'ra2m', 'ra2me', 'رقم', 'اسمي', 'انا', 'address', '3nwen', '3nwene', 'عنوان'];
     const nameWords: string[] = [];
     for (const w of words) {
-        if (/\d{3,}/.test(w)) break; // stop at phone-like numbers
-        if (w.length > 1 && !skipWords.includes(w.toLowerCase())) nameWords.push(w);
+        if (/\d{3,}/.test(w)) break;
+        if (w.length > 1 && !NAME_EXCLUDE_WORDS.has(w.toLowerCase())) {
+            nameWords.push(w);
+        }
     }
 
-    return { name: nameWords.join(' ').trim() || null, phone };
+    const fallbackCandidate = nameWords.join(' ').trim();
+    return { name: fallbackCandidate || null, phone };
 }
 
 function cleanNamePart(s: string): string {
@@ -317,6 +362,21 @@ export function extractAddress(message: string): string | null {
     // First check for "change address to X" pattern
     const fromChange = extractAddressFromChange(message);
     if (fromChange) return fromChange;
+
+    // Try regex patterns for address prefixes
+    const ADDRESS_PATTERNS = [
+        /\b(?:deliver|delivered|delivery|ship|shipped|shipping|send|sent|towsil|tawsil|وصل|ابعت)\s*(?:it|el|l)?\s*(?:to|la|l|على|ع)?\s+(.+)/i,
+        /\b(?:address|adress|adres|addres|3nwen|3nwene|عنوان)\s*(?:is|to|la|l|هو|في)?\s+(.+)/i,
+        /\b(?:my\s+location\s+is|location)\s*(?:is|to|la|l)?\s+(.+)/i,
+    ];
+
+    for (const pat of ADDRESS_PATTERNS) {
+        const m = pat.exec(message);
+        if (m && m[1]) {
+            const addr = m[1].replace(/[,.]$/, '').trim();
+            if (addr.length > 2) return addr;
+        }
+    }
 
     const phone = extractPhone(message);
 
@@ -350,12 +410,45 @@ export function extractAddress(message: string): string | null {
 
         // Try comma-separated: "Ali, 71123456, Hamra"
         const parts = message.split(',').map(p => p.trim()).filter(p => p.length > 0);
-        if (parts.length >= 3) {
-            // Last part(s) after phone are likely address
-            const phonePart = parts.findIndex(p => p.includes(phoneRaw.slice(0, 4)));
-            if (phonePart >= 0 && phonePart < parts.length - 1) {
-                return parts.slice(phonePart + 1).join(', ').trim() || null;
+        if (parts.length >= 2) {
+            // Find phone index
+            const phonePartIdx = parts.findIndex(p => p.replace(/[\s\-\(\)]/g, '').includes(phoneRaw.slice(0, 4)));
+            if (phonePartIdx >= 0) {
+                if (phonePartIdx < parts.length - 1) {
+                    return parts.slice(phonePartIdx + 1).join(', ').trim() || null;
+                } else if (phonePartIdx > 0 && parts.length >= 3) {
+                    // Format: "Ali, Hamra, 71123456"
+                    return parts.slice(1, phonePartIdx).join(', ').trim() || null;
+                }
             }
+        }
+    }
+
+    // Try fallback check based on Lebanese location keywords
+    const LEBANESE_AREAS = [
+        'beirut', 'hamra', 'rweis', 'dahye', 'dahyeh', 'ashrafieh', 'achrafieh', 'jounieh', 'tripoli', 'saida', 'sidon',
+        'tyre', 'sour', 'nabatieh', 'baabda', 'sin el fil', 'bourj', 'dekwanh', 'zahle', 'jbeil', 'byblos', 'aley', 'chouf',
+        'khalde', 'aramoun', 'bchamoun', 'hadath', 'hazmieh', 'chiyah', 'ghobeiry', 'haret hreik', 'mreijeh', 'tariq el jdideh',
+        'tariq jdideh', 'verdn', 'verdun', 'corniche', 'mar mikhael', 'gemmayzeh', 'badaro', 'ras beirut', 'raouche', 'koreitem',
+        'jal el dib', 'antelias', 'zalka', 'dbayeh', 'baouchriyeh', 'deknaneh', 'mansourieh', 'fanar', 'ein el remmaneh',
+        'furn el chebbak', 'bourj hammoud', 'dahiyeh'
+    ];
+
+    const normalized = message.toLowerCase();
+    for (const area of LEBANESE_AREAS) {
+        const idx = normalized.indexOf(area);
+        if (idx >= 0) {
+            const beforeSub = normalized.slice(0, idx).trim();
+            const wordsBefore = beforeSub.split(/\s+/);
+            const lastWord = wordsBefore[wordsBefore.length - 1];
+            const prepositions = ['in', 'at', 'near', 'opposite', 'beside', 'facing', 'to', 'la', 'l', 'في', 'قرب', 'جنب', 'منطقتنا', 'بمنطقة'];
+            if (lastWord && prepositions.includes(lastWord)) {
+                const prepIdx = normalized.lastIndexOf(lastWord, idx);
+                if (prepIdx >= 0) {
+                    return message.slice(prepIdx).trim();
+                }
+            }
+            return message.slice(idx).trim();
         }
     }
 
