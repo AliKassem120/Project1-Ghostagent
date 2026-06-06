@@ -59,10 +59,6 @@ export async function checkUserLimit(userId: string): Promise<{ allowed: boolean
         }
 
         if (planLower === 'free_trial') {
-            const trialEnd = user.trial_ends_at ? new Date(user.trial_ends_at) : new Date(Date.now() + 86400000);
-            if (trialEnd < new Date()) {
-                return { allowed: false, reason: 'Your free trial has expired. Please upgrade your plan to continue.' };
-            }
             const TRIAL_LIMIT = getReplyLimit('starter') ?? 100;
             if (currentUsage >= TRIAL_LIMIT) {
                 return { allowed: false, reason: `You've reached the free trial limit of ${TRIAL_LIMIT} AI replies. Upgrade to a paid plan for more replies.` };
@@ -71,13 +67,9 @@ export async function checkUserLimit(userId: string): Promise<{ allowed: boolean
         }
 
         if (planLower === 'starter') {
-            const periodEnd = user.current_period_end ? new Date(user.current_period_end) : new Date(Date.now() + 86400000);
-            if (user.current_period_end && periodEnd < new Date()) {
-                return { allowed: false, reason: 'Your subscription has expired.' };
-            }
-            const STARTER_LIMIT = getReplyLimit('starter') ?? 50;
+            const STARTER_LIMIT = getReplyLimit('starter') ?? 100;
             if (currentUsage >= STARTER_LIMIT) {
-                return { allowed: false, reason: `You've reached the ${STARTER_LIMIT}-reply limit this month. Upgrade to Pro for 1,000 replies/month.` };
+                return { allowed: false, reason: `You've reached the starter plan limit of ${STARTER_LIMIT} AI replies this month. Upgrade to Pro for 1,000 replies/month.` };
             }
             return { allowed: true };
         }
