@@ -218,14 +218,15 @@ export function detectYesNo(message: string): 'yes' | 'no' | null {
     // 3. Longer messages — check for yes/no words at the START of the message
     //    This catches "Yes, my address is..." or "No, I changed my mind..."
     const firstToken = tokens[0];
-    const firstThree = tokens.slice(0, 3).join(' ');
+    const firstThreeStr = tokens.slice(0, 3).join(' ');
+    const firstThreeTokens = tokens.slice(0, 3);
     if (NO_WORDS.some(w => {
         const word = normalizeRepeatedLetters(w);
-        return firstToken === word || firstThree.includes(word);
+        return firstToken === word || (word.includes(' ') ? firstThreeStr.includes(word) : firstThreeTokens.includes(word));
     })) return 'no';
     if (YES_WORDS.some(w => {
         const word = normalizeRepeatedLetters(w);
-        return firstToken === word || firstThree.includes(word);
+        return firstToken === word || (word.includes(' ') ? firstThreeStr.includes(word) : firstThreeTokens.includes(word));
     })) return 'yes';
 
     return null;

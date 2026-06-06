@@ -83,7 +83,7 @@ describe('FSM Guardrails & Session/Loop Management', () => {
             const reply = 'Your order is confirmed and will be shipped soon!';
             const result = verifyAgentReply(reply, [], productCatalog, 'ecommerce');
             expect(result.verified).toBe(false);
-            expect(result.correctedReply).toContain('Could you please confirm your name');
+            expect(result.correctedReply).toContain('Just need your name, phone, and address to lock it in');
             expect(result.violations).toContain('order_claim_without_tool: Reply claims order was placed but place_order never succeeded');
         });
 
@@ -112,7 +112,7 @@ describe('FSM Guardrails & Session/Loop Management', () => {
             const reply = 'Sorry, that item is out of stock.';
             const result = verifyAgentReply(reply, [], productCatalog, 'ecommerce');
             expect(result.verified).toBe(false);
-            expect(result.correctedReply).toContain('Let me check the stock levels');
+            expect(result.correctedReply).toContain("Which product? I'll check stock right now.");
             expect(result.violations).toContain('stock_claim_without_check: Reply claims item is out of stock but search_products was never called');
         });
 

@@ -104,9 +104,13 @@ export async function runEcommerceFSM(
   };
 
   // Extract quantity if mentioned
-  const extractQty = (msg: string): number => {
+  const extractExplicitQty = (msg: string): number | null => {
     const match = msg.match(/\b([1-9][0-9]?)\s*(pcs|pieces|quantity|qty)?\b/);
-    return match ? parseInt(match[1], 10) : 1;
+    return match ? parseInt(match[1], 10) : null;
+  };
+
+  const extractQty = (msg: string): number => {
+    return extractExplicitQty(msg) ?? 1;
   };
 
   // Handle flow states
@@ -221,8 +225,8 @@ export async function runEcommerceFSM(
       }
 
       if (isQtyChange) {
-        const newQty = extractQty(message);
-        if (newQty > 0) {
+        const newQty = extractExplicitQty(message);
+        if (newQty !== null && newQty > 0) {
           dbWriteAttempted = true;
           actions.push('tool_update_order_quantity');
           const ok = await updateOrderQuantity(supabase, latestOrder.id, newQty);

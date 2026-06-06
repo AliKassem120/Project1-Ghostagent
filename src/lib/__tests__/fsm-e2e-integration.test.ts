@@ -144,6 +144,40 @@ function createConfig(overrides: Partial<WorkspaceConfig> = {}): WorkspaceConfig
 
 // ── Mock the LLM classifier and tools ───────────────────────
 
+const {
+  mockCreateEcommerceTools,
+  mockCreateAppointmentTools,
+  mockLookupLatestOrder,
+  mockUpdateOrderVariant,
+  mockUpdateOrderAddress,
+  mockUpdateOrderQuantity
+} = vi.hoisted(() => {
+  return {
+    mockCreateEcommerceTools: vi.fn(),
+    mockCreateAppointmentTools: vi.fn(),
+    mockLookupLatestOrder: vi.fn(),
+    mockUpdateOrderVariant: vi.fn(),
+    mockUpdateOrderAddress: vi.fn(),
+    mockUpdateOrderQuantity: vi.fn(),
+  };
+});
+
+vi.mock('../ai/tools', () => ({
+  createEcommerceTools: mockCreateEcommerceTools,
+  createAppointmentTools: mockCreateAppointmentTools,
+}));
+
+vi.mock('../ai/ecommerce/lookup', () => ({
+  lookupLatestOrder: mockLookupLatestOrder,
+  updateOrderVariant: mockUpdateOrderVariant,
+  updateOrderAddress: mockUpdateOrderAddress,
+  updateOrderQuantity: mockUpdateOrderQuantity,
+}));
+
+vi.mock('../ai/providers/llm-provider', () => ({
+  createProvider: vi.fn(),
+}));
+
 vi.mock('../ai/guardrails/confirmation-classifier', async (importOriginal) => {
   const original = await importOriginal() as any;
   return {
@@ -179,6 +213,7 @@ function buildOrderTools(success = true) {
     cancel_order: { execute: vi.fn().mockResolvedValue({ success: true }) },
     update_order: { execute: vi.fn().mockResolvedValue({ success: true }) },
     check_stock: { execute: vi.fn().mockResolvedValue({ inStock: true }) },
+    lookup_customer: { execute: vi.fn().mockResolvedValue({ found: false }) },
   };
 }
 
@@ -188,6 +223,7 @@ function buildAppointmentTools(success = true) {
     cancel_appointment: { execute: vi.fn().mockResolvedValue({ success: true }) },
     reschedule_appointment: { execute: vi.fn().mockResolvedValue({ success: true, new_time: '15:00' }) },
     check_slot: { execute: vi.fn().mockResolvedValue({ available: true }) },
+    lookup_customer: { execute: vi.fn().mockResolvedValue({ found: false }) },
   };
 }
 
@@ -321,17 +357,13 @@ describe('E2E: Order Placement Pipeline', () => {
     vi.clearAllMocks();
     mockSupabase = createMockSupabase();
     config = createConfig({ businessType: 'ecommerce' });
+    mockCreateEcommerceTools.mockReturnValue(buildOrderTools(true));
   });
 
   it('E2E-O1: Short "Yes" → order placed → dbWriteSuccess=true', async () => {
     session = createEcommerceSession();
     // Classifier will fast-path to 'yes' from "Yes"
     vi.mocked(classifyConfirmationIntent).mockResolvedValue('yes');
-
-    const tools = buildOrderTools(true);
-    vi.mock('../ai/tools', () => ({
-      createEcommerceTools: vi.fn().mockReturnValue(tools),
-    }));
 
     const result = await runEcommerceFSM('Yes', session, config, mockSupabase);
 
@@ -359,11 +391,6 @@ describe('E2E: Order Placement Pipeline', () => {
     });
     // This was the exact failure scenario — classifier now returns 'yes'
     vi.mocked(classifyConfirmationIntent).mockResolvedValue('yes');
-
-    const tools = buildOrderTools(true);
-    vi.mock('../ai/tools', () => ({
-      createEcommerceTools: vi.fn().mockReturnValue(tools),
-    }));
 
     const result = await runEcommerceFSM(
       'Yes hamra near verdun hall building 4th floor',
@@ -409,10 +436,7 @@ describe('E2E: Order Placement Pipeline', () => {
     session = createEcommerceSession();
     vi.mocked(classifyConfirmationIntent).mockResolvedValue('yes');
 
-    const tools = buildOrderTools(false);
-    vi.mock('../ai/tools', () => ({
-      createEcommerceTools: vi.fn().mockReturnValue(tools),
-    }));
+    mockCreateEcommerceTools.mockReturnValue(buildOrderTools(false));
 
     const result = await runEcommerceFSM('Yes', session, config, mockSupabase);
 
@@ -462,16 +486,12 @@ describe('E2E: Appointment Booking Pipeline', () => {
     vi.clearAllMocks();
     mockSupabase = createMockSupabase();
     config = createConfig({ businessType: 'appointments' });
+    mockCreateAppointmentTools.mockReturnValue(buildAppointmentTools(true));
   });
 
   it('E2E-A1: Short "Yes" → appointment booked → dbWriteSuccess=true', async () => {
     session = createAppointmentSession();
     vi.mocked(classifyConfirmationIntent).mockResolvedValue('yes');
-
-    const tools = buildAppointmentTools(true);
-    vi.mock('../ai/tools', () => ({
-      createAppointmentTools: vi.fn().mockReturnValue(tools),
-    }));
 
     const result = await runAppointmentFSM('Yes', session, config, mockSupabase);
 
@@ -488,11 +508,6 @@ describe('E2E: Appointment Booking Pipeline', () => {
     session = createAppointmentSession();
     // 6-token message that would have failed old detectYesNo
     vi.mocked(classifyConfirmationIntent).mockResolvedValue('yes');
-
-    const tools = buildAppointmentTools(true);
-    vi.mock('../ai/tools', () => ({
-      createAppointmentTools: vi.fn().mockReturnValue(tools),
-    }));
 
     const result = await runAppointmentFSM(
       'Yes please book me for 3pm tomorrow',
@@ -544,9 +559,7 @@ describe('E2E: Appointment Booking Pipeline', () => {
     mockSupabase = createMockSupabase({ rpc: rpcSpy });
 
     const tools = buildAppointmentTools(true);
-    vi.mock('../ai/tools', () => ({
-      createAppointmentTools: vi.fn().mockReturnValue(tools),
-    }));
+    mockCreateAppointmentTools.mockReturnValue(tools);
 
     await runAppointmentFSM('Yes', session, config, mockSupabase);
 
@@ -558,10 +571,7 @@ describe('E2E: Appointment Booking Pipeline', () => {
     session = createAppointmentSession();
     vi.mocked(classifyConfirmationIntent).mockResolvedValue('yes');
 
-    const tools = buildAppointmentTools(false);
-    vi.mock('../ai/tools', () => ({
-      createAppointmentTools: vi.fn().mockReturnValue(tools),
-    }));
+    mockCreateAppointmentTools.mockReturnValue(buildAppointmentTools(false));
 
     const result = await runAppointmentFSM('Yes', session, config, mockSupabase);
 
@@ -583,18 +593,15 @@ describe('FSM Audit: Silent-Skip Guards', () => {
     vi.clearAllMocks();
     mockSupabase = createMockSupabase();
     config = createConfig({ businessType: 'ecommerce' });
+    mockCreateEcommerceTools.mockReturnValue(buildOrderTools(true));
+    mockCreateAppointmentTools.mockReturnValue(buildAppointmentTools(true));
   });
 
   it('Guard-O1: post_order_modify with no active order returns "no_active_order" (not product search)', async () => {
     const session = createEcommerceSession({ state: 'post_order_modify', data: {} });
 
     // lookupLatestOrder returns null
-    vi.mock('../ai/ecommerce/lookup', () => ({
-      lookupLatestOrder: vi.fn().mockResolvedValue(null),
-      updateOrderVariant: vi.fn(),
-      updateOrderAddress: vi.fn(),
-      updateOrderQuantity: vi.fn(),
-    }));
+    mockLookupLatestOrder.mockResolvedValue(null);
 
     const result = await runEcommerceFSM('change my address please', session, config, mockSupabase);
 
@@ -607,16 +614,12 @@ describe('FSM Audit: Silent-Skip Guards', () => {
   it('Guard-O2: post_order_modify with invalid quantity returns needsValidQuantity re-ask', async () => {
     const session = createEcommerceSession({ state: 'post_order_modify', data: {} });
 
-    vi.mock('../ai/ecommerce/lookup', () => ({
-      lookupLatestOrder: vi.fn().mockResolvedValue({
-        id: 'order_1',
-        isEditable: true,
-        status: 'pending',
-      }),
-      updateOrderVariant: vi.fn(),
-      updateOrderAddress: vi.fn(),
-      updateOrderQuantity: vi.fn().mockResolvedValue(true),
-    }));
+    mockLookupLatestOrder.mockResolvedValue({
+      id: 'order_1',
+      isEditable: true,
+      status: 'pending',
+    });
+    mockUpdateOrderQuantity.mockResolvedValue(true);
 
     // "quantity" keyword present but no valid number
     const result = await runEcommerceFSM('change quantity please', session, config, mockSupabase);
@@ -769,6 +772,7 @@ describe('Root Cause #2: FSM context signals prevent LLM hallucination', () => {
     vi.clearAllMocks();
     mockSupabase = createMockSupabase();
     config = createConfig({ businessType: 'ecommerce' });
+    mockCreateEcommerceTools.mockReturnValue(buildOrderTools(true));
   });
 
   it('Returns isReadyToConfirm=true (NOT checkout_success) when awaiting confirmation', async () => {
@@ -796,10 +800,7 @@ describe('Root Cause #2: FSM context signals prevent LLM hallucination', () => {
     const session = createEcommerceSession();
     vi.mocked(classifyConfirmationIntent).mockResolvedValue('yes');
 
-    const tools = buildOrderTools(true);
-    vi.mock('../ai/tools', () => ({
-      createEcommerceTools: vi.fn().mockReturnValue(tools),
-    }));
+    mockCreateEcommerceTools.mockReturnValue(buildOrderTools(true));
 
     const result = await runEcommerceFSM('Yes', session, config, mockSupabase);
 
