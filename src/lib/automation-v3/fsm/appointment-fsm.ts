@@ -5,6 +5,7 @@ import { detectLanguageScript, detectYesNo, extractNameAndPhone, detectReuseSign
 import { buildTimeContext, resolveDateFromMessage, resolveTimeFromMessage, formatDateLabel } from '@/lib/ai/time';
 import { loadActiveServices, findBestServiceMatch } from '@/lib/ai/appointments/services';
 import { createAppointmentTools } from '@/lib/ai/tools';
+import { classifyConfirmationIntent } from '@/lib/ai/guardrails/confirmation-classifier';
 
 export async function runAppointmentFSM(
   message: string,
@@ -177,11 +178,32 @@ export async function runAppointmentFSM(
         dbWriteSuccess
       };
     }
+
+    // Guard: in post_appointment_modify but no cancel/reschedule intent matched — prevent silent fall-through
+    return {
+      nextState,
+      actions: [...actions, 'modify_intent_unclear'],
+      context: {
+        actionType: 'info_gathered',
+        payload: {
+          modifyIntentUnclear: true,
+          hint: 'cancel_or_reschedule'
+        }
+      },
+      dbWriteAttempted,
+      dbWriteSuccess
+    };
   }
 
   // 2. Handle booking confirmation state
   if (currentState === 'awaiting_booking_confirmation') {
-    const yesNo = detectYesNo(message);
+    // Use LLM-based classifier for robust intent detection in high-stakes confirmation state
+    const yesNo = await classifyConfirmationIntent(message, {
+      businessType: 'appointments',
+      pendingService: session.data.service && session.data.date && session.data.time
+        ? `${session.data.service} on ${session.data.date} at ${session.data.time} for ${session.data.name || 'customer'}`
+        : undefined,
+    });
     if (yesNo === 'yes') {
       const { service, date, time, name, phone } = session.data;
       if (!service || !date || !time || !name || !phone) {

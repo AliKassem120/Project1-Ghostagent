@@ -123,6 +123,27 @@ export async function processMessageJob(job: MessageJob): Promise<void> {
             v2log.warn('WORKER', 'Failed to persist automation run', { error: runLogErr });
         }
 
+        // CRITICAL ALERT: DB write was attempted but failed — fire multi-channel alert
+        if (result.debug.dbWriteAttempted && !result.debug.dbWriteSuccess) {
+            try {
+                const { alertDbWriteFailure } = await import('@/lib/ai/guardrails/db-write-alerting');
+                await alertDbWriteFailure(supabase, {
+                    workspaceId: job.workspaceId,
+                    chatId: job.chatId,
+                    platform: job.platform,
+                    businessType: config.businessType,
+                    stateBefore: result.stateBefore,
+                    stateAfter: result.stateAfter,
+                    actions: result.actions,
+                    requestId: result.debug.requestId,
+                });
+            } catch (alertErr) {
+                v2log.warn('WORKER', 'DB write failure alert itself failed', {
+                    error: alertErr instanceof Error ? alertErr.message : String(alertErr),
+                });
+            }
+        }
+
         // 5. Upsert customer profile (update last_seen)
         await upsertCustomerProfile(
             supabase, job.workspaceId, job.chatId, job.platform,

@@ -5,6 +5,7 @@ import { detectLanguageScript, detectYesNo, extractNameAndPhone, extractAddress,
 import { searchProducts, findBestProductMatch } from '@/lib/ai/ecommerce/products';
 import { lookupLatestOrder, updateOrderVariant, updateOrderAddress, updateOrderQuantity } from '@/lib/ai/ecommerce/lookup';
 import { createEcommerceTools } from '@/lib/ai/tools';
+import { classifyConfirmationIntent } from '@/lib/ai/guardrails/confirmation-classifier';
 
 export async function runEcommerceFSM(
   message: string,
@@ -239,6 +240,17 @@ export async function runEcommerceFSM(
             dbWriteSuccess
           };
         }
+        // Guard: quantity keyword matched but no valid number extracted — re-ask
+        return {
+          nextState,
+          actions,
+          context: {
+            actionType: 'info_gathered',
+            payload: { modified: false, field: 'quantity', needsValidQuantity: true }
+          },
+          dbWriteAttempted,
+          dbWriteSuccess
+        };
       }
     } else if (latestOrder && !latestOrder.isEditable) {
       // Order exists but is no longer editable
@@ -252,11 +264,29 @@ export async function runEcommerceFSM(
         dbWriteAttempted,
         dbWriteSuccess
       };
+    } else {
+      // Guard: in post_order_modify state but no active order found — prevent silent fall-through to product search
+      return {
+        nextState: 'idle',
+        actions: [...actions, 'no_active_order'],
+        context: {
+          actionType: 'info_gathered',
+          payload: { modified: false, reason: 'no_active_order' }
+        },
+        dbWriteAttempted,
+        dbWriteSuccess
+      };
     }
   }
 
   if (currentState === 'awaiting_checkout_confirmation') {
-    const yesNo = detectYesNo(message);
+    // Use LLM-based classifier for robust intent detection in high-stakes confirmation state
+    const yesNo = await classifyConfirmationIntent(message, {
+      businessType: 'ecommerce',
+      pendingItem: session.data.productName
+        ? `${session.data.productName}${session.data.variant ? ` (${session.data.variant})` : ''} x${session.data.quantity || 1} — $${session.data.price} delivered to ${session.data.address || 'address to be confirmed'}`
+        : undefined,
+    });
     if (yesNo === 'yes') {
       const productName = session.data.productName;
       const variant = session.data.variant || '';
