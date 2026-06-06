@@ -641,8 +641,11 @@ export async function runEcommerceFSM(
     }
   } else {
     // No product matched
+    const targetState = (currentState === 'idle' || currentState === 'awaiting_product')
+      ? 'awaiting_product'
+      : 'idle';
     return {
-      nextState: 'idle',
+      nextState: targetState,
       actions,
       context: {
         actionType: 'info_gathered',

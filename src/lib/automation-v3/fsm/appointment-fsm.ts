@@ -587,8 +587,11 @@ export async function runAppointmentFSM(
     }
   } else {
     // List services
+    const targetState = (currentState === 'idle' || currentState === 'awaiting_service')
+      ? 'awaiting_service'
+      : 'idle';
     return {
-      nextState: 'idle',
+      nextState: targetState,
       actions,
       context: {
         actionType: 'info_gathered',
