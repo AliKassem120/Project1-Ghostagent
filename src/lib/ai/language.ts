@@ -202,16 +202,31 @@ export function detectYesNo(message: string): 'yes' | 'no' | null {
                 : tokens.includes(word);
         });
 
+    // 1. Short messages (≤5 tokens) — strong signal, check both yes and no
     if (tokens.length <= 5) {
         if (hasWord(NO_WORDS)) return 'no';
         if (hasWord(YES_WORDS)) return 'yes';
     }
 
-    const yesPhrases = ['i said yes', 'i told you yes', 'i already said yes', 'please confirm'];
-    const noPhrases = ['never mind', 'no thanks', 'ma bde', 'ma bade', 'ma badde'];
+    // 2. Longer messages — check for explicit yes/no phrases first (strong signal)
+    const yesPhrases = ['i said yes', 'i told you yes', 'i already said yes', 'please confirm', 'go ahead', 'do it', 'confirm it', 'proceed', 'yes please', 'yeah sure', 'yes go', 'yes book', 'yes order', 'yes place'];
+    const noPhrases = ['never mind', 'no thanks', 'ma bde', 'ma bade', 'ma badde', 'not now', 'maybe later', 'don t want', 'dont want', 'do not want', 'changed my mind'];
 
     if (noPhrases.some(phrase => normalized.includes(phrase))) return 'no';
     if (yesPhrases.some(phrase => normalized.includes(phrase))) return 'yes';
+
+    // 3. Longer messages — check for yes/no words at the START of the message
+    //    This catches "Yes, my address is..." or "No, I changed my mind..."
+    const firstToken = tokens[0];
+    const firstThree = tokens.slice(0, 3).join(' ');
+    if (NO_WORDS.some(w => {
+        const word = normalizeRepeatedLetters(w);
+        return firstToken === word || firstThree.includes(word);
+    })) return 'no';
+    if (YES_WORDS.some(w => {
+        const word = normalizeRepeatedLetters(w);
+        return firstToken === word || firstThree.includes(word);
+    })) return 'yes';
 
     return null;
 }

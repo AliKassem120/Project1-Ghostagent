@@ -54,12 +54,43 @@ export async function generateResponse(
 }
 
 function buildSystemInstructionWithContext(context: ResponseContext): string {
-  const fsmContextBlock = context.fsmContext
-    ? `\nFSM ACTION: ${context.fsmContext.actionType} | ${JSON.stringify(context.fsmContext.payload)}`
-    : '';
+  const fsm = context.fsmContext;
+  let fsmContextBlock = '';
+  let stateInstruction = '';
+
+  if (fsm) {
+    fsmContextBlock = `\nFSM ACTION: ${fsm.actionType} | ${JSON.stringify(fsm.payload)}`;
+
+    // CRITICAL: Prevent LLM from hallucinating order/appointment confirmations
+    // when the FSM is only "ready to confirm" (not yet placed).
+    if (fsm.actionType === 'info_gathered' && fsm.payload?.isReadyToConfirm) {
+      stateInstruction = `
+\n=== STATE INSTRUCTION ===
+You have ALL the details needed. The order/appointment is NOT placed yet.
+Your job: Ask the customer to confirm with "yes" so the system can place it.
+NEVER say "order placed", "booked", "confirmed", "done", or "we will deliver".
+Instead say something like: "Ready to lock this in? Just say yes and I'll place it."`;
+    } else if (fsm.actionType === 'checkout_success' && fsm.payload?.success) {
+      stateInstruction = `
+\n=== STATE INSTRUCTION ===
+The order has been SUCCESSFULLY placed. Confirm to the customer with the order details.
+You may now say things like "Done!" or "Order placed."`;
+    } else if (fsm.actionType === 'appointment_booked' && fsm.payload?.success) {
+      stateInstruction = `
+\n=== STATE INSTRUCTION ===
+The appointment has been SUCCESSFULLY booked. Confirm to the customer with the booking details.
+You may now say things like "Done!" or "You're all set."`;
+    } else if (fsm.actionType === 'info_gathered' && fsm.payload?.missingDetails?.length > 0) {
+      const missing = fsm.payload.missingDetails.join(', ');
+      stateInstruction = `
+\n=== STATE INSTRUCTION ===
+You are still missing the following details: ${missing}.
+Ask the customer ONLY for what's missing. Do NOT ask for details you already have.`;
+    }
+  }
 
   return `${context.systemInstruction}
-${fsmContextBlock}
+${fsmContextBlock}${stateInstruction}
 
 PERSONA REMINDER:
 - Never repeat the exact same greeting or use rigid templates.

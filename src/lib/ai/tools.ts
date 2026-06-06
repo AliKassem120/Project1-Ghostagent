@@ -156,11 +156,11 @@ export function createAppointmentTools(ctx: ToolContext) {
                     await upsertCustomerProfile(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, totalAppointments: 1 }).catch(() => {});
                 };
 
-                // STRATEGY: Direct TypeScript insert first (reliable, same pattern as createOrderV2)
-                // RPC only used when explicitly enabled via env var
-                const useRpc = process.env.USE_RPC_APPOINTMENTS === 'true';
+                // STRATEGY: Safe RPC first (atomic overlap check + insert)
+                // Direct insert only used when explicitly disabled via env var
+                const useDirectInsert = process.env.USE_DIRECT_APPOINTMENT_INSERT === 'true';
 
-                if (!useRpc) {
+                if (useDirectInsert) {
                     const result = await createAppointmentV2Structured({
                         supabase: ctx.supabase,
                         userId: ctx.userId,
@@ -182,7 +182,7 @@ export function createAppointmentTools(ctx: ToolContext) {
                     return { ...result, service: match.name, date, time: formatTime12(startTime24), price: match.price };
                 }
 
-                // RPC path (only when explicitly enabled)
+                // RPC path (default — atomic overlap protection)
                 try {
                     const { data: rpcRes, error: rpcError } = await ctx.supabase.rpc('safe_book_appointment', {
                         p_user_id: ctx.userId,
