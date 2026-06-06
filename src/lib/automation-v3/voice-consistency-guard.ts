@@ -1,5 +1,6 @@
 export const VOICE_RULES = {
   banned_phrases: [
+    // English
     'as an ai',
     'how may i assist',
     'how can i help you today',
@@ -13,6 +14,36 @@ export const VOICE_RULES = {
     'we value your business',
     'have a great day',
     'best regards',
+    
+    // Arabic
+    'بصفتي ذكاء',
+    'ذكاء اصطناعي',
+    'كيف يمكنني مساعدتك',
+    'أنا هنا للمساعدة',
+    'يرجى إعلامي',
+    'شكرا لصبرك',
+    'هل هناك أي شيء آخر',
+    'أتفهم قلقك',
+    'أعتذر عن الإزعاج',
+    
+    // Franco/Arabizi
+    'ana bot',
+    'zaka2 stina3i',
+    'zaka2 stina3e',
+    'zaka2stina3e',
+    'kif fiyi se3dak',
+    'kif fiyyi se3dak',
+    'kif fiyi se3dik',
+    'kif fiyyi se3dik',
+    'ana hon krmal se3dak',
+    'ana hon kermel se3dak',
+    'please khabirne',
+    'plz khabirne',
+    'shokran 3a sabrak',
+    'chokran 3a sabrak',
+    'fi shi tene',
+    'fi chi tene',
+    'sorry 3al eze3aj',
   ],
   banned_patterns: [
     /^yes, /i,  // "Yes, the product..."
@@ -26,6 +57,7 @@ export const VOICE_RULES = {
 
 /** Contextual rewrites for banned phrases — preserves sentence flow */
 const PHRASE_REWRITES: Record<string, string> = {
+  // English
   'as an ai': '',
   'how may i assist': 'What do you need?',
   'how can i help you today': 'What are you looking for?',
@@ -39,6 +71,36 @@ const PHRASE_REWRITES: Record<string, string> = {
   'we value your business': '',
   'have a great day': '',
   'best regards': '',
+
+  // Arabic
+  'بصفتي ذكاء': '',
+  'ذكاء اصطناعي': '',
+  'كيف يمكنني مساعدتك': 'كيف بقدر ساعدك؟',
+  'أنا هنا للمساعدة': '',
+  'يرجى إعلامي': 'خبرني',
+  'شكرا لصبرك': 'شكراً لأنك ناطر',
+  'هل هناك أي شيء آخر': 'في شي تاني؟',
+  'أتفهم قلقك': 'فهمت عليك',
+  'أعتذر عن الإزعاج': 'بعتذر',
+
+  // Franco/Arabizi
+  'ana bot': '',
+  'zaka2 stina3i': '',
+  'zaka2 stina3e': '',
+  'zaka2stina3e': '',
+  'kif fiyi se3dak': 'shu baddak?',
+  'kif fiyyi se3dak': 'shu baddak?',
+  'kif fiyi se3dik': 'shu baddik?',
+  'kif fiyyi se3dik': 'shu baddik?',
+  'ana hon krmal se3dak': '',
+  'ana hon kermel se3dak': '',
+  'please khabirne': 'khabirne',
+  'plz khabirne': 'khabirne',
+  'shokran 3a sabrak': 'thanks 3al natra',
+  'chokran 3a sabrak': 'thanks 3al natra',
+  'fi shi tene': 'baddak shi tene?',
+  'fi chi tene': 'baddak shi tene?',
+  'sorry 3al eze3aj': 'ba3tezer',
 };
 
 export interface VoiceGuardResult {

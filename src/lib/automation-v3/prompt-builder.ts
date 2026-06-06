@@ -21,6 +21,7 @@ export function buildPrompt(
 
   const toneMap: Record<string, string> = {
     'Casual': 'Casual & friendly — like a cool employee texting a friend.',
+    'Friendly': 'Friendly, warm, and conversational — polite, helpful, and natural.',
     'Professional': 'Professional & polished — courteous, precise, zero slang.',
     'Luxury': 'Luxury & premium — elegant, refined, exclusive language.',
     'Sarcastic': 'Sarcastic & witty — helpful but with dry humor. Never rude.',

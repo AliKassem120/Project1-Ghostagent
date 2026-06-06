@@ -17,25 +17,26 @@ export async function searchProducts(args: {
 }): Promise<InventoryRecord[]> {
     const { supabase, workspaceId, query, limit = 10 } = args;
 
+    const cleanedQuery = query ? cleanSearchQuery(query) : null;
+
     // 1. Search inventory table
     // NOTE: inventory table columns are: id, user_id, workspace_id, item_name, price, stock_level, created_at
     // There is NO 'description' or 'variants' column.
     let dbQuery = supabase
         .from('inventory')
         .select('id, item_name, price, stock_level')
-        .eq('workspace_id', workspaceId)
-        .limit(limit);
+        .eq('workspace_id', workspaceId);
 
-    if (query) {
-        dbQuery = dbQuery.ilike('item_name', `%${query}%`);
+    if (cleanedQuery) {
+        dbQuery = dbQuery.ilike('item_name', `%${cleanedQuery}%`);
     }
 
-    const { data: dbItems, error } = await dbQuery;
+    const { data: dbItems, error } = await dbQuery.limit(limit);
     if (error) {
         v2log.error('V2_ECOM_PRODUCTS', 'Inventory search failed', { error, workspaceId });
     }
 
-    v2log.info('V2_ECOM_PRODUCTS', `DB Search returned ${dbItems?.length || 0} items`, { workspaceId, query });
+    v2log.info('V2_ECOM_PRODUCTS', `DB Search returned ${dbItems?.length || 0} items`, { workspaceId, query: cleanedQuery });
 
     let items: InventoryRecord[] = (dbItems || []).map(i => ({
         id: i.id,
@@ -57,7 +58,7 @@ export async function searchProducts(args: {
 
             if (knowledge?.content) {
                 const csvRows = JSON.parse(knowledge.content);
-                const queryLower = query?.toLowerCase();
+                const cleanedQueryLower = cleanedQuery?.toLowerCase();
 
                 let csvItems: InventoryRecord[] = csvRows
                     .map((row: any, index: number) => {
@@ -85,10 +86,10 @@ export async function searchProducts(args: {
                     })
                     .filter((item: any): item is InventoryRecord => item !== null); // Remove nulls from skipped rows
 
-                if (queryLower) {
+                if (cleanedQueryLower) {
                     csvItems = csvItems.filter(item => 
-                        item.itemName.toLowerCase().includes(queryLower) || 
-                        (item.description && item.description.toLowerCase().includes(queryLower))
+                        item.itemName.toLowerCase().includes(cleanedQueryLower) || 
+                        (item.description && item.description.toLowerCase().includes(cleanedQueryLower))
                     );
                 }
 
@@ -97,7 +98,7 @@ export async function searchProducts(args: {
                 if (remainingLimit > 0) {
                     csvItems = csvItems.slice(0, remainingLimit);
                     items = [...items, ...csvItems];
-                    v2log.info('V2_ECOM_PRODUCTS', `CSV Fallback added ${csvItems.length} items`, { workspaceId, query });
+                    v2log.info('V2_ECOM_PRODUCTS', `CSV Fallback added ${csvItems.length} items`, { workspaceId, query: cleanedQuery });
                 }
             }
         } catch (err) {
@@ -162,7 +163,8 @@ export function findBestProductMatch(
 ): InventoryRecord | null {
     if (!query || items.length === 0) return null;
 
-    const normalizedQuery = normalizeForMatch(query);
+    const cleanedQuery = cleanSearchQuery(query);
+    const normalizedQuery = normalizeForMatch(cleanedQuery || query);
     if (!normalizedQuery) return null;
 
     // 1. Exact normalized match
@@ -179,8 +181,8 @@ export function findBestProductMatch(
 
     // 4. Token overlap + fuzzy scoring
     const scored: ProductMatchResult[] = items.map(item => {
-        const overlap = tokenOverlap(query, item.itemName);
-        const similarity = simpleSimilarity(query, item.itemName);
+        const overlap = tokenOverlap(cleanedQuery || query, item.itemName);
+        const similarity = simpleSimilarity(cleanedQuery || query, item.itemName);
         const score = Math.max(overlap, similarity);
         return { product: item, score, matchType: overlap >= similarity ? 'token_overlap' as const : 'fuzzy' as const };
     }).filter(r => r.score >= 0.4)
@@ -197,4 +199,79 @@ export function findBestProductMatch(
     // Multiple close matches or low confidence → return null for disambiguation
     // NEVER default to items[0], that could sell the wrong product
     return null;
+}
+
+export function cleanSearchQuery(query: string): string {
+    let q = query.toLowerCase();
+    
+    // Stripping common question prefixes and conversational fillers
+    const fillers = [
+        /\bdo\s+you\s+have\b/gi,
+        /\bdo\s+u\s+have\b/gi,
+        /\bcan\s+i\s+see\b/gi,
+        /\bcan\s+i\s+get\b/gi,
+        /\bhow\s+much\s+(is|for)\b/gi,
+        /\bwhat\s+is\s+the\s+price\s+of\b/gi,
+        /\bwhat's\s+the\s+price\s+of\b/gi,
+        /\bshow\s+me\b/gi,
+        /\bis\s+there\b/gi,
+        /\bany\s+available\b/gi,
+        /\bdo\s+you\s+sell\b/gi,
+        /\bdo\s+u\s+sell\b/gi,
+        /\bplease\b/gi,
+        /\bwant\s+to\s+buy\b/gi,
+        /\blooking\s+for\b/gi,
+        /\bi'm\s+looking\s+for\b/gi,
+        /\bim\s+looking\s+for\b/gi,
+        /\bhave\s+you\s+got\b/gi,
+        
+        // Arabizi/Franco fillers
+        /\bfe\s+3ndkn\b/gi,
+        /\bfe\s+3endkn\b/gi,
+        /\bfe\s+3ndk\b/gi,
+        /\bfe\s+3endk\b/gi,
+        /\bfi\s+3ndk\b/gi,
+        /\bfi\s+3endk\b/gi,
+        /\bfi\s+3ndkn\b/gi,
+        /\bfi\s+3endkn\b/gi,
+        /\bbade\s+shouf\b/gi,
+        /\bbaddi\s+shouf\b/gi,
+        /\bbade\b/gi,
+        /\bbaddi\b/gi,
+        /\bbeddeh\b/gi,
+        /\bshu\s+se3r\b/gi,
+        /\bshu\s+se3ro\b/gi,
+        /\bshu\s+se3er\b/gi,
+        /\bsho\s+se3r\b/gi,
+        /\bsho\s+se3er\b/gi,
+        /\bade\s+se3r\b/gi,
+        /\baddeh\s+se3r\b/gi,
+        /\badde\s+se3ro\b/gi,
+        /\baddeh\s+se3ro\b/gi,
+        /\b3ndkn\b/gi,
+        /\b3endkn\b/gi,
+        /\b3ndk\b/gi,
+        /\b3endk\b/gi,
+        /\bmawjud\b/gi,
+        /\bmawjoud\b/gi,
+        /\bmawjoude\b/gi,
+        /\bmawjoudeh\b/gi,
+
+        // Arabic Script fillers
+        /\b\u0639\u0646\u062f\u0643\u0645\b/gi, // عندكم
+        /\b\u0639\u0646\u062f\u0643\u0646\b/gi, // عندكن
+        /\b\u0639\u0646\u062f\u0643\b/gi,   // عندك
+        /\b\u0628\u062f\u064a\b/gi,     // بدي
+        /\b\u0628\u062f\u064a\s+\u0634\u0648\u0641\b/gi, // بدي شوف
+        /\b\u0634\u0648\s+\u0633\u0639\u0631\b/gi, // شو سعر
+        /\b\u0633\u0639\u0631\b/gi,     // سعر
+        /\b\u0645\u062a\u0648\u0641\u0631\b/gi, // متوفر
+        /\b\u0641\u064a\b/gi,           // في
+    ];
+
+    for (const pattern of fillers) {
+        q = q.replace(pattern, '');
+    }
+
+    return q.replace(/\s+/g, ' ').trim();
 }

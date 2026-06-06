@@ -34,7 +34,7 @@ export async function generateResponse(
     const responseText = await provider.complete({
       system: systemInstruction,
       messages: [{ role: 'user', content: prompt }],
-      temperature: 0.55,
+      temperature: 0.5,
       maxTokens: isArabicScript ? 280 : 200,
     });
 
