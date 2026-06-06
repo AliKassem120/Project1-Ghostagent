@@ -5,6 +5,7 @@ import { generateResponse } from './response-generator';
 import { saveSession } from './session-manager';
 import { emitMetric, MetricBuilder } from '@/lib/ai/metrics';
 import { buildPrompt } from './prompt-builder';
+import { checkVoiceConsistency } from './voice-consistency-guard';
 
 export interface FsmMappingContext {
   fsmRes: FsmResult;
@@ -87,12 +88,22 @@ export async function runFSMAndGenerateResponse(ctx: FsmMappingContext): Promise
       },
     });
 
-    session.lastBotMessage = responseGenResult.text;
+    let reply = responseGenResult.text;
+    const voiceCheck = checkVoiceConsistency(reply, config, []);
+    if (!voiceCheck.approved && voiceCheck.correctedText) {
+      reply = voiceCheck.correctedText;
+    }
+
+    if (reply.includes('[HANDOFF]')) {
+      return await returnHandoff(reply, [...fsmRes.actions, 'force_menu_reset']);
+    }
+
+    session.lastBotMessage = reply;
     await saveSession(input.supabase, session, config.businessType);
 
     return {
       shouldReply: true,
-      replyText: responseGenResult.text,
+      replyText: reply,
       actions: [...fsmRes.actions, 'force_menu_reset', 'llm_contextual_reply'],
       stateBefore: stateBefore as any,
       stateAfter: 'idle',
@@ -156,7 +167,20 @@ export async function runFSMAndGenerateResponse(ctx: FsmMappingContext): Promise
     } : undefined
   });
 
-  const reply = responseGenResult.text;
+  let reply = responseGenResult.text;
+  const voiceCheck = checkVoiceConsistency(reply, config, []);
+  if (!voiceCheck.approved && voiceCheck.correctedText) {
+    reply = voiceCheck.correctedText;
+  }
+
+  const responseActions = [...fsmRes.actions];
+  if (!responseActions.includes('v3_brain_reply')) responseActions.push('v3_brain_reply');
+  if (!responseActions.includes('llm_reply')) responseActions.push('llm_reply');
+
+  if (reply.includes('[HANDOFF]') || finalState === 'handoff') {
+    return await returnHandoff(reply, responseActions);
+  }
+
   session.lastBotMessage = reply;
   session.stateEnteredAt = new Date().toISOString();
 
@@ -169,10 +193,6 @@ export async function runFSMAndGenerateResponse(ctx: FsmMappingContext): Promise
     if (config.businessType === 'appointments') metrics.setAppointmentCreated();
   }
   await emitMetric(input.supabase, metrics.setState(stateBefore, finalState).build());
-
-  const responseActions = [...fsmRes.actions];
-  if (!responseActions.includes('v3_brain_reply')) responseActions.push('v3_brain_reply');
-  if (!responseActions.includes('llm_reply')) responseActions.push('llm_reply');
 
   return {
     shouldReply: true,

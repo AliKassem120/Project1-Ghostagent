@@ -28,8 +28,7 @@ import { executeTool } from './tool-executor';
 import { runFSMAndGenerateResponse } from './result-builder';
 
 // Phase 4 Intelligence imports
-import { compressConversationHistory } from './memory-compressor';
-import { getVariant, isFeatureEnabled, trackRequestExperiments } from './experiments';
+import { trackRequestExperiments } from './experiments';
 import { flushMetrics } from '@/lib/ai/metrics';
 
 

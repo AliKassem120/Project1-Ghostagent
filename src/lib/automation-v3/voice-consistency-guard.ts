@@ -159,12 +159,34 @@ export function checkVoiceConsistency(
   // 5. Hallucination guard — verify any price/stock claims against tool results
   const searchResult = toolResults.find(r => r.tool === 'search_products' || r.tool === 'check_stock')?.result;
   if (searchResult) {
-    const product = Array.isArray(searchResult) ? searchResult[0] : searchResult;
-    if (product && product.price && corrected.includes('$')) {
-      const priceMatch = corrected.match(/\$(\d+(?:\.\d+)?)/);
-      if (priceMatch && parseFloat(priceMatch[1]) !== product.price) {
-        violations.push(`Hallucinated price: expected $${product.price}, found $${priceMatch[1]}`);
-        corrected = corrected.replace(/\$(\d+(?:\.\d+)?)/, () => `$${product.price}`);
+    const products = searchResult.products || 
+                     (Array.isArray(searchResult) ? searchResult : 
+                     (searchResult.price !== undefined ? [searchResult] : []));
+    if (products.length > 0 && corrected.includes('$')) {
+      const pricePattern = /\$(\d+(?:\.\d+)?)/g;
+      const priceMatches: { full: string; value: number }[] = [];
+      let match;
+      while ((match = pricePattern.exec(corrected)) !== null) {
+        const val = parseFloat(match[1]);
+        if (!isNaN(val)) {
+          priceMatches.push({ full: match[0], value: val });
+        }
+      }
+
+      for (const pm of priceMatches) {
+        const hasMatchingProduct = products.some((p: any) => p.price === pm.value);
+        if (!hasMatchingProduct) {
+          const lowerCorrected = corrected.toLowerCase();
+          const matchedProduct = products.find((p: any) => {
+            const name = p.name || p.itemName;
+            return name && lowerCorrected.includes(name.toLowerCase());
+          });
+          const expectedProduct = matchedProduct || products[0];
+          const expectedPrice = expectedProduct.price;
+
+          violations.push(`Hallucinated price: expected $${expectedPrice}, found $${pm.value}`);
+          corrected = corrected.replace(pm.full, `$${expectedPrice}`);
+        }
       }
     }
   }

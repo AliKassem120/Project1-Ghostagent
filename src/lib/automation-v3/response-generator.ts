@@ -39,8 +39,6 @@ export async function generateResponse(
     });
 
     let text = responseText.text.trim();
-    // Strip [HANDOFF] from LLM output — handoff routing is the orchestrator's job, not the LLM's
-    text = text.replace(/\[HANDOFF\]/gi, '').trim();
     text = enforceSentenceLimit(text, 2);
     return { text };
   } catch (error: any) {
