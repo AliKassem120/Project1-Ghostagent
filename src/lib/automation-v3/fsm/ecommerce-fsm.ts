@@ -640,7 +640,34 @@ export async function runEcommerceFSM(
       }
     }
   } else {
-    // No product matched
+    // No product matched — but check if this is a mid-order question
+    // (e.g. "How much is the delivery?", "Do you ship to Beirut?")
+    // If the customer already has order context (product selected, details given),
+    // don't loop awaiting_product — break out to idle so the LLM fallback pipeline
+    // can answer contextually using conversation history.
+    const isFollowUpQuestion = /\b(deliver|delivery|ship|shipping|cost|how much|price|pay|payment|pick\s*up|pickup|cod|cash|free|charge|fee|refund|return|exchange|warranty|track|where|when|long|fast|how|what|which|can you|do you|is there|are there|عنوان|توصيل|شحن|كم|سعر|دفع)\b/i.test(message);
+    const hasExistingContext = !!(session.data?.productName || session.data?.name || session.data?.address);
+
+    if (isFollowUpQuestion && hasExistingContext && currentState === 'awaiting_product') {
+      // Break out of FSM loop — let LLM answer the question with full context
+      return {
+        nextState: 'idle',
+        actions: [...actions, 'mid_order_question_detected'],
+        context: {
+          actionType: 'defer_to_llm',
+          payload: {
+            productNotFound: true,
+            query: message,
+            existingProduct: session.data.productName,
+            existingPrice: session.data.price,
+            reason: 'Customer asked a follow-up question during order flow'
+          }
+        },
+        dbWriteAttempted,
+        dbWriteSuccess
+      };
+    }
+
     const targetState = (currentState === 'idle' || currentState === 'awaiting_product')
       ? 'awaiting_product'
       : 'idle';

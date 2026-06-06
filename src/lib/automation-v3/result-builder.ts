@@ -42,21 +42,58 @@ export async function runFSMAndGenerateResponse(ctx: FsmMappingContext): Promise
   let loopCount = validation.resetLoop ? 0 : (fsmRes.nextState === stateBefore ? session.loopCount + 1 : 0);
 
   if (validation.forceMenu) {
-    // FIX: Reset to idle instead of handoff trap
+    // FIX: Reset state to idle but PRESERVE session.data so the LLM can reference
+    // existing order context (product, customer details). Generate a contextual reply
+    // via the LLM instead of a hardcoded generic greeting.
     session.state = 'idle';
     session.loopCount = 0;
     session.lastBotMessage = null;
-    session.data = {};
     session.stateEnteredAt = new Date().toISOString();
+    // NOTE: session.data is intentionally NOT wiped — it contains order context
+
+    const systemPrompt = buildPrompt(
+      config,
+      replyLang,
+      [],
+      input.platform,
+      true,
+      activeServices || activeProducts,
+      recentSummaries,
+      session,
+      customerNotes,
+      emotionBlock,
+      proactiveBlock,
+      crossChannelNote,
+      config.language
+    );
+
+    const responseGenResult = await generateResponse({
+      systemInstruction: systemPrompt,
+      conversationHistory: history.map(h => ({
+        role: h.role as 'user' | 'assistant',
+        content: typeof h.content === 'string' ? h.content : JSON.stringify(h.content)
+      })).concat([{ role: 'user', content: input.message }]),
+      currentState: 'idle',
+      customerProfile: session.customerProfile,
+      toolResults: [],
+      requiredLanguageScript: replyLang as any,
+      channel: input.platform,
+      strategy: null,
+      workspaceConfig: config,
+      timeContext: {
+        dayName: timeCtx.dayName,
+        isoDate: timeCtx.isoDate,
+        isoTime: timeCtx.isoTime
+      },
+    });
+
+    session.lastBotMessage = responseGenResult.text;
     await saveSession(input.supabase, session, config.businessType);
 
-    const freshStartReply = replyLang === 'arabizi' || replyLang === 'franco'
-      ? 'Hey! Kifak? Shou fi beddak?'
-      : 'Hey! How can I help you today?';
     return {
       shouldReply: true,
-      replyText: freshStartReply,
-      actions: [...fsmRes.actions, 'force_menu_reset'],
+      replyText: responseGenResult.text,
+      actions: [...fsmRes.actions, 'force_menu_reset', 'llm_contextual_reply'],
       stateBefore: stateBefore as any,
       stateAfter: 'idle',
       debug: {

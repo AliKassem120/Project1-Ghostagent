@@ -519,25 +519,23 @@ export async function orchestrate(
   let loopCount = validation.resetLoop ? 0 : (strategy.suggestedNextState === session.state ? session.loopCount + 1 : 0);
 
   // FIX: forceMenu was calling returnHandoff() which created a recursive trap.
-  // Instead, reset to idle with a friendly message.
+  // Reset to idle but PRESERVE session.data and use the LLM-generated reply
+  // (already computed above) instead of a hardcoded generic greeting.
   if (validation.forceMenu) {
-    v2log.warn('ORCHESTRATOR', 'forceMenu triggered — resetting to idle instead of handoff trap', {
+    v2log.warn('ORCHESTRATOR', 'forceMenu triggered — resetting to idle with contextual LLM reply', {
       currentState: session.state, loopCount: session.loopCount
     });
     session.state = 'idle';
     session.loopCount = 0;
-    session.lastBotMessage = null;
-    session.data = {};
+    session.lastBotMessage = reply;
+    // NOTE: session.data is intentionally NOT wiped — it contains order context
     session.stateEnteredAt = new Date().toISOString();
     await saveSession(input.supabase, session, config.businessType);
 
-    const freshStartReply = replyLang === 'arabizi' || replyLang === 'franco'
-      ? 'Hey! Kifak? Shou fi beddak?'
-      : 'Hey! How can I help you today?';
     return {
       shouldReply: true,
-      replyText: freshStartReply,
-      actions: [...actions, 'force_menu_reset'],
+      replyText: reply,
+      actions: [...actions, 'force_menu_reset', 'llm_contextual_reply'],
       stateBefore,
       stateAfter: 'idle',
       debug: {
