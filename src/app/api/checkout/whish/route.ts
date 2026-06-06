@@ -42,8 +42,10 @@ export async function POST(req: Request) {
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://getghostagent.com';
         const channel = process.env.WHISH_CHANNEL || '10199608';
         const secret = process.env.WHISH_SECRET || '66023dabdc584a00b26d8dd4916633f5';
-        const websiteUrl = process.env.WHISH_WEBSITE_URL || 'getghostagent.com';
         const isProduction = process.env.WHISH_ENV === 'production';
+        const websiteUrl = isProduction
+            ? (process.env.WHISH_WEBSITE_URL || 'getghostagent.com')
+            : 'ghostagent.qzz.io';
         const whishBaseUrl = isProduction
             ? 'https://api.whish.money/itel-service/api/payment/whish'
             : 'https://api.sandbox.whish.money/itel-service/api/payment/whish';
