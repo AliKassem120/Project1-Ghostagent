@@ -1,4 +1,4 @@
-﻿type Message = {
+type Message = {
     id: string;
     text: string;
     sender: string;

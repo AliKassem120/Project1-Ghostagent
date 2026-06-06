@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { Link } from '@/i18n/navigation';
 import GhostLogo from '@/components/GhostLogo';
