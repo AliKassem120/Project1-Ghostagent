@@ -1,8 +1,8 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Check, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
-import Link from 'next/link';
+import { Check } from 'lucide-react';
+import { Link } from '@/i18n/navigation';
 import { PLANS } from '@/lib/plans';
 
 export default function PricingPlans() {

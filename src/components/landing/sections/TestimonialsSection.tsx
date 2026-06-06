@@ -71,7 +71,7 @@ export default function TestimonialsSection() {
               <div className="glass-frosted bg-surface-1/60 rounded-[2rem] p-6 md:p-8 flex flex-col h-full border border-border group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:shadow-[0_8px_30px_rgba(139,92,246,0.15)] transition-all duration-300 relative z-10">
                 <div className="flex items-center gap-4 mb-5">
                   <div className="w-12 h-12 rounded-full overflow-hidden border border-border/50 shadow-sm shrink-0 relative bg-surface-2">
-                    <img src={testimonial.image} alt={testimonial.name} className="w-full h-full object-cover" />
+                    <img src={testimonial.image} alt={testimonial.name} loading="lazy" className="w-full h-full object-cover" />
                   </div>
                   <div>
                     <p className="text-sm sm:text-base font-bold text-foreground tracking-tight">{testimonial.name}</p>

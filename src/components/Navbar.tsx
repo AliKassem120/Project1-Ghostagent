@@ -8,6 +8,7 @@ import GhostLogo from '@/components/GhostLogo';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useTheme } from 'next-themes';
 import { useTranslations } from 'next-intl';
+import { routing } from '@/i18n/routing';
 
 export default function Navbar() {
     const [isOpen, setIsOpen] = useState(false);
@@ -48,8 +49,9 @@ export default function Navbar() {
     ];
 
     useEffect(() => {
-        // Strip locale prefix for section detection
-        const basePath = pathname.replace(/^\/(en|ar|fr|es)/, '') || '/';
+        // Strip locale prefix using routing config
+        const localePattern = routing.locales.join('|');
+        const basePath = pathname.replace(new RegExp(`^/(${localePattern})`), '') || '/';
         if (basePath !== '/') return;
         const handleScroll = () => {
             const sections = ['features', 'pricing'];
@@ -72,8 +74,9 @@ export default function Navbar() {
     }, [pathname]);
 
     const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-        // Strip locale prefix for comparison
-        const basePath = pathname.replace(/^\/(en|ar|fr|es)/, '') || '/';
+        // Strip locale prefix using routing config
+        const localePattern = routing.locales.join('|');
+        const basePath = pathname.replace(new RegExp(`^/(${localePattern})`), '') || '/';
         if (basePath === '/' && href.startsWith('/#')) {
             e.preventDefault();
             const element = document.getElementById(href.slice(2));

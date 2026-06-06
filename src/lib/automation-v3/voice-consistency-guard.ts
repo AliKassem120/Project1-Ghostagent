@@ -24,6 +24,23 @@ export const VOICE_RULES = {
   min_length: 2,
 };
 
+/** Contextual rewrites for banned phrases — preserves sentence flow */
+const PHRASE_REWRITES: Record<string, string> = {
+  'as an ai': '',
+  'how may i assist': 'What do you need?',
+  'how can i help you today': 'What are you looking for?',
+  'i am here to help': '',
+  'please let me know': 'let me know',
+  'thank you for your patience': 'thanks for waiting',
+  'your request has been processed': 'all set',
+  'is there anything else': 'need anything else?',
+  'i understand your concern': 'got it',
+  'i apologize for the inconvenience': 'my bad',
+  'we value your business': '',
+  'have a great day': '',
+  'best regards': '',
+};
+
 export interface VoiceGuardResult {
   approved: boolean;
   correctedText: string;
@@ -38,13 +55,18 @@ export function checkVoiceConsistency(
   const violations: string[] = [];
   let corrected = text;
 
-  // 1. Check banned phrases
+  // 1. Check banned phrases — rewrite with contextual fallback instead of stripping
   const lowerText = corrected.toLowerCase();
   for (const phrase of VOICE_RULES.banned_phrases) {
     if (lowerText.includes(phrase)) {
       violations.push(`Banned phrase: "${phrase}"`);
-      // Strip out the phrase
-      corrected = corrected.replace(new RegExp(phrase, 'gi'), '').trim();
+      const replacement = PHRASE_REWRITES[phrase] ?? '';
+      // Match with word boundaries to avoid partial matches inside other words
+      const pattern = new RegExp(
+        phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'),
+        'gi'
+      );
+      corrected = corrected.replace(pattern, replacement).trim();
     }
   }
 
@@ -91,7 +113,8 @@ export function checkVoiceConsistency(
     .replace(/\s+or\s*([.!?])/gi, '$1')
     .replace(/\s+,\s*([.!?])/gi, '$1')
     .replace(/\s+([.!?])/g, '$1')
-    .replace(/\s+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/^[,;:\-\s]+|[,;:\-\s]+$/g, '')
     .trim();
 
   return {

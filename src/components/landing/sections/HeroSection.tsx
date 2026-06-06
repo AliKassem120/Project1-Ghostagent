@@ -26,39 +26,35 @@ function PhoneMockup() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // All timeout ids collected so every one can be cleared on unmount
     const timeouts: ReturnType<typeof setTimeout>[] = [];
 
-    const startCycle = () => {
+    const scheduleCycle = (offsetMs = 0) => {
       chatMessages.forEach((msg, index) => {
-        // Show typing indicator before bot messages
         if (msg.type === 'bot') {
           timeouts.push(
-            setTimeout(() => setShowTyping(true), msg.delay * 1000 - 1200)
+            setTimeout(() => setShowTyping(true), offsetMs + msg.delay * 1000 - 1200)
           );
         }
-
         timeouts.push(
           setTimeout(() => {
             setShowTyping(false);
             setVisibleMessages((prev) => [...prev, index]);
-          }, msg.delay * 1000)
+          }, offsetMs + msg.delay * 1000)
         );
       });
+
+      // Schedule reset + next cycle after this cycle ends
+      timeouts.push(
+        setTimeout(() => {
+          setVisibleMessages([]);
+          setShowTyping(false);
+          scheduleCycle(1000); // restart with 1 s pause
+        }, offsetMs + 23000)
+      );
     };
 
-    startCycle();
-
-    // Reset after full cycle
-    const resetTimeout = setTimeout(() => {
-      setVisibleMessages([]);
-      setShowTyping(false);
-      // Re-trigger after a pause
-      const restartTimeout = setTimeout(() => {
-        startCycle();
-      }, 1000);
-      timeouts.push(restartTimeout);
-    }, 23000);
-    timeouts.push(resetTimeout);
+    scheduleCycle();
 
     return () => timeouts.forEach(clearTimeout);
   }, []);
@@ -176,6 +172,7 @@ export default function HeroSection() {
           
           <button
             onClick={() => setShowVideo(true)}
+            aria-label="Watch GhostAgent demo video"
             className="px-8 py-4 bg-foreground/5 border border-border rounded-full hover:bg-foreground/10 active:bg-foreground/15 transition-colors backdrop-blur-md text-foreground font-semibold flex items-center justify-center gap-2 min-h-[48px]"
           >
             <span>▶</span> {tHero('watchDemo')}

@@ -85,6 +85,7 @@ export default function FinalCTASection() {
               
               <button
                 onClick={() => setShowVideo(true)}
+                aria-label="Watch GhostAgent demo video"
                 className="w-full sm:w-auto px-8 py-4 bg-surface-2 border border-border rounded-full hover:bg-surface-3 active:bg-surface-4 transition-colors text-foreground font-bold flex items-center justify-center gap-2 text-xs sm:text-sm min-h-[48px]"
               >
                 <span>▶</span> {tCta('watchDemo')}

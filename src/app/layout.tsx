@@ -26,6 +26,7 @@ const plusJakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "GhostAgent | Turn Instagram DMs into Automated Sales",
   description: "Transform your social direct messages into automated sales, lead generation, and instant booking slots with GhostAgent. Set up in 3 minutes.",
+  keywords: ["Instagram automation", "WhatsApp automation", "AI chatbot", "DM automation", "social media sales", "appointment booking", "GhostAgent"],
   metadataBase: new URL("https://getghostagent.com"),
   alternates: {
     canonical: "/",
@@ -60,7 +61,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta httpEquiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline'; img-src * data: blob: 'unsafe-inline'; frame-src *; style-src * 'unsafe-inline';" />
         <script

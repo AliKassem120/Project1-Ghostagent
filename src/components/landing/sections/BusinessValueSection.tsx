@@ -74,7 +74,7 @@ export default function BusinessValueSection() {
                 </p>
               </div>
 
-              <div className="pt-4 border-t border-border/55">
+              <div className="pt-4 border-t border-border/50">
                 <span className="text-xs font-black uppercase text-primary tracking-widest bg-primary/10 px-3 py-1.5 rounded-full border border-primary/20">
                   {item.metric}
                 </span>

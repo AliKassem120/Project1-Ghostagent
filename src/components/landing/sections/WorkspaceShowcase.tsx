@@ -31,18 +31,22 @@ export default function WorkspaceShowcase() {
 
         {/* Toggle Tabs (Ensuring Touch Targets are >= 48px height) */}
         <div className="flex justify-center mb-12 px-2">
-          <div className="relative grid grid-cols-2 bg-surface-2 p-1.5 rounded-full border border-border shadow-sm w-full max-w-[340px] sm:max-w-md">
+          <div role="tablist" aria-label="Workspace type" className="relative grid grid-cols-2 bg-surface-2 p-1.5 rounded-full border border-border shadow-sm w-full max-w-[340px] sm:max-w-md">
             <button
+              role="tab"
+              aria-selected={activeWorkspace === 'ecom'}
               onClick={() => setActiveWorkspace('ecom')}
-              className={`relative z-10 py-3.5 rounded-full text-xs sm:text-sm font-bold transition-colors min-h-[48px] flex items-center justify-center`}
+              className={`relative z-10 py-3.5 rounded-full text-xs sm:text-sm font-bold transition-colors min-h-[48px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50`}
             >
               <span className={activeWorkspace === 'ecom' ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}>
                 {tWork('ecommerce')}
               </span>
             </button>
             <button
+              role="tab"
+              aria-selected={activeWorkspace === 'appointments'}
               onClick={() => setActiveWorkspace('appointments')}
-              className={`relative z-10 py-3.5 rounded-full text-xs sm:text-sm font-bold transition-colors min-h-[48px] flex items-center justify-center`}
+              className={`relative z-10 py-3.5 rounded-full text-xs sm:text-sm font-bold transition-colors min-h-[48px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50`}
             >
               <span className={activeWorkspace === 'appointments' ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}>
                 {tWork('appointments')}
@@ -50,6 +54,7 @@ export default function WorkspaceShowcase() {
             </button>
             {/* Active Indicator Slider */}
             <div
+              aria-hidden="true"
               className={`absolute top-1.5 bottom-1.5 left-1.5 w-[calc(50%-0.375rem)] bg-primary rounded-full shadow-md transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${
                 activeWorkspace === 'ecom' ? 'translate-x-0' : 'translate-x-full'
               }`}

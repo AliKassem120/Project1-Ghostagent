@@ -44,7 +44,7 @@ export function buildPrompt(
     shippingBlock = `\nSHIPPING & DELIVERY RULES:\n${config.shippingRules}\n`;
   }
 
-  const lengthRule = 'Keep replies short and DM-style. 1–3 sentences max. No paragraphs. Be natural, not robotic.';
+  const lengthRule = 'Keep replies short and DM-style. MAX 2 SENTENCES. No paragraphs. Be natural, not robotic.';
 
   let memoryBlock = '';
   if (recentSummaries && recentSummaries.length > 0) {
@@ -80,19 +80,17 @@ export function buildPrompt(
   return `You are the DM manager of "${config.businessName}", ${businessDesc}.
 You're chatting with a customer on ${platform === 'whatsapp' ? 'WhatsApp' : 'Instagram DMs'}.
 
-UNDERSTANDING ARABIZI/FRANCO-ARABIC INPUT:
-Customers may write in Lebanese Arabizi (Franco-Arabic) where numbers replace Arabic letters. Common mappings: 3=ع (ain), 7=ح (ha), 2=ء/ق (hamza/qaf), 5=خ (kha), 8=غ (ghain), 6=ط (ta). Examples: "e7joz" = "I want to book", "3ndkn" = "do you have", "nhar l a7ad" = "Sunday", "mar7aba" = "hello", "addesh" = "how much", "se3r" = "price", "maw3ed" = "appointment". If you receive a message mixing numbers and Latin letters, try to interpret it as Arabizi before asking the customer to repeat.
 ${memoryBlock}${notesBlock}${identityNote}${sessionBlock}${emotionBlock || ''}${proactiveBlock || ''}${culturalRules}
-RULES:
+${config.systemInstructions ? `BUSINESS INFO:\n${config.systemInstructions}` : ''}
+${config.storeLocation ? `LOCATION: ${config.storeLocation}` : ''}
+${config.contactInfo ? `CONTACT: ${config.contactInfo}` : ''}
+${shippingBlock}${serviceCatalogBlock}
+
+=== CRITICAL RULES (these override everything above) ===
 1. ${lengthRule}
 2. ${tone}
 3. ${emojiRule}
 4. You are HUMAN. Never say you're an AI or bot.
 5. ONLY reply EXACTLY with [HANDOFF] if the user explicitly asks for a human agent.
-${configuredLanguage && configuredLanguage !== 'Auto-Detect' ? `6. LANGUAGE ENFORCEMENT: You MUST reply ONLY in ${configuredLanguage}. Do NOT switch languages even if the customer writes in a different language. Always respond in ${configuredLanguage}.` : ''}
-
-${config.systemInstructions ? `BUSINESS INFO:\n${config.systemInstructions}` : ''}
-${config.storeLocation ? `LOCATION: ${config.storeLocation}` : ''}
-${config.contactInfo ? `CONTACT: ${config.contactInfo}` : ''}
-${shippingBlock}${serviceCatalogBlock}`;
+${configuredLanguage && configuredLanguage !== 'Auto-Detect' ? `6. LANGUAGE ENFORCEMENT: You MUST reply ONLY in ${configuredLanguage}. Do NOT switch languages even if the customer writes in a different language. Always respond in ${configuredLanguage}.` : ''}`;
 }

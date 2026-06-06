@@ -122,46 +122,46 @@ const LOCALIZED_FALLBACKS: Record<string, {
     stock_deny: string;
 }> = {
     english: {
-        booking_claim: "I'd love to get that booked for you! Could you please confirm the date, time, and service so I can finalize your appointment?",
-        availability_deny: "Let me check our availability for you! What date and time were you thinking?",
-        order_claim: "I'd love to place that order for you! Could you please confirm your name, phone number, and address so we can finalize the order?",
-        stock_deny: "Let me check the stock levels for you! Which product were you looking for?"
+        booking_claim: "Almost there! Just confirm the date, time, and service 📅",
+        availability_deny: "What date and time works for you?",
+        order_claim: "Just need your name, phone, and address to lock it in 📦",
+        stock_deny: "Which product? I'll check stock right now."
     },
     arabizi: {
-        booking_claim: "Yalla 7abeb e7jizlak! Fik t2akid l date, l wa2et w ayya service baddak ta2aman l maw3ed?",
-        availability_deny: "Khaline shouf l maw3id l fadye! Ayya nhar w se3a baddak?",
-        order_claim: "Yalla baddi a3mil l order! Fik t2akid l isem, ra2em l tilefon w l address ta nkhalles l order?",
-        stock_deny: "Khaline shouf iza fi stock! Ayya product baddak?"
+        booking_claim: "Khaline n2akid l date w l wa2et w ayya service 📅",
+        availability_deny: "Ayya nhar w se3a baddak?",
+        order_claim: "Bas bado isem, ra2em w address 📦",
+        stock_deny: "Ayya product? Khaline shef stock."
     },
-    'lebanese franco': {
-        booking_claim: "Yalla 7abeb e7jizlak! Fik t2akid l date, l wa2et w ayya service baddak ta2aman l maw3ed?",
-        availability_deny: "Khaline shouf l maw3id l fadye! Ayya nhar w se3a baddak?",
-        order_claim: "Yalla baddi a3mil l order! Fik t2akid l isem, ra2em l tilefon w l address ta nkhalles l order?",
-        stock_deny: "Khaline shouf iza fi stock! Ayya product baddak?"
+    franco: {
+        booking_claim: "Khaline n2akid l date w l wa2et w ayya service 📅",
+        availability_deny: "Ayya nhar w se3a baddak?",
+        order_claim: "Bas bado isem, ra2em w address 📦",
+        stock_deny: "Ayya product? Khaline shef stock."
     },
     mixed: {
-        booking_claim: "Yalla 7abeb e7jizlak! Fik t2akid l date, l wa2et w ayya service baddak ta2aman l maw3ed?",
-        availability_deny: "Khaline shouf l maw3id l fadye! Ayya nhar w se3a baddak?",
-        order_claim: "Yalla baddi a3mil l order! Fik t2akid l isem, ra2em l tilefon w l address ta nkhalles l order?",
-        stock_deny: "Khaline shouf iza fi stock! Ayya product baddak?"
+        booking_claim: "Khaline n2akid l date w l wa2et w ayya service 📅",
+        availability_deny: "Ayya nhar w se3a baddak?",
+        order_claim: "Bas bado isem, ra2em w address 📦",
+        stock_deny: "Ayya product? Khaline shef stock."
     },
     spanish: {
-        booking_claim: "¡Me encantaría reservarlo para ti! ¿Podrías confirmar la fecha, la hora y el servicio para finalizar tu cita?",
-        availability_deny: "¡Déjame verificar nuestra disponibilidad! ¿En qué fecha y hora estabas pensando?",
-        order_claim: "¡Me encantaría hacer ese pedido por ti! ¿Podrías confirmar tu nombre, número de teléfono y dirección para finalizar el pedido?",
-        stock_deny: "¿Déjame verificar el stock! ¿Qué producto estabas buscando?"
+        booking_claim: "¡Casi listo! Confirma fecha, hora y servicio 📅",
+        availability_deny: "¿Qué fecha y hora prefieres?",
+        order_claim: "Solo necesito nombre, teléfono y dirección 📦",
+        stock_deny: "¿Qué producto? Reviso stock ahora."
     },
     french: {
-        booking_claim: "Je serais ravi de réserver cela pour vous ! Pourriez-vous confirmer la date, l'heure et le service afin que je puisse finaliser votre rendez-vous ?",
-        availability_deny: "Laissez-moi vérifier nos disponibilités ! À quelle date et heure pensiez-vous ?",
-        order_claim: "Je serais ravi de passer cette commande pour vous ! Pourriez-vous confirmer votre nom, numéro de téléphone et adresse afin de finaliser la commande ?",
-        stock_deny: "Laissez-moi vérifier les niveaux de stock ! Quel produit recherchiez-vous ?"
+        booking_claim: "Presque fini ! Confirmez la date, l'heure et le service 📅",
+        availability_deny: "Quelle date et heure vous conviennent ?",
+        order_claim: "Juste le nom, téléphone et adresse 📦",
+        stock_deny: "Quel produit ? Je vérifie le stock."
     },
     arabic: {
-        booking_claim: "يسعدني أن أحجز ذلك لك! هل يمكنك تأكيد التاريخ والوقت والخدمة لتأكيد موعدك؟",
-        availability_deny: "دعني أتحقق من التوفر لدينا! ما هو التاريخ والوقت الذي تفضله؟",
-        order_claim: "يسعدني إتمام طلبك! هل يمكنك تأكيد اسمك ورقم هاتفك وعنوانك لتأكيد الطلب؟",
-        stock_deny: "دعني أتحقق من توفر المنتج! ما هو المنتج الذي تبحث عنه؟"
+        booking_claim: "كمل بس التاريخ والوقت والخدمة 📅",
+        availability_deny: "أي تاريخ ووقت تفضل؟",
+        order_claim: "بس بدي اسمك ورقمك وعنوانك 📦",
+        stock_deny: "أي منتج؟ بشوف التوفر الحين."
     }
 };
 

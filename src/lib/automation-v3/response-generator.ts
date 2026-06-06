@@ -28,17 +28,20 @@ export async function generateResponse(
 
   try {
     const provider = createProvider();
+    // Higher temperature = more natural, less robotic variation
+    // Slightly higher maxTokens for Arabic script (Unicode = ~2x token count)
+    const isArabicScript = context.requiredLanguageScript === 'arabic';
     const responseText = await provider.complete({
       system: systemInstruction,
       messages: [{ role: 'user', content: prompt }],
-      temperature: 0.4,
-      maxTokens: 200,
+      temperature: 0.55,
+      maxTokens: isArabicScript ? 280 : 200,
     });
 
     let text = responseText.text.trim();
     // Strip [HANDOFF] from LLM output — handoff routing is the orchestrator's job, not the LLM's
     text = text.replace(/\[HANDOFF\]/gi, '').trim();
-    text = enforceSentenceLimit(text);
+    text = enforceSentenceLimit(text, 2);
     return { text };
   } catch (error: any) {
     console.error('❌ [Response Gen] DeepSeek text generation failed:', error);
@@ -51,29 +54,17 @@ export async function generateResponse(
 }
 
 function buildSystemInstructionWithContext(context: ResponseContext): string {
-  const fsmContextBlock = context.fsmContext 
-    ? `\n=== DETERMINISTIC FSM EXECUTION CONTEXT ===
-FSM Action Type: ${context.fsmContext.actionType}
-FSM Payload: ${JSON.stringify(context.fsmContext.payload)}
-Use this FSM context to formulate your response. For example:
-- If actionType is "order_cancelled", let them know their order (or appointment) was cancelled successfully.
-- If actionType is "checkout_success", confirm details of their new order.
-- If actionType is "appointment_booked", confirm their appointment time and details.
-- If actionType is "info_gathered", use the gathered details and missing details to prompt them for the next step or confirm booking/checkout.
-`
+  const fsmContextBlock = context.fsmContext
+    ? `\nFSM ACTION: ${context.fsmContext.actionType} | ${JSON.stringify(context.fsmContext.payload)}`
     : '';
 
   return `${context.systemInstruction}
 ${fsmContextBlock}
-=== LEBANESE FRANCO-ARABIC DICTIONARY & BRAND PERSONA RULES ===
-1. Local Dictionary Casing & Meanings:
-   - "min" translates to "who" (e.g. "min ma3e?" -> "who is with me?"), not just "from".
-   - "taleta" represents "Tuesday" (day of week).
-   - "tlete" represents the number "three" (3).
-2. Dynamic & Varied Greetings:
-   - NEVER repeat the exact same greeting or use rigid templates (like "Back again? 😎 What are we getting today?") repeatedly, especially when a transaction completes or resets.
-   - Vary your greetings and conversational banter dynamically to sound like a natural human store representative.
-   - Match the user's script and energy. Keep it warm and friendly.`;
+
+PERSONA REMINDER:
+- Never repeat the exact same greeting or use rigid templates.
+- Vary your wording to sound like a natural human rep.
+- Match the user's energy. Keep it warm and friendly.`;
 }
 
 function buildReplyPrompt(context: ResponseContext): string {
@@ -115,9 +106,9 @@ Now write the reply:`;
 
 function buildWritingRules(context: ResponseContext, isFranco: boolean): string {
   const lang = context.requiredLanguageScript;
-  const emojiRule = context.workspaceConfig.useEmojis 
-    ? 'Use 0-1 emoji only when natural. Never more than 1.' 
-    : 'NO emojis at all.';
+  const emojiRule = context.workspaceConfig.useEmojis
+    ? 'You may use up to 1 emoji per message, only when it feels natural. EXCEPTION: If the customer is frustrated, angry, or using ALL CAPS, do NOT use any emojis at all — they come across as dismissive and insincere.'
+    : 'Do NOT use any emojis. Zero. No exceptions.';
   
   let examples = '';
   if (lang === 'franco') {
@@ -154,12 +145,77 @@ Bad English Examples:
 ${examples}`;
 }
 
-function enforceSentenceLimit(text: string): string {
+const COMMON_ABBREVIATIONS = new Set([
+  'mr', 'mrs', 'ms', 'dr', 'prof', 'inc', 'llc', 'ltd', 'jr', 'sr',
+  'e.g', 'i.e', 'etc', 'vs', 'vol', 'vols', 'inc', 'fig', 'figs',
+  'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+  'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun',
+  'am', 'pm', 'a.m', 'p.m',
+  'est', 'pst', 'gmt', 'utc',
+  'ft', 'lb', 'kg', 'km', 'mi',
+  'no', 'nos', 'nr', 'vol',
+  'st', 'ave', 'blvd', 'rd', 'hwy',
+  'etc', 'et al', 'ibid', 'op cit',
+  'u.s', 'u.k', 'u.n', 'n.a', 'n.b',
+  'p.s', 'p.p.s',
+]);
+
+/**
+ * Split text into sentences while respecting common abbreviations.
+ * Returns at most `maxSentences` (default 2), preserving the rest as-is
+ * if the limit is not exceeded.
+ * Exported for unit testing.
+ */
+export function splitSentences(text: string): string[] {
+  const sentences: string[] = [];
+  let current = '';
+  let i = 0;
+
+  while (i < text.length) {
+    current += text[i];
+
+    if (text[i] === '.' || text[i] === '!' || text[i] === '?') {
+      // 1. Intra-word check: if the very next character is a letter (no space),
+      //    we are mid-abbreviation, e.g. the "e." in "e.g." or "i." in "i.e."
+      const nextChar = i + 1 < text.length ? text[i + 1] : '';
+      const isIntraWord = /[a-zA-Z]/.test(nextChar);
+
+      // 2. Abbreviation check: look at the word token immediately before the punctuation.
+      //    Strip only non-alphanumeric-non-dot so "e.g" stays "e.g" and matches the set.
+      const wordBefore = current
+        .slice(0, -1)
+        .split(/\s+/)
+        .pop()
+        ?.toLowerCase()
+        ?.replace(/[^a-z0-9.]/g, '');
+      const isAbbrev = Boolean(wordBefore && COMMON_ABBREVIATIONS.has(wordBefore));
+
+      // 3. Ellipsis check: any adjacent period means we're inside "..."
+      const isEllipsis =
+        text.slice(i, i + 3) === '...' ||
+        (i > 0 && text[i - 1] === '.');
+
+      if (!isIntraWord && !isAbbrev && !isEllipsis) {
+        sentences.push(current.trim());
+        current = '';
+      }
+    }
+    i++;
+  }
+
+  if (current.trim()) {
+    sentences.push(current.trim());
+  }
+
+  return sentences;
+}
+
+/** Exported for unit testing. */
+export function enforceSentenceLimit(text: string, maxSentences = 2): string {
   if (!text) return text;
-  const sentenceRegex = /[^.!?]+(?:[.!?]+|$)/g;
-  const matches = text.match(sentenceRegex);
-  if (matches && matches.length > 2) {
-    return matches.slice(0, 2).join(' ').replace(/\s+/g, ' ').trim();
+  const sentences = splitSentences(text);
+  if (sentences.length > maxSentences) {
+    return sentences.slice(0, maxSentences).join(' ');
   }
   return text;
 }

@@ -1,4 +1,5 @@
 import { createProvider } from '@/lib/ai/providers/llm-provider';
+import { z } from 'zod';
 
 export interface ThinkingResult {
   intentAnalysis: string;
@@ -12,6 +13,68 @@ export interface ThinkingResult {
 export interface ToolResult {
   tool: string;
   result: any;
+}
+
+// ── Allowed tool names by business type ───────────────────────
+
+const ECOMMERCE_TOOLS = ['search_products', 'check_stock', 'get_business_hours', 'lookup_customer', 'send_product_card'] as const;
+const APPOINTMENT_TOOLS = ['check_slot', 'get_services', 'get_business_hours', 'lookup_customer'] as const;
+const ALL_ALLOWED_TOOLS = [...new Set([...ECOMMERCE_TOOLS, ...APPOINTMENT_TOOLS])] as const;
+
+// ── Zod schema for thinking layer output ─────────────────────
+
+const VALID_STATES = [
+  'idle', 'collecting', 'confirming', 'complete', 'handoff',
+  'awaiting_product', 'awaiting_variant', 'awaiting_order_details',
+  'awaiting_checkout_confirmation', 'awaiting_service', 'awaiting_date_time',
+  'awaiting_customer_details', 'awaiting_booking_confirmation',
+  'post_order_modify', 'post_appointment_modify',
+] as const;
+
+const VALID_GOALS = ['close_sale', 'gather_info', 'resolve_issue'] as const;
+type ValidGoal = typeof VALID_GOALS[number];
+
+export const ThinkingResultSchema = z.object({
+  intentAnalysis: z.string().min(1, 'intentAnalysis must not be empty'),
+  emotion: z.string().min(1, 'emotion must not be empty'),
+  // z.enum errorMap is not honoured in Zod v4 — use string+refine for predictable messages
+  goal: z.string().refine(
+    (v): v is ValidGoal => (VALID_GOALS as readonly string[]).includes(v),
+    { message: 'goal must be one of: close_sale, gather_info, resolve_issue' }
+  ),
+  toolsNeeded: z
+    .array(z.enum(ALL_ALLOWED_TOOLS as unknown as [string, ...string[]]))
+    .max(4, 'toolsNeeded must not exceed 4 tools')
+    .refine(
+      (tools) => new Set(tools).size === tools.length,
+      { message: 'toolsNeeded must not contain duplicate tools' }
+    ),
+  // z.enum errorMap is not honoured in Zod v4 — use string+refine for predictable messages
+  suggestedNextState: z.string().refine(
+    (v) => (VALID_STATES as readonly string[]).includes(v),
+    { message: `suggestedNextState must be one of: ${VALID_STATES.join(', ')}` }
+  ),
+  customStrategy: z.string().min(10, 'customStrategy must be descriptive (≥10 chars)'),
+});
+
+/** Exported for unit testing */
+export type ThinkingResultRaw = z.input<typeof ThinkingResultSchema>;
+
+/**
+ * Validate and coerce LLM JSON output against the ThinkingResultSchema.
+ * Returns a typed, validated ThinkingResult or throws with a detailed message.
+ */
+export function validateThinkingResult(raw: unknown): ThinkingResult {
+  const parsed = ThinkingResultSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    const issues = parsed.error.issues
+      .map((i) => `  • ${i.path.join('.')} — ${i.message}`)
+      .join('\n');
+    throw new Error(`[ThinkingLayer] Schema validation failed:\n${issues}`);
+  }
+
+  return parsed.data as ThinkingResult;
 }
 
 // System prefix to leverage prompt caching
@@ -118,18 +181,35 @@ Available tools you can request:
       responseFormat: 'json',
     });
 
-    const result = JSON.parse(response.text || '{}');
+    const rawParsed = JSON.parse(response.text || '{}');
 
-    return {
-      intentAnalysis: result.intentAnalysis || '',
-      emotion: result.emotion || 'neutral',
-      goal: result.goal || 'gather_info',
-      toolsNeeded: result.toolsNeeded || [],
-      suggestedNextState: result.suggestedNextState || session.state || 'idle',
-      customStrategy: result.customStrategy || 'Reply naturally and helpfully',
-    };
+    try {
+      // Validate and coerce the LLM output against the strict schema.
+      // Falls back gracefully on validation errors rather than crashing.
+      return validateThinkingResult({
+        intentAnalysis: rawParsed.intentAnalysis || '',
+        emotion: rawParsed.emotion || 'neutral',
+        goal: rawParsed.goal || 'gather_info',
+        toolsNeeded: Array.isArray(rawParsed.toolsNeeded) ? rawParsed.toolsNeeded : [],
+        suggestedNextState: rawParsed.suggestedNextState || session.state || 'idle',
+        customStrategy: rawParsed.customStrategy || 'Reply naturally and helpfully',
+      });
+    } catch (validationError: any) {
+      console.warn('⚠️ [Thinking Layer] Schema validation failed — using safe fallback:', validationError.message);
+      // Return a safe, untyped fallback rather than crashing the pipeline
+      return {
+        intentAnalysis: rawParsed.intentAnalysis || 'Validation fallback',
+        emotion: rawParsed.emotion || 'neutral',
+        goal: (['close_sale', 'gather_info', 'resolve_issue'].includes(rawParsed.goal)
+          ? rawParsed.goal
+          : 'gather_info') as ThinkingResult['goal'],
+        toolsNeeded: [],
+        suggestedNextState: session.state || 'idle',
+        customStrategy: rawParsed.customStrategy || 'Reply naturally and helpfully',
+      };
+    }
   } catch (error: any) {
-    console.error('❌ [Thinking Layer] DeepSeek call failed:', error);
+    console.error('❌ [Thinking Layer] LLM call failed:', error);
     return {
       intentAnalysis: 'Fallback due to API error',
       emotion: 'neutral',

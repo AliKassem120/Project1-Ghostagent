@@ -58,7 +58,9 @@ export default function FAQSection() {
             >
               <button
                 onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
-                className="flex items-center justify-between w-full px-5 py-4 sm:px-6 sm:py-5 text-left focus:outline-none group min-h-[48px]"
+                aria-expanded={openFaq === idx}
+                aria-controls={`faq-answer-${idx}`}
+                className="flex items-center justify-between w-full px-5 py-4 sm:px-6 sm:py-5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 rounded-2xl group min-h-[48px]"
               >
                 <span className={clsx(
                   "font-bold text-sm sm:text-base transition-colors pr-4",
@@ -81,6 +83,8 @@ export default function FAQSection() {
               <AnimatePresence initial={false}>
                 {openFaq === idx && (
                   <motion.div
+                    id={`faq-answer-${idx}`}
+                    role="region"
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}

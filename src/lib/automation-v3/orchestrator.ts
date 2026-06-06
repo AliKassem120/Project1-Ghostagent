@@ -379,6 +379,7 @@ export async function orchestrate(
 
   // PROACTIVE TOOL EXECUTION: Pre-execute tools for known intent patterns
   // so the response generator has real data from the start
+  // Filtered by business type to avoid calling ecommerce tools on appointment workspaces
   const PROACTIVE_TOOLS: Record<string, string[]> = {
     product_question: ['search_products'],
     price_question: ['search_products'],
@@ -387,11 +388,23 @@ export async function orchestrate(
     service_question: ['get_services'],
     booking_intent: ['get_services'],
     business_hours: ['get_business_hours'],
+    check_availability: ['check_slot'],
   };
 
   const proactiveTools = PROACTIVE_TOOLS[intent];
   if (proactiveTools && proactiveTools.length > 0) {
-    for (const toolName of proactiveTools) {
+    // Filter tools by business type to avoid wrong-tool calls
+    const isEcom = config.businessType === 'ecommerce';
+    const allowedTools = proactiveTools.filter((t) => {
+      if (isEcom) {
+        // Ecommerce workspaces only use ecommerce + shared tools
+        return ['search_products', 'check_stock', 'get_business_hours'].includes(t);
+      }
+      // Appointment workspaces only use appointment + shared tools
+      return ['get_services', 'check_slot', 'get_business_hours', 'lookup_customer'].includes(t);
+    });
+
+    for (const toolName of allowedTools) {
       v2log.info('ORCHESTRATOR', `Proactive tool execution: ${toolName} (intent: ${intent})`);
       try {
         const res = await executeTool(toolName, input.message, classification.entities || {}, toolCtxFallback);

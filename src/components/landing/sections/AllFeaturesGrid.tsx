@@ -20,9 +20,11 @@ import {
   Clock 
 } from 'lucide-react';
 
+import type { LucideIcon } from 'lucide-react';
+
 interface FeatureCard {
   id: string;
-  icon: any;
+  icon: LucideIcon;
   titleKey: string;
   descKey: string;
   colorClass: string;

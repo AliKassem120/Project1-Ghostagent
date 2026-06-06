@@ -347,6 +347,7 @@ export default function HowItWorksSection() {
               </Link>
               <button
                 onClick={() => setShowVideo(true)}
+                aria-label="Watch GhostAgent demo video"
                 className="px-8 py-3.5 bg-surface-2 border border-border text-foreground font-bold rounded-full hover:bg-surface-3 active:bg-surface-4 transition-all text-sm text-center min-h-[48px] flex items-center justify-center"
               >
                 {tHow('watchDemo')}

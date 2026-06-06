@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import Navbar from '@/components/Navbar';
 import StarBackground from '@/components/StarBackground';
@@ -19,10 +19,15 @@ import TestimonialsSection from '@/components/landing/sections/TestimonialsSecti
 import FAQSection from '@/components/landing/sections/FAQSection';
 import FinalCTASection from '@/components/landing/sections/FinalCTASection';
 
+// Pre-compute particle positions to avoid hydration mismatches from Math.random() in render
+const PARTICLES = Array.from({ length: 15 }, (_, i) => ({
+  left: ((i * 7.3 + 11) % 100).toFixed(1),
+  duration: 10 + (i * 1.7) % 12,
+  delay: (i * 0.83) % 5,
+}));
+
 export default function LandingPage() {
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
+  const particles = useMemo(() => PARTICLES, []);
 
   return (
     <main className="min-h-[100dvh] text-foreground overflow-x-clip relative selection:bg-primary/30">
@@ -37,13 +42,13 @@ export default function LandingPage() {
 
       {/* Floating Particles */}
       <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
-        {[...Array(15)].map((_, i) => (
+        {particles.map((p, i) => (
           <motion.div
             key={i}
             className="absolute w-1 h-1 bg-white/20 rounded-full"
-            initial={{ opacity: 0, top: '110%', left: `${Math.random() * 100}%` }}
+            initial={{ opacity: 0, top: '110%', left: `${p.left}%` }}
             animate={{ opacity: [0, 0.6, 0], top: '-10%' }}
-            transition={{ duration: Math.random() * 12 + 10, repeat: Infinity, ease: 'linear', delay: Math.random() * 5 }}
+            transition={{ duration: p.duration, repeat: Infinity, ease: 'linear', delay: p.delay }}
           />
         ))}
       </div>
