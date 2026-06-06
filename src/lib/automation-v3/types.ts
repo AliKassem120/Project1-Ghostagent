@@ -57,7 +57,7 @@ export interface FsmResult {
   nextState: ConversationStage;
   actions: FsmAction[];
   context?: {
-    actionType: 'order_cancelled' | 'checkout_success' | 'appointment_booked' | 'info_gathered';
+    actionType: 'order_cancelled' | 'checkout_success' | 'appointment_booked' | 'info_gathered' | 'defer_to_llm';
     payload: Record<string, unknown>; // strict: unknown forces consumers to validate
   };
   dbWriteAttempted: boolean;
