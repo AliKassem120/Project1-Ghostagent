@@ -203,6 +203,12 @@ export async function runAppointmentFSM(
 
   // 2. Handle booking confirmation state
   if (currentState === 'awaiting_booking_confirmation') {
+    // Also parse any date/time the user might have mentioned in the message to prevent stale data
+    const newDate = resolveDateFromMessage(message, timeCtx);
+    const newTime = resolveTimeFromMessage(message);
+    if (newDate) session.data.date = newDate;
+    if (newTime) session.data.time = newTime;
+
     // Use LLM-based classifier for robust intent detection in high-stakes confirmation state
     const yesNo = await classifyConfirmationIntent(message, {
       businessType: 'appointments',
@@ -386,6 +392,12 @@ export async function runAppointmentFSM(
   if (currentState === 'awaiting_customer_details') {
     const details = await resolveDetails(message);
     session.data = { ...session.data, ...details };
+
+    // Also parse any date/time the user might have mentioned in the details message to keep context updated
+    const newDate = resolveDateFromMessage(message, timeCtx);
+    const newTime = resolveTimeFromMessage(message);
+    if (newDate) session.data.date = newDate;
+    if (newTime) session.data.time = newTime;
 
     if (hasDetails(session.data)) {
       nextState = 'awaiting_booking_confirmation';
