@@ -575,7 +575,21 @@ export async function runEcommerceFSM(
   // Look for product mention in the message
   actions.push('tool_search_products');
   const products = await searchProducts({ supabase, workspaceId: session.workspaceId, query: message });
-  const match = findBestProductMatch(products, message);
+  if (!session.data) session.data = {};
+  let match = findBestProductMatch(products, message);
+
+  // Fallback: If no product is matched in the message, but we already have one stored in session, reuse it!
+  if (!match && session.data?.productName) {
+    const existing = products.find(p => p.itemName === session.data.productName) || {
+      id: session.data.productId,
+      itemName: session.data.productName,
+      price: session.data.price,
+      stockLevel: session.data.stock ?? 999,
+      description: null,
+      variants: [],
+    };
+    match = existing;
+  }
 
   if (match) {
     session.data.productId = match.id;
