@@ -158,13 +158,14 @@ export function resolveTimeFromMessage(message: string): string | null {
         return '09:00'; // Morning
     }
 
-    // "4pm" / "10am" / "4 pm" / "10 am"
-    const ampm = normalized.match(/\b(\d{1,2})\s*(am|pm)\b/);
+    // "10:00 am" / "4pm" / "10am" / "4 pm" / "10 am"
+    const ampm = normalized.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/);
     if (ampm) {
-        const h = parseInt(ampm[1], 10);
-        const isPM = ampm[2] === 'pm';
+        let h = parseInt(ampm[1], 10);
+        const m = ampm[2] || '00';
+        const isPM = ampm[3] === 'pm';
         const hour = isPM && h < 12 ? h + 12 : !isPM && h === 12 ? 0 : h;
-        return `${String(hour).padStart(2, '0')}:00`;
+        return `${String(hour).padStart(2, '0')}:${m}`;
     }
 
     // "se3a 4" / "sa3a 4" / "3al 4"

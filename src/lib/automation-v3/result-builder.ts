@@ -155,14 +155,8 @@ export async function runFSMAndGenerateResponse(ctx: FsmMappingContext): Promise
     fsmContext: fsmRes.context ? {
       actionType: fsmRes.context.actionType,
       payload: {
-        productName: fsmRes.context.payload?.productName,
-        serviceName: fsmRes.context.payload?.serviceName,
-        price: fsmRes.context.payload?.price,
-        date: fsmRes.context.payload?.date,
-        time: fsmRes.context.payload?.time,
-        missingDetails: fsmRes.context.payload?.missingDetails,
-        isReadyToConfirm: fsmRes.context.payload?.isReadyToConfirm,
-        isAwaitingVariant: fsmRes.context.payload?.isAwaitingVariant,
+        ...fsmRes.context.payload,
+        serviceName: fsmRes.context.payload?.serviceName || fsmRes.context.payload?.service,
       }
     } : undefined
   });

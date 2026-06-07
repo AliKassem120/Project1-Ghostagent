@@ -250,6 +250,7 @@ export function extractPhone(message: string): string | null {
 const NAME_EXCLUDE_WORDS = new Set([
     'my', 'name', 'is', 'im', 'i', 'am', 'esme', 'esmi', 'ana', 'phone', 'number', 'tel', 'ra2m', 'رقم', 'اسمي', 'انا',
     'address', '3nwen', '3nwene', 'عنوان', 'to', 'for', 'from', 'with', 'at', 'in', 'on', 'of', 'and', 'the', 'a', 'an',
+    'details', 'detail', 'info', 'information', 'are', 'here', 'here is', 'here are', 'ma3lumet', 'ma3loumat', 'tafasil', 'tafaseel', 'معلومات', 'تفاصيل',
     'want', 'need', 'buy', 'order', 'purchase', 'get', 'take', 'have', 'deliver', 'delivered', 'delivery', 'towsil', 'tawsil',
     'ship', 'shipped', 'shipping', 'send', 'sent', 'sending', 'book', 'booked', 'booking', 'reserve', 'reserved', 'reservation',
     'schedule', 'scheduled', 'appoint', 'appointment', 'confirm', 'confirmed', 'cancel', 'cancelled', 'update', 'updated',

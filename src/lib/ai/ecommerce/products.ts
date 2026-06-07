@@ -202,9 +202,10 @@ export function findBestProductMatch(
 }
 
 export function cleanSearchQuery(query: string): string {
-    let q = query.toLowerCase();
+    // 1. Clean punctuation to prevent word-boundary matches from failing on punctuation (e.g. "hi," -> "hi")
+    let q = query.toLowerCase().replace(/[,.!?()]/g, ' ');
     
-    // Stripping common question prefixes and conversational fillers
+    // 2. Conversational greetings and Arabizi fillers
     const fillers = [
         /\bdo\s+you\s+have\b/gi,
         /\bdo\s+u\s+have\b/gi,
@@ -224,8 +225,9 @@ export function cleanSearchQuery(query: string): string {
         /\bi'm\s+looking\s+for\b/gi,
         /\bim\s+looking\s+for\b/gi,
         /\bhave\s+you\s+got\b/gi,
+        /\b(hi|hello|hey|hala|kifak|keefak|mar7aba|marhaba|chou|shu|sho)\b/gi,
         
-        // Arabizi/Franco fillers
+        // Arabizi/Franco fillers & quantifiers
         /\bfe\s+3ndkn\b/gi,
         /\bfe\s+3endkn\b/gi,
         /\bfe\s+3ndk\b/gi,
@@ -256,6 +258,7 @@ export function cleanSearchQuery(query: string): string {
         /\bmawjoud\b/gi,
         /\bmawjoude\b/gi,
         /\bmawjoudeh\b/gi,
+        /\b(w7de|w7di|wahde|wahdi|one|w7da|w7d|habbe|habbi|7abbe|7abbi|pieces|piece|pc|pcs|qty|quantity|w7dy)\b/gi,
 
         // Arabic Script fillers
         /\b\u0639\u0646\u062f\u0643\u0645\b/gi, // عندكم
