@@ -537,6 +537,7 @@ export async function runAppointmentFSM(
   // Extract and save date/time from message to prevent losing context
   const date = resolveDateFromMessage(message, timeCtx);
   const time = resolveTimeFromMessage(message);
+  if (!session.data) session.data = {};
   if (date) session.data.date = date;
   if (time) session.data.time = time;
 
