@@ -80,18 +80,52 @@ The appointment has been SUCCESSFULLY booked. Confirm to the customer with the b
 You may now say things like "Done!" or "You're all set."`;
     } else if (fsm.actionType === 'info_gathered' && fsm.payload?.missingDetails?.length > 0) {
       const missing = fsm.payload.missingDetails.join(', ');
-      stateInstruction = `
+      const hasSlotOrProduct = fsm.payload?.slotAvailable || fsm.payload?.productName;
+      if (hasSlotOrProduct) {
+        // Slot confirmed or product found, but need customer details — combine into ONE message
+        const confirmPart = fsm.payload?.slotAvailable
+          ? `The time slot is AVAILABLE ✅.`
+          : `The product "${fsm.payload.productName}" is available.`;
+        stateInstruction = `
+\n=== STATE INSTRUCTION ===
+${confirmPart} But you are still missing: ${missing}.
+You MUST combine the confirmation and the detail ask into ONE natural message.
+Examples:
+- "That time works! Just need your name and number to lock it in"
+- "Got it in stock! Drop your name, number, and address and I'll place it"
+- "12pm is open! What's your name and phone so I can book it?"
+Do NOT send a separate confirmation first. Do NOT say "booked" or "confirmed" or "all set".`;
+      } else {
+        stateInstruction = `
 \n=== STATE INSTRUCTION ===
 You are still missing the following details: ${missing}.
-Ask the customer ONLY for what's missing. Do NOT ask for details you already have.`;
+Ask the customer ONLY for what's missing. Do NOT ask for details you already have.
+Be direct and natural: "Just need your name and number" — not "Please provide your information."`;
+      }
+    } else if (fsm.actionType === 'info_gathered' && fsm.payload?.isAwaitingDateTime) {
+      stateInstruction = `
+\n=== STATE INSTRUCTION ===
+The service "${fsm.payload?.service || fsm.payload?.serviceName}" is selected ($${fsm.payload?.price || ''}).
+Now ask the customer WHEN they want to come in. Be natural:
+- "When works for you?" or "What day and time are you thinking?"
+Do NOT repeat the service details or re-greet the customer.`;
     }
   }
 
+  // Anti-greeting rule: if conversation has prior turns, block greetings
+  const turnCount = context.conversationHistory.filter(h => h.role === 'assistant').length;
+  const antiGreetingRule = turnCount > 0
+    ? `\n\n=== CRITICAL: NO GREETING ===
+This is message #${turnCount + 1} in the conversation. Do NOT greet the customer.
+No "Hey", "Hi", "Hello", "Hala", "Marhaba", or any greeting opener.
+Jump STRAIGHT into the relevant response. A human employee never says "Hey" again mid-conversation.`
+    : '';
+
   return `${context.systemInstruction}
-${fsmContextBlock}${stateInstruction}
+${fsmContextBlock}${stateInstruction}${antiGreetingRule}
 
 PERSONA REMINDER:
-- Never repeat the exact same greeting or use rigid templates.
+- Never repeat greetings. Only greet on the very first message.
 - Vary your wording to sound like a natural human rep.
 - Match the user's energy. Keep it warm and friendly.`;
 }
@@ -104,11 +138,16 @@ function buildReplyPrompt(context: ResponseContext): string {
   };
   const isFranco = context.requiredLanguageScript === 'franco' || context.requiredLanguageScript === 'mixed';
 
+  const assistantTurns = context.conversationHistory.filter(h => h.role === 'assistant').length;
+  const greetingRule = assistantTurns > 0
+    ? `\n=== DO NOT GREET ===\nThis is turn #${assistantTurns + 1}. Do NOT say "Hey", "Hi", "Hello", "Hala", or any greeting. Jump straight into the response.\n`
+    : '';
+
   return `You are texting as ${context.workspaceConfig.businessName}'s sales rep.
 Date: ${context.timeContext.dayName}, ${context.timeContext.isoDate} at ${context.timeContext.isoTime}
 Platform: ${context.channel}
 Active Session State: ${context.currentState}
-
+${greetingRule}
 === STRATEGIST INSTRUCTION ===
 Goal: ${s.goal}
 Tone: ${s.toneInstruction || 'Casual'}
