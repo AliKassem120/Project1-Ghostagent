@@ -1,6 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { SessionContext, FsmResult } from '../types';
-import type { WorkspaceConfig } from '@/lib/ai/types';
+import type { WorkspaceConfig, InventoryRecord } from '@/lib/ai/types';
 import { detectLanguageScript, detectYesNo, extractNameAndPhone, extractAddress, detectReuseSignals } from '@/lib/ai/language';
 import { searchProducts, findBestProductMatch } from '@/lib/ai/ecommerce/products';
 import { lookupLatestOrder, updateOrderVariant, updateOrderAddress, updateOrderQuantity } from '@/lib/ai/ecommerce/lookup';
@@ -580,11 +580,11 @@ export async function runEcommerceFSM(
 
   // Fallback: If no product is matched in the message, but we already have one stored in session, reuse it!
   if (!match && session.data?.productName) {
-    const existing = products.find(p => p.itemName === session.data.productName) || {
-      id: session.data.productId,
-      itemName: session.data.productName,
-      price: session.data.price,
-      stockLevel: session.data.stock ?? 999,
+    const existing: InventoryRecord = products.find(p => p.itemName === session.data?.productName) || {
+      id: session.data?.productId || '',
+      itemName: session.data?.productName || '',
+      price: session.data?.price || 0,
+      stockLevel: session.data?.stock ?? 999,
       description: null,
       variants: [],
     };

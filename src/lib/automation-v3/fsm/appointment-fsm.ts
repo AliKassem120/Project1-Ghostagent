@@ -545,7 +545,7 @@ export async function runAppointmentFSM(
 
   // Fallback: If no service is matched in the message, but we already have one stored in session, reuse it!
   if (!match && session.data?.service) {
-    const existing = services.find(s => s.name === session.data.service);
+    const existing = services.find(s => s.name === session.data?.service);
     if (existing) {
       match = existing;
     }
