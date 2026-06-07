@@ -197,3 +197,151 @@ export function hasTemplate(templateId: string): boolean {
 export function listTemplates(): string[] {
   return Object.keys(TEMPLATES);
 }
+
+const TEMPLATE_VARIANTS: Record<string, Record<string, string[]>> = {
+    awaiting_order_details: {
+        english: [
+            "{{productName}} — ${{price}}. Just need your name, number, and where to send it",
+            "Got it — {{productName}} for ${{price}}. Name, phone, and address?",
+            "{{productName}} at ${{price}}. Cool if I get your name, number, and delivery address?",
+            "That's ${{price}} for the {{productName}}. Drop your name, phone, and address and we're good",
+            "{{productName}} — ${{price}}. What's your name, number, and where should I send it?",
+        ],
+        franco: [
+            "{{productName}} — ${{price}}. Bade ismak, ra2mak w el 3enwen",
+            "Fhemet — {{productName}} b-${{price}}. Ism, telefon, w 3enwen?",
+            "{{productName}} b-${{price}}. Bade ismak, ra2mak, w ween baddik ewasselon?",
+        ],
+        arabic: [
+            "{{productName}} — ${{price}}. بدي اسمك، رقمك، والعنوان",
+            "تمام — {{productName}} بـ${{price}}. الاسم، التلفون، والعنوان؟",
+            "{{productName}} بـ${{price}}. فيك تعطيني اسمك، رقمك، وعنوان التوصيل؟",
+        ],
+    },
+    order_confirmed: {
+        english: [
+            "Locked in! ✅",
+            "All set! Your order's placed 🙌",
+            "Done! You'll get a tracking link soon",
+            "Got it! Order confirmed ✅",
+            "You're good to go! Order's in",
+        ],
+        franco: [
+            "Tayyeb! ✅",
+            "Tamm! Order m7ebbas 🙌",
+            "Khalas! Tracking link jeye 2ariban",
+            "Bserraf! Order confirmed ✅",
+        ],
+        arabic: [
+            "تمام! ✅",
+            "تم! طلبك مسجل 🙌",
+            "خلص! رابط التتبع جاي قريباً",
+            "تم التأكيد! ✅",
+        ],
+    },
+    booking_confirmed: {
+        english: [
+            "You're booked! ✅ See you {{date}} at {{time}}",
+            "All set! {{date}} at {{time}} — see you then 🙌",
+            "Locked in for {{date}} at {{time}}! ✅",
+            "Got you down for {{date}} at {{time}}! See you",
+        ],
+        franco: [
+            "7ejzet! ✅ Nshufak {{date}} sa3a {{time}}",
+            "Tamm! {{date}} sa3a {{time}} — nshufak 🙌",
+            "Booked for {{date}} sa3a {{time}}!",
+        ],
+        arabic: [
+            "تم الحجز! ✅ نشوفك {{date}} الساعة {{time}}",
+            "تمام! {{date}} الساعة {{time}} — نشوفك 🙌",
+            "محجوز ل{{date}} الساعة {{time}}!",
+        ],
+    },
+    greeting: {
+        english: [
+            "Hey! What are you looking for? 👋",
+            "Hi there! What's up? 👋",
+            "Hey! How can I help?",
+            "What's good? How can I help you?",
+            "Hey there! Looking for something specific?",
+        ],
+        franco: [
+            "Hala! Shu baddak tdawwer 3a she? 👋",
+            "Hi! Shu akhbar?",
+            "Hala! Kif fiyi se3dak?",
+            "Shu fee? Baddak she?",
+        ],
+        arabic: [
+            "مرحبا! شو بدك تدور على شي؟ 👋",
+            "أهلا! كيف فيني ساعدك؟",
+            "مرحبا! شو الأخبار؟",
+        ],
+    },
+    greeting_returning: {
+        english: [
+            "Back again? 😎 What are we getting today?",
+            "Hey, welcome back! What are you after today?",
+            "Good to see you again! What's up?",
+        ],
+        franco: [
+            "Rajje3 marra tanye? 😎 Shu baddak lyom?",
+            "Hala walla! Shu baddak lyom?",
+        ],
+        arabic: [
+            "راجع مرة تانية؟ 😎 شو بدك اليوم؟",
+            "أهلا من جديد! شو الأخبار؟",
+        ],
+    },
+    loop_detected_menu: {
+        english: [
+            "Let's start fresh! What would you like to do?\n1. Browse products\n2. Track my order\n3. Talk to a human",
+            "Hmm, let's try again. What do you need?",
+            "Let's reset! What can I help with?",
+        ],
+        franco: [
+            "Yalla mn el awal! Shu baddak ta3mel?\n1. Dawwar products\n2. Track order\n3. Haki ma3 beshar",
+            "Yalla, mn el jdid! Shu baddak?",
+        ],
+        arabic: [
+            "لنبدأ من جديد! شو بدك تعمل؟\n1. تصفح المنتجات\n2. تتبع طلبي\n3. التحدث مع إنسان",
+            "من الأول! شو بدك؟",
+        ],
+    },
+};
+
+/**
+ * Get a random variant of a template for natural response variety.
+ * Falls back to the standard template if no variants exist.
+ */
+export function getTemplateVariant(
+    templateId: string,
+    languageScript: LanguageScript,
+    variables: Record<string, string> = {}
+): string | null {
+    const variants = TEMPLATE_VARIANTS[templateId];
+    if (!variants) return getTemplate(templateId, languageScript, variables);
+
+    let script: string = languageScript;
+    if (script === 'arabizi') script = 'franco';
+    if (script === 'mixed') script = 'franco';
+
+    // Try exact script match
+    let scriptVariants = variants[script];
+
+    // Fallback chain
+    if (!scriptVariants && script === 'franco') scriptVariants = variants['mixed'];
+    if (!scriptVariants) scriptVariants = variants['english'];
+    if (!scriptVariants || scriptVariants.length === 0) {
+        return getTemplate(templateId, languageScript, variables);
+    }
+
+    // Random selection
+    const text = scriptVariants[Math.floor(Math.random() * scriptVariants.length)];
+
+    // Replace variables
+    return text.replace(/\{\{(\w+)\}\}/g, (match, key) =>
+        variables[key] !== undefined ? variables[key] : match
+    );
+}
+
+export { TEMPLATE_VARIANTS };

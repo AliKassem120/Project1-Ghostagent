@@ -201,9 +201,124 @@ export function checkVoiceConsistency(
     .replace(/^[,;:\-\s]+|[,;:\-\s]+$/g, '')
     .trim();
 
+  // Humanize the final output based on workspace tone
+  const tone = workspaceConfig.tone || 'Friendly';
+  corrected = humanizeText(corrected, tone);
+
   return {
     approved: violations.length === 0,
     correctedText: corrected,
     violations,
   };
+}
+
+/**
+ * Humanize text by expanding contractions, adding natural variation,
+ * and making it sound like a real person texting.
+ */
+function humanizeText(text: string, tone: string): string {
+    let humanized = text;
+    
+    // Step 1: Expand all contractions first (normalize)
+    const contractions: Record<string, string> = {
+        "don't": 'do not',
+        "can't": 'cannot',
+        "won't": 'will not',
+        "isn't": 'is not',
+        "aren't": 'are not',
+        "wasn't": 'was not',
+        "weren't": 'were not',
+        "haven't": 'have not',
+        "hasn't": 'has not',
+        "hadn't": 'had not',
+        "wouldn't": 'would not',
+        "shouldn't": 'should not',
+        "couldn't": 'could not',
+        "mightn't": 'might not',
+        "mustn't": 'must not',
+        "shan't": 'shall not',
+        "let's": 'let us',
+        "that's": 'that is',
+        "who's": 'who is',
+        "what's": 'what is',
+        "where's": 'where is',
+        "when's": 'when is',
+        "why's": 'why is',
+        "how's": 'how is',
+        "it's": 'it is',
+        "he's": 'he is',
+        "she's": 'she is',
+        "here's": 'here is',
+        "there's": 'there is',
+    };
+    
+    // Only humanize if tone is Casual or Friendly
+    if (tone === 'Casual' || tone === 'Friendly' || tone === 'Sarcastic') {
+        // Step 2: Re-contract for casual feel (reverse the above)
+        const casualContractions = [
+            { full: 'do not', contracted: "don't" },
+            { full: 'cannot', contracted: "can't" },
+            { full: 'will not', contracted: "won't" },
+            { full: 'it is', contracted: "it's" },
+            { full: 'that is', contracted: "that's" },
+            { full: 'here is', contracted: "here's" },
+            { full: 'let us', contracted: "let's" },
+            { full: 'what is', contracted: "what's" },
+            { full: 'is not', contracted: "isn't" },
+            { full: 'are not', contracted: "aren't" },
+            { full: 'does not', contracted: "doesn't" },
+            { full: 'did not', contracted: "didn't" },
+            { full: 'was not', contracted: "wasn't" },
+            { full: 'were not', contracted: "weren't" },
+            { full: 'has not', contracted: "hasn't" },
+            { full: 'have not', contracted: "haven't" },
+            { full: 'had not', contracted: "hadn't" },
+            { full: 'would not', contracted: "wouldn't" },
+            { full: 'should not', contracted: "shouldn't" },
+            { full: 'could not', contracted: "couldn't" },
+        ];
+        
+        for (const { full, contracted } of casualContractions) {
+            const regex = new RegExp(`\\b${full}\\b`, 'gi');
+            humanized = humanized.replace(regex, contracted);
+        }
+        
+        // Step 3: Lowercase start occasionally (20% chance, not for questions or names)
+        if (!humanized.match(/^(\?|Who|What|Where|When|Why|How|[A-Z][a-z]+\b)/) && Math.random() < 0.2) {
+            humanized = humanized.charAt(0).toLowerCase() + humanized.slice(1);
+        }
+        
+        // Step 4: Replace overly formal words
+        const formalToCasual: Record<string, string> = {
+            'however': 'but',
+            'nevertheless': 'still',
+            'furthermore': 'also',
+            'additionally': 'plus',
+            'regarding': 'about',
+            'concerning': 'about',
+            'utilize': 'use',
+            'purchase': 'get',
+            'obtain': 'get',
+            'require': 'need',
+            'assist': 'help',
+            'inform': 'let you know',
+            'apologize': 'sorry',
+        };
+        
+        for (const [formal, casual] of Object.entries(formalToCasual)) {
+            const regex = new RegExp(`\\b${formal}\\b`, 'gi');
+            humanized = humanized.replace(regex, casual);
+        }
+        
+        // Step 5: Clean up any double negatives created
+        humanized = humanized.replace(/can not/gi, "can't");
+    }
+    
+    // Step 6: Final cleanup
+    humanized = humanized
+        .replace(/\s{2,}/g, ' ')
+        .replace(/\s+([.,!?])/g, '$1')
+        .trim();
+    
+    return humanized;
 }

@@ -289,7 +289,8 @@ export function createAppointmentTools(ctx: ToolContext) {
                         previous_date: latest.date,
                         previous_time: formatTime12(latest.startTime),
                         new_date: date,
-                        new_time: formatTime12(startTime24)
+                        new_time: formatTime12(startTime24),
+                        appointmentId: latest.id
                     };
                 }
 
@@ -312,7 +313,8 @@ export function createAppointmentTools(ctx: ToolContext) {
                         previous_date: latest.date,
                         previous_time: formatTime12(latest.startTime),
                         new_date: date,
-                        new_time: formatTime12(startTime24)
+                        new_time: formatTime12(startTime24),
+                        appointmentId: latest.id
                     };
                 } catch (rpcErr: any) {
                     // RPC failed — fallback to direct reschedule
@@ -331,7 +333,8 @@ export function createAppointmentTools(ctx: ToolContext) {
                         previous_date: latest.date,
                         previous_time: formatTime12(latest.startTime),
                         new_date: date,
-                        new_time: formatTime12(startTime24)
+                        new_time: formatTime12(startTime24),
+                        appointmentId: latest.id
                     };
                 }
             },

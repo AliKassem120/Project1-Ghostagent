@@ -49,9 +49,15 @@ export async function runEcommerceFSM(
   const resolveDetails = async (msg: string) => {
     const reuse = detectReuseSignals(msg);
     const known = await getKnownDetails();
-    
     const extractedDetails = extractNameAndPhone(msg);
     const extractedAddr = extractAddress(msg);
+
+    // Enhanced: Check if address is meaningful (not just "N/A" or single char)
+    const isValidAddress = (addr: string | null): boolean => {
+        if (!addr) return false;
+        const trimmed = addr.trim();
+        return trimmed.length > 3 && trimmed.toLowerCase() !== 'n/a' && trimmed.toLowerCase() !== 'na';
+    };
 
     const name = extractedDetails.name || 
                  (reuse.reuseName && known?.name ? known.name : null) || 
@@ -71,12 +77,20 @@ export async function runEcommerceFSM(
                     session.customerProfile?.metadata?.address || 
                     null;
 
-    return { name, phone, address };
+    return { name, phone, address: isValidAddress(address) ? address : null };
   };
 
   // Helper to check if name, phone, and address are all filled
   const hasAllDetails = (d: Record<string, any>) => {
-    return !!(d.name && d.phone && d.address);
+    const name = (d.name || '').toString().trim();
+    const phone = (d.phone || '').toString().trim();
+    const address = (d.address || '').toString().trim();
+    // Phone must have at least 7 digits, address at least 4 meaningful chars
+    const phoneDigits = phone.replace(/\D/g, '');
+    return !!(name && name.length > 0 && 
+              phone && phoneDigits.length >= 7 && 
+              address && address.length > 3 && 
+              address.toLowerCase() !== 'n/a');
   };
 
   // Helper to extract variant from message or products catalog
@@ -295,51 +309,42 @@ export async function runEcommerceFSM(
       const productName = session.data.productName;
       const variant = session.data.variant || '';
       const qty = session.data.quantity || 1;
-      const { name, phone, address } = session.data;
+      let { name, phone, address } = session.data;
+
+      // FIX: If details missing, try to recover from customer profile BEFORE asking again
+      if (!name || !phone || !address) {
+          const known = await getKnownDetails();
+          if (!name && known?.name) { session.data.name = known.name; name = known.name; }
+          if (!phone && known?.phone) { session.data.phone = known.phone; phone = known.phone; }
+          if (!address && known?.address) { session.data.address = known.address; address = known.address; }
+          
+          // Also check customer profile
+          if (!name && session.customerProfile?.name) { session.data.name = session.customerProfile.name; name = session.customerProfile.name; }
+          if (!phone && session.customerProfile?.phone) { session.data.phone = session.customerProfile.phone; phone = session.customerProfile.phone; }
+      }
 
       if (!productName || !name || !phone || !address) {
-        // Missing state details, fall back to details collection
-        const details = await resolveDetails(message);
-        session.data = { ...session.data, ...details };
-        if (hasAllDetails(session.data)) {
-          nextState = 'awaiting_checkout_confirmation';
-          return {
-            nextState,
-            actions,
-            context: {
-              actionType: 'info_gathered',
-              payload: {
-                productName: session.data.productName,
-                price: session.data.price,
-                name: session.data.name,
-                phone: session.data.phone,
-                address: session.data.address,
-                isReadyToConfirm: true
-              }
-            },
-            dbWriteAttempted,
-            dbWriteSuccess
-          };
-        } else {
+          // Still missing after recovery — ask customer with context
+          const missing = ['name', 'phone', 'address'].filter(k => !session.data![k]);
           nextState = 'awaiting_order_details';
           return {
-            nextState,
-            actions,
-            context: {
-              actionType: 'info_gathered',
-              payload: {
-                productName: session.data.productName,
-                price: session.data.price,
-                name: session.data.name,
-                phone: session.data.phone,
-                address: session.data.address,
-                missingDetails: ['name', 'phone', 'address'].filter(k => !session.data![k])
-              }
-            },
-            dbWriteAttempted,
-            dbWriteSuccess
+              nextState,
+              actions,
+              context: {
+                  actionType: 'info_gathered',
+                  payload: {
+                      productName: session.data.productName,
+                      price: session.data.price,
+                      name: session.data.name,
+                      phone: session.data.phone,
+                      address: session.data.address,
+                      missingDetails: missing,
+                      recoveryAttempted: true  // Tell response gen we tried
+                  }
+              },
+              dbWriteAttempted,
+              dbWriteSuccess
           };
-        }
       }
 
       // Re-check stock before placing order to prevent overselling
@@ -348,7 +353,13 @@ export async function runEcommerceFSM(
       const freshMatch = findBestProductMatch(freshProducts, productName);
       if (!freshMatch || freshMatch.stockLevel < qty) {
         nextState = 'idle';
-        session.data = {};
+        // FIX: Preserve customer details even when product is out of stock
+        const preservedCustomer = {
+            name: session.data?.name,
+            phone: session.data?.phone,
+            address: session.data?.address,
+        };
+        session.data = { ...preservedCustomer };  // Keep customer context for next product
         return {
           nextState,
           actions: [...actions, 'out_of_stock_at_checkout'],
@@ -358,7 +369,8 @@ export async function runEcommerceFSM(
               outOfStock: true,
               productName,
               requestedQty: qty,
-              availableStock: freshMatch?.stockLevel ?? 0
+              availableStock: freshMatch?.stockLevel ?? 0,
+              customerStillKnown: !!preservedCustomer.name  // Flag for response gen
             }
           },
           dbWriteAttempted,

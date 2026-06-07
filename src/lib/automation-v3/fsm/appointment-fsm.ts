@@ -69,7 +69,10 @@ export async function runAppointmentFSM(
 
   // Helper to check if name/phone are both present
   const hasDetails = (d: Record<string, any>) => {
-    return !!(d.name && d.phone);
+    const name = (d.name || '').toString().trim();
+    const phone = (d.phone || '').toString().trim();
+    const phoneDigits = phone.replace(/\D/g, '');
+    return !!(name && name.length > 0 && phone && phoneDigits.length >= 7);
   };
 
   // 1. Handle post-appointment modifications
@@ -119,6 +122,9 @@ export async function runAppointmentFSM(
         dbWriteSuccess = true;
         actions.push('reschedule_appointment_success');
         nextState = 'idle';
+        // FIX: Keep appointment reference for follow-up questions
+        const lastAppointmentId = reschedRes.appointmentId;
+        session.data = { lastAppointmentId, service: session.data?.service };
         const dateLabel = formatDateLabel(date, timeCtx);
         return {
           nextState,
@@ -205,48 +211,40 @@ export async function runAppointmentFSM(
         : undefined,
     });
     if (yesNo === 'yes') {
-      const { service, date, time, name, phone } = session.data;
+      let { service, date, time, name, phone } = session.data;
+
+      // FIX: Recover customer details from profile before falling back
+      if (!name || !phone) {
+          const known = await getKnownDetails();
+          if (!name && known?.name) { session.data.name = known.name; name = known.name; }
+          if (!phone && known?.phone) { session.data.phone = known.phone; phone = known.phone; }
+          
+          // Also check customer profile
+          if (!name && session.customerProfile?.name) { session.data.name = session.customerProfile.name; name = session.customerProfile.name; }
+          if (!phone && session.customerProfile?.phone) { session.data.phone = session.customerProfile.phone; phone = session.customerProfile.phone; }
+      }
+
       if (!service || !date || !time || !name || !phone) {
-        // Recover and prompt
-        const details = await resolveDetails(message);
-        session.data = { ...session.data, ...details };
-        if (hasDetails(session.data)) {
-          nextState = 'awaiting_booking_confirmation';
-          return {
-            nextState,
-            actions,
-            context: {
-              actionType: 'info_gathered',
-              payload: {
-                service,
-                date,
-                time,
-                name: session.data.name,
-                phone: session.data.phone,
-                isReadyToConfirm: true
-              }
-            },
-            dbWriteAttempted,
-            dbWriteSuccess
-          };
-        } else {
+          const missing = ['name', 'phone'].filter(k => !session.data![k]);
           nextState = 'awaiting_customer_details';
           return {
-            nextState,
-            actions,
-            context: {
-              actionType: 'info_gathered',
-              payload: {
-                service,
-                date,
-                time,
-                missingDetails: ['name', 'phone'].filter(k => !session.data![k])
-              }
-            },
-            dbWriteAttempted,
-            dbWriteSuccess
+              nextState,
+              actions,
+              context: {
+                  actionType: 'info_gathered',
+                  payload: {
+                      service,
+                      date,
+                      time,
+                      name: session.data.name,
+                      phone: session.data.phone,
+                      missingDetails: missing,
+                      recoveryAttempted: true
+                  }
+              },
+              dbWriteAttempted,
+              dbWriteSuccess
           };
-        }
       }
 
       dbWriteAttempted = true;
@@ -255,6 +253,38 @@ export async function runAppointmentFSM(
       // Re-check slot availability to prevent race conditions (especially on legacy non-RPC path)
       const slotRecheck = await tools.check_slot.execute({ date, time, service });
       if (!slotRecheck.available) {
+        // FIX: Find next 3 available slots on the same day for suggestions
+        let alternatives: Array<{time: string; label: string}> = [];
+        try {
+            const { loadBusinessHours } = await import('@/lib/ai/appointments/hours');
+            const { formatTime12 } = await import('@/lib/ai/time');
+            const activeServices = await loadActiveServices(supabase, session.workspaceId);
+            
+            const hours = await loadBusinessHours(supabase, session.workspaceId);
+            const match = activeServices.find((s: any) => s.name === service) || { durationMinutes: 30 };
+            const slotDuration = match.durationMinutes || config.slotDurationMinutes || 30;
+            
+            // Check slots every 30 min from business open to close
+            const dayOfWeek = new Date(date + 'T12:00:00').getDay();
+            const dayHours = hours.find((h: any) => h.dayOfWeek === dayOfWeek);
+            
+            if (dayHours?.isOpen) {
+                const openMin = parseInt(dayHours.openTime.split(':')[0]) * 60 + parseInt(dayHours.openTime.split(':')[1]);
+                const closeMin = parseInt(dayHours.closeTime.split(':')[0]) * 60 + parseInt(dayHours.closeTime.split(':')[1]);
+                
+                for (let m = openMin; m < closeMin && alternatives.length < 3; m += 30) {
+                    if (m === parseInt(time.split(':')[0]) * 60 + parseInt(time.split(':')[1])) continue; // Skip taken slot
+                    const candidateTime = `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+                    const check = await tools.check_slot.execute({ date, time: candidateTime, service });
+                    if (check.available) {
+                        alternatives.push({ time: candidateTime, label: formatTime12(candidateTime) });
+                    }
+                }
+            }
+        } catch (e) {
+            // Non-critical: alternatives are a nice-to-have
+        }
+
         return {
           nextState: 'awaiting_date_time',
           actions: [...actions, 'slot_taken_at_confirmation'],
@@ -265,7 +295,8 @@ export async function runAppointmentFSM(
               service,
               date,
               time,
-              error: slotRecheck.message || slotRecheck.reason || 'Slot is no longer available'
+              error: slotRecheck.message || slotRecheck.reason || 'Slot is no longer available',
+              alternatives
             }
           },
           dbWriteAttempted: false,
