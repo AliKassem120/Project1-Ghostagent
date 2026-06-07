@@ -533,22 +533,37 @@ export async function runAppointmentFSM(
 
   // 5. Handle service state (or starting flow from idle)
   const services = await loadActiveServices(supabase, session.workspaceId);
-  const match = findBestServiceMatch(services, message);
+  
+  // Extract and save date/time from message to prevent losing context
+  const date = resolveDateFromMessage(message, timeCtx);
+  const time = resolveTimeFromMessage(message);
+  if (date) session.data.date = date;
+  if (time) session.data.time = time;
+
+  let match = findBestServiceMatch(services, message);
+
+  // Fallback: If no service is matched in the message, but we already have one stored in session, reuse it!
+  if (!match && session.data?.service) {
+    const existing = services.find(s => s.name === session.data.service);
+    if (existing) {
+      match = existing;
+    }
+  }
 
   if (match) {
     session.data.service = match.name;
     session.data.price = match.price;
     session.data.duration = match.durationMinutes;
 
-    const date = resolveDateFromMessage(message, timeCtx);
-    const time = resolveTimeFromMessage(message);
+    const targetDate = date || session.data.date;
+    const targetTime = time || session.data.time;
 
-    if (date && time) {
-      session.data.date = date;
-      session.data.time = time;
+    if (targetDate && targetTime) {
+      session.data.date = targetDate;
+      session.data.time = targetTime;
       
       actions.push('tool_check_slot');
-      const checkRes = await tools.check_slot.execute({ date, time, service: match.name });
+      const checkRes = await tools.check_slot.execute({ date: targetDate, time: targetTime, service: match.name });
       if (checkRes.available) {
         const details = await resolveDetails(message);
         session.data = { ...session.data, ...details };
@@ -563,8 +578,8 @@ export async function runAppointmentFSM(
               payload: {
                 service: match.name,
                 slotAvailable: true,
-                date,
-                time,
+                date: targetDate,
+                time: targetTime,
                 name: session.data.name,
                 phone: session.data.phone,
                 isReadyToConfirm: true
@@ -583,8 +598,8 @@ export async function runAppointmentFSM(
               payload: {
                 service: match.name,
                 slotAvailable: true,
-                date,
-                time,
+                date: targetDate,
+                time: targetTime,
                 missingDetails: ['name', 'phone'].filter(k => !session.data![k])
               }
             },
@@ -602,8 +617,8 @@ export async function runAppointmentFSM(
             payload: {
               service: match.name,
               slotAvailable: false,
-              date,
-              time,
+              date: targetDate,
+              time: targetTime,
               error: checkRes.message || 'taken'
             }
           },
