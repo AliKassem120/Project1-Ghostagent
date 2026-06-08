@@ -6,12 +6,14 @@ import { buildTimeContext, resolveDateFromMessage, resolveTimeFromMessage, forma
 import { loadActiveServices, findBestServiceMatch } from '@/lib/ai/appointments/services';
 import { createAppointmentTools } from '@/lib/ai/tools';
 import { classifyConfirmationIntent } from '@/lib/ai/guardrails/confirmation-classifier';
+import { resolveCustomerDetails, hasRequiredDetails, isFollowUpQuestion } from './shared-helpers';
 
 export async function runAppointmentFSM(
   message: string,
   session: SessionContext,
   config: WorkspaceConfig,
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  preloadedServices?: any[]
 ): Promise<FsmResult> {
   const actions: string[] = [];
   let dbWriteAttempted = false;
@@ -47,33 +49,10 @@ export async function runAppointmentFSM(
   };
 
   // Helper to resolve customer name/phone
-  const resolveDetails = async (msg: string) => {
-    const reuse = detectReuseSignals(msg);
-    const known = await getKnownDetails();
-    const extracted = extractNameAndPhone(msg);
-
-    const name = extracted.name || 
-                 (reuse.reuseName && known?.name ? known.name : null) || 
-                 session.data?.name || 
-                 session.customerProfile?.name || 
-                 null;
-
-    const phone = extracted.phone || 
-                  (reuse.reusePhone && known?.phone ? known.phone : null) || 
-                  session.data?.phone || 
-                  session.customerProfile?.phone || 
-                  null;
-
-    return { name, phone };
-  };
+  const resolveDetails = (msg: string) => resolveCustomerDetails(msg, session, getKnownDetails, false);
 
   // Helper to check if name/phone are both present
-  const hasDetails = (d: Record<string, any>) => {
-    const name = (d.name || '').toString().trim();
-    const phone = (d.phone || '').toString().trim();
-    const phoneDigits = phone.replace(/\D/g, '');
-    return !!(name && name.length > 0 && phone && phoneDigits.length >= 7);
-  };
+  const hasDetails = (d: Record<string, any>) => hasRequiredDetails(d, false);
 
   // 1. Handle post-appointment modifications
   if (currentState === 'post_appointment_modify') {
@@ -532,7 +511,10 @@ export async function runAppointmentFSM(
   }
 
   // 5. Handle service state (or starting flow from idle)
-  const services = await loadActiveServices(supabase, session.workspaceId);
+  let services = preloadedServices;
+  if (!services || services.length === 0) {
+    services = await loadActiveServices(supabase, session.workspaceId);
+  }
   
   // Extract and save date/time from message to prevent losing context
   const date = resolveDateFromMessage(message, timeCtx);
@@ -650,10 +632,10 @@ export async function runAppointmentFSM(
     // If the customer already has booking context (service selected, date/time given),
     // don't loop awaiting_service — break out to idle so the LLM fallback pipeline
     // can answer contextually using conversation history.
-    const isFollowUpQuestion = /\b(how much|price|cost|long|duration|minute|hour|where|location|address|park|cancel|reschedule|change|what|which|can you|do you|is there|are there|open|close|available|عنوان|وين|كم|سعر|وقت|ساعة|دقيقة)\b/i.test(message);
+    const isFollowUp = isFollowUpQuestion(message, 'appointments');
     const hasExistingContext = !!(session.data?.service || session.data?.name || session.data?.date);
 
-    if (isFollowUpQuestion && hasExistingContext && currentState === 'awaiting_service') {
+    if (isFollowUp && hasExistingContext && currentState === 'awaiting_service') {
       // Break out of FSM loop — let LLM answer the question with full context
       return {
         nextState: 'idle',

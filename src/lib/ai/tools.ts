@@ -75,7 +75,7 @@ function parseTimeToMinutes(time24: string): number {
     return h * 60 + m;
 }
 
-/** Resolve Instagram handle from activity logs */
+/** Resolve Instagram handle from activity logs — shared utility */
 async function resolveInstagramHandle(ctx: ToolContext): Promise<string> {
     let handle = 'Customer';
     try {
@@ -98,14 +98,17 @@ async function resolveInstagramHandle(ctx: ToolContext): Promise<string> {
             );
             if (bestLog) {
                 handle = bestLog.metadata.username ||
-                         bestLog.metadata.commenter_name ||
-                         bestLog.metadata.sender?.attendee_name ||
-                         handle;
+                    bestLog.metadata.commenter_name ||
+                    bestLog.metadata.sender?.attendee_name ||
+                    handle;
             }
         }
     } catch (_e) { /* fallback to 'Customer' */ }
     return handle;
 }
+
+/** Export shared handle resolver so it can be used elsewhere */
+export { resolveInstagramHandle };
 
 // ═══════════════════════════════════════════════════════════════
 // APPOINTMENT TOOLS
@@ -152,8 +155,8 @@ export function createAppointmentTools(ctx: ToolContext) {
                 let handle = await resolveInstagramHandle(ctx);
 
                 const updateCustomerAfterBooking = async () => {
-                    await upsertCustomer(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, address: address || null }).catch(() => {});
-                    await upsertCustomerProfile(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, totalAppointments: 1 }).catch(() => {});
+                    await upsertCustomer(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, address: address || null }).catch(() => { });
+                    await upsertCustomerProfile(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, totalAppointments: 1 }).catch(() => { });
                 };
 
                 // STRATEGY: Safe RPC first (atomic overlap check + insert)
@@ -415,22 +418,22 @@ export function createEcommerceTools(ctx: ToolContext) {
     return {
         search_products: {
             description: 'Searches the product database for clothing items by name, category, or keyword. Use for ALL product, price, or stock questions.',
-            inputSchema: z.object({ 
+            inputSchema: z.object({
                 query: z.string().describe('Product name, category, or keyword. Leave empty string to list all.'),
             }),
             execute: async ({ query }: { query?: string }) => {
                 const products = await searchProducts({ supabase: ctx.supabase, workspaceId: ctx.workspaceId, query });
-                return { 
-                    products: products.map(p => ({ 
-                        name: p.itemName, 
-                        price: p.price, 
-                        inStock: p.stockLevel > 0, 
+                return {
+                    products: products.map(p => ({
+                        name: p.itemName,
+                        price: p.price,
+                        inStock: p.stockLevel > 0,
                         stock: p.stockLevel,
                         colors: (p as any).colors || undefined,
                         sizes: (p as any).sizes || undefined,
                         variants: p.variants || []
-                    })), 
-                    count: products.length 
+                    })),
+                    count: products.length
                 };
             },
         },
@@ -457,42 +460,12 @@ export function createEcommerceTools(ctx: ToolContext) {
             execute: async ({ name, phone, address, product, variant, quantity }: { name: string; phone: string; address: string; product: string; variant?: string; quantity: number }) => {
                 const products = await searchProducts({ supabase: ctx.supabase, workspaceId: ctx.workspaceId, query: product });
                 const match = findBestProductMatch(products, product);
-                if (!match) return { success: false, error: 'Product not found' };
-                let handle = 'Customer';
-                try { 
-                    // Query last 10 logs to find any that have a username/handle
-                    const { data } = await ctx.supabase
-                        .from('activity_log')
-                        .select('metadata')
-                        .eq('user_id', ctx.userId)
-                        .order('timestamp', { ascending: false })
-                        .limit(10);
-
-                    if (data && data.length > 0) {
-                        // Filter for logs matching this chat ID (checking both key variants)
-                        const relevantLogs = data.filter(l => 
-                            l.metadata?.chat_id === ctx.chatId || 
-                            l.metadata?.chatId === ctx.chatId
-                        );
-                        
-                        const bestLog = relevantLogs.find(l => 
-                            l.metadata?.username || 
-                            l.metadata?.commenter_name || 
-                            l.metadata?.sender?.attendee_name
-                        );
-
-                        if (bestLog) {
-                            handle = bestLog.metadata.username || 
-                                     bestLog.metadata.commenter_name || 
-                                     bestLog.metadata.sender?.attendee_name || 
-                                     handle;
-                        }
-                    }
-                } catch (_e) { /* fallback to 'Customer' */ }
+                                if (!match) return { success: false, error: 'Product not found' };
+                let handle = await resolveInstagramHandle(ctx);
                 const orderResult = await createOrderV2({ supabase: ctx.supabase, userId: ctx.userId, workspaceId: ctx.workspaceId, chatId: ctx.chatId, platform: ctx.platform, productId: match.id, customerName: name, customerPhone: phone, customerAddress: address, itemRequested: match.itemName, variantLabel: variant, unitPrice: match.price, quantity, instagramHandle: handle });
                 if (orderResult.success) {
-                    await upsertCustomer(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, address }).catch(() => {});
-                    await upsertCustomerProfile(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, totalOrders: 1 }).catch(() => {});
+                    await upsertCustomer(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, address }).catch(() => { });
+                    await upsertCustomerProfile(ctx.supabase, ctx.workspaceId, ctx.chatId, ctx.platform, { name, phone, totalOrders: 1 }).catch(() => { });
                 }
                 return { ...orderResult, product: match.itemName, price: match.price, quantity };
             },
@@ -520,7 +493,7 @@ export function createEcommerceTools(ctx: ToolContext) {
             }),
             execute: async ({ product }: { product: string }) => {
                 if (ctx.platform !== 'whatsapp') return { success: false, error: 'Only available on WhatsApp' };
-                
+
                 const products = await searchProducts({ supabase: ctx.supabase, workspaceId: ctx.workspaceId, query: product });
                 const match = findBestProductMatch(products, product);
                 if (!match) return { success: false, error: 'Product not found' };

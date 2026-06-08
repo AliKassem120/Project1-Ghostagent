@@ -6,12 +6,14 @@ import { searchProducts, findBestProductMatch } from '@/lib/ai/ecommerce/product
 import { lookupLatestOrder, updateOrderVariant, updateOrderAddress, updateOrderQuantity } from '@/lib/ai/ecommerce/lookup';
 import { createEcommerceTools } from '@/lib/ai/tools';
 import { classifyConfirmationIntent } from '@/lib/ai/guardrails/confirmation-classifier';
+import { resolveCustomerDetails, hasRequiredDetails, isFollowUpQuestion } from './shared-helpers';
 
 export async function runEcommerceFSM(
   message: string,
   session: SessionContext,
   config: WorkspaceConfig,
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  preloadedProducts?: any[]
 ): Promise<FsmResult> {
   const actions: string[] = [];
   let dbWriteAttempted = false;
@@ -46,52 +48,10 @@ export async function runEcommerceFSM(
   };
 
   // Helper to extract or reuse name/phone/address
-  const resolveDetails = async (msg: string) => {
-    const reuse = detectReuseSignals(msg);
-    const known = await getKnownDetails();
-    const extractedDetails = extractNameAndPhone(msg);
-    const extractedAddr = extractAddress(msg);
-
-    // Enhanced: Check if address is meaningful (not just "N/A" or single char)
-    const isValidAddress = (addr: string | null): boolean => {
-        if (!addr) return false;
-        const trimmed = addr.trim();
-        return trimmed.length > 3 && trimmed.toLowerCase() !== 'n/a' && trimmed.toLowerCase() !== 'na';
-    };
-
-    const name = extractedDetails.name || 
-                 (reuse.reuseName && known?.name ? known.name : null) || 
-                 session.data?.name || 
-                 session.customerProfile?.name || 
-                 null;
-
-    const phone = extractedDetails.phone || 
-                  (reuse.reusePhone && known?.phone ? known.phone : null) || 
-                  session.data?.phone || 
-                  session.customerProfile?.phone || 
-                  null;
-
-    const address = extractedAddr || 
-                    (reuse.reuseAddress && known?.address ? known.address : null) || 
-                    session.data?.address || 
-                    session.customerProfile?.metadata?.address || 
-                    null;
-
-    return { name, phone, address: isValidAddress(address) ? address : null };
-  };
+  const resolveDetails = (msg: string) => resolveCustomerDetails(msg, session, getKnownDetails, true);
 
   // Helper to check if name, phone, and address are all filled
-  const hasAllDetails = (d: Record<string, any>) => {
-    const name = (d.name || '').toString().trim();
-    const phone = (d.phone || '').toString().trim();
-    const address = (d.address || '').toString().trim();
-    // Phone must have at least 7 digits, address at least 4 meaningful chars
-    const phoneDigits = phone.replace(/\D/g, '');
-    return !!(name && name.length > 0 && 
-              phone && phoneDigits.length >= 7 && 
-              address && address.length > 3 && 
-              address.toLowerCase() !== 'n/a');
-  };
+  const hasAllDetails = (d: Record<string, any>) => hasRequiredDetails(d, true);
 
   // Helper to extract variant from message or products catalog
   const extractVariant = (msg: string) => {
@@ -573,8 +533,13 @@ export async function runEcommerceFSM(
 
   // Fallback (e.g. starting flow or idle)
   // Look for product mention in the message
-  actions.push('tool_search_products');
-  const products = await searchProducts({ supabase, workspaceId: session.workspaceId, query: message });
+  let products = preloadedProducts;
+  if (!products || products.length === 0) {
+    actions.push('tool_search_products');
+    products = await searchProducts({ supabase, workspaceId: session.workspaceId, query: message });
+  } else {
+    actions.push('tool_search_products');
+  }
   if (!session.data) session.data = {};
   let match = findBestProductMatch(products, message);
 
@@ -671,10 +636,10 @@ export async function runEcommerceFSM(
     // If the customer already has order context (product selected, details given),
     // don't loop awaiting_product — break out to idle so the LLM fallback pipeline
     // can answer contextually using conversation history.
-    const isFollowUpQuestion = /\b(deliver|delivery|ship|shipping|cost|how much|price|pay|payment|pick\s*up|pickup|cod|cash|free|charge|fee|refund|return|exchange|warranty|track|where|when|long|fast|how|what|which|can you|do you|is there|are there|عنوان|توصيل|شحن|كم|سعر|دفع)\b/i.test(message);
+    const isFollowUp = isFollowUpQuestion(message, 'ecommerce');
     const hasExistingContext = !!(session.data?.productName || session.data?.name || session.data?.address);
 
-    if (isFollowUpQuestion && hasExistingContext && currentState === 'awaiting_product') {
+    if (isFollowUp && hasExistingContext && currentState === 'awaiting_product') {
       // Break out of FSM loop — let LLM answer the question with full context
       return {
         nextState: 'idle',

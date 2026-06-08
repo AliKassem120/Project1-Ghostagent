@@ -289,9 +289,9 @@ export async function orchestrate(
     v2log.info('ORCHESTRATOR', `Routing to active deterministic FSM flow: ${stateBefore}`);
     let fsmRes: any;
     if (config.businessType === 'ecommerce') {
-      fsmRes = await runEcommerceFSM(input.message, session, config, input.supabase);
+      fsmRes = await runEcommerceFSM(input.message, session, config, input.supabase, activeProducts);
     } else {
-      fsmRes = await runAppointmentFSM(input.message, session, config, input.supabase);
+      fsmRes = await runAppointmentFSM(input.message, session, config, input.supabase, activeServices);
     }
 
     return await runFSMAndGenerateResponse({
@@ -326,9 +326,9 @@ export async function orchestrate(
     v2log.info('ORCHESTRATOR', `Starting FSM flow based on intent: ${intent}`);
     let fsmRes: any;
     if (config.businessType === 'ecommerce') {
-      fsmRes = await runEcommerceFSM(input.message, session, config, input.supabase);
+      fsmRes = await runEcommerceFSM(input.message, session, config, input.supabase, activeProducts);
     } else {
-      fsmRes = await runAppointmentFSM(input.message, session, config, input.supabase);
+      fsmRes = await runAppointmentFSM(input.message, session, config, input.supabase, activeServices);
     }
     return await runFSMAndGenerateResponse({
       fsmRes, stateBefore, session, history, input, config, replyLang, timeCtx,
@@ -346,7 +346,7 @@ export async function orchestrate(
   if (config.businessType === 'ecommerce' && (isCancelOrder || isModifyOrder)) {
     session.state = 'post_order_modify';
     session.stateEnteredAt = new Date().toISOString();
-    const fsmRes = await runEcommerceFSM(input.message, session, config, input.supabase);
+    const fsmRes = await runEcommerceFSM(input.message, session, config, input.supabase, activeProducts);
     return await runFSMAndGenerateResponse({
       fsmRes, stateBefore, session, history, input, config, replyLang, timeCtx,
       activeServices, activeProducts, recentSummaries, customerNotes, emotionBlock, proactiveBlock, crossChannelNote,
@@ -357,7 +357,7 @@ export async function orchestrate(
   if (config.businessType === 'appointments' && (isCancelAppt || isReschedAppt)) {
     session.state = 'post_appointment_modify';
     session.stateEnteredAt = new Date().toISOString();
-    const fsmRes = await runAppointmentFSM(input.message, session, config, input.supabase);
+    const fsmRes = await runAppointmentFSM(input.message, session, config, input.supabase, activeServices);
     return await runFSMAndGenerateResponse({
       fsmRes, stateBefore, session, history, input, config, replyLang, timeCtx,
       activeServices, activeProducts, recentSummaries, customerNotes, emotionBlock, proactiveBlock, crossChannelNote,
