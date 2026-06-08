@@ -122,6 +122,10 @@ export async function orchestrate(
     input.supabase, input.userId, input.workspaceId, input.chatId
   );
 
+  v2log.info('PIPELINE', 'SESSION_LOADED', { 
+    userId: input.userId, messageCount: history?.length, fsmState: stateBefore, chatId: input.chatId 
+  });
+
   const isSimulator = input.chatId.startsWith('sim_') || input.chatId.includes('simulator');
 
   // Define helpers for state updates and returns
@@ -132,6 +136,9 @@ export async function orchestrate(
     session.stateEnteredAt = new Date().toISOString();
 
     await saveSession(input.supabase, session, config.businessType);
+    v2log.info('PIPELINE', 'SESSION_SAVED', {
+      userId: input.userId, newFsmState: 'handoff'
+    });
 
     try {
       const { createHandoff, determineHandoffPriority } = await import('@/lib/ai/guardrails/handoff-manager');
@@ -305,6 +312,9 @@ export async function orchestrate(
 
   const intent = classification.intent;
   v2log.info('ORCHESTRATOR', `Intent classified: ${intent}`);
+  v2log.info('PIPELINE', 'INTENT_CLASSIFIED', {
+    userId: input.userId, rawMessage: input.message.substring(0, 100), intent, confidence: classification.confidence, language: detected
+  });
 
   // 6. DIRECT ROUTE TO FSM ON INITIATION INTENTS
   const isEcomIntent = intent === 'purchase_intent';
@@ -480,9 +490,15 @@ export async function orchestrate(
   });
 
   let reply = responseGenResult.text;
+  v2log.info('PIPELINE', 'RESPONSE_GENERATED', {
+    userId: input.userId, replyLength: reply.length
+  });
 
   // Run VoiceConsistencyGuard
   const voiceCheck = checkVoiceConsistency(reply, config, toolResults);
+  v2log.info('PIPELINE', 'VOICE_GUARD_RESULT', {
+    userId: input.userId, passed: voiceCheck.approved, adjustments: voiceCheck.violations?.length || 0
+  });
   if (!voiceCheck.approved && voiceCheck.correctedText) {
     v2log.info('ORCHESTRATOR', 'Voice Consistency Guard corrected reply', { violations: voiceCheck.violations });
     reply = voiceCheck.correctedText;
@@ -530,6 +546,9 @@ export async function orchestrate(
     // NOTE: session.data is intentionally NOT wiped — it contains order context
     session.stateEnteredAt = new Date().toISOString();
     await saveSession(input.supabase, session, config.businessType);
+    v2log.info('PIPELINE', 'SESSION_SAVED', {
+      userId: input.userId, newFsmState: 'idle'
+    });
 
     return {
       shouldReply: true,
@@ -555,6 +574,9 @@ export async function orchestrate(
   session.stateEnteredAt = new Date().toISOString();
 
   await saveSession(input.supabase, session, config.businessType);
+  v2log.info('PIPELINE', 'SESSION_SAVED', {
+    userId: input.userId, newFsmState: finalStage
+  });
 
   metrics.addActions(actions).addLlmCall(Date.now() - startTime);
   await emitMetric(input.supabase, metrics.setState(stateBefore, finalStage).build());

@@ -39,7 +39,7 @@ export async function generateResponse(
     });
 
     let text = responseText.text.trim();
-    text = enforceSentenceLimit(text, 2);
+    text = enforceSentenceLimit(text, 3);
     return { text };
   } catch (error: any) {
     console.error('❌ [Response Gen] DeepSeek text generation failed:', error);

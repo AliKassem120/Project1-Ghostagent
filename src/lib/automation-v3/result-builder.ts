@@ -6,6 +6,7 @@ import { saveSession } from './session-manager';
 import { emitMetric, MetricBuilder } from '@/lib/ai/metrics';
 import { buildPrompt } from './prompt-builder';
 import { checkVoiceConsistency } from './voice-consistency-guard';
+import { v2log } from '@/lib/ai/logger';
 
 export interface FsmMappingContext {
   fsmRes: FsmResult;
@@ -41,6 +42,10 @@ export async function runFSMAndGenerateResponse(ctx: FsmMappingContext): Promise
   const validation = validateTransition(stateBefore, fsmRes.nextState as any, session.loopCount, session.stateEnteredAt);
   let finalState = validation.approvedStage;
   let loopCount = validation.resetLoop ? 0 : (fsmRes.nextState === stateBefore ? session.loopCount + 1 : 0);
+
+  v2log.info('PIPELINE', 'FSM_EVALUATED', {
+    userId: input.userId, currentState: fsmRes.nextState, collectedData: Object.keys(session.data || {})
+  });
 
   if (validation.forceMenu) {
     // FIX: Reset state to idle but PRESERVE session.data so the LLM can reference
@@ -89,7 +94,13 @@ export async function runFSMAndGenerateResponse(ctx: FsmMappingContext): Promise
     });
 
     let reply = responseGenResult.text;
+    v2log.info('PIPELINE', 'RESPONSE_GENERATED', {
+      userId: input.userId, replyLength: reply.length
+    });
     const voiceCheck = checkVoiceConsistency(reply, config, []);
+    v2log.info('PIPELINE', 'VOICE_GUARD_RESULT', {
+      userId: input.userId, passed: voiceCheck.approved, adjustments: voiceCheck.violations?.length || 0
+    });
     if (!voiceCheck.approved && voiceCheck.correctedText) {
       reply = voiceCheck.correctedText;
     }
@@ -100,6 +111,9 @@ export async function runFSMAndGenerateResponse(ctx: FsmMappingContext): Promise
 
     session.lastBotMessage = reply;
     await saveSession(input.supabase, session, config.businessType);
+    v2log.info('PIPELINE', 'SESSION_SAVED', {
+      userId: input.userId, newFsmState: 'idle'
+    });
 
     return {
       shouldReply: true,
@@ -162,7 +176,13 @@ export async function runFSMAndGenerateResponse(ctx: FsmMappingContext): Promise
   });
 
   let reply = responseGenResult.text;
+  v2log.info('PIPELINE', 'RESPONSE_GENERATED', {
+    userId: input.userId, replyLength: reply.length
+  });
   const voiceCheck = checkVoiceConsistency(reply, config, []);
+  v2log.info('PIPELINE', 'VOICE_GUARD_RESULT', {
+    userId: input.userId, passed: voiceCheck.approved, adjustments: voiceCheck.violations?.length || 0
+  });
   if (!voiceCheck.approved && voiceCheck.correctedText) {
     reply = voiceCheck.correctedText;
   }
@@ -179,6 +199,9 @@ export async function runFSMAndGenerateResponse(ctx: FsmMappingContext): Promise
   session.stateEnteredAt = new Date().toISOString();
 
   await saveSession(input.supabase, session, config.businessType);
+  v2log.info('PIPELINE', 'SESSION_SAVED', {
+    userId: input.userId, newFsmState: finalState
+  });
 
   // Save metrics
   metrics.addActions(fsmRes.actions).addLlmCall(0);
