@@ -1,10 +1,22 @@
 'use client';
 
 import { useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { createClient } from '@/utils/supabase/client';
+import { useSearchParams } from 'next/navigation';
+import { useRouter } from '@/i18n/navigation';
+import { createBrowserClient } from '@supabase/ssr';
 import { Loader2 } from 'lucide-react';
 import StarBackground from '@/components/StarBackground';
+
+// Create a custom supabase client with implicit flow specifically to handle cross-device forgot password recovery redirects
+const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+        auth: {
+            flowType: 'implicit',
+        },
+    }
+);
 
 function ConfirmAuthLogic() {
     const router = useRouter();
@@ -12,7 +24,7 @@ function ConfirmAuthLogic() {
 
     useEffect(() => {
         const handleAuth = async () => {
-            const supabase = createClient();
+
 
             // 1. Check for explicit OAuth errors in URL
             const errorParam = searchParams.get('error');

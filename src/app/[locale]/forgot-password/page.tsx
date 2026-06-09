@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import { ArrowLeft, Loader2, Mail, CheckCircle2 } from 'lucide-react';
 import StarBackground from '@/components/StarBackground';
 import GhostLogo from '@/components/GhostLogo';
