@@ -261,8 +261,9 @@ export default function CalendarPage() {
 
     const addManualAppointment = async (data: any) => {
         try {
+            const { source, ...insertData } = data;
             const { error } = await supabase.from("appointments").insert({
-                ...data,
+                ...insertData,
                 user_id: user?.id,
                 workspace_id: activeWorkspaceId,
                 status: 'confirmed'
