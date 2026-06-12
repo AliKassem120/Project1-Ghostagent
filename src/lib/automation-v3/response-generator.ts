@@ -1,4 +1,5 @@
 import { createProvider } from '@/lib/ai/providers/llm-provider';
+import { deepseekCircuit } from '@/lib/ai/circuit-breaker';
 import type { LanguageScript } from './templates';
 
 export interface ResponseContext {
@@ -27,27 +28,55 @@ export async function generateResponse(
   const systemInstruction = buildSystemInstructionWithContext(context);
 
   try {
+    // Circuit breaker: bail early if DeepSeek is degraded
+    if (!deepseekCircuit.canExecute()) {
+      console.warn('⚡ [Response Gen] DeepSeek circuit breaker is open — using fallback.');
+      const fallbackText = context.requiredLanguageScript === 'franco'
+        ? 'Fi moshkle shway, la7za w bijeeb el team ykellmak.'
+        : "I'm having a small issue. One moment while I connect you to our staff.";
+      return { text: fallbackText };
+    }
+
     const provider = createProvider();
     // Higher temperature = more natural, less robotic variation
-    // Slightly higher maxTokens for Arabic script (Unicode = ~2x token count)
+    // Higher maxTokens for Arabic script (Unicode = ~2x token count)
     const isArabicScript = context.requiredLanguageScript === 'arabic';
     const responseText = await provider.complete({
       system: systemInstruction,
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.5,
-      maxTokens: isArabicScript ? 280 : 200,
+      maxTokens: isArabicScript ? 400 : 280,
     });
+
+    deepseekCircuit.recordSuccess();
 
     let text = responseText.text.trim();
     text = enforceSentenceLimit(text, 3);
     return { text };
   } catch (error: any) {
-    console.error('❌ [Response Gen] DeepSeek text generation failed:', error);
-    // Safe fallback message in Franco or English
-    const fallbackText = context.requiredLanguageScript === 'franco'
-      ? 'Fi moshkle shway, la7za w bijeeb el team ykellmak.'
-      : "I'm having a small issue. One moment while I connect you to our staff.";
-    return { text: fallbackText };
+    console.warn('⚠️ [Response Gen] DeepSeek call failed, retrying once...', error);
+    deepseekCircuit.recordFailure();
+    try {
+      const provider = createProvider();
+      const isArabicScript = context.requiredLanguageScript === 'arabic';
+      const retryResponse = await provider.complete({
+        system: systemInstruction,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.5,
+        maxTokens: isArabicScript ? 400 : 280,
+      });
+      deepseekCircuit.recordSuccess();
+      let text = retryResponse.text.trim();
+      text = enforceSentenceLimit(text, 3);
+      return { text };
+    } catch (retryError: any) {
+      console.error('❌ [Response Gen] Retry also failed:', retryError);
+      deepseekCircuit.recordFailure();
+      const fallbackText = context.requiredLanguageScript === 'franco'
+        ? 'Fi moshkle shway, la7za w bijeeb el team ykellmak.'
+        : "I'm having a small issue. One moment while I connect you to our staff.";
+      return { text: fallbackText };
+    }
   }
 }
 
@@ -121,8 +150,17 @@ No "Hey", "Hi", "Hello", "Hala", "Marhaba", or any greeting opener.
 Jump STRAIGHT into the relevant response. A human employee never says "Hey" again mid-conversation.`
     : '';
 
+  // Language enforcement: if workspace has a fixed language, enforce it
+  const configuredLang = (context.workspaceConfig?.language || 'Auto-Detect').toLowerCase();
+  const langEnforcement = configuredLang !== 'auto-detect'
+    ? `\n\n=== 🔴 LANGUAGE ENFORCEMENT ===
+This business owner REQUIRES all replies to be in ${configuredLang.toUpperCase()}.
+You MUST reply in ${configuredLang} ONLY — even if the customer writes in a different language.
+If the customer writes in Franco but the setting is Arabic, reply in ARABIC. Never mirror the customer's language when a fixed language is configured.`
+    : '';
+
   return `${context.systemInstruction}
-${fsmContextBlock}${stateInstruction}${antiGreetingRule}
+${fsmContextBlock}${stateInstruction}${antiGreetingRule}${langEnforcement}
 
 PERSONA REMINDER:
 - Never repeat greetings. Only greet on the very first message.
@@ -174,12 +212,16 @@ Now write the reply:`;
 
 function buildWritingRules(context: ResponseContext, isFranco: boolean): string {
   const lang = context.requiredLanguageScript;
+  // Use configured language for enforcement, but detected script for examples
+  const configuredLang = (context.workspaceConfig?.language || 'Auto-Detect').toLowerCase();
+  const enforcedLang = configuredLang !== 'auto-detect' ? configuredLang : lang;
+
   const emojiRule = context.workspaceConfig.useEmojis
     ? 'You may use up to 1 emoji per message, only when it feels natural. EXCEPTION: If the customer is frustrated, angry, or using ALL CAPS, do NOT use any emojis at all — they come across as dismissive and insincere.'
     : 'Do NOT use any emojis. Zero. No exceptions.';
-  
+
   let examples = '';
-  if (lang === 'franco') {
+  if (enforcedLang === 'franco' || enforcedLang === 'arabizi') {
     examples = `Good Franco Examples:
 - "Hala! 3anna haircuts b $15. Baddak nehjoz la bukra? 💇"
 - "B2e bas 2 mn l black hoodie 😬 Baddak yeh?"
@@ -187,7 +229,7 @@ function buildWritingRules(context: ResponseContext, isFranco: boolean): string 
 Bad Franco Examples:
 - "Kif fiyi se3dak lyoum? Ana bot AI hon kermel se3dak."
 - "Enta tracking order. 3anna: - Hoodie ($15)"`;
-  } else if (lang === 'arabic') {
+  } else if (enforcedLang === 'arabic') {
     examples = `Good Arabic Examples:
 - "أهلاً! في قص شعر بـ 15$. بتحب نحجز لبكرة؟ 💇"
 - "بقي قطعتين بس من الهودي الأسود 😬 بتحب نأكد الطلب؟"
@@ -195,6 +237,14 @@ Bad Franco Examples:
 Bad Arabic Examples:
 - "بصفتي ذكاءً اصطناعيًا، كيف يمكنني مساعدتك اليوم؟"
 - "لقد قلت أنك تريد هودي. لدينا: - هودي ($15)"`;
+  } else if (enforcedLang === 'french') {
+    examples = `Good French Examples:
+- "Bonjour ! On a des coupes à 15$. Vous voulez réserver ? 💇"
+- "Il n'en reste que 2 du hoodie noir 😬 Vous le voulez ?"
+- "Désolé pour ça. Un instant, je vous passe un collègue."
+Bad French Examples:
+- "En tant qu'IA, comment puis-je vous aider aujourd'hui ?"
+- "Vous avez dit vouloir un hoodie. Nous avons : - Hoodie ($15)"`;
   } else {
     examples = `Good English Examples:
 - "Hey! We have haircuts for $15. Want to book for tomorrow? 💇"
@@ -206,9 +256,9 @@ Bad English Examples:
   }
 
   return `=== WRITING RULES ===
-1. Reply in ${lang} ONLY. Short (max 2 sentences), texting-style.
+1. Reply in ${enforcedLang} ONLY. Short (max 3 sentences), texting-style.
 2. ${emojiRule}
-3. Use verified facts only. Never hallucinate details.
+3. Use verified facts only. NEVER hallucinate details. NEVER invent order numbers, tracking codes, delivery dates, or customer names that aren't in the verified facts above.
 4. Text like a real human friend. No robotic or AI phrases.
 ${examples}`;
 }

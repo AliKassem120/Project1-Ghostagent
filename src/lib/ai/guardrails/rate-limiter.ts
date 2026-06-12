@@ -30,8 +30,11 @@ interface ChatTracker {
     lastChecked: number;
 }
 
-// Simple in-memory store (per-process). Cleared on deploy.
-// In production with multiple workers, use Redis instead.
+// ── In-Memory Tracking ──────────────────────────────────────
+// DEPRECATED: Burst/duplicate detection is now fully DB-backed
+// using the automation_runs table. In-memory Map is vestigial —
+// kept only for test compatibility via clearTrackers().
+// In production with multiple workers, only the DB path is used.
 const chatTrackers = new Map<string, ChatTracker>();
 
 const MAX_TRACKER_SIZE = 1000; // Evict oldest after this many chats

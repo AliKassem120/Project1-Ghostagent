@@ -30,6 +30,8 @@ import { runFSMAndGenerateResponse } from './result-builder';
 // Phase 4 Intelligence imports
 import { trackRequestExperiments } from './experiments';
 import { flushMetrics } from '@/lib/ai/metrics';
+import { verifyAgentReply } from '@/lib/ai/guardrails/reply-verifier';
+import { alertDbWriteFailure } from '@/lib/ai/guardrails/db-write-alerting';
 
 
 
@@ -59,7 +61,8 @@ export async function orchestrate(
       stateBefore: 'idle', stateAfter: 'idle',
       debug: {
         requestId, engineVersion: 'v3-agent', workspaceId: input.workspaceId, workspaceType: config.businessType,
-        chatId: input.chatId, language: detected, dbWriteAttempted: false, dbWriteSuccess: false,
+        chatId: input.chatId, language: detected, automationEngineVersion: config.automationEngineVersion,
+        dbWriteAttempted: false, dbWriteSuccess: false,
         intent: 'rate_limited', durationMs: Date.now() - startTime
       }
     };
@@ -178,7 +181,8 @@ export async function orchestrate(
       stateAfter: 'handoff',
       debug: {
         requestId, engineVersion: 'v3-agent', workspaceId: input.workspaceId, workspaceType: config.businessType,
-        chatId: input.chatId, language: detected, dbWriteAttempted: false, dbWriteSuccess: false,
+        chatId: input.chatId, language: detected, automationEngineVersion: config.automationEngineVersion,
+        dbWriteAttempted: false, dbWriteSuccess: false,
         intent: 'handoff', durationMs: Date.now() - startTime
       }
     };
@@ -428,13 +432,56 @@ export async function orchestrate(
   }
 
   // Step 1: Execute Strategy/Thinking layer WITH pre-loaded tool results
-  const strategy = await runThinkingLayer(
-    input.message,
-    session,
-    detected,
-    toolResults,
-    config
-  );
+  // CACHE: Skip thinking layer for simple intents (saves 1 LLM call — ~40% of messages)
+  const CACHED_INTENTS: Record<string, any> = {
+    greeting: {
+      intentAnalysis: 'Customer is greeting the business.',
+      emotion: 'neutral',
+      goal: 'gather_info',
+      toolsNeeded: [],
+      suggestedNextState: 'idle',
+      customStrategy: 'Warmly greet back and ask what they are looking for today.',
+    },
+    small_talk: {
+      intentAnalysis: 'Customer is making small talk.',
+      emotion: 'positive',
+      goal: 'gather_info',
+      toolsNeeded: [],
+      suggestedNextState: 'idle',
+      customStrategy: 'Reply casually and naturally, keep it brief. Ask if they need anything.',
+    },
+    compliment: {
+      intentAnalysis: 'Customer is giving a compliment.',
+      emotion: 'positive',
+      goal: 'gather_info',
+      toolsNeeded: [],
+      suggestedNextState: 'idle',
+      customStrategy: 'Thank them warmly and ask if they need help with anything.',
+    },
+    correction: {
+      intentAnalysis: 'Customer is correcting a misunderstanding.',
+      emotion: 'neutral',
+      goal: 'resolve_issue',
+      toolsNeeded: [],
+      suggestedNextState: session.state || 'idle',
+      customStrategy: 'Acknowledge the correction naturally ("Ah got it, my bad") and adjust.',
+    },
+  };
+
+  let strategy: any;
+  if (CACHED_INTENTS[intent]) {
+    v2log.info('ORCHESTRATOR', `Skipping thinking layer for cached intent: ${intent}`);
+    strategy = CACHED_INTENTS[intent];
+    actions.push('intent_cached_' + intent);
+  } else {
+    strategy = await runThinkingLayer(
+      input.message,
+      session,
+      detected,
+      toolResults,
+      config
+    );
+  }
 
   // Step 2 & 3: Read additional toolsNeeded and execute tools sequentially
   const alreadyExecuted = new Set(toolResults.map(r => r.tool));
@@ -504,6 +551,25 @@ export async function orchestrate(
     reply = voiceCheck.correctedText;
   }
 
+  // Run Reply Verifier: catch hallucinations before sending
+  try {
+    const verifierItems = activeServices?.map((s: any) => ({ name: s.name, price: s.price, durationMinutes: s.durationMinutes })) ||
+      activeProducts?.map((p: any) => ({ name: p.itemName, price: p.price, stockLevel: p.stockLevel })) || [];
+    const verifyResult = verifyAgentReply(
+      reply,
+      actions,
+      verifierItems,
+      config.businessType,
+      false,
+      false,
+      replyLang
+    );
+    if (!verifyResult.verified) {
+      v2log.warn('ORCHESTRATOR', 'Reply Verifier corrected reply', { violations: verifyResult.violations });
+      reply = verifyResult.correctedReply;
+    }
+  } catch (_e) { /* verifier is non-critical */ }
+
   // Asynchronously extract and save customer memory notes (fire-and-forget)
   try {
     const conversationForNotes = [
@@ -558,7 +624,8 @@ export async function orchestrate(
       stateAfter: 'idle',
       debug: {
         requestId, engineVersion: 'v3-agent', workspaceId: input.workspaceId, workspaceType: config.businessType,
-        chatId: input.chatId, language: detected, dbWriteAttempted: false, dbWriteSuccess: false,
+        chatId: input.chatId, language: detected, automationEngineVersion: config.automationEngineVersion,
+        dbWriteAttempted: false, dbWriteSuccess: false,
         intent: 'force_menu_reset', durationMs: Date.now() - startTime
       }
     };
@@ -600,6 +667,7 @@ export async function orchestrate(
       workspaceType: config.businessType,
       chatId: input.chatId,
       language: detected,
+      automationEngineVersion: config.automationEngineVersion,
       dbWriteAttempted: false,
       dbWriteSuccess: false,
       intent: actions[0] || 'fallback_generation',

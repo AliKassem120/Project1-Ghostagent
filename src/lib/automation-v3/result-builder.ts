@@ -7,6 +7,8 @@ import { emitMetric, MetricBuilder } from '@/lib/ai/metrics';
 import { buildPrompt } from './prompt-builder';
 import { checkVoiceConsistency } from './voice-consistency-guard';
 import { v2log } from '@/lib/ai/logger';
+import { verifyAgentReply } from '@/lib/ai/guardrails/reply-verifier';
+import { alertDbWriteFailure } from '@/lib/ai/guardrails/db-write-alerting';
 
 export interface FsmMappingContext {
   fsmRes: FsmResult;
@@ -123,7 +125,8 @@ export async function runFSMAndGenerateResponse(ctx: FsmMappingContext): Promise
       stateAfter: 'idle',
       debug: {
         requestId, engineVersion: 'v3-agent', workspaceId: input.workspaceId, workspaceType: config.businessType,
-        chatId: input.chatId, language: detected as any, dbWriteAttempted: false, dbWriteSuccess: false,
+        chatId: input.chatId, language: detected as any, automationEngineVersion: config.automationEngineVersion,
+        dbWriteAttempted: false, dbWriteSuccess: false,
         intent: 'force_menu_reset', durationMs: Date.now() - startTime
       }
     };
@@ -187,6 +190,25 @@ export async function runFSMAndGenerateResponse(ctx: FsmMappingContext): Promise
     reply = voiceCheck.correctedText;
   }
 
+  // Run Reply Verifier: catch FSM hallucinations before sending
+  try {
+    const verifierItems = activeServices?.map((s: any) => ({ name: s.name, price: s.price, durationMinutes: s.durationMinutes })) ||
+      activeProducts?.map((p: any) => ({ name: p.itemName, price: p.price, stockLevel: p.stockLevel })) || [];
+    const verifyResult = verifyAgentReply(
+      reply,
+      fsmRes.actions,
+      verifierItems,
+      config.businessType,
+      Boolean(fsmRes.context?.payload?.success),
+      Boolean(fsmRes.context?.payload?.success),
+      replyLang
+    );
+    if (!verifyResult.verified) {
+      v2log.warn('ORCHESTRATOR', 'Reply Verifier corrected FSM reply', { violations: verifyResult.violations });
+      reply = verifyResult.correctedReply;
+    }
+  } catch (_e) { /* verifier is non-critical */ }
+
   const responseActions = [...fsmRes.actions];
   if (!responseActions.includes('v3_brain_reply')) responseActions.push('v3_brain_reply');
   if (!responseActions.includes('llm_reply')) responseActions.push('llm_reply');
@@ -211,6 +233,20 @@ export async function runFSMAndGenerateResponse(ctx: FsmMappingContext): Promise
   }
   await emitMetric(input.supabase, metrics.setState(stateBefore, finalState).build());
 
+  // Alert on DB write failures (was only in worker, now also fires from webhook path)
+  if (fsmRes.dbWriteAttempted && !fsmRes.dbWriteSuccess) {
+    alertDbWriteFailure(input.supabase, {
+      workspaceId: input.workspaceId,
+      chatId: input.chatId,
+      platform: input.platform,
+      businessType: config.businessType,
+      stateBefore,
+      stateAfter: finalState,
+      actions: fsmRes.actions,
+      requestId,
+    }).catch(() => {});
+  }
+
   return {
     shouldReply: true,
     replyText: reply,
@@ -219,7 +255,8 @@ export async function runFSMAndGenerateResponse(ctx: FsmMappingContext): Promise
     stateAfter: finalState as any,
     debug: {
       requestId, engineVersion: 'v3-agent', workspaceId: input.workspaceId, workspaceType: config.businessType,
-      chatId: input.chatId, language: detected as any, dbWriteAttempted: fsmRes.dbWriteAttempted, dbWriteSuccess: fsmRes.dbWriteSuccess,
+      chatId: input.chatId, language: detected as any, automationEngineVersion: config.automationEngineVersion,
+      dbWriteAttempted: fsmRes.dbWriteAttempted, dbWriteSuccess: fsmRes.dbWriteSuccess,
       intent: responseActions[0] || 'fsm_flow', durationMs: Date.now() - startTime
     }
   };

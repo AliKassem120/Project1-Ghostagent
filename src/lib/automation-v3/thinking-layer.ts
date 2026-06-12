@@ -1,4 +1,5 @@
 import { createProvider } from '@/lib/ai/providers/llm-provider';
+import { deepseekCircuit } from '@/lib/ai/circuit-breaker';
 import { z } from 'zod';
 
 export interface ThinkingResult {
@@ -172,6 +173,19 @@ Available tools you can request:
 - Do NOT request transactional write tools like "place_order", "cancel_order", "book_appointment", "cancel_appointment", or "reschedule_appointment" since those are exclusively managed by the FSM flows.`;
 
   try {
+    // Circuit breaker: bail early if DeepSeek is degraded
+    if (!deepseekCircuit.canExecute()) {
+      console.warn('⚡ [Thinking Layer] DeepSeek circuit breaker is open — using fallback.');
+      return {
+        intentAnalysis: 'Fallback due to circuit breaker open',
+        emotion: 'neutral',
+        goal: 'gather_info',
+        toolsNeeded: [],
+        suggestedNextState: session.state || 'idle',
+        customStrategy: 'Reply naturally and offer to connect to a human agent.',
+      };
+    }
+
     const provider = createProvider();
     const response = await provider.complete({
       system: CACHED_SYSTEM_PREFIX,
@@ -182,6 +196,7 @@ Available tools you can request:
     });
 
     const rawParsed = JSON.parse(response.text || '{}');
+    deepseekCircuit.recordSuccess();
 
     try {
       // Validate and coerce the LLM output against the strict schema.
@@ -209,14 +224,38 @@ Available tools you can request:
       };
     }
   } catch (error: any) {
-    console.error('❌ [Thinking Layer] LLM call failed:', error);
-    return {
-      intentAnalysis: 'Fallback due to API error',
-      emotion: 'neutral',
-      goal: 'gather_info',
-      toolsNeeded: [],
-      suggestedNextState: session.state || 'idle',
-      customStrategy: 'Reply naturally and offer to connect to a human agent.',
-    };
+    console.warn('⚠️ [Thinking Layer] LLM call failed, retrying once...', error);
+    deepseekCircuit.recordFailure();
+    try {
+      const provider = createProvider();
+      const retryResponse = await provider.complete({
+        system: CACHED_SYSTEM_PREFIX,
+        messages: [{ role: 'user', content: dynamicPrompt }],
+        temperature: 0.3,
+        maxTokens: 600,
+        responseFormat: 'json',
+      });
+      const rawParsed = JSON.parse(retryResponse.text || '{}');
+      deepseekCircuit.recordSuccess();
+      return validateThinkingResult({
+        intentAnalysis: rawParsed.intentAnalysis || '',
+        emotion: rawParsed.emotion || 'neutral',
+        goal: rawParsed.goal || 'gather_info',
+        toolsNeeded: Array.isArray(rawParsed.toolsNeeded) ? rawParsed.toolsNeeded : [],
+        suggestedNextState: rawParsed.suggestedNextState || session.state || 'idle',
+        customStrategy: rawParsed.customStrategy || 'Reply naturally and helpfully',
+      });
+    } catch (retryError: any) {
+      console.error('❌ [Thinking Layer] Retry also failed:', retryError);
+      deepseekCircuit.recordFailure();
+      return {
+        intentAnalysis: 'Fallback due to API error',
+        emotion: 'neutral',
+        goal: 'gather_info',
+        toolsNeeded: [],
+        suggestedNextState: session.state || 'idle',
+        customStrategy: 'Reply naturally and offer to connect to a human agent.',
+      };
+    }
   }
 }

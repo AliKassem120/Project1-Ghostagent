@@ -1,6 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { loadCustomerProfile, type CustomerProfile } from '@/lib/ai/customer-profile';
 import type { ConversationStage, Platform } from '@/lib/ai/types';
+import { cacheGetSession, cacheSetSession } from '@/lib/ai/session-cache';
 
 import type { SessionContext } from './types';
 
@@ -15,6 +16,10 @@ export async function loadSession(
   workspaceType: 'appointments' | 'ecommerce',
   platform: Platform
 ): Promise<SessionContext> {
+  // Cache-first: try Redis before Supabase
+  const cached = await cacheGetSession(workspaceId, chatId);
+  if (cached) return cached;
+
   const { data: stateRow } = await supabase
     .from('conversation_states')
     .select('*')
@@ -100,6 +105,9 @@ export async function saveSession(
     },
     updated_at: now,
   }, { onConflict: 'user_id,workspace_id,chat_id,workspace_type,platform' });
+
+  // Write-through to Redis cache
+  cacheSetSession(session.workspaceId, session.chatId, session).catch(() => {});
 }
 
 export function isFreshSessionTimeout(lastInteractionAt: string, timeoutMinutes = SESSION_TIMEOUT_MINUTES): boolean {

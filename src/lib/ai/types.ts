@@ -75,6 +75,7 @@ export interface AutomationDebug {
     workspaceType: 'appointments' | 'ecommerce' ;
     chatId: string;
     language: DetectedLanguage;
+    automationEngineVersion?: string;
     intent?: string;
     dbWriteAttempted: boolean;
     dbWriteSuccess: boolean;

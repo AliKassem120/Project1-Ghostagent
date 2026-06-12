@@ -31,7 +31,7 @@ const TEMPLATES: Record<string, Record<string, string>> = {
   scarcity_last_one: {
     english: "That's the last one 😬 Want it?",
     arabic: "هيدي آخر قطعة 😬 بدك ياها؟",
-    franco: "Hayde akher قطعة 😬 Baddak yaha?",
+    franco: "Hayde akher 2et3a ?? Baddak yaha?",
     mixed: "That's the last one 😬 Baddak yaha?"
   },
 

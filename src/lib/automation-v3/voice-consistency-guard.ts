@@ -202,8 +202,13 @@ export function checkVoiceConsistency(
     .trim();
 
   // Humanize the final output based on workspace tone
+  // Skip humanization for non-English languages — contraction logic corrupts Arabizi/Franco/Arabic
   const tone = workspaceConfig.tone || 'Friendly';
-  corrected = humanizeText(corrected, tone);
+  const lang = (workspaceConfig.language || 'Auto-Detect').toLowerCase();
+  const isEnglish = lang === 'english' || lang === 'auto-detect';
+  if (isEnglish) {
+    corrected = humanizeText(corrected, tone);
+  }
 
   return {
     approved: violations.length === 0,
