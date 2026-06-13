@@ -21,7 +21,8 @@ export interface HistoryMessage {
 const MAX_HISTORY = 8;
 
 /**
- * Fetch the most recent conversation messages for a specific chat.
+ * Fetch the most recent conversation messages for a specific chat,
+ * scoped to the current session boundary (sessionStartedAt).
  * Returns them in chronological order (oldest first).
  */
 export async function loadConversationHistory(
@@ -29,10 +30,11 @@ export async function loadConversationHistory(
     userId: string,
     workspaceId: string,
     chatId: string,
-    limit: number = MAX_HISTORY
+    limit: number = MAX_HISTORY,
+    sessionStartedAt?: string
 ): Promise<HistoryMessage[]> {
     try {
-        const { data, error } = await supabase
+        let query = supabase
             .from('activity_log')
             .select('event_type, description, metadata, timestamp')
             .eq('user_id', userId)
@@ -44,38 +46,16 @@ export async function loadConversationHistory(
             .order('timestamp', { ascending: false })
             .limit(limit * 3); // Fetch extra to account for non-message events
 
-        if (error) {
-            // Fallback: try with legacy chatId key
-            const { data: fallbackData, error: fbError } = await supabase
-                .from('activity_log')
-                .select('event_type, description, metadata, timestamp')
-                .eq('user_id', userId)
-                .eq('workspace_id', workspaceId)
-                .or(
-                    `event_type.eq.INCOMING_MESSAGE,event_type.eq.AI_REPLY,event_type.eq.automation_v2`
-                )
-                .filter('metadata->>chatId', 'eq', chatId)
-                .order('timestamp', { ascending: false })
-                .limit(limit * 3);
-
-            if (fbError || !fallbackData || fallbackData.length === 0) {
-                v2log.warn('HISTORY', 'Failed to load conversation history', { error });
-                return [];
-            }
-
-            // Session check (12h)
-            if (Date.now() - new Date(fallbackData[0].timestamp).getTime() > 12 * 60 * 60 * 1000) {
-                v2log.info('HISTORY', 'Conversation idle for >12h. Cleared history.', { chatId });
-                return [];
-            }
-
-            // Use fallback data
-            return processHistoryRows(fallbackData, limit, chatId);
+        // Scope to current session: only load messages from this session's start time
+        if (sessionStartedAt) {
+            query = query.gte('timestamp', sessionStartedAt);
         }
 
-        if (!data || data.length === 0) {
-            // Try legacy key if primary returned nothing
-            const { data: fallbackData } = await supabase
+        const { data, error } = await query;
+
+        if (error || !data || data.length === 0) {
+            // Fallback: try legacy chatId key, also scoped to session boundary
+            let fbQuery = supabase
                 .from('activity_log')
                 .select('event_type, description, metadata, timestamp')
                 .eq('user_id', userId)
@@ -87,20 +67,17 @@ export async function loadConversationHistory(
                 .order('timestamp', { ascending: false })
                 .limit(limit * 3);
 
+            if (sessionStartedAt) {
+                fbQuery = fbQuery.gte('timestamp', sessionStartedAt);
+            }
+
+            const { data: fallbackData } = await fbQuery;
             if (fallbackData && fallbackData.length > 0) {
-                // Session check (12h)
-                if (Date.now() - new Date(fallbackData[0].timestamp).getTime() > 12 * 60 * 60 * 1000) {
-                    v2log.info('HISTORY', 'Conversation idle for >12h. Cleared history.', { chatId });
-                    return [];
-                }
                 return processHistoryRows(fallbackData, limit, chatId);
             }
-            return [];
-        }
-
-        // Session check (12h)
-        if (Date.now() - new Date(data[0].timestamp).getTime() > 12 * 60 * 60 * 1000) {
-            v2log.info('HISTORY', 'Conversation idle for >12h. Cleared history.', { chatId });
+            if (error) {
+                v2log.warn('HISTORY', 'Failed to load conversation history', { error });
+            }
             return [];
         }
 

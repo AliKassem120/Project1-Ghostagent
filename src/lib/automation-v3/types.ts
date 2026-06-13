@@ -33,6 +33,10 @@ export interface SessionContext {
   data: SessionData | null;
   postContext: SessionData | null;
   isFreshSession: boolean;
+  /** Unique ID for this session — resets on timeout/handoff expiry. Used to scope history. */
+  sessionId: string;
+  /** ISO timestamp when this session started — used as the lower bound for history queries. */
+  sessionStartedAt: string;
 }
 
 export interface ToolContext {

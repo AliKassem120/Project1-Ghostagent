@@ -58,7 +58,20 @@ export function buildPrompt(
 
   let notesBlock = '';
   if (customerNotes && customerNotes.length > 0) {
-    notesBlock = `\nCUSTOMER MEMORY (things you know about this person):\n${customerNotes.map(n => `- ${n}`).join('\n')}\nUse these naturally in conversation. Never say "according to my notes" — just reference them as if you personally remember.\n`;
+    // Language filter: when a specific non-Arabic language is configured, strip out
+    // notes that contain Arabic script or Arabizi — they would bleed the wrong language
+    // into the prompt and cause the bot to reply in the wrong language/dialect.
+    let filteredNotes = customerNotes;
+    if (configuredLanguage && configuredLanguage !== 'Auto-Detect') {
+      const isArabicConfigured = ['arabic', 'ar', 'arabizi', 'franco'].includes(configuredLanguage.toLowerCase());
+      if (!isArabicConfigured) {
+        const arabicOrArabiziPattern = /[\u0600-\u06FF]|\bm3alem\b|\bla7za\b|\b3am\b|\byalla\b|\bhabibi\b|\bwalla\b|\bshu\b|\bkifak\b|\benza\b|\bmrh\b/i;
+        filteredNotes = customerNotes.filter(note => !arabicOrArabiziPattern.test(note));
+      }
+    }
+    if (filteredNotes.length > 0) {
+      notesBlock = `\nCUSTOMER MEMORY (things you know about this person):\n${filteredNotes.map(n => `- ${n}`).join('\n')}\nUse these naturally in conversation. Never say "according to my notes" — just reference them as if you personally remember.\n`;
+    }
   }
 
   let sessionBlock = '';

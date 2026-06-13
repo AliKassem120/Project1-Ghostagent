@@ -32,6 +32,7 @@ export async function loadSession(
   let session: SessionContext;
 
   if (!stateRow) {
+    const newSessionId = crypto.randomUUID();
     session = {
       state: 'idle',
       data: null,
@@ -46,6 +47,8 @@ export async function loadSession(
       workspaceId,
       chatId,
       userId,
+      sessionId: newSessionId,
+      sessionStartedAt: now,
     };
   } else {
     const lastInteraction = new Date(stateRow.updated_at || stateRow.data?.updated_at || 0);
@@ -56,6 +59,11 @@ export async function loadSession(
     // and clear stale context so the LLM doesn't see old handoff messages
     const isHandoffExpired = stateRow.stage === 'handoff' && minutesSinceLastInteraction > SESSION_TIMEOUT_MINUTES;
     const shouldReset = isTimedOut || isHandoffExpired;
+
+    const existingSessionId = stateRow.data?.sessionId;
+    const existingSessionStartedAt = stateRow.data?.sessionStartedAt;
+    const newSessionId = shouldReset ? crypto.randomUUID() : (existingSessionId || crypto.randomUUID());
+    const newSessionStartedAt = shouldReset ? now : (existingSessionStartedAt || now);
 
     session = {
       state: shouldReset ? 'idle' : (stateRow.stage as ConversationStage),
@@ -71,6 +79,8 @@ export async function loadSession(
       workspaceId,
       chatId,
       userId,
+      sessionId: newSessionId,
+      sessionStartedAt: newSessionStartedAt,
     };
   }
 
@@ -101,6 +111,8 @@ export async function saveSession(
       lastBotMessage: session.lastBotMessage,
       stateEnteredAt: session.stateEnteredAt,
       postContext: session.postContext,
+      sessionId: session.sessionId,
+      sessionStartedAt: session.sessionStartedAt,
       updated_at: now,
     },
     updated_at: now,

@@ -120,9 +120,11 @@ export async function orchestrate(
     }
   }
 
-  // 3. Load Conversation History
+  // 3. Load Conversation History (scoped to current session boundary)
   const history = await loadConversationHistory(
-    input.supabase, input.userId, input.workspaceId, input.chatId
+    input.supabase, input.userId, input.workspaceId, input.chatId,
+    undefined, // use default MAX_HISTORY
+    session.sessionStartedAt
   );
 
   v2log.info('PIPELINE', 'SESSION_LOADED', { 
@@ -571,17 +573,21 @@ export async function orchestrate(
   } catch (_e) { /* verifier is non-critical */ }
 
   // Asynchronously extract and save customer memory notes (fire-and-forget)
+  // Gate: only save notes after a meaningful conversation (>= 4 messages) to avoid
+  // polluting memory from short test runs or single-message interactions.
   try {
     const conversationForNotes = [
       ...history.slice(-8),
       { role: 'user' as const, content: input.message },
       { role: 'assistant' as const, content: reply },
     ];
-    extractNoteworthyFacts(conversationForNotes, customerNotes).then(notes => {
-      if (notes.length > 0) {
-        saveCustomerNotes(input.supabase, input.workspaceId, input.chatId, input.platform, notes).catch(() => { });
-      }
-    }).catch(() => { });
+    if (conversationForNotes.length >= 4) {
+      extractNoteworthyFacts(conversationForNotes, customerNotes).then(notes => {
+        if (notes.length > 0) {
+          saveCustomerNotes(input.supabase, input.workspaceId, input.chatId, input.platform, notes).catch(() => { });
+        }
+      }).catch(() => { });
+    }
   } catch (e) {
     // Non-critical note saving fallback
   }
