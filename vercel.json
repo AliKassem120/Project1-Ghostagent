@@ -1,4 +1,5 @@
 {
+    "installCommand": "pnpm install --no-frozen-lockfile",
     "functions": {
         "src/app/api/webhook/instagram/route.ts": {
             "maxDuration": 60
